@@ -51,6 +51,7 @@
 #include <Security/AuthorizationTagsPriv.h>
 #include <Security/SecTask.h>
 #include <security_keychain/SecCFTypes.h>
+#include "TrustSettingsSchema.h"
 
 //%%% add this to AuthorizationTagsPriv.h later
 #ifndef AGENT_HINT_LOGIN_KC_SUPPRESS_RESET_PANEL
@@ -134,11 +135,6 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 	if (!dLDbIdentifier)
 		return Keychain();
 
-	if (gServerMode) {
-		secdebug("servermode", "keychain reference in server mode");
-		return Keychain();
-	}
-
     KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
     if (it != mKeychains.end())
 	{
@@ -150,6 +146,13 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 		{
 			return it->second;
 		}
+	}
+
+	if (gServerMode) {
+		secdebug("servermode", "keychain reference in server mode");
+        const char *dbname = dLDbIdentifier.dbName();
+        if (!dbname || (strcmp(dbname, SYSTEM_ROOT_STORE_PATH)!=0))
+            return Keychain();
 	}
 
 	// The keychain is not in our cache.  Create it.

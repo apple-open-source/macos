@@ -222,6 +222,7 @@ __private_extern__ CFStringRef processInfoGetName(pid_t p);
 __private_extern__ void setSleepServicesTimeCap(uint32_t  timeoutInMS);
 __private_extern__ bool systemBlockedInS0Dark( );
 __private_extern__ bool checkForActivesByType(kerAssertionType type);
+__private_extern__ bool checkForEntriesByType(kerAssertionType type);
 __private_extern__ void disableAssertionType(kerAssertionType type);
 __private_extern__ void enableAssertionType(kerAssertionType type);
 __private_extern__ void applyToAllAssertionsSync(assertionType_t *assertType, 

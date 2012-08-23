@@ -1,7 +1,7 @@
-# Mac OS X 10.8
+# Mac OS X 10.8.1
 AppleFileSystemDriver	17
 AppleRAID	4.0.6
-AppleUSBCDCDriver	4121.4.1
+AppleUSBCDCDriver	4122.4.1
 AppleUSBIrDA	145.2.4
 AvailabilityVersions	4.2
 BerkeleyDB	21
@@ -55,11 +55,11 @@ OpenLDAP	208
 OpenPAM	20
 OpenSSH	175
 PostgreSQL	56
-PowerManagement	321.2.9
+PowerManagement	321.5.3
 PyRSS2Gen	5
 RubyCocoa	78
 RubyGems	19
-Security	55163.44
+Security	55178.0.1
 SecurityTokend	55105
 SecurityTool	55109.1
 SmartCardServices	55105
@@ -96,7 +96,7 @@ crontabs	46.1
 cups	327
 curl	69.2
 cxxfilt	11
-dcerpc	53.1
+dcerpc	53.1.1
 diskdev_cmds	557
 disklabel	4
 doc_cmds	49
@@ -152,7 +152,7 @@ llvmCore	3418.0.78
 lsof	49
 lukemftp	13
 lukemftpd	48.1
-mDNSResponder	379.27
+mDNSResponder	379.27.1
 mail_cmds	27.1
 man	14
 memcached	9
@@ -215,7 +215,7 @@ uucp	11
 vim	48.1
 webdavfs	334.1
 xar	105
-xnu	2050.7.9
+xnu	2050.9.2
 zip	13
 zlib	43
 zsh	55

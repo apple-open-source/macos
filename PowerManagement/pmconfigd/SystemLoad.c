@@ -109,7 +109,9 @@ static void shareTheSystemLoad(bool shouldNotify)
     if (loggedInUser) {
         if (userIsIdle)
         {
-            if (_DWBT_allowed()) {
+            if (_DWBT_enabled()) {
+               // System allows DWBT & user has opted in
+
                if (isA_BTMtnceWake( ) )
                   userLevel = kIOSystemLoadAdvisoryLevelGreat;
                else
@@ -117,6 +119,7 @@ static void shareTheSystemLoad(bool shouldNotify)
             }
             else
                userLevel = kIOSystemLoadAdvisoryLevelGreat;
+
         } else {
             userLevel = kIOSystemLoadAdvisoryLevelOK;
         }
@@ -272,8 +275,8 @@ __private_extern__ void SystemLoadPrefsHaveChanged(void)
     SCDynamicStoreRef   _store       = _getSharedPMDynamicStore();
     CFDictionaryRef     liveSettings = NULL;
     CFNumberRef         displaySleep = NULL;
-    CFNumberRef         dwbt = NULL;
-    int                 idle, value;
+    CFTypeRef           dwbt = NULL;
+    int                 idle, newDWBT;
     static bool         lastDisplaySleep = false;
     static int          lastDWBT = -1;
     bool                notify = false;
@@ -300,10 +303,10 @@ __private_extern__ void SystemLoadPrefsHaveChanged(void)
                                     CFSTR(kIOPMDarkWakeBackgroundTaskKey));
         if (dwbt)
         {
-            CFNumberGetValue(dwbt, kCFNumberIntType, &value);
-            if (lastDWBT != value) 
+            newDWBT = CFBooleanGetValue(dwbt) ? 1 : 0;
+            if (lastDWBT != newDWBT) 
             {
-                lastDWBT = value;
+                lastDWBT = newDWBT;
                 notify = true;
             }
         }

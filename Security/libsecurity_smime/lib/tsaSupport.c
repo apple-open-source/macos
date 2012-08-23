@@ -1038,7 +1038,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
         dtprintf("[%s] SecCmsSignedDataVerifySignerInfo: result: %d, signer: %d\n",
             __FUNCTION__, result, jx);
          require_noerr(result, xit);
-        
+
         result = SecTrustEvaluate (trustRef, &trustResultType);
         dtprintf("[%s] SecTrustEvaluate: result: %d, trustResult: %s (%d)\n",
             __FUNCTION__, result, trustResultTypeString(trustResultType), trustResultType);
@@ -1142,8 +1142,9 @@ xit:
 static void saveTSACertificates(CSSM_DATA **signingCerts, CFMutableArrayRef	outArray)
 {
     SecKeychainRef defaultKeychain = NULL;
-    if (SecKeychainCopyDefault(&defaultKeychain))
-        return;
+    // Don't save certificates in keychain to avoid securityd issues
+//  if (SecKeychainCopyDefault(&defaultKeychain))
+//     defaultKeychain = NULL;
 
     unsigned certCount = SecCmsArrayCount((void **)signingCerts);
     unsigned dex;
@@ -1260,6 +1261,10 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
     OSStatus                result = errSecUnknownFormat;
     CSSM_DATA               **signingCerts = NULL;
 
+    OSStatus currentPORTErr = PORT_GetError();
+    dtprintf("decodeTimeStampToken top: PORT_GetError() %d -----\n", (int)currentPORTErr);
+    PORT_SetError(0);
+    
     /* decode the message */
     require_noerr(result = SecCmsDecoderCreate (NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext), xit);
     result = SecCmsDecoderUpdate(decoderContext, inData->Data, inData->Length);

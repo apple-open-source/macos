@@ -106,6 +106,15 @@ typedef struct  {
 static      OpaqueIOPSPowerSourceID      gPSList[kPSMaxTrackedPowerSources];
 typedef     OpaqueIOPSPowerSourceID     *PSTracker;
 
+#define kSlewStepMin            2
+#define kSlewStepMax            10
+#define kDiscontinuitySettle    60
+static CFAbsoluteTime                  lastDiscontinuity;
+typedef struct {
+    int                 showingTime;
+    bool                settled;
+} SlewStruct;
+SlewStruct *slew = NULL;
 
 // Return values from calculateTRWithCurrent
 enum {
@@ -120,12 +129,9 @@ enum {
 
 
 // static global variables for tracking battery state
-static CFAbsoluteTime   _estimatesInvalidUntil = 0.0;
 static int              _systemBatteryWarningLevel = 0;
 static bool             _warningsShouldResetForSleep = false;
 static bool             _readACAdapterAgain = false;
-static bool             _ignoringTimeRemainingEstimates = false;
-static CFRunLoopTimerRef    _timeSettledTimer = NULL;
 static bool             _batterySelectionHasSwitched = false;
 static int              _psTimeRemainingNotifyToken = 0;
 
@@ -133,7 +139,6 @@ static int              _psTimeRemainingNotifyToken = 0;
 static void             _initializeBatteryCalculations(void);
 static int              _populateTimeRemaining(IOPMBattery **batts);
 static void             _packageBatteryInfo(CFDictionaryRef *);
-static void             _timeRemainingMaybeValid(CFRunLoopTimerRef timer, void *info);
 static void             _discontinuityOccurred(void);
 static IOReturn         _readAndPublishACAdapter(bool, CFDictionaryRef);
 
@@ -180,46 +185,10 @@ BatteryTimeRemainingRTCDidResync(void)
  */
 static void _discontinuityOccurred(void)
 {
-    IOPMBattery             **b = _batteries();
-
-    // Pick a time X seconds into the future. Until then, all TimeRemaining
-    // estimates shall be considered invalid.
-    // We will check the current timestamp against:
-    // _lastWake + b[i]->invalidWakeSecs
-    // and ignore time remaining until that moment has past.
-    
-    if (!b || !b[0])
-        return;
-    
-    _estimatesInvalidUntil = CFAbsoluteTimeGetCurrent() + (double)b[0]->invalidWakeSecs;
-    
-    _ignoringTimeRemainingEstimates = true;
-    
-    // After the timeout has elapsed, re-read battery state & the now-valid
-    // time remaining.
-    if (_timeSettledTimer) {
-        CFRunLoopTimerInvalidate(_timeSettledTimer);
-        _timeSettledTimer = NULL;
+    if (slew) {
+        bzero(slew, sizeof(SlewStruct));
     }
-    _timeSettledTimer = CFRunLoopTimerCreate(
-                    NULL, _estimatesInvalidUntil, 0.0, 
-                    0, 0, _timeRemainingMaybeValid, NULL);
-    CFRunLoopAddTimer( CFRunLoopGetCurrent(), _timeSettledTimer, 
-                    kCFRunLoopDefaultMode);
-    CFRelease(_timeSettledTimer);
-    
-    // TODO: re-publish battery state
-}
-
-static void _timeRemainingMaybeValid(CFRunLoopTimerRef timer, void *info)
-{
-    // The timer has fired. Settings are probably valid.
-    _timeSettledTimer = NULL;
-    _ignoringTimeRemainingEstimates = false;
-
-    // Trigger battery time remaining re-calculation 
-    // now that current reading is valid.
-    BatteryTimeRemainingBatteriesHaveChanged(NULL);
+    lastDiscontinuity = CFAbsoluteTimeGetCurrent();
 }
 
 static void     _initializeBatteryCalculations(void)
@@ -228,6 +197,8 @@ static void     _initializeBatteryCalculations(void)
     if (_batteryCount() == 0) {
         return;
     }
+    
+    lastDiscontinuity = CFAbsoluteTimeGetCurrent();
 
     // make initial call to populate array and publish state
     BatteryTimeRemainingBatteriesHaveChanged(_batteries());
@@ -512,6 +483,46 @@ BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
 }
 
 
+static int slewTime(int hw)
+{
+    if (!slew) {
+        slew = calloc(1, sizeof(SlewStruct));
+    }
+    
+    if (!slew->settled)
+    {
+        if (CFAbsoluteTimeGetCurrent() >= (lastDiscontinuity + kDiscontinuitySettle)) {
+            slew->settled = true;
+            slew->showingTime = hw;
+        } else {
+            slew->showingTime = -1;
+        }
+    } else {
+        /* This path runs for all time remaining samples, once settled after a discontinuity.
+         */
+        int step = 0;
+        step = slew->showingTime ? (slew->showingTime/10) : kSlewStepMax;
+        if (step > kSlewStepMax) {
+            step = kSlewStepMax;
+        } else if (step < kSlewStepMin) {
+            step = kSlewStepMin;
+        }
+        
+        if (slew->showingTime == hw) {
+            // do nothing
+        } else if (abs(slew->showingTime - hw) < step) {
+            // Published time is within 10 minutes of predicted time
+            slew->showingTime = hw;
+        } else if (slew->showingTime > hw) {
+            // Published time is > 10 minutes greater than estimated time
+            slew->showingTime -= step;
+        } else if (slew->showingTime < hw) {
+            // Published time is < 10 minutes greater than estimated time
+            slew->showingTime += step;
+        }
+    }
+    return slew->showingTime;
+}
 
 
 /* _populateTimeRemaining
@@ -570,35 +581,15 @@ static int _populateTimeRemaining(IOPMBattery **batts)
         //       kIOPMPSInvalidWakeSecondsKey key.
         if( (0 == b->avgAmperage) 
             || (absValAvgCurrent < lowerAmperageBound) 
-            || (absValAvgCurrent > upperAmperageBound) 
-            || _ignoringTimeRemainingEstimates)
+            || (absValAvgCurrent > upperAmperageBound))
         {
             b->swCalculatedTR = -1;
             continue;
         } 
                         
-#if 0
     /* Battery time remaining estimate is provided directly by the battery.
      */
-        b->swCalculatedTR = b->hwAverageTR;
-#endif
-
-        /* Manually calculate battery time remaining.
-         */
-
-        if (0 == b->avgAmperage) {
-            b->swCalculatedTR = -1;
-        } else {
-            if(b->isCharging) {
-                // h = -mAh/mA
-                b->swCalculatedTR = 60*((double)(b->maxCap - b->currentCap)
-                                    / (double)b->avgAmperage);                                
-            } else { // discharging
-                // h = mAh/mA
-                b->swCalculatedTR = -60*((double)b->currentCap
-                                    / (double)b->avgAmperage);
-            }
-        }
+        b->swCalculatedTR = slewTime(b->hwAverageTR);
 
         // Did our calculation come out negative? 
         // The average current must still be out of whack!
@@ -778,11 +769,6 @@ void _packageBatteryInfo(CFDictionaryRef *ret)
         
         // Does the battery provide its own time remaining estimate?
         CFDictionarySetValue(mutDict, CFSTR("Battery Provides Time Remaining"), kCFBooleanTrue);
-
-        // Are we in a time remaining black-out period due to a recent discontinuity?
-        if (_ignoringTimeRemainingEstimates) {
-            CFDictionarySetValue(mutDict, CFSTR("Waiting For Time Remaining Estimates"), kCFBooleanTrue);
-        }
         
         // Was there an error/failure? Set that.
         if (b->failureDetected) {

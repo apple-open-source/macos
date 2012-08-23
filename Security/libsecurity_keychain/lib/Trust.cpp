@@ -64,6 +64,7 @@ ModuleNexus<TrustStore> Trust::gStore;
 
 #pragma mark -- TrustKeychains --
 
+static const CSSM_DL_DB_HANDLE nullCSSMDLDBHandle = {0,};
 //
 // TrustKeychains maintains a global reference to standard system keychains,
 // to avoid having them be opened anew for each Trust instance.
@@ -73,8 +74,8 @@ class TrustKeychains
 public:
 	TrustKeychains();
 	~TrustKeychains()	{}
-	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
-	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
+	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore ? mRootStore->database()->handle() : nullCSSMDLDBHandle; }
+	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem ? mSystem->database()->handle() : nullCSSMDLDBHandle; }
 	Keychain			&rootStore()		{ return mRootStore; }
 	Keychain			&systemKc()			{ return mSystem; }
 private:
@@ -380,7 +381,9 @@ void Trust::evaluate(bool disableEV)
 		if(mUsingTrustSettings) {
 			/* Append system anchors for use with Trust Settings */
 			try {
-				dlDbList.push_back(trustKeychains().rootStoreHandle());
+                CSSM_DL_DB_HANDLE rootStoreHandle = trustKeychains().rootStoreHandle();
+                if (rootStoreHandle.DBHandle)
+                    dlDbList.push_back(rootStoreHandle);
 				actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
 			}
 			catch (...) {
@@ -388,7 +391,9 @@ void Trust::evaluate(bool disableEV)
 				mUsingTrustSettings = false;
 			}
 			try {
-				dlDbList.push_back(trustKeychains().systemKcHandle());
+                CSSM_DL_DB_HANDLE systemKcHandle = trustKeychains().systemKcHandle();
+                if (systemKcHandle.DBHandle)
+                    dlDbList.push_back(systemKcHandle);
 			}
 			catch(...) {
 				/* Oh well, at least we got the root store DB */

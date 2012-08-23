@@ -476,13 +476,13 @@ ESPrefsHaveChanged(
     {
         // Tell ES Prefs listeners that the prefs have changed
         PMSettingsPrefsHaveChanged();
-        SystemLoadPrefsHaveChanged();
         PMAssertions_SettingsHaveChanged();
         mt2EvaluateSystemSupport();
 #if !TARGET_OS_EMBEDDED
         PSLowPowerPrefsHaveChanged();
         TTYKeepAwakePrefsHaveChanged();
 #endif
+        SystemLoadPrefsHaveChanged();
     }
 
     return;
@@ -2099,6 +2099,7 @@ kern_return_t _io_pm_set_power_history_bookmark(
 	mach_port_t server,
 	string_t uuid_name)
 {
+/* deprecated in barolo */
   	return kIOReturnSuccess;
 }
 

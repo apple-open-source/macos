@@ -75,6 +75,7 @@ __private_extern__ void _Set_SR_override(int f);
 __private_extern__ int _get_SR_Override();
 
 __private_extern__ bool _DWBT_allowed(void);
+__private_extern__ bool _DWBT_enabled(void);
 
 __private_extern__ bool _SS_allowed(void);
 

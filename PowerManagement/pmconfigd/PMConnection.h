@@ -52,5 +52,6 @@ __private_extern__ IOReturn _unclamp_silent_running(void);
 __private_extern__ bool isA_BTMtnceWake();
 __private_extern__ bool isA_SleepSrvcWake();
 __private_extern__ void set_SleepSrvcWake();
+__private_extern__ void cancelPowerNapStates( );
 #endif
 

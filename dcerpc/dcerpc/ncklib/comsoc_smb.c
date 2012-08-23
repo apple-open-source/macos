@@ -2111,7 +2111,7 @@ rpc__smbclient_set_bufs(
     SMBServerPropertiesV1 server_properties;
     NTSTATUS status;
 
-    if ( !smb->handle || (smb->maxSendBufferSize == 0) )
+    if ( !smb->handle || (smb->maxSendBufferSize != 0) )
     {
         return (RPC_C_SOCKET_OK);
     }

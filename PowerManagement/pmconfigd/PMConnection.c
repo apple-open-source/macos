@@ -1123,6 +1123,10 @@ static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms)
 {
     CFMutableDictionaryRef assertionDescription = NULL;
     
+    // Don't allow SS sessions when 'PreventSystemSleep' assertions are held
+    if (checkForActivesByType(kPreventSleepIndex)) 
+        return;
+
     gSleepService.capTime = (long)cap_ms;
     
     setSleepServicesTimeCap(cap_ms);
@@ -1359,6 +1363,22 @@ __private_extern__ bool isA_SleepSrvcWake()
    return false;
 }
 
+__private_extern__ void cancelPowerNapStates( )
+{
+
+#if !TARGET_OS_EMBEDDED
+   if (isA_SleepSrvcWake()) {
+       gSleepService.capTime = 0;
+       setSleepServicesTimeCap(0);
+   }
+
+   if (isA_BTMtnceWake() ) {
+       gPowerState &= ~kDarkWakeForBTState;
+       configAssertionType(kBackgroundTaskIndex, false);
+   }
+   SystemLoadSystemPowerStateHasChanged( );
+#endif
+}
 
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */
@@ -1377,7 +1397,6 @@ static void PMConnectionPowerCallBack(
     IOPMSystemPowerStateCapabilities        deliverCapabilityBits = 0;
     const struct        IOPMSystemCapabilityChangeParameters *capArgs;
 #if !TARGET_OS_EMBEDDED
-    static bool         scheduleWakeForBT = true;
     CFStringRef         wakeType = NULL;
 #endif
     
@@ -1407,21 +1426,13 @@ static void PMConnectionPowerCallBack(
         setSystemSleepStateTracking(0);
         notify_post(kIOPMSystemPowerStateNotify);
 
-#if !TARGET_OS_EMBEDDED
-        if (scheduleWakeForBT) {
-          enableAssertionType(kBackgroundTaskIndex);
-          scheduleWakeForBT = false;
-        }
-#endif
+        cancelPowerNapStates();
+
         // Clear gPowerState and set it to kSleepState
         // We will clear kDarkWakeForSSState bit later when the SS session is closed.
         gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
         gPowerState |= kSleepState;
 
-       if (isA_SleepSrvcWake()) {
-           gSleepService.capTime = 0;
-           setSleepServicesTimeCap(0);
-       }
 
         /* We must acknowledge this sleep event within 30 second timeout, 
          *      once clients ack via IOPMConnectionAcknowledgeEvent().
@@ -1446,9 +1457,7 @@ static void PMConnectionPowerCallBack(
     } else if (SYSTEM_WILL_SLEEP_TO_S0DARK(capArgs))
     {
 
-       if (_DWBT_allowed() && checkForActivesByType(kBackgroundTaskIndex)) {
-          disableAssertionType(kBackgroundTaskIndex);
-          scheduleWakeForBT = true;
+       if (_DWBT_allowed() && checkForEntriesByType(kBackgroundTaskIndex)) {
           gWakeForDWBTInterval = kPMSleepDurationForBT;
        }
        /* 
@@ -1476,11 +1485,9 @@ static void PMConnectionPowerCallBack(
        if(smcSilentRunningSupport() )
            gCurrentSilentRunningState = kSilentRunningOn;
 
-       //If system is sleep services wake, cancel the sleep services
-       if (isA_SleepSrvcWake()) {
-           setSleepServicesTimeCap(0);
-           gSleepService.capTime = 0;
-       }
+       //If system is in any power nap state, cancel those states
+       cancelPowerNapStates();
+
         if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityGraphics))
         {
             // e.g. System has powered into full wake
@@ -1522,18 +1529,26 @@ static void PMConnectionPowerCallBack(
             _ProxyAssertions(capArgs);
 #if !TARGET_OS_EMBEDDED
 
-           wakeType = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeTypeKey));
-           if (isA_CFString(wakeType) && CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) && 
-                        ( _getPowerSource() != kBatteryPowered)) {
-              gWakeForDWBTInterval = 0;
-              gPowerState |= kDarkWakeForMntceState|kDarkWakeForBTState;
+            if (checkForActivesByType(kPreventSleepIndex)) {
+               _unclamp_silent_running();
+            }
+            else {
+               wakeType = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeTypeKey));
+               if (isA_CFString(wakeType) && (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) || 
+                            CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService)  ) ) {
 
-              /* Log all background task assertions once again */
-              CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, 
-                         ^{ logASLAssertionTypeSummary(kBackgroundTaskIndex); });
-              CFRunLoopWakeUp(_getPMRunLoop());
-           }
-           if (wakeType) CFRelease(wakeType);
+                  if ( _DWBT_allowed() ) {
+                      gWakeForDWBTInterval = 0;
+                      gPowerState |= kDarkWakeForBTState;
+                      configAssertionType(kBackgroundTaskIndex, false);
+                      /* Log all background task assertions once again */
+                      CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, 
+                                 ^{ logASLAssertionTypeSummary(kBackgroundTaskIndex); });
+                      CFRunLoopWakeUp(_getPMRunLoop());
+                  }
+               }
+               if (wakeType) CFRelease(wakeType);
+            }
 #endif
         } 
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
@@ -2183,6 +2198,9 @@ __private_extern__ IOReturn _unclamp_silent_running(void)
     // Nothing to do. It's already unclamped
     if(gCurrentSilentRunningState == kSilentRunningOff)
         return kIOReturnSuccess;
+
+    // Cancel power nap wake state
+    cancelPowerNapStates();
 
     // Nothing to do. SMC doesn't support SR
     if(!smcSilentRunningSupport())

@@ -268,6 +268,38 @@ _Set_SR_override(int override)
     }
 }
 
+
+/* _DWBT_enabled() returns true if the system supports DWBT and if user has opted in */
+__private_extern__ bool _DWBT_enabled(void)
+{
+   CFDictionaryRef     current_settings; 
+   CFNumberRef         n;
+   int                 nint = 0;
+
+
+   if (!energySettings) 
+       return false;
+
+    /* Overrides for DWBT support */
+    if (gSilentRunningOverride == kPMSROverrideEnable)
+        return true;
+    if (gSilentRunningOverride == kPMSROverrideDisable)
+        return false;
+
+    current_settings = (CFDictionaryRef)isA_CFDictionary(
+                         CFDictionaryGetValue(energySettings, CFSTR(kIOPMACPowerKey)));
+    if (current_settings) {
+        n = CFDictionaryGetValue(current_settings, CFSTR(kIOPMDarkWakeBackgroundTaskKey));
+        if (n) {
+            CFNumberGetValue(n, kCFNumberIntType, &nint);
+        }
+        return (0 != nint);
+    }
+
+    return false;
+}
+
+/* _DWBT_allowed() tells if a DWBT wake can be scheduled at this moment */
 __private_extern__ bool
 _DWBT_allowed(void)
 {

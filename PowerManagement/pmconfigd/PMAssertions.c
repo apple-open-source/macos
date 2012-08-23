@@ -2326,6 +2326,19 @@ __private_extern__ bool checkForActivesByType(kerAssertionType type)
    return activesForTheType;
 }
 
+/*
+ * Check for assertions of the specified type, even if assertion type is disabled.
+ * Returns true if there any assertions of specified type raised
+ */
+__private_extern__ bool checkForEntriesByType(kerAssertionType type)
+{
+    assertionType_t *assertType = &gAssertionTypes[type];
+
+    if (LIST_FIRST(&assertType->active) || LIST_FIRST(&assertType->activeTimed))
+        return true;
+
+    return false;
+}
 
 /* Disable the specified assertion type */
 __private_extern__ void disableAssertionType(kerAssertionType type)
@@ -3077,6 +3090,7 @@ static void   evaluateAssertions(void)
 
     // Background task assertion need to re-configured on power source change
     configAssertionType(kBackgroundTaskIndex, false);
+    cancelPowerNapStates( );
     
     logASLAssertionsAggregate();
 }
@@ -3086,6 +3100,10 @@ __private_extern__ void setSleepServicesTimeCap(uint32_t  timeoutInMS)
     assertionType_t *assertType;
 
     assertType = &gAssertionTypes[kPushServiceTaskIndex];
+
+    // Avoid duplicate resets to 0
+    if ( (timeoutInMS == 0) && (assertType->globalTimeout == 0) )
+        return;
 
     resetGlobalTimer(assertType, timeoutInMS/1000);
     if (timeoutInMS == 0) {
@@ -3142,7 +3160,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
    assertionHandler_f   oldHandler = NULL;
    CFNumberRef idxRef = NULL;
    uint32_t    oldLinks = 0, newLinks = 0;
-   uint32_t    flags, i;
+   uint32_t    oldFlags, flags, i;
    kerAssertionType  altIdx;
 
    // This can get called before gUserAssertionTypesDict is initialized
@@ -3152,6 +3170,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
    if (!initialConfig) {
       oldLinks = gAssertionTypes[idx].linkedTypes;
       oldHandler = gAssertionTypes[idx].handler;
+      oldFlags = gAssertionTypes[idx].flags;
    }
 
    switch(idx) 
@@ -3169,7 +3188,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
          CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeNoIdleSleep, idxRef);
          gAssertionTypes[idx].handler = modifySettings;
          gAssertionTypes[idx].kassert = idx;
-         if (!_DWBT_allowed()) {
+         if (!_DWBT_enabled()) {
            newLinks = 1 << kBackgroundTaskIndex;
          }
          break;
@@ -3226,7 +3245,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
          gAssertionTypes[idx].flags |= kAssertionTypeNotValidOnBatt;
          gAssertionTypes[idx].handler = setKernelAssertions;
          newLinks = 1 << kPushServiceTaskIndex;
-         if (_DWBT_allowed())
+         if (_DWBT_enabled())
            newLinks |= 1 << kBackgroundTaskIndex;
          gAssertionTypes[idx].kassert = idx;
          break;
@@ -3260,7 +3279,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
          gAssertionTypes[idx].flags |= kAssertionTypeGloballyTimed ;
          gAssertionTypes[idx].handler = setKernelAssertions;
          newLinks = 1 << kPreventSleepIndex;
-         if (_DWBT_allowed())
+         if (_DWBT_enabled())
            newLinks |= 1 << kBackgroundTaskIndex;
          gAssertionTypes[idx].kassert = idx;
 
@@ -3271,9 +3290,15 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
          idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
          CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeBackgroundTask, idxRef);
          gAssertionTypes[idx].flags |= kAssertionTypeNotValidOnBatt;
-         if (_DWBT_allowed()) {
+         gAssertionTypes[idx].flags &= ~kAssertionTypeDisabled;
+         if (_DWBT_enabled()) {
            gAssertionTypes[idx].handler = setKernelAssertions;
            newLinks = 1 << kPreventSleepIndex | 1 << kPushServiceTaskIndex;
+
+           if ( !isA_BTMtnceWake() ) {
+               // Disable this assertion in non-DWBT wakes
+               gAssertionTypes[idx].flags |= kAssertionTypeDisabled;
+           }
          }
          else  {
            gAssertionTypes[idx].handler = modifySettings;
@@ -3306,7 +3331,10 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
       }
    }
 
-   if ((!initialConfig) && (oldHandler != gAssertionTypes[idx].handler)) {
+   if (initialConfig) {
+      gAssertionTypes[idx].linkedTypes = newLinks;
+   }
+   else if (oldHandler != gAssertionTypes[idx].handler) {
       // Temporarily disable the assertion type and call the old handler.
       flags = gAssertionTypes[idx].flags;
       gAssertionTypes[idx].flags |= kAssertionTypeDisabled;
@@ -3320,8 +3348,10 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
       if (gAssertionTypes[idx].handler)
          gAssertionTypes[idx].handler(&gAssertionTypes[idx], kAssertionOpEval);
    }
-   else
-      gAssertionTypes[idx].linkedTypes = newLinks;
+   else if (oldFlags != gAssertionTypes[idx].flags) {
+      if (gAssertionTypes[idx].handler)
+         gAssertionTypes[idx].handler(&gAssertionTypes[idx], kAssertionOpEval);
+   }
 
 }
 
