@@ -215,20 +215,20 @@ UInt8 AppleUSBCDCECMControl::Asciihex_to_binary(char c)
 //		Desc:		Interrupt pipe (Comm interface) read completion routine
 //
 /****************************************************************************************************/
-
+//This method rolled back to the one from 4.1.17 due to radar://11946906
 void AppleUSBCDCECMControl::commReadComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
     AppleUSBCDCECMControl	*me = (AppleUSBCDCECMControl*)obj;
     IOReturn			ior;
     UInt32			dLen;
     UInt8			notif;
-
+    
     if (rc == kIOReturnSuccess)	// If operation returned ok
     {
         dLen = COMM_BUFF_SIZE - remaining;
         XTRACE(me, rc, dLen, "commReadComplete");
 		
-            // Now look at the state stuff
+        // Now look at the state stuff
         
         notif = me->fCommPipeBuffer[1];
         if (dLen > 7)
@@ -270,9 +270,9 @@ void AppleUSBCDCECMControl::commReadComplete(void *obj, void *param, IOReturn rc
             }
         }
     }
-
-        // Queue the next read, only if not aborted
-        
+    
+    // Queue the next read, only if not aborted
+    
     if (rc != kIOReturnAborted)
     {
         ior = me->fCommPipe->Read(me->fCommPipeMDP, &me->fCommCompletionInfo, NULL);
@@ -282,7 +282,7 @@ void AppleUSBCDCECMControl::commReadComplete(void *obj, void *param, IOReturn rc
             me->fCommDead = true;
         }
     }
-
+    
     return;
 	
 }/* end commReadComplete */
@@ -819,6 +819,15 @@ bool AppleUSBCDCECMControl::dataAcquired(IONetworkStats *netStats, IOEthernetSta
     {
         rtn = fCommPipe->Read(fCommPipeMDP, &fCommCompletionInfo, NULL);
     }
+    //radar://11946906
+    /*
+    else {
+		if (fDataDriver)
+		{
+			fDataDriver->fLinkStatus = fLinkStatus;
+		}
+	}
+    */ 
     if (rtn == kIOReturnSuccess)
     {
 

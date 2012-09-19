@@ -24,6 +24,8 @@
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_rewrite.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_rewrite.html" title="Français">&nbsp;fr&nbsp;</a></p>
 </div>
+<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
+            anglaise pour les changements récents.</div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Ce module fournit un moteur de réécriture à base de
 règles permettant de réécrire les URLs des requêtes
 à la volée</td></tr>
@@ -418,9 +420,10 @@ la réécriture soit effectuée
 
                   <dt><code>REQUEST_URI</code></dt>
 
-                  <dd>La ressource demandée dans la ligne de requête
-		  HTTP (correspondrait, dans l'exemple précédent, à
-		  "/index.html").</dd>
+                  <dd>La partie chemin de l'URI de la requête, comme
+		  "/index.html". En particulier, ceci exclut la chaîne
+		  de paramètres qui est quant à elle disponible via sa
+		  propre variable <code>QUERY_STRING</code>.</dd>
 
                   <dt><code>REQUEST_FILENAME</code></dt>
 
@@ -1391,14 +1394,16 @@ substitution !
       section de laquelle elles sont décrites. Ces trois types de
       variables sont évaluées dans l'ordre ci-dessus.</p>
 
-      <p>Comme mentionné précédemment, toutes les règles de
-      réécriture sont appliquées à la chaîne de <em>Substitution</em>
-      (selon l'ordre dans lequel elles sont définies dans le fichier
-      de configuration). L'URL est <strong>intégralement
+      <p>Chaque règle de réécriture s'applique au résultat de la règle
+       précédente, selon l'ordre dans lequel elles ont été définies dans
+       le fichier de configuration. L'URL est <strong>intégralement
       remplacée</strong> par la chaîne de <em>Substitution</em> et le
       processus de réécriture se poursuit jusqu'à ce que toutes les
       règles aient été appliquées, ou qu'il soit explicitement stoppé
-      par un drapeau <code><strong>L</strong></code>.</p>
+      par un drapeau <a href="../rewrite/flags.html#flag_l"><code><strong>L</strong></code></a>,
+      ou par un autre drapeau qui implique un arrêt immédiat, comme
+      <code><strong>END</strong></code> ou
+      <code><strong>F</strong></code>.</p>
 
      <div class="note"><h3>Modifier la chaîne de requête</h3>
       <p>Par défaut, la chaîne de requête est transmise sans
@@ -1637,6 +1642,6 @@ utilisé dans la directive <code class="directive"><a href="#rewriterule">Rewrite
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_rewrite.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_rewrite.html" title="Français">&nbsp;fr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
 </body></html>

@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 25693 $";
+static const char *const __rcs_file_version__ = "$Revision: 26200 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -2951,7 +2951,6 @@ jobmgr_import2(jobmgr_t jm, launch_data_t pload)
 bool
 jobmgr_label_test(jobmgr_t jm, const char *str)
 {
-	char *endstr = NULL;
 	const char *ptr;
 
 	if (str[0] == '\0') {
@@ -2964,13 +2963,6 @@ jobmgr_label_test(jobmgr_t jm, const char *str)
 			jobmgr_log(jm, LOG_ERR, "ASCII control characters are not allowed in job labels. Index: %td Value: 0x%hhx", ptr - str, *ptr);
 			return false;
 		}
-	}
-
-	strtoll(str, &endstr, 0);
-
-	if (str != endstr) {
-		jobmgr_log(jm, LOG_ERR, "Job labels are not allowed to begin with numbers: %s", str);
-		return false;
 	}
 
 	if ((strncasecmp(str, "com.apple.launchd", strlen("com.apple.launchd")) == 0) ||

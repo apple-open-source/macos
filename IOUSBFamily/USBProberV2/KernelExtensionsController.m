@@ -85,6 +85,8 @@ static NSComparisonResult sortKextArray(NSDictionary * dict1, NSDictionary * dic
 }
 
 - (void)awakeFromNib {
+	[KextOutputTable setFont:[NSFont fontWithName:@"Monaco" size:10]];
+	[KextOutputTable setAllowsColumnResizing:YES];
     [self Refresh:self];
 }
 
@@ -115,17 +117,54 @@ static NSComparisonResult sortKextArray(NSDictionary * dict1, NSDictionary * dic
 
 - (IBAction)SaveOutput:(id)sender {
     NSSavePanel *sp = [NSSavePanel savePanel];
-    int result;
+    [sp setAllowedFileTypes:[NSArray arrayWithObjects:@"txt", @"plist", nil]];
+    [sp setDirectoryURL:[NSURL URLWithString:NSHomeDirectory()]];
+    [sp setNameFieldStringValue:@"Kernel Extensions"];
+    [sp setExtensionHidden:NO];
     
-    [sp setRequiredFileType:@"txt"];
-    result = [sp runModalForDirectory:NSHomeDirectory() file:@"Kernel Extensions"];
-    if (result == NSOKButton) {
-        NSString *finalString = [(TableViewWithCopying *)KextOutputTable stringRepresentation];
-        
-        if (![finalString writeToFile:[sp filename] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
-            NSBeep();
+    NSRect exFrame;
+    exFrame.origin.x=0;
+    exFrame.origin.y=0;
+    exFrame.size.width=200;
+    exFrame.size.height=100;
+    ExtensionSelector *newExSel = [[ExtensionSelector alloc] initWithFrame:exFrame];
+    NSMutableDictionary *allowedTypesDictionary = [NSMutableDictionary dictionary];
+    [allowedTypesDictionary setValue:@"txt" forKey:@"Text"];
+    [allowedTypesDictionary setValue:@"plist" forKey:@"XML"];
+    [newExSel populatePopuButtonWithArray:allowedTypesDictionary];
+    [newExSel setCurrentSelection:@"Text"];
+    [sp setAccessoryView:newExSel];
+    newExSel.theSavePanel = sp;
+    
+    [sp beginSheetModalForWindow:[NSApp mainWindow] completionHandler:^(NSInteger returnCode)
+	{
+        if (returnCode==NSOKButton)
+        {
+            NSString *selectedFileExtension = [[sp nameFieldStringValue] pathExtension];
+            if (NSOrderedSame != [selectedFileExtension caseInsensitiveCompare:@"plist"])
+            {
+				NSString *finalString = [(TableViewWithCopying *)KextOutputTable stringRepresentation];
+				
+                if (![finalString writeToURL:[sp URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
+                {
+                    NSBeep();
+                }
+            }
+            else
+            {
+                
+                if (![_loadedExtensions writeToURL:[sp URL] atomically:YES])
+                {
+					NSBeep();
+				}
+			}
+        }
     }
+	];
+	
+	[newExSel release];
 }
+
 
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView {
     return [_loadedExtensions count];

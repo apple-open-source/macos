@@ -423,7 +423,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55002.2;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -467,7 +467,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55002.2;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -505,7 +505,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55002.2;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -546,7 +546,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55002.2;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -584,6 +584,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
+				);
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 			};
 			name = Development;
@@ -594,6 +602,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
+				);
 			};
 			name = Deployment;
 		};
@@ -603,6 +619,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
+				);
 			};
 			name = "normal with debug";
 		};
@@ -612,6 +636,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
+				);
 			};
 			name = Default;
 		};

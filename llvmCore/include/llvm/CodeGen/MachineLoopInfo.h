@@ -64,12 +64,14 @@ class MachineLoopInfo : public MachineFunctionPass {
   void operator=(const MachineLoopInfo &);  // do not implement
   MachineLoopInfo(const MachineLoopInfo &); // do not implement
 
-  LoopInfoBase<MachineBasicBlock, MachineLoop>& getBase() { return LI; }
-
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  MachineLoopInfo() : MachineFunctionPass(&ID) {}
+  MachineLoopInfo() : MachineFunctionPass(ID) {
+    initializeMachineLoopInfoPass(*PassRegistry::getPassRegistry());
+  }
+
+  LoopInfoBase<MachineBasicBlock, MachineLoop>& getBase() { return LI; }
 
   /// iterator/begin/end - The interface to the top-level loops in the current
   /// function.

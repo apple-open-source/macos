@@ -139,6 +139,12 @@ SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
                                SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg,
                                SECAlgorithmID **detached_digestalgs, CSSM_DATA_PTR *detached_digests);
 
+extern void
+SecCmsMessageSetTSACallback(SecCmsMessageRef cmsg, SecCmsTSACallback tsaCallback);
+
+extern void
+SecCmsMessageSetTSAContext(SecCmsMessageRef cmsg, const void *tsaContext);   //CFTypeRef
+
 /************************************************************************
  * cmscinfo.c - CMS contentInfo methods
  ************************************************************************/

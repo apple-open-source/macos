@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -1856,6 +1856,7 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
  * -- Must have one intermediate cert ("Apple Application Integration Certification Authority")
  * -- intermediate must have basic constraints with path length 0
  * -- intermediate has CSSMOID_APPLE_EXTENSION_AAI_INTERMEDIATE extension (OID 1 2 840 113635 100 6 2 3)
+ OR APPLE_EXTENSION_AAI_INTERMEDIATE_2
  */
 
 static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
@@ -2011,6 +2012,58 @@ checkLeaf:
 	return crtn;
 }
 
+/*
+ * Verify Time Stamping (RFC3161) policy options.
+ *
+ * -- Leaf must contain Extended Key Usage (EKU), marked critical
+ * -- The EKU must contain the id-kp-timeStamping purpose and no other
+ */
+static CSSM_RETURN tp_verifyTimeStampingOpts(TPCertGroup &certGroup,
+											 const CSSM_DATA *fieldOpts,		// currently unused
+											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	CE_ExtendedKeyUsage *eku;
+
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	if (!isCertInfo->extendKeyUsage.present)
+	{
+		tpPolicyError("tp_verifyTimeStampingOpts: no extendedKeyUse in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+	}
+
+	if(!isCertInfo->extendKeyUsage.critical)
+	{
+		tpPolicyError("tp_verifyTimeStampingOpts: extended key usage !critical");
+		tpCert->addStatusCode(CSSMERR_APPLETP_EXT_KEYUSAGE_NOT_CRITICAL);
+		return CSSMERR_APPLETP_EXT_KEYUSAGE_NOT_CRITICAL;
+	}
+
+	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
+	assert(eku != NULL);
+
+	if(eku->numPurposes != 1)
+	{
+		tpPolicyError("tp_verifyTimeStampingOpts: bad eku->numPurposes (%lu)",
+					  (unsigned long)eku->numPurposes);
+		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE);
+		return CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
+	}
+
+	if(!tpCompareOids(&eku->purposes[0], &CSSMOID_TimeStamping))
+	{
+		tpPolicyError("tp_verifyTimeStampingOpts: TimeStamping purpose not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE);
+		return CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
+	}
+
+	return CSSM_OK;
+}
 
 /*
  * RFC2459 says basicConstraints must be flagged critical for
@@ -2600,6 +2653,9 @@ CSSM_RETURN tp_policyVerify(
 			break;
 		case kTP_AppleIDSharing:
 			policyError = tp_verifyAppleIDSharingOpts(*certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_TimeStamping:
+			policyError = tp_verifyTimeStampingOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTPx509Basic:
 		case kTPiSign:

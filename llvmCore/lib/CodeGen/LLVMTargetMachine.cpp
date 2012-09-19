@@ -13,6 +13,7 @@
 
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/PassManager.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -20,16 +21,24 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/GCStrategy.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetRegistry.h"
+#include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetLowering.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
 
 namespace llvm {
@@ -44,12 +53,20 @@ static cl::opt<bool> DisableTailDuplicate("disable-tail-duplicate", cl::Hidden,
     cl::desc("Disable tail duplication"));
 static cl::opt<bool> DisableEarlyTailDup("disable-early-taildup", cl::Hidden,
     cl::desc("Disable pre-register allocation tail duplication"));
+static cl::opt<bool> EnableBlockPlacement("enable-block-placement",
+    cl::Hidden, cl::desc("Enable probability-driven block placement"));
+static cl::opt<bool> EnableBlockPlacementStats("enable-block-placement-stats",
+    cl::Hidden, cl::desc("Collect probability-driven block placement stats"));
 static cl::opt<bool> DisableCodePlace("disable-code-place", cl::Hidden,
     cl::desc("Disable code placement"));
 static cl::opt<bool> DisableSSC("disable-ssc", cl::Hidden,
     cl::desc("Disable Stack Slot Coloring"));
+static cl::opt<bool> DisableMachineDCE("disable-machine-dce", cl::Hidden,
+    cl::desc("Disable Machine Dead Code Elimination"));
 static cl::opt<bool> DisableMachineLICM("disable-machine-licm", cl::Hidden,
     cl::desc("Disable Machine LICM"));
+static cl::opt<bool> DisableMachineCSE("disable-machine-cse", cl::Hidden,
+    cl::desc("Disable Machine Common Subexpression Elimination"));
 static cl::opt<bool> DisablePostRAMachineLICM("disable-postra-machine-licm",
     cl::Hidden,
     cl::desc("Disable Machine LICM"));
@@ -69,6 +86,8 @@ static cl::opt<bool> ShowMCEncoding("show-mc-encoding", cl::Hidden,
     cl::desc("Show encoding in .s output"));
 static cl::opt<bool> ShowMCInst("show-mc-inst", cl::Hidden,
     cl::desc("Show instruction structure in .s output"));
+static cl::opt<bool> EnableMCLogging("enable-mc-api-logging", cl::Hidden,
+    cl::desc("Enable MC API logging"));
 static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
     cl::desc("Verify generated machine code"),
     cl::init(getenv("LLVM_VERIFY_MACHINEINSTRS")!=NULL));
@@ -83,7 +102,7 @@ static bool getVerboseAsm() {
   case cl::BOU_UNSET: return TargetMachine::getAsmVerbosityDefault();
   case cl::BOU_TRUE:  return true;
   case cl::BOU_FALSE: return false;
-  }      
+  }
 }
 
 // Enable or disable FastISel. Both options are needed, because
@@ -93,27 +112,19 @@ static cl::opt<cl::boolOrDefault>
 EnableFastISelOption("fast-isel", cl::Hidden,
   cl::desc("Enable the \"fast\" instruction selector"));
 
-// Enable or disable an experimental optimization to split GEPs
-// and run a special GVN pass which does not examine loads, in
-// an effort to factor out redundancy implicit in complex GEPs.
-static cl::opt<bool> EnableSplitGEPGVN("split-gep-gvn", cl::Hidden,
-    cl::desc("Split GEPs and run no-load GVN"));
-
-LLVMTargetMachine::LLVMTargetMachine(const Target &T,
-                                     const std::string &Triple)
-  : TargetMachine(T), TargetTriple(Triple) {
-  AsmInfo = T.createAsmInfo(TargetTriple);
-}
-
-// Set the default code model for the JIT for a generic target.
-// FIXME: Is small right here? or .is64Bit() ? Large : Small?
-void LLVMTargetMachine::setCodeModelForJIT() {
-  setCodeModel(CodeModel::Small);
-}
-
-// Set the default code model for static compilation for a generic target.
-void LLVMTargetMachine::setCodeModelForStatic() {
-  setCodeModel(CodeModel::Small);
+LLVMTargetMachine::LLVMTargetMachine(const Target &T, StringRef Triple,
+                                     StringRef CPU, StringRef FS,
+                                     Reloc::Model RM, CodeModel::Model CM)
+  : TargetMachine(T, Triple, CPU, FS) {
+  CodeGenInfo = T.createMCCodeGenInfo(Triple, RM, CM);
+  AsmInfo = T.createMCAsmInfo(Triple);
+  // TargetSelect.h moved to a different directory between LLVM 2.9 and 3.0,
+  // and if the old one gets included then MCAsmInfo will be NULL and
+  // we'll crash later.
+  // Provide the user with a useful error message about what's wrong.
+  assert(AsmInfo && "MCAsmInfo not initialized."
+         "Make sure you include the correct TargetSelect.h"
+         "and that InitializeAllTargetMCs() is being invoked!");
 }
 
 bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
@@ -127,39 +138,53 @@ bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
     return true;
   assert(Context != 0 && "Failed to get MCContext");
 
+  if (hasMCSaveTempLabels())
+    Context->setAllowTemporaryLabels(false);
+
   const MCAsmInfo &MAI = *getMCAsmInfo();
+  const MCSubtargetInfo &STI = getSubtarget<MCSubtargetInfo>();
   OwningPtr<MCStreamer> AsmStreamer;
 
   switch (FileType) {
   default: return true;
   case CGFT_AssemblyFile: {
     MCInstPrinter *InstPrinter =
-      getTarget().createMCInstPrinter(MAI.getAssemblerDialect(), MAI);
+      getTarget().createMCInstPrinter(MAI.getAssemblerDialect(), MAI, STI);
 
     // Create a code emitter if asked to show the encoding.
-    //
-    // FIXME: These are currently leaked.
     MCCodeEmitter *MCE = 0;
-    if (ShowMCEncoding)
-      MCE = getTarget().createCodeEmitter(*this, *Context);
+    MCAsmBackend *MAB = 0;
+    if (ShowMCEncoding) {
+      const MCSubtargetInfo &STI = getSubtarget<MCSubtargetInfo>();
+      MCE = getTarget().createMCCodeEmitter(*getInstrInfo(), STI, *Context);
+      MAB = getTarget().createMCAsmBackend(getTargetTriple());
+    }
 
-    AsmStreamer.reset(createAsmStreamer(*Context, Out,
-                                        getTargetData()->isLittleEndian(),
-                                        getVerboseAsm(), InstPrinter,
-                                        MCE, ShowMCInst));
+    MCStreamer *S = getTarget().createAsmStreamer(*Context, Out,
+                                                  getVerboseAsm(),
+                                                  hasMCUseLoc(),
+                                                  hasMCUseCFI(),
+                                                  hasMCUseDwarfDirectory(),
+                                                  InstPrinter,
+                                                  MCE, MAB,
+                                                  ShowMCInst);
+    AsmStreamer.reset(S);
     break;
   }
   case CGFT_ObjectFile: {
     // Create the code emitter for the target if it exists.  If not, .o file
     // emission fails.
-    //
-    // FIXME: These are currently leaked.
-    MCCodeEmitter *MCE = getTarget().createCodeEmitter(*this, *Context);
-    TargetAsmBackend *TAB = getTarget().createAsmBackend(TargetTriple);
-    if (MCE == 0 || TAB == 0)
+    MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(*getInstrInfo(), STI,
+                                                         *Context);
+    MCAsmBackend *MAB = getTarget().createMCAsmBackend(getTargetTriple());
+    if (MCE == 0 || MAB == 0)
       return true;
-    
-    AsmStreamer.reset(createMachOStreamer(*Context, *TAB, Out, MCE));
+
+    AsmStreamer.reset(getTarget().createMCObjectStreamer(getTargetTriple(),
+                                                         *Context, *MAB, Out,
+                                                         MCE, hasMCRelaxAll(),
+                                                         hasMCNoExecStack()));
+    AsmStreamer.get()->InitSections();
     break;
   }
   case CGFT_Null:
@@ -168,19 +193,20 @@ bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
     AsmStreamer.reset(createNullStreamer(*Context));
     break;
   }
-  
+
+  if (EnableMCLogging)
+    AsmStreamer.reset(createLoggingStreamer(AsmStreamer.take(), errs()));
+
   // Create the AsmPrinter, which takes ownership of AsmStreamer if successful.
   FunctionPass *Printer = getTarget().createAsmPrinter(*this, *AsmStreamer);
   if (Printer == 0)
     return true;
-  
+
   // If successful, createAsmPrinter took ownership of AsmStreamer.
   AsmStreamer.take();
-  
+
   PM.add(Printer);
-  
-  // Make sure the code model is set.
-  setCodeModelForStatic();
+
   PM.add(createGCInfoDeleter());
   return false;
 }
@@ -195,9 +221,6 @@ bool LLVMTargetMachine::addPassesToEmitMachineCode(PassManagerBase &PM,
                                                    JITCodeEmitter &JCE,
                                                    CodeGenOpt::Level OptLevel,
                                                    bool DisableVerify) {
-  // Make sure the code model is set.
-  setCodeModelForJIT();
-  
   // Add common CodeGen passes.
   MCContext *Ctx = 0;
   if (addCommonCodeGenPasses(PM, OptLevel, DisableVerify, Ctx))
@@ -209,19 +232,63 @@ bool LLVMTargetMachine::addPassesToEmitMachineCode(PassManagerBase &PM,
   return false; // success!
 }
 
+/// addPassesToEmitMC - Add passes to the specified pass manager to get
+/// machine code emitted with the MCJIT. This method returns true if machine
+/// code is not supported. It fills the MCContext Ctx pointer which can be
+/// used to build custom MCStreamer.
+///
+bool LLVMTargetMachine::addPassesToEmitMC(PassManagerBase &PM,
+                                          MCContext *&Ctx,
+                                          raw_ostream &Out,
+                                          CodeGenOpt::Level OptLevel,
+                                          bool DisableVerify) {
+  // Add common CodeGen passes.
+  if (addCommonCodeGenPasses(PM, OptLevel, DisableVerify, Ctx))
+    return true;
+
+  if (hasMCSaveTempLabels())
+    Ctx->setAllowTemporaryLabels(false);
+
+  // Create the code emitter for the target if it exists.  If not, .o file
+  // emission fails.
+  const MCSubtargetInfo &STI = getSubtarget<MCSubtargetInfo>();
+  MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(*getInstrInfo(),STI, *Ctx);
+  MCAsmBackend *MAB = getTarget().createMCAsmBackend(getTargetTriple());
+  if (MCE == 0 || MAB == 0)
+    return true;
+
+  OwningPtr<MCStreamer> AsmStreamer;
+  AsmStreamer.reset(getTarget().createMCObjectStreamer(getTargetTriple(), *Ctx,
+                                                       *MAB, Out, MCE,
+                                                       hasMCRelaxAll(),
+                                                       hasMCNoExecStack()));
+  AsmStreamer.get()->InitSections();
+
+  // Create the AsmPrinter, which takes ownership of AsmStreamer if successful.
+  FunctionPass *Printer = getTarget().createAsmPrinter(*this, *AsmStreamer);
+  if (Printer == 0)
+    return true;
+
+  // If successful, createAsmPrinter took ownership of AsmStreamer.
+  AsmStreamer.take();
+
+  PM.add(Printer);
+
+  return false; // success!
+}
+
 static void printNoVerify(PassManagerBase &PM, const char *Banner) {
   if (PrintMachineCode)
     PM.add(createMachineFunctionPrinterPass(dbgs(), Banner));
 }
 
 static void printAndVerify(PassManagerBase &PM,
-                           const char *Banner,
-                           bool allowDoubleDefs = false) {
+                           const char *Banner) {
   if (PrintMachineCode)
     PM.add(createMachineFunctionPrinterPass(dbgs(), Banner));
 
   if (VerifyMachineCode)
-    PM.add(createMachineVerifierPass(allowDoubleDefs));
+    PM.add(createMachineVerifierPass(Banner));
 }
 
 /// addCommonCodeGenPasses - Add standard LLVM codegen passes used for both
@@ -233,16 +300,17 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
                                                MCContext *&OutContext) {
   // Standard LLVM-Level Passes.
 
+  // Basic AliasAnalysis support.
+  // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
+  // BasicAliasAnalysis wins if they disagree. This is intended to help
+  // support "obvious" type-punning idioms.
+  PM.add(createTypeBasedAliasAnalysisPass());
+  PM.add(createBasicAliasAnalysisPass());
+
   // Before running any passes, run the verifier to determine if the input
   // coming from the front-end and/or optimizer is valid.
   if (!DisableVerify)
     PM.add(createVerifierPass());
-
-  // Optionally, tun split-GEPs and no-load GVN.
-  if (EnableSplitGEPGVN) {
-    PM.add(createGEPSplitterPass());
-    PM.add(createGVNPass(/*NoLoads=*/true));
-  }
 
   // Run loop strength reduction before anything else.
   if (OptLevel != CodeGenOpt::None && !DisableLSR) {
@@ -250,6 +318,11 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
     if (PrintLSR)
       PM.add(createPrintFunctionPass("\n\n*** Code after LSR ***\n", &dbgs()));
   }
+
+  PM.add(createGCLoweringPass());
+
+  // Make sure that no unreachable blocks are instruction selected.
+  PM.add(createUnreachableBlockEliminationPass());
 
   // Turn exception handling constructs into something the code generators can
   // handle.
@@ -262,25 +335,26 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
     // pad is shared by multiple invokes and is also a target of a normal
     // edge from elsewhere.
     PM.add(createSjLjEHPass(getTargetLowering()));
-    PM.add(createDwarfEHPass(this, OptLevel==CodeGenOpt::None));
-    break;
-  case ExceptionHandling::Dwarf:
-    PM.add(createDwarfEHPass(this, OptLevel==CodeGenOpt::None));
+    // FALLTHROUGH
+  case ExceptionHandling::DwarfCFI:
+  case ExceptionHandling::ARM:
+  case ExceptionHandling::Win64:
+    PM.add(createDwarfEHPass(this));
     break;
   case ExceptionHandling::None:
     PM.add(createLowerInvokePass(getTargetLowering()));
+
+    // The lower invoke pass may create unreachable code. Remove it.
+    PM.add(createUnreachableBlockEliminationPass());
     break;
   }
-
-  PM.add(createGCLoweringPass());
-
-  // Make sure that no unreachable blocks are instruction selected.
-  PM.add(createUnreachableBlockEliminationPass());
 
   if (OptLevel != CodeGenOpt::None && !DisableCGP)
     PM.add(createCodeGenPreparePass(getTargetLowering()));
 
   PM.add(createStackProtectorPass(getTargetLowering()));
+
+  addPreISel(PM, OptLevel);
 
   if (PrintISelInput)
     PM.add(createPrintFunctionPass("\n\n"
@@ -293,13 +367,14 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
     PM.add(createVerifierPass());
 
   // Standard Lower-Level Passes.
-  
+
   // Install a MachineModuleInfo class, which is an immutable pass that holds
   // all the per-module stuff we're generating, including MCContext.
-  MachineModuleInfo *MMI = new MachineModuleInfo(*getMCAsmInfo());
+  MachineModuleInfo *MMI = new MachineModuleInfo(*getMCAsmInfo(),
+                                                 *getRegisterInfo(),
+                                     &getTargetLowering()->getObjFileLowering());
   PM.add(MMI);
   OutContext = &MMI->getContext(); // Return the MCContext specifically by-ref.
-  
 
   // Set up a MachineFunction for the rest of CodeGen to work on.
   PM.add(new MachineFunctionAnalysis(*this, OptLevel));
@@ -314,44 +389,53 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
     return true;
 
   // Print the instruction selected machine code...
-  printAndVerify(PM, "After Instruction Selection",
-                 /* allowDoubleDefs= */ true);
+  printAndVerify(PM, "After Instruction Selection");
+
+  // Expand pseudo-instructions emitted by ISel.
+  PM.add(createExpandISelPseudosPass());
+
+  // Pre-ra tail duplication.
+  if (OptLevel != CodeGenOpt::None && !DisableEarlyTailDup) {
+    PM.add(createTailDuplicatePass(true));
+    printAndVerify(PM, "After Pre-RegAlloc TailDuplicate");
+  }
 
   // Optimize PHIs before DCE: removing dead PHI cycles may make more
   // instructions dead.
   if (OptLevel != CodeGenOpt::None)
     PM.add(createOptimizePHIsPass());
 
-  // Delete dead machine instructions regardless of optimization level.
-  PM.add(createDeadMachineInstructionElimPass());
-  printAndVerify(PM, "After codegen DCE pass",
-                 /* allowDoubleDefs= */ true);
+  // If the target requests it, assign local variables to stack slots relative
+  // to one another and simplify frame index references where possible.
+  PM.add(createLocalStackSlotAllocationPass());
 
   if (OptLevel != CodeGenOpt::None) {
-    PM.add(createOptimizeExtsPass());
+    // With optimization, dead code should already be eliminated. However
+    // there is one known exception: lowered code for arguments that are only
+    // used by tail calls, where the tail calls reuse the incoming stack
+    // arguments directly (see t11 in test/CodeGen/X86/sibcall.ll).
+    if (!DisableMachineDCE)
+      PM.add(createDeadMachineInstructionElimPass());
+    printAndVerify(PM, "After codegen DCE pass");
+
     if (!DisableMachineLICM)
       PM.add(createMachineLICMPass());
-    PM.add(createMachineCSEPass());
+    if (!DisableMachineCSE)
+      PM.add(createMachineCSEPass());
     if (!DisableMachineSink)
       PM.add(createMachineSinkingPass());
-    printAndVerify(PM, "After Machine LICM, CSE and Sinking passes",
-                   /* allowDoubleDefs= */ true);
-  }
+    printAndVerify(PM, "After Machine LICM, CSE and Sinking passes");
 
-  // Pre-ra tail duplication.
-  if (OptLevel != CodeGenOpt::None && !DisableEarlyTailDup) {
-    PM.add(createTailDuplicatePass(true));
-    printAndVerify(PM, "After Pre-RegAlloc TailDuplicate",
-                   /* allowDoubleDefs= */ true);
+    PM.add(createPeepholeOptimizerPass());
+    printAndVerify(PM, "After codegen peephole optimization pass");
   }
 
   // Run pre-ra passes.
   if (addPreRegAlloc(PM, OptLevel))
-    printAndVerify(PM, "After PreRegAlloc passes",
-                   /* allowDoubleDefs= */ true);
+    printAndVerify(PM, "After PreRegAlloc passes");
 
   // Perform register allocation.
-  PM.add(createRegisterAllocator());
+  PM.add(createRegisterAllocator(OptLevel));
   printAndVerify(PM, "After Register Allocation");
 
   // Perform stack slot coloring and post-ra machine LICM.
@@ -372,8 +456,8 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
   if (addPostRegAlloc(PM, OptLevel))
     printAndVerify(PM, "After PostRegAlloc passes");
 
-  PM.add(createLowerSubregsPass());
-  printAndVerify(PM, "After LowerSubregs");
+  PM.add(createExpandPostRAPseudosPass());
+  printAndVerify(PM, "After ExpandPostRAPseudos");
 
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
   PM.add(createPrologEpilogCodeInserter());
@@ -407,8 +491,22 @@ bool LLVMTargetMachine::addCommonCodeGenPasses(PassManagerBase &PM,
     PM.add(createGCInfoPrinter(dbgs()));
 
   if (OptLevel != CodeGenOpt::None && !DisableCodePlace) {
-    PM.add(createCodePlacementOptPass());
-    printNoVerify(PM, "After CodePlacementOpt");
+    if (EnableBlockPlacement) {
+      // MachineBlockPlacement is an experimental pass which is disabled by
+      // default currently. Eventually it should subsume CodePlacementOpt, so
+      // when enabled, the other is disabled.
+      PM.add(createMachineBlockPlacementPass());
+      printNoVerify(PM, "After MachineBlockPlacement");
+    } else {
+      PM.add(createCodePlacementOptPass());
+      printNoVerify(PM, "After CodePlacementOpt");
+    }
+
+    // Run a separate pass to collect block placement statistics.
+    if (EnableBlockPlacementStats) {
+      PM.add(createMachineBlockPlacementStatsPass());
+      printNoVerify(PM, "After MachineBlockPlacementStats");
+    }
   }
 
   if (addPreEmitPass(PM, OptLevel))

@@ -20,16 +20,18 @@
 #define LLVM_CODEGEN_SELECTIONDAGNODES_H
 
 #include "llvm/Constants.h"
+#include "llvm/Instructions.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/DebugLoc.h"
 #include <cassert>
 
@@ -496,11 +498,29 @@ public:
   ///
   bool isOperandOf(SDNode *N) const;
 
-  /// isPredecessorOf - Return true if this node is a predecessor of N. This
-  /// node is either an operand of N or it can be reached by recursively
+  /// isPredecessorOf - Return true if this node is a predecessor of N.
+  /// NOTE: Implemented on top of hasPredecessor and every bit as
+  /// expensive. Use carefully.
+  bool isPredecessorOf(const SDNode *N) const { return N->hasPredecessor(this); }
+
+  /// hasPredecessor - Return true if N is a predecessor of this node.
+  /// N is either an operand of this node, or can be reached by recursively
   /// traversing up the operands.
-  /// NOTE: this is an expensive method. Use it carefully.
-  bool isPredecessorOf(SDNode *N) const;
+  /// NOTE: This is an expensive method. Use it carefully.
+  bool hasPredecessor(const SDNode *N) const;
+
+  /// hasPredecesorHelper - Return true if N is a predecessor of this node.
+  /// N is either an operand of this node, or can be reached by recursively
+  /// traversing up the operands.
+  /// In this helper the Visited and worklist sets are held externally to
+  /// cache predecessors over multiple invocations. If you want to test for
+  /// multiple predecessors this method is preferable to multiple calls to
+  /// hasPredecessor. Be sure to clear Visited and Worklist if the DAG
+  /// changes.
+  /// NOTE: This is still very expensive. Use carefully.
+  bool hasPredecessorHelper(const SDNode *N,
+                            SmallPtrSet<const SDNode *, 32> &Visited,
+                            SmallVector<const SDNode *, 16> &Worklist) const; 
 
   /// getNumOperands - Return the number of values used by this operation.
   ///
@@ -524,29 +544,38 @@ public:
     return X;
   }
 
-  /// getFlaggedNode - If this node has a flag operand, return the node
-  /// to which the flag operand points. Otherwise return NULL.
-  SDNode *getFlaggedNode() const {
+  /// getGluedNode - If this node has a glue operand, return the node
+  /// to which the glue operand points. Otherwise return NULL.
+  SDNode *getGluedNode() const {
     if (getNumOperands() != 0 &&
-      getOperand(getNumOperands()-1).getValueType().getSimpleVT() == MVT::Flag)
+      getOperand(getNumOperands()-1).getValueType() == MVT::Glue)
       return getOperand(getNumOperands()-1).getNode();
     return 0;
   }
 
   // If this is a pseudo op, like copyfromreg, look to see if there is a
-  // real target node flagged to it.  If so, return the target node.
-  const SDNode *getFlaggedMachineNode() const {
+  // real target node glued to it.  If so, return the target node.
+  const SDNode *getGluedMachineNode() const {
     const SDNode *FoundNode = this;
 
-    // Climb up flag edges until a machine-opcode node is found, or the
+    // Climb up glue edges until a machine-opcode node is found, or the
     // end of the chain is reached.
     while (!FoundNode->isMachineOpcode()) {
-      const SDNode *N = FoundNode->getFlaggedNode();
+      const SDNode *N = FoundNode->getGluedNode();
       if (!N) break;
       FoundNode = N;
     }
 
     return FoundNode;
+  }
+
+  /// getGluedUser - If this node has a glue value with a user, return
+  /// the user (there is at most one). Otherwise return NULL.
+  SDNode *getGluedUser() const {
+    for (use_iterator UI = use_begin(), UE = use_end(); UI != UE; ++UI)
+      if (UI.getUse().get().getValueType() == MVT::Glue)
+        return *UI;
+    return 0;
   }
 
   /// getNumValues - Return the number of values defined/returned by this
@@ -829,7 +858,7 @@ public:
 
 
 /// HandleSDNode - This class is used to form a handle around another node that
-/// is persistant and is updated across invocations of replaceAllUsesWith on its
+/// is persistent and is updated across invocations of replaceAllUsesWith on its
 /// operand.  This node should be directly created by end-users and not added to
 /// the AllNodes list.
 class HandleSDNode : public SDNode {
@@ -888,10 +917,21 @@ public:
   // with MachineMemOperand information.
   bool isVolatile() const { return (SubclassData >> 5) & 1; }
   bool isNonTemporal() const { return (SubclassData >> 6) & 1; }
+  bool isInvariant() const { return (SubclassData >> 7) & 1; }
+
+  AtomicOrdering getOrdering() const {
+    return AtomicOrdering((SubclassData >> 8) & 15);
+  }
+  SynchronizationScope getSynchScope() const {
+    return SynchronizationScope((SubclassData >> 12) & 1);
+  }
 
   /// Returns the SrcValue and offset that describes the location of the access
   const Value *getSrcValue() const { return MMO->getValue(); }
   int64_t getSrcValueOffset() const { return MMO->getOffset(); }
+
+  /// Returns the TBAAInfo that describes the dereference.
+  const MDNode *getTBAAInfo() const { return MMO->getTBAAInfo(); }
 
   /// getMemoryVT - Return the type of the in-memory value.
   EVT getMemoryVT() const { return MemoryVT; }
@@ -900,6 +940,10 @@ public:
   /// reference performed by operation.
   MachineMemOperand *getMemOperand() const { return MMO; }
 
+  const MachinePointerInfo &getPointerInfo() const {
+    return MMO->getPointerInfo();
+  }
+  
   /// refineAlignment - Update this MemSDNode's MachineMemOperand information
   /// to reflect the alignment of NewMMO, if it has a greater alignment.
   /// This must only be used when the new alignment applies to all users of
@@ -920,6 +964,7 @@ public:
     // with either an intrinsic or a target opcode.
     return N->getOpcode() == ISD::LOAD                ||
            N->getOpcode() == ISD::STORE               ||
+           N->getOpcode() == ISD::PREFETCH            ||
            N->getOpcode() == ISD::ATOMIC_CMP_SWAP     ||
            N->getOpcode() == ISD::ATOMIC_SWAP         ||
            N->getOpcode() == ISD::ATOMIC_LOAD_ADD     ||
@@ -932,6 +977,8 @@ public:
            N->getOpcode() == ISD::ATOMIC_LOAD_MAX     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_UMIN    ||
            N->getOpcode() == ISD::ATOMIC_LOAD_UMAX    ||
+           N->getOpcode() == ISD::ATOMIC_LOAD         ||
+           N->getOpcode() == ISD::ATOMIC_STORE        ||
            N->isTargetMemoryOpcode();
   }
 };
@@ -940,6 +987,23 @@ public:
 ///
 class AtomicSDNode : public MemSDNode {
   SDUse Ops[4];
+
+  void InitAtomic(AtomicOrdering Ordering, SynchronizationScope SynchScope) {
+    // This must match encodeMemSDNodeFlags() in SelectionDAG.cpp.
+    assert((Ordering & 15) == Ordering &&
+           "Ordering may not require more than 4 bits!");
+    assert((SynchScope & 1) == SynchScope &&
+           "SynchScope may not require more than 1 bit!");
+    SubclassData |= Ordering << 8;
+    SubclassData |= SynchScope << 12;
+    assert(getOrdering() == Ordering && "Ordering encoding error!");
+    assert(getSynchScope() == SynchScope && "Synch-scope encoding error!");
+
+    assert((readMem() || getOrdering() <= Monotonic) &&
+           "Acquire/Release MachineMemOperand must be a load!");
+    assert((writeMem() || getOrdering() <= Monotonic) &&
+           "Acquire/Release MachineMemOperand must be a store!");
+  }
 
 public:
   // Opc:   opcode for atomic
@@ -952,19 +1016,27 @@ public:
   // Align:  alignment of memory
   AtomicSDNode(unsigned Opc, DebugLoc dl, SDVTList VTL, EVT MemVT,
                SDValue Chain, SDValue Ptr,
-               SDValue Cmp, SDValue Swp, MachineMemOperand *MMO)
+               SDValue Cmp, SDValue Swp, MachineMemOperand *MMO,
+               AtomicOrdering Ordering, SynchronizationScope SynchScope)
     : MemSDNode(Opc, dl, VTL, MemVT, MMO) {
-    assert(readMem() && "Atomic MachineMemOperand is not a load!");
-    assert(writeMem() && "Atomic MachineMemOperand is not a store!");
+    InitAtomic(Ordering, SynchScope);
     InitOperands(Ops, Chain, Ptr, Cmp, Swp);
   }
   AtomicSDNode(unsigned Opc, DebugLoc dl, SDVTList VTL, EVT MemVT,
                SDValue Chain, SDValue Ptr,
-               SDValue Val, MachineMemOperand *MMO)
+               SDValue Val, MachineMemOperand *MMO,
+               AtomicOrdering Ordering, SynchronizationScope SynchScope)
     : MemSDNode(Opc, dl, VTL, MemVT, MMO) {
-    assert(readMem() && "Atomic MachineMemOperand is not a load!");
-    assert(writeMem() && "Atomic MachineMemOperand is not a store!");
+    InitAtomic(Ordering, SynchScope);
     InitOperands(Ops, Chain, Ptr, Val);
+  }
+  AtomicSDNode(unsigned Opc, DebugLoc dl, SDVTList VTL, EVT MemVT,
+               SDValue Chain, SDValue Ptr,
+               MachineMemOperand *MMO,
+               AtomicOrdering Ordering, SynchronizationScope SynchScope)
+    : MemSDNode(Opc, dl, VTL, MemVT, MMO) {
+    InitAtomic(Ordering, SynchScope);
+    InitOperands(Ops, Chain, Ptr);
   }
 
   const SDValue &getBasePtr() const { return getOperand(1); }
@@ -989,14 +1061,16 @@ public:
            N->getOpcode() == ISD::ATOMIC_LOAD_MIN     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_MAX     ||
            N->getOpcode() == ISD::ATOMIC_LOAD_UMIN    ||
-           N->getOpcode() == ISD::ATOMIC_LOAD_UMAX;
+           N->getOpcode() == ISD::ATOMIC_LOAD_UMAX    ||
+           N->getOpcode() == ISD::ATOMIC_LOAD         ||
+           N->getOpcode() == ISD::ATOMIC_STORE;
   }
 };
 
 /// MemIntrinsicSDNode - This SDNode is used for target intrinsics that touch
 /// memory and need an associated MachineMemOperand. Its opcode may be
-/// INTRINSIC_VOID, INTRINSIC_W_CHAIN, or a target-specific opcode with a
-/// value not less than FIRST_TARGET_MEMORY_OPCODE.
+/// INTRINSIC_VOID, INTRINSIC_W_CHAIN, PREFETCH, or a target-specific opcode
+/// with a value not less than FIRST_TARGET_MEMORY_OPCODE.
 class MemIntrinsicSDNode : public MemSDNode {
 public:
   MemIntrinsicSDNode(unsigned Opc, DebugLoc dl, SDVTList VTs,
@@ -1012,6 +1086,7 @@ public:
     // early a node with a target opcode can be of this class
     return N->getOpcode() == ISD::INTRINSIC_W_CHAIN ||
            N->getOpcode() == ISD::INTRINSIC_VOID ||
+           N->getOpcode() == ISD::PREFETCH ||
            N->isTargetMemoryOpcode();
   }
 };
@@ -1082,6 +1157,7 @@ public:
   uint64_t getZExtValue() const { return Value->getZExtValue(); }
   int64_t getSExtValue() const { return Value->getSExtValue(); }
 
+  bool isOne() const { return Value->isOne(); }
   bool isNullValue() const { return Value->isNullValue(); }
   bool isAllOnesValue() const { return Value->isAllOnesValue(); }
 
@@ -1130,7 +1206,7 @@ public:
   }
   bool isExactlyValue(const APFloat& V) const;
 
-  bool isValueValidForType(EVT VT, const APFloat& Val);
+  static bool isValueValidForType(EVT VT, const APFloat& Val);
 
   static bool classof(const ConstantFPSDNode *) { return true; }
   static bool classof(const SDNode *N) {
@@ -1144,7 +1220,7 @@ class GlobalAddressSDNode : public SDNode {
   int64_t Offset;
   unsigned char TargetFlags;
   friend class SelectionDAG;
-  GlobalAddressSDNode(unsigned Opc, const GlobalValue *GA, EVT VT,
+  GlobalAddressSDNode(unsigned Opc, DebugLoc DL, const GlobalValue *GA, EVT VT,
                       int64_t o, unsigned char TargetFlags);
 public:
 
@@ -1253,7 +1329,7 @@ public:
   unsigned getAlignment() const { return Alignment; }
   unsigned char getTargetFlags() const { return TargetFlags; }
 
-  const Type *getType() const;
+  Type *getType() const;
 
   static bool classof(const ConstantPoolSDNode *) { return true; }
   static bool classof(const SDNode *N) {
@@ -1453,125 +1529,6 @@ public:
     return N->getOpcode() == ISD::CONVERT_RNDSAT;
   }
 };
-
-namespace ISD {
-  struct ArgFlagsTy {
-  private:
-    static const uint64_t NoFlagSet      = 0ULL;
-    static const uint64_t ZExt           = 1ULL<<0;  ///< Zero extended
-    static const uint64_t ZExtOffs       = 0;
-    static const uint64_t SExt           = 1ULL<<1;  ///< Sign extended
-    static const uint64_t SExtOffs       = 1;
-    static const uint64_t InReg          = 1ULL<<2;  ///< Passed in register
-    static const uint64_t InRegOffs      = 2;
-    static const uint64_t SRet           = 1ULL<<3;  ///< Hidden struct-ret ptr
-    static const uint64_t SRetOffs       = 3;
-    static const uint64_t ByVal          = 1ULL<<4;  ///< Struct passed by value
-    static const uint64_t ByValOffs      = 4;
-    static const uint64_t Nest           = 1ULL<<5;  ///< Nested fn static chain
-    static const uint64_t NestOffs       = 5;
-    static const uint64_t ByValAlign     = 0xFULL << 6; //< Struct alignment
-    static const uint64_t ByValAlignOffs = 6;
-    static const uint64_t Split          = 1ULL << 10;
-    static const uint64_t SplitOffs      = 10;
-    static const uint64_t OrigAlign      = 0x1FULL<<27;
-    static const uint64_t OrigAlignOffs  = 27;
-    static const uint64_t ByValSize      = 0xffffffffULL << 32; //< Struct size
-    static const uint64_t ByValSizeOffs  = 32;
-
-    static const uint64_t One            = 1ULL; //< 1 of this type, for shifts
-
-    uint64_t Flags;
-  public:
-    ArgFlagsTy() : Flags(0) { }
-
-    bool isZExt()   const { return Flags & ZExt; }
-    void setZExt()  { Flags |= One << ZExtOffs; }
-
-    bool isSExt()   const { return Flags & SExt; }
-    void setSExt()  { Flags |= One << SExtOffs; }
-
-    bool isInReg()  const { return Flags & InReg; }
-    void setInReg() { Flags |= One << InRegOffs; }
-
-    bool isSRet()   const { return Flags & SRet; }
-    void setSRet()  { Flags |= One << SRetOffs; }
-
-    bool isByVal()  const { return Flags & ByVal; }
-    void setByVal() { Flags |= One << ByValOffs; }
-
-    bool isNest()   const { return Flags & Nest; }
-    void setNest()  { Flags |= One << NestOffs; }
-
-    unsigned getByValAlign() const {
-      return (unsigned)
-        ((One << ((Flags & ByValAlign) >> ByValAlignOffs)) / 2);
-    }
-    void setByValAlign(unsigned A) {
-      Flags = (Flags & ~ByValAlign) |
-        (uint64_t(Log2_32(A) + 1) << ByValAlignOffs);
-    }
-
-    bool isSplit()   const { return Flags & Split; }
-    void setSplit()  { Flags |= One << SplitOffs; }
-
-    unsigned getOrigAlign() const {
-      return (unsigned)
-        ((One << ((Flags & OrigAlign) >> OrigAlignOffs)) / 2);
-    }
-    void setOrigAlign(unsigned A) {
-      Flags = (Flags & ~OrigAlign) |
-        (uint64_t(Log2_32(A) + 1) << OrigAlignOffs);
-    }
-
-    unsigned getByValSize() const {
-      return (unsigned)((Flags & ByValSize) >> ByValSizeOffs);
-    }
-    void setByValSize(unsigned S) {
-      Flags = (Flags & ~ByValSize) | (uint64_t(S) << ByValSizeOffs);
-    }
-
-    /// getArgFlagsString - Returns the flags as a string, eg: "zext align:4".
-    std::string getArgFlagsString();
-
-    /// getRawBits - Represent the flags as a bunch of bits.
-    uint64_t getRawBits() const { return Flags; }
-  };
-
-  /// InputArg - This struct carries flags and type information about a
-  /// single incoming (formal) argument or incoming (from the perspective
-  /// of the caller) return value virtual register.
-  ///
-  struct InputArg {
-    ArgFlagsTy Flags;
-    EVT VT;
-    bool Used;
-
-    InputArg() : VT(MVT::Other), Used(false) {}
-    InputArg(ISD::ArgFlagsTy flags, EVT vt, bool used)
-      : Flags(flags), VT(vt), Used(used) {
-      assert(VT.isSimple() &&
-             "InputArg value type must be Simple!");
-    }
-  };
-
-  /// OutputArg - This struct carries flags and a value for a
-  /// single outgoing (actual) argument or outgoing (from the perspective
-  /// of the caller) return value virtual register.
-  ///
-  struct OutputArg {
-    ArgFlagsTy Flags;
-    SDValue Val;
-    bool IsFixed;
-
-    OutputArg() : IsFixed(false) {}
-    OutputArg(ISD::ArgFlagsTy flags, SDValue val, bool isfixed)
-      : Flags(flags), Val(val), IsFixed(isfixed) {
-      assert(Val.getValueType().isSimple() &&
-             "OutputArg value type must be Simple!");
-    }
-  };
-}
 
 /// VTSDNode - This class is used to represent EVT's, which are used
 /// to parameterize some operations.

@@ -10,6 +10,7 @@
 #import "PortStatusGatherer.h"
 #import "OutlineViewNode.h"
 #import "OutlineViewAdditions.h"
+#import "ExtensionSelector.h"
 
 
 @interface PortStatusController : NSObject <PortStatusGathererListener>

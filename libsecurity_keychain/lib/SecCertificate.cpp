@@ -42,6 +42,7 @@
 #include <security_cdsa_utilities/Schema.h>
 #include <sys/param.h>
 #include "CertificateValues.h"
+#include "SecCertificateP.h"
 
 extern CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
 
@@ -823,4 +824,23 @@ CFDataRef SecCertificateCopyNormalizedSubjectContent(SecCertificateRef certifica
 	catch (...) { __secapiresult=internalComponentErr; }
     return result;
 }
+
+bool SecCertificateIsValidX(SecCertificateRef certificate, CFAbsoluteTime verifyTime)
+{
+       bool result = NULL;
+    OSStatus __secapiresult;
+       try
+       {
+        CFErrorRef error = NULL;
+               CertificateValues cv(certificate);
+               result = cv.SecCertificateIsValidX(verifyTime, &error);
+               __secapiresult=0;
+       }
+       catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+       catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+       catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+       catch (...) { __secapiresult=internalComponentErr; }
+    return result;
+}
+
 

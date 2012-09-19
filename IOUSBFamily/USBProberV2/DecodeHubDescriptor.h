@@ -32,15 +32,35 @@ struct IOUSBHubDescriptor {
     UInt8 	hubType;
     UInt8 	numPorts;
     UInt16 	characteristics __attribute__((packed));
-    UInt8 	powerOnToGood;	/* Port settling time, in 2ms */
+    UInt8   powerOnToGood;								// Port settling time, in 2ms
     UInt8 	hubCurrent;
-    
-    /* These are received packed, will have to be unpacked */
-    UInt8 	removablePortFlags[8];
-    UInt8 	pwrCtlPortFlags[8];
+    // These are received packed, will have to be unpacked
+    UInt8 	removablePortFlags[9];
+    UInt8 	pwrCtlPortFlags[9];
 };
 
 typedef struct IOUSBHubDescriptor IOUSBHubDescriptor;
+
+#ifdef SUPPORTS_SS_USB
+// To cope with the extra fields in a USB3 hub descriptor
+
+struct IOUSB3HubDescriptor {
+    UInt8   length;
+    UInt8   hubType;
+    UInt8   numPorts;
+    UInt16  characteristics __attribute__((packed));
+    UInt8   powerOnToGood;								// Port settling time, in 2ms
+    UInt8   hubCurrent;
+	UInt8   hubHdrDecLat;								// Header decode latency, new 3.0 field
+    UInt16  hubDelay __attribute__((packed));			// new in 3.0
+	
+    // These are received packed, will have to be unpacked
+    UInt8   removablePortFlags[9];
+    UInt8   pwrCtlPortFlags[9];				// This field does not exist in the 3.0 descriptor
+};
+
+typedef struct IOUSB3HubDescriptor IOUSB3HubDescriptor;
+#endif
 
 @interface DecodeHubDescriptor : NSObject {
 

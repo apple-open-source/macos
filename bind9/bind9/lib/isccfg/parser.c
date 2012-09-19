@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: parser.c,v 1.132.104.3 2010-08-11 18:19:58 each Exp $ */
+/* $Id$ */
 
 /*! \file */
 
@@ -2075,6 +2075,7 @@ cfg_doc_netaddr(cfg_printer_t *pctx, const cfg_type_t *type) {
 			cfg_print_chars(pctx, " | ", 3);
 		cfg_print_chars(pctx, "*", 1);
 		n++;
+		POST(n);
 	}
 	if (*flagp != CFG_ADDR_V4OK && *flagp != CFG_ADDR_V6OK)
 		cfg_print_chars(pctx, " )", 2);
@@ -2114,7 +2115,7 @@ cfg_parse_netprefix(cfg_parser_t *pctx, const cfg_type_t *type,
 	cfg_obj_t *obj = NULL;
 	isc_result_t result;
 	isc_netaddr_t netaddr;
-	unsigned int addrlen, prefixlen;
+	unsigned int addrlen = 0, prefixlen;
 	UNUSED(type);
 
 	CHECK(cfg_parse_rawaddr(pctx, CFG_ADDR_V4OK | CFG_ADDR_V4PREFIXOK |
@@ -2127,7 +2128,6 @@ cfg_parse_netprefix(cfg_parser_t *pctx, const cfg_type_t *type,
 		addrlen = 128;
 		break;
 	default:
-		addrlen = 0;
 		INSIST(0);
 		break;
 	}
@@ -2177,8 +2177,12 @@ cfg_obj_isnetprefix(const cfg_obj_t *obj) {
 
 void
 cfg_obj_asnetprefix(const cfg_obj_t *obj, isc_netaddr_t *netaddr,
-		    unsigned int *prefixlen) {
+		    unsigned int *prefixlen)
+{
 	REQUIRE(obj != NULL && obj->type->rep == &cfg_rep_netprefix);
+	REQUIRE(netaddr != NULL);
+	REQUIRE(prefixlen != NULL);
+
 	*netaddr = obj->value.netprefix.address;
 	*prefixlen = obj->value.netprefix.prefixlen;
 }
@@ -2262,6 +2266,7 @@ cfg_doc_sockaddr(cfg_printer_t *pctx, const cfg_type_t *type) {
 			cfg_print_chars(pctx, " | ", 3);
 		cfg_print_chars(pctx, "*", 1);
 		n++;
+		POST(n);
 	}
 	cfg_print_chars(pctx, " ) ", 3);
 	if (*flagp & CFG_ADDR_WILDOK) {
@@ -2398,16 +2403,30 @@ cfg_parser_warning(cfg_parser_t *pctx, unsigned int flags, const char *fmt, ...)
 
 #define MAX_LOG_TOKEN 30 /* How much of a token to quote in log messages. */
 
+static isc_boolean_t
+have_current_file(cfg_parser_t *pctx) {
+	cfg_listelt_t *elt;
+	if (pctx->open_files == NULL)
+		return (ISC_FALSE);
+
+	elt = ISC_LIST_TAIL(pctx->open_files->value.list);
+	if (elt == NULL)
+	      return (ISC_FALSE);
+
+	return (ISC_TRUE);
+}
+
 static char *
 current_file(cfg_parser_t *pctx) {
 	static char none[] = "none";
 	cfg_listelt_t *elt;
 	cfg_obj_t *fileobj;
 
-	if (pctx->open_files == NULL)
+	if (!have_current_file(pctx))
 		return (none);
+
 	elt = ISC_LIST_TAIL(pctx->open_files->value.list);
-	if (elt == NULL)
+	if (elt == NULL)	/* shouldn't be possible, but... */
 	      return (none);
 
 	fileobj = elt->obj;
@@ -2430,8 +2449,10 @@ parser_complain(cfg_parser_t *pctx, isc_boolean_t is_warning,
 	if (is_warning)
 		level = ISC_LOG_WARNING;
 
-	snprintf(where, sizeof(where), "%s:%u: ",
-		 current_file(pctx), pctx->line);
+	where[0] = '\0';
+	if (have_current_file(pctx))
+		snprintf(where, sizeof(where), "%s:%u: ",
+			 current_file(pctx), pctx->line);
 
 	len = vsnprintf(message, sizeof(message), format, args);
 	if (len >= sizeof(message))

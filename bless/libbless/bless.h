@@ -249,6 +249,12 @@ typedef enum {
 	
 } BLNetBootProtocolType;
 
+
+enum {
+	kBitmapScale_1x		=	1,
+	kBitmapScale_2x		=	2
+};
+
 /***** FinderInfo *****/
 
 /*!
@@ -530,7 +536,22 @@ int BLIsNewWorld(BLContextPtr context);
  */
 int BLGenerateOFLabel(BLContextPtr context,
                     const char * label,
-                    CFDataRef *data);
+                    CFDataRef *data) DEPRECATED_ATTRIBUTE ;
+
+/*!
+ * @function BLGenerateLabelData
+ * @abstract Generate a bitmap label from the given string
+ * @discussion Use CoreGraphics to render
+ *    a bitmap for a label suitable for display
+ *    by the firmware picker.
+ * @param context Bless Library context
+ * @param label UTF-8 encoded text to use
+ * @param scale How big the bitmap should be. kBitmapScale_1x for standard, kBitmapScale_2x for HiDPI
+ * @param data bitmap data returned to caller; must be released by caller.
+ */
+int BLGenerateLabelData(BLContextPtr context, const char *label, int scale, CFDataRef *data);
+
+
 
 /*!
  * @function BLSetOFLabelForDevice
@@ -549,7 +570,32 @@ int BLGenerateOFLabel(BLContextPtr context,
  */
 int BLSetOFLabelForDevice(BLContextPtr context,
 			  const char * device,
-			  const CFDataRef label);
+			  const CFDataRef label) DEPRECATED_ATTRIBUTE ;
+
+
+
+/*!
+ * @function BLSetDiskLabelForDevice
+ * @abstract Set the disk label (displayed by the firmware picker)
+ *    for an unmounted volume
+ * @discussion Use MediaKit to analyze an HFS+
+ *    volume header and catalog to find the disk
+ *    label, and if it exists write the new data.
+ *    If an existing label is not present, or if
+ *    the on-disk allocated extent is too small,
+ *    return an error
+ * @param context Bless Library context
+ * @param device an HFS+ (wrapped or not) device node
+ * @param label a correctly formatted disk label,
+ * @param scale how big the bitmap should be. kBitmapScale_1x for standard, kBitmapScale_2x for HiDPI 
+ *    as returned by BLGenerateLabelData
+ */
+int BLSetDiskLabelForDevice(BLContextPtr context,
+                            const char *device,
+                            const CFDataRef label,
+                            int scale);
+
+
 
 /*!
  * @function BLLoadFile
@@ -690,6 +736,7 @@ typedef struct {
 	uint32_t	version;
 	uint32_t	reqType;
 	uint32_t	reqCreator;
+	uint32_t    reqParentDir;
 	char *		reqFilename;
 	
 	CFDataRef	payloadData;

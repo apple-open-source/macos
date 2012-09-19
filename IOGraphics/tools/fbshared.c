@@ -2,6 +2,7 @@
 cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKit -Wall -arch i386
 */
 #define IOCONNECT_MAPMEMORY_10_6    1
+#define IOFB_ARBITRARY_FRAMES_CURSOR    1
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <mach/mach_time.h>
@@ -99,9 +100,13 @@ int main(int argc, char * argv[])
 	    uint64_t time  = (((uint64_t) shmem[index]->vblTime.hi) << 32 | shmem[index]->vblTime.lo);
 	    uint64_t delta = (((uint64_t) shmem[index]->vblDelta.hi) << 32 | shmem[index]->vblDelta.lo);
 	    double usecs = delta * timebase.numer / timebase.denom / 1e6;
+
+		if (!delta) continue;
     
-	    printf("[%d] time of last VBL 0x%qx, delta 0x%qx (%f us), count %qd\n", 
-		    index, time, delta, usecs, shmem[index]->vblCount);
+	    printf("[%d] time of last VBL 0x%qx, delta %qd (%f us), count %qd, measured delta %qd(%f%%), drift %qd(%qd%%)\n", 
+		    index, time, delta, usecs, shmem[index]->vblCount,
+		    shmem[index]->vblDeltaMeasured, ((shmem[index]->vblDeltaMeasured * 100.0) / delta),
+		    shmem[index]->vblDrift, ((shmem[index]->vblDrift * 100) / delta));
 	}
 	for (index = 0; index < maxIndex; index++)
 	{

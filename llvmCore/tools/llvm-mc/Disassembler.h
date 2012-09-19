@@ -19,19 +19,24 @@
 
 namespace llvm {
 
-class Target;
 class MemoryBuffer;
+class Target;
+class raw_ostream;
 
 class Disassembler {
 public:
-  static int disassemble(const Target &target, 
+  static int disassemble(const Target &target,
                          const std::string &tripleString,
-                         MemoryBuffer &buffer);
-  
+                         const std::string &Cpu,
+                         const std::string &FeaturesStr,
+                         MemoryBuffer &buffer,
+                         raw_ostream &Out);
+
   static int disassembleEnhanced(const std::string &tripleString,
-                                 MemoryBuffer &buffer);
+                                 MemoryBuffer &buffer,
+                                 raw_ostream &Out);
 };
-  
+
 } // namespace llvm
 
 #endif

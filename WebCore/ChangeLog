@@ -1,3 +1,243 @@
+2012-07-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 116381
+    
+2012-06-28  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 117502
+
+    2012-05-17  Beth Dakin  <bdakin@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=86266
+            r112643/r116697 break Webview form input fields
+            -and corresponding-
+            <rdar://problem/11400430>
+
+            Reviewed by Dan Bernstein.
+
+            There is a recent history of changes in this are that seem worth documenting. 
+            First was the change to switch to using NSTextFieldCell to draw text fields: 
+            http://trac.webkit.org/changeset/104240
+
+            That led to problems because of the clear background that I thought at the time 
+            were specific to MountainLion. To fix that, I made this change:
+            http://trac.webkit.org/changeset/110480
+
+            But that change resulted in styled text fields getting an un-themed border, which 
+            led to this change on the branch: http://trac.webkit.org/changeset/112643 and a 
+            change on TOT that was identical for Lion and SnowLeopard but introduced new 
+            behavior for MountainLion: http://trac.webkit.org/changeset/116697
+
+            And that brings us to this bug, where it turns out the clear background is a 
+            problem on Lion and SnowLeopard too. This patch fixes the bug by using the 
+            original WebCoreSystemInterface function to paint all text fields on Lion and 
+            SnowLeopard that are styled. This is what we used to paint all text fields before 
+            r104240, which is the first change listed above. Un-styled text fields will still 
+            use NSTextFieldCell on these platforms, but with a hardcoded white background. 
+            * rendering/RenderThemeMac.h:
+            (RenderThemeMac):
+            * rendering/RenderThemeMac.mm:
+            (WebCore::RenderThemeMac::paintTextField):
+            (WebCore::RenderThemeMac::textField):
+
+2012-05-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 108550
+
+    2012-02-22  Anders Carlsson  <andersca@apple.com>
+
+            Crash when marking cached pages for full style recalc
+            https://bugs.webkit.org/show_bug.cgi?id=79276
+            <rdar://problem/10884036>
+
+            Reviewed by Beth Dakin.
+
+            Guard against a null history item.
+
+            * history/BackForwardController.cpp:
+            (WebCore::BackForwardController::markPagesForFullStyleRecalc):
+
+2012-04-17  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 109480
+
+    2012-03-01  Kent Tamura  <tkent@chromium.org>
+
+            REGRESSION(r106388): Form state is restored to a wrong document.
+            https://bugs.webkit.org/show_bug.cgi?id=79206
+
+            Reviewed by Brady Eidson.
+
+            In some cases, the URL of the current HistoryItem and the document
+            URL are mismatched.
+            A form state should be restored only if the document was loaded
+            with a HistoryItem and the document is not loaded as a
+            redirection.
+
+            Test: fast/loader/form-state-restore-with-locked-back-forward-list.html
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::checkCompleted): Clear m_requestedHistoryItem.
+            (WebCore::FrameLoader::loadItem):
+            Save the requested HistoryItem for didLoadWithLodItem().
+            * loader/FrameLoader.h:
+            (WebCore::FrameLoader::requestedHistoryItem):
+            Added. Accessor for m_requestedHistoryItem.
+            * loader/HistoryController.cpp:
+            (WebCore::HistoryController::restoreDocumentState):
+            Restore a form state only if the current document was loaded with
+            FrameLoader::loadItem() and not redirection.
+
+2012-04-12  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 113415
+
+    2012-04-05  Adele Peterson  <adele@apple.com>
+
+            <rdar://problem/11133179> and https://bugs.webkit.org/show_bug.cgi?id=74129
+            REGRESSION (SnowLeopard, 5.1.4): All WK2 horizontal scrollbars look broken
+
+            Patch by Dan Bernstein, Reviewed by Beth Dakin.
+
+            This code assumed that the current CTM wouldn't have extraneous operations built into it, 
+            but this bug is evidence that that assumption was wrong. We should just get the base CTM instead 
+            and apply the device scale factor to it.
+
+            No tests added since the SnowLeopard-style scrollbars aren't testable in our regression tests right now.
+
+            * platform/graphics/GraphicsContext.cpp:
+            (WebCore::GraphicsContext::platformApplyDeviceScaleFactor):
+            (WebCore::GraphicsContext::applyDeviceScaleFactor):
+            * platform/graphics/GraphicsContext.h: (GraphicsContext):
+            * platform/graphics/cg/GraphicsContextCG.cpp: (WebCore::GraphicsContext::platformApplyDeviceScaleFactor):
+
+2012-04-17  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 111977
+
+    2012-03-23  Stephanie Lewis  <slewis@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=81963 WebProcess can get stuck in GC during many low memory signals.
+            <rdar://problem/11094830> WebProcess appears to get stuck in its GC handler (81963).
+            Remove the call to garbage collect  in low memory signal handler.  Did some testing with hitting the low memory handler
+            during Membuster and we would get back at most 100k - 200k.  That isn't enough to help the system, and in 
+            that state the GC collection can take a substantial amount of time.
+
+            Reviewed by Geoff Garen.
+
+            Performance Change, no change in behavior.
+
+            * platform/mac/MemoryPressureHandlerMac.mm:
+            (WebCore::MemoryPressureHandler::releaseMemory):
+
+2012-04-17  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 113528
+
+    2012-04-06  Oliver Hunt  <oliver@apple.com>
+
+            Accessing the returnValue of a modal dialog should be performed directly on the global object.
+            https://bugs.webkit.org/show_bug.cgi?id=83414
+
+            Reviewed by Gavin Barraclough.
+
+            Presumably during the mass-devirtualising of JSObject, this deliberate use of
+            the GlobalObject's property lookup logic directly was replaced with a dynamic
+            call.  That results in the DOMWindow filtering out the lookup.  This regression
+            was masked by r93567.
+
+            * bindings/js/JSDOMWindowCustom.cpp:
+            (WebCore::DialogHandler::returnValue):
+
+2012-04-16  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 111108
+
+    2012-03-16  Dmitry Titov  <dimich@chromium.org>
+
+            HTMLFrameElementBase::m_remainsAliveOnRemovalFromTree can be cleared without unloading the frame.
+            https://bugs.webkit.org/show_bug.cgi?id=80766
+
+            Reviewed by Adam Barth.
+
+            * html/HTMLFrameElementBase.cpp:
+            (WebCore::HTMLFrameElementBase::insertedIntoDocument):
+            (WebCore::HTMLFrameElementBase::setRemainsAliveOnRemovalFromTree):
+            if adoptNode() is called on a detached iframe or with a detached document,
+            unload the iframe to avoid live iframe to hang around w/o being attached to
+            a document.
+
+2012-04-17  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 112023
+
+    2012-03-24  Jeffrey Pfau  <jpfau@apple.com>
+
+        XML error document creation should not fire mutation events
+        https://bugs.webkit.org/show_bug.cgi?id=80765
+
+        Reviewed by Adam Barth.
+
+        Broke two tests that expected the old behavior, which have now been updated.
+
+        * xml/XMLErrors.cpp:
+        (WebCore::createXHTMLParserErrorHeader):
+        (WebCore::XMLErrors::insertErrorMessageBlock):
+
+2012-04-16  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 110150
+
+    2012-03-07  Adam Barth  <abarth@webkit.org>
+
+            ContainerNode::insertedIntoDocument and removedFromDocument use weak iteration patterns
+            https://bugs.webkit.org/show_bug.cgi?id=80569
+
+            Reviewed by Ryosuke Niwa.
+
+            This patch moves ContainerNode::insertedIntoDocument and
+            removedFromDocument to using a better iteration pattern in which we
+            collect all the nodes we're planning to iterate into a vector and then
+            iterate over them.
+
+            * dom/ContainerNode.cpp:
+            (WebCore::ContainerNode::insertedIntoDocument):
+            (WebCore::ContainerNode::removedFromDocument):
+
+2012-04-16  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 110139
+
+    2012-03-07  Adam Barth  <abarth@webkit.org>
+
+            ContainerNode::willRemove uses a weak iteration pattern
+            https://bugs.webkit.org/show_bug.cgi?id=80530
+
+            Reviewed by Ryosuke Niwa.
+
+            This patch moves ContainerNode::willRemove to using a better iteration
+            pattern in which we collect all the nodes we're planning to iterate
+            into a vector and then iterate over them.
+
+            * dom/ContainerNode.cpp:
+            (WebCore::ContainerNode::willRemove):
+
+2012-04-17  Lucas Forschler  <lforschler@apple.com>
+
+    Merging to the correct branch.
+    
+    2012-04-13  David Harrison  <harrison@apple.com> 
+ 
+        Reviewed by Darin Adler. 
+ 
+        <rdar://problem/10552398> Meringue: 11A390: CrashTracer: 56,187 crashes in WebProcess at com.apple.WebCore: WebCore::DocumentWriter::deprecatedFrameEncoding const + 12 (71828) 
+ 
+        No new tests because this change is going only on the Safari Nectarine branch, not TOT. 
+ 
+        * loader/FrameLoader.cpp: 
+        (WebCore::FrameLoader::addExtraFieldsToRequest): 
+        Nil check the activeDocumentLoader().
+
 2012-03-29  Beth Dakin  <bdakin@apple.com>
 
         Reviewed by Dan Bernstein.

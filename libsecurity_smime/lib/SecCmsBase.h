@@ -170,7 +170,10 @@ typedef enum {
     SecCmsVSSignatureAlgorithmUnknown = 6,
     SecCmsVSSignatureAlgorithmUnsupported = 7,
     SecCmsVSMalformedSignature = 8,
-    SecCmsVSProcessingError = 9
+    SecCmsVSProcessingError = 9,
+    SecCmsVSTimestampMissing = 10,                      /* A timestamp was expected but was not found. */
+    SecCmsVSTimestampInvalid = 11,                      /* The timestamp was not valid. */
+    SecCmsVSTimestampNotTrusted = 12,                   /* The timestamp signing chain was not trusted. */
 } SecCmsVerificationStatus;
 
 /*!
@@ -470,6 +473,11 @@ typedef enum {
 	SEC_OID_SECP_384_R1 = 205,
 	SEC_OID_SECP_521_R1 = 206,
 	
+    /* RFC 3161 Timestamping OIDs */
+    SEC_OID_PKCS9_ID_CT_TSTInfo = 207,
+    SEC_OID_PKCS9_TIMESTAMP_TOKEN = 208,
+    SEC_OID_PKCS9_SIGNING_CERTIFICATE = 209,
+
     SEC_OID_TOTAL
 } SECOidTag;
 

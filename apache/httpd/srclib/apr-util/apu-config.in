@@ -56,7 +56,7 @@ Known values for OPTION are:
   --ldflags         print linker flags
   --libs            print library information
   --avoid-ldap      do not include ldap library information with --libs
-  --ldap-libs       print additional library information to link with ldap
+  --ldap-libs       print library information to link with ldap
   --avoid-dbm       do not include DBM library information with --libs
   --dbm-libs        print additional library information to link with DBM
   --srcdir          print APR-util source directory

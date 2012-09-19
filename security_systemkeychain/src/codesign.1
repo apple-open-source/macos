@@ -89,6 +89,11 @@ the specified file. The code being signed is not modified and need not be
 writable.
 When verifying, designates a file containing a detached signature to be used
 for verification. Any embedded signature in the code is ignored.
+.It Fl -deep-verify
+When verifying a bundle, specifies that 
+any bundles and executables that are contained as
+helper executables, frameworks, plugins or XPC services will be
+verified as well.
 .It Fl -detached-database
 When signing, specifies that a detached signature should be generated as with
 the --detached option, but that the resulting signature should be written into a system
@@ -175,7 +180,6 @@ By default, the binary "blob" header is returned intact; prefix the path with a 
 to automatically strip it off.
 If the signature has no entitlement data,
 nothing is written (this is not an error).
-
 .It Fl -extract-certificates Ar prefix
 When displaying a signature, extract the certificates in the embedded certificate chain
 and write them to individual files. The
@@ -246,6 +250,18 @@ always specify an explicit list of preserved items.
 During signing, this option overrides the default rules for collecting bundle
 resources to be sealed into the signature. The argument is the path to a
 property list (plist) file containing resource scanning instructions.
+.It Fl -timestamp Ar [ URL ]
+During signing, requests that a \fItimestamp authority server\fR
+be contacted to authenticate the time of signing. The server contacted is given by the \fIURL\fR value.
+If this option is given without a value, a default server provided by Apple is used.
+Note that this server may not support signatures made with identities not furnished by Apple.
+If the timestamp authority service cannot be contacted over the Internet, or it malfunctions
+or refuses service, the signing operation will \fBfail\fR.
+.br
+If this option is not given at all, a system-specific default behavior is invoked.
+This may result in some but not all code signatures being timestamped.
+.br
+The special value \fInone\fR explicitly disables the use of timestamp services.
 .El
 .Pp
 .Sh OPERATION
@@ -512,6 +528,7 @@ you need to make an explicit copy of your code and sign that.
 .Bl -tag -width "/var/db/DetachedSignatures" -compact
 .It Pa /var/db/DetachedSignatures
 System-wide database of detached code signatures for unsigned code.
+.El
 .Sh SEE ALSO
 .Xr csreq 1
 .Xr xcodebuild 1

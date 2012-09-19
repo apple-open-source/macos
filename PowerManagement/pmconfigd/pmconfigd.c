@@ -2036,7 +2036,6 @@ kern_return_t _io_pm_set_power_history_bookmark(
 	mach_port_t server,
 	string_t uuid_name)
 {
-/* deprecated in 10.7 */
   	return kIOReturnSuccess;
 }
 

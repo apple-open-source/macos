@@ -40,6 +40,21 @@ namespace CodeSigning {
 
 
 //
+// A helper to deal with the magic merger logic of internal requirements
+//
+class InternalRequirements : public Requirements::Maker {
+public:
+	InternalRequirements() : mReqs(NULL) { }
+	~InternalRequirements() { ::free((void *)mReqs); }
+	void operator () (const Requirements *given, const Requirements *defaulted, const Requirement::Context &context);
+	operator const Requirements * () const { return mReqs; }
+
+private:
+	const Requirements *mReqs;
+};
+
+
+//
 // A DiskRep::Writer that assembles data in a SuperBlob (in memory)
 //
 class BlobWriter : public DiskRep::Writer, public EmbeddedSignatureBlob::Maker {
@@ -162,6 +177,21 @@ private:
 	// finding and managing the helper tool
 	const char *mHelperPath;
 	bool mHelperOverridden;
+};
+
+
+//
+// A Requirement::Context populated from a signing request.
+// We use this to help generate the explicit Designated Requirement
+// during signing ops, and thus this must be constructed BEFORE we
+// actually have a signed object.
+//
+class PreSigningContext : public Requirement::Context {
+public:
+	PreSigningContext(const SecCodeSigner::Signer &signer);
+
+private:
+	CFRef<CFArrayRef> mCerts;		// hold cert chain
 };
 
 

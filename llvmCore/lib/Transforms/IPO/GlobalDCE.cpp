@@ -31,7 +31,9 @@ STATISTIC(NumVariables, "Number of global variables removed");
 namespace {
   struct GlobalDCE : public ModulePass {
     static char ID; // Pass identification, replacement for typeid
-    GlobalDCE() : ModulePass(&ID) {}
+    GlobalDCE() : ModulePass(ID) {
+      initializeGlobalDCEPass(*PassRegistry::getPassRegistry());
+    }
 
     // run - Do the GlobalDCE pass on the specified module, optionally updating
     // the specified callgraph to reflect the changes.
@@ -51,7 +53,8 @@ namespace {
 }
 
 char GlobalDCE::ID = 0;
-static RegisterPass<GlobalDCE> X("globaldce", "Dead Global Elimination");
+INITIALIZE_PASS(GlobalDCE, "globaldce",
+                "Dead Global Elimination", false, false)
 
 ModulePass *llvm::createGlobalDCEPass() { return new GlobalDCE(); }
 

@@ -89,7 +89,10 @@ enum {
 	errSecCSInfoPlistFailed =			-67030,	/* invalid Info.plist (plist or signature have been modified) */
 	errSecCSNoMainExecutable =			-67029,	/* the code has no main executable file */
 	errSecCSBadBundleFormat =			-67028,	/* bundle format unrecognized, invalid, or unsuitable */
-	errSecCSNoMatches =				-67027,	/* no matches for search or update operation */
+	errSecCSNoMatches =					-67027,	/* no matches for search or update operation */
+	errSecCSFileHardQuarantined =		-67026,	/* File created by an AppSandbox, exec/open not allowed */
+	errSecCSOutdated =					-67025,	/* presented data is out of date */
+	errSecCSDbCorrupt =					-67024,	/* a system database of file is corrupt */
 };
 
 

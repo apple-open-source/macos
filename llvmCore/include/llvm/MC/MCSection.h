@@ -14,7 +14,6 @@
 #ifndef LLVM_MC_MCSECTION_H
 #define LLVM_MC_MCSECTION_H
 
-#include <string>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Support/Casting.h"
@@ -23,7 +22,7 @@ namespace llvm {
   class MCContext;
   class MCAsmInfo;
   class raw_ostream;
-  
+
   /// MCSection - Instances of this class represent a uniqued identifier for a
   /// section in the current translation unit.  The MCContext class uniques and
   /// creates these.
@@ -32,8 +31,7 @@ namespace llvm {
     enum SectionVariant {
       SV_COFF = 0,
       SV_ELF,
-      SV_MachO,
-      SV_PIC16
+      SV_MachO
     };
 
   private:
@@ -49,7 +47,7 @@ namespace llvm {
     SectionKind getKind() const { return Kind; }
 
     SectionVariant getVariant() const { return Variant; }
-    
+
     virtual void PrintSwitchToSection(const MCAsmInfo &MAI,
                                       raw_ostream &OS) const = 0;
 
@@ -61,9 +59,17 @@ namespace llvm {
       return false;
     }
 
+    // UseCodeAlign - Return true if a .align directive should use
+    // "optimized nops" to fill instead of 0s.
+    virtual bool UseCodeAlign() const = 0;
+
+    /// isVirtualSection - Check whether this section is "virtual", that is
+    /// has no actual object file contents.
+    virtual bool isVirtualSection() const = 0;
+
     static bool classof(const MCSection *) { return true; }
   };
-  
+
 } // end namespace llvm
 
 #endif

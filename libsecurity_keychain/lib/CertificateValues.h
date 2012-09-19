@@ -51,6 +51,7 @@ public:
 	CFDataRef copySerialNumber(CFErrorRef *error);
 	CFDataRef getNormalizedIssuerContent(CFErrorRef *error);
 	CFDataRef getNormalizedSubjectContent(CFErrorRef *error);
+    bool SecCertificateIsValidX(CFAbsoluteTime verifyTime, CFErrorRef *error);
 
 private:
 

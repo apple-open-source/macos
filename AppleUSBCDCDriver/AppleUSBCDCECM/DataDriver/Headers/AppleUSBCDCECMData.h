@@ -92,7 +92,6 @@ private:
 
     bool			fNetifEnabled;
     bool			fWOL;
-    UInt8			fLinkStatus;
 	UInt32			fUpSpeed;
     UInt32			fDownSpeed;
 	bool			fSleeping;
@@ -146,6 +145,8 @@ public:
     
     UInt8			fConfigAttributes;
     UInt8			fEthernetaddr[6];
+	
+	UInt8			fLinkStatus;
 	
 	bool			fReady;
 	UInt8			fResetState;

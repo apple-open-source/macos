@@ -74,8 +74,11 @@ extern const char *procAction;			// action-on-process(es) requested
 extern Architecture architecture;		// specific binary architecture to process (from a universal file)
 extern const char *bundleVersion;		// specific version string requested (from a versioned bundle)
 extern bool noMachO;					// force non-MachO operation
-extern bool dryrun;					// do not actually change anything
+extern bool dryrun;						// do not actually change anything
 extern bool allArchitectures;			// process all architectures in a universal (aka fat) code file
+extern CFBooleanRef timestampRequest;	// timestamp request option
+extern bool noTSAcerts;					// Don't request certificates with ts request
+extern const char *tsaURL;				// TimeStamping Authority URL
 
 enum {
     kPreserveIdentifier = 1 << 0,		// preserve signing identifier
@@ -84,6 +87,12 @@ enum {
     kPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
 };
 extern int preserveMetadata;			// keep metadata from previous signature (if any)
+
+
+//
+// Configuration constants
+//
+static const unsigned int timestampSlop = 180; // allow 3 minutes between internal and external timestamps
 
 
 #endif //_H_CODESIGN

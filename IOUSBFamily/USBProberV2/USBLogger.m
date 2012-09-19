@@ -199,8 +199,13 @@
     static bool				calledOnce = false;
     
     if (calledOnce == false) {
-        [_listener usbLoggerTextAvailable:@"Timestamp Lvl  \tMessage\n" forLevel:0];
-        [_listener usbLoggerTextAvailable:@"--------- ---\t--------------------------------------\n" forLevel:0];
+#if 1
+        [_listener usbLoggerTextAvailable:@"Timestamp            Lvl  \tMessage\n" forLevel:0];
+        [_listener usbLoggerTextAvailable:@"-------------------  ---\t--------------------------------------\n" forLevel:0];
+#else
+		[_listener usbLoggerTextAvailable:@"Timestamp Lvl  \tMessage\n" forLevel:0];
+		[_listener usbLoggerTextAvailable:@"--------- ---\t--------------------------------------\n" forLevel:0];
+#endif
         gettimeofday(&initialTime, &tz);
 		initialTime64.tv_sec = initialTime.tv_sec;
 		initialTime64.tv_usec = initialTime.tv_usec;
@@ -292,7 +297,16 @@
         memcpy(&level, QBuffer+_T_STAMP+_TAG, _LEVEL);
         QBuffer[memSize+1] = 0;
         
-        logString = [[NSString alloc] initWithFormat:@"%5d.%3.3d [%d]\t%.*s\n",(uint32_t)(msgTime64.tv_sec-initialTime64.tv_sec),(uint32_t)(msgTime64.tv_usec/1000), level, (int)(memSize-_OFFSET), QBuffer+_OFFSET];
+#if 1
+		// Translate the kernel timestamp to a date stamp
+		time_t timeStamp = msgTime64.tv_sec;
+		UInt32 microseconds = msgTime64.tv_usec;
+		const char *timestr = asctime(localtime(&timeStamp));
+		
+        logString = [[NSString alloc] initWithFormat:@"%.15s.%03d  [%d]\t%.*s\n",&timestr[4], (microseconds / 1000), level, (int)(memSize-_OFFSET), QBuffer+_OFFSET];
+#else
+		logString = [[NSString alloc] initWithFormat:@"%5d.%3.3d [%d]\t%.*s\n",(uint32_t)(msgTime64.tv_sec-initialTime64.tv_sec),(uint32_t)(msgTime64.tv_usec/1000), level, (int)(memSize-_OFFSET), QBuffer+_OFFSET];
+#endif
         if (_isLogging)
             [_listener usbLoggerTextAvailable:logString forLevel:level];
         [logString release];

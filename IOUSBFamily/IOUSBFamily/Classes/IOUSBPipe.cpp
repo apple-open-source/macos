@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,7 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 //================================================================================================
 //
@@ -200,7 +199,7 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, I
     
 	IOUSBPipe *	me = new IOUSBPipe;
    
-	USBLog(6, "IOUSBPipe[%p]::ToEndpoint device %p, interface %p, ep: 0x%x,0x%x,%d,%d", me, device, interface, ed->bEndpointAddress, ed->bmAttributes, ed->wMaxPacketSize, ed->bInterval);
+	USBLog(6, "IOUSBPipe[%p]::ToEndpoint device %p(%s), interface %p, ep: 0x%x,0x%x,%d,%d", me, device, device->getName(), interface, ed->bEndpointAddress, ed->bmAttributes, ed->wMaxPacketSize, ed->bInterval);
 	
 	if ( me && interface)
 	{
@@ -283,13 +282,25 @@ IOUSBPipe::free()
 IOReturn 
 IOUSBPipe::Abort(void)
 {
-    USBLog(5,"IOUSBPipe[%p]::AbortPipe",this);
-    if (_CORRECTSTATUS != 0)
+#ifdef SUPPORTS_SS_USB
+	IOUSBPipeV2		*pipev2 = OSDynamicCast(IOUSBPipeV2, this);
+	
+	if ( pipev2 )
 	{
-        USBLog(2, "IOUSBPipe[%p]::Abort setting status to 0", this);
+		USBLog(5,"IOUSBPipe[%p]::AbortPipe  calling through to IOUSBPipeV2::Abort(kUSBAllStreams)",this);
+		return pipev2->Abort(kUSBAllStreams);
 	}
-    _CORRECTSTATUS = 0;
-    return _controller->AbortPipe(_address, &_endpoint);
+	else
+#endif
+	{
+		USBLog(5,"IOUSBPipe[%p]::AbortPipe",this);
+		if (_CORRECTSTATUS != 0)
+		{
+			USBLog(2, "IOUSBPipe[%p]::Abort setting status to 0", this);
+		}
+		_CORRECTSTATUS = 0;
+		return _controller->AbortPipe(_address, &_endpoint);
+	}
 }
 
 
@@ -302,10 +313,10 @@ IOUSBPipe::Abort(void)
 IOReturn 
 IOUSBPipe::Reset(void)
 {
-    USBLog(5,"+IOUSBPipe[%p]::ResetPipe",this);
+    USBLog(7,"IOUSBPipe[%p]::Reset",this);
     if (_CORRECTSTATUS != 0)
 	{
-        USBLog(2, "IOUSBPipe[%p]::ResetPipe setting status to 0", this);
+        USBLog(2, "IOUSBPipe[%p]::Reset setting status to 0", this);
 	}
     _CORRECTSTATUS = 0;
     return _controller->ResetPipe(_address, &_endpoint);
@@ -386,10 +397,17 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	}
 	
 	
-    if (_DEVICE->GetSpeed() == kUSBDeviceSpeedHigh)
+#ifdef SUPPORTS_SS_USB
+    if ((_DEVICE->GetSpeed() == kUSBDeviceSpeedHigh) || (_DEVICE->GetSpeed() == kUSBDeviceSpeedSuper))
     {
-		USBLog(5,"IOUSBPipe[%p]::ClearPipeStall - High Speed Device, no clear TT needed",this);
+		USBLog(6,"IOUSBPipe[%p]::ClearPipeStall - HiSpeed or SuperSpeedDevice, no clear TT needed",this);
     }
+#else
+    if ( _DEVICE->GetSpeed() == kUSBDeviceSpeedHigh )
+    {
+		USBLog(6,"IOUSBPipe[%p]::ClearPipeStall - High Speed Device, no clear TT needed",this);
+    }
+#endif
     else if (!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
     {
 		USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Bulk or Control endpoint, clear TT",this);
@@ -610,77 +628,92 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 IOReturn 
 IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletion *completion, IOByteCount *bytesRead)
 {
-    IOReturn	err = kIOReturnSuccess;
+#ifdef SUPPORTS_SS_USB
+	IOUSBPipeV2		*pipev2 = OSDynamicCast(IOUSBPipeV2, this);
 	
-    USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
-	// USBTrace_Start( kUSBTPipe, kTPBulkPipeRead, _address, _endpoint.number , _endpoint.transferType, reqCount );
-	
-    if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
-    {
-        USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
-		return kIOReturnBadArgument;
-    }
-	
-    if (!buffer || (buffer->getLength() < reqCount))
-    {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
-        return kIOReturnBadArgument;
-    }
-	
-    if (_CORRECTSTATUS == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Read - invalid read on a stalled pipe", this);
-        return kIOUSBPipeStalled;
-    }
-	
-    if (completion == NULL)
-    {
-        // put in our own completion routine if none was specified to
-        // fake synchronous operation
-        IOUSBCompletion	tap;
+	if ( pipev2 )
+	{
+		return pipev2->Read(0, buffer, noDataTimeout, completionTimeout, reqCount, completion, bytesRead);
+	}
+	else
+#endif
+	{
+		IOReturn	err = kIOReturnSuccess;
 		
-        if (bytesRead)
-            *bytesRead = reqCount;
+		USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+		USBTrace_Start( kUSBTPipe, kTPBulkPipeRead, _address, _endpoint.number , _endpoint.transferType, reqCount );
 		
-		// The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
-		//
-        tap.target = NULL;
-        tap.action = &IOUSBSyncCompletion;
-        tap.parameter = bytesRead;
-		
-        err = _controller->Read(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
-        if (err != kIOReturnSuccess)
-        {
-            // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
-            {
-                USBLog(2, "IOUSBPipe[%p]::Read  - i/o err (0x%x) on sync call - stalling pipe", this, err);
-                _CORRECTSTATUS = kIOUSBPipeStalled;
-            }
-        }
-    }
-    else
-    {
-		if (completion->action == NULL)
+		if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
 		{
-			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
-			USBTrace(kUSBTPipe,  kTPBulkPipeRead, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
+			USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
 			return kIOReturnBadArgument;
 		}
-        err = _controller->Read(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
-    }
-	
-    if (err == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Read  - controller returned stalled pipe, changing status", this);
-        _CORRECTSTATUS = kIOUSBPipeStalled;
-    }
-	
-	// USBTrace_End( kUSBTPipe, kTPBulkPipeRead, (uintptr_t)this, err);
-	
-    return(err);
+		
+		if (!buffer || (buffer->getLength() < reqCount))
+		{
+			USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
+			return kIOReturnBadArgument;
+		}
+		
+		if (_CORRECTSTATUS == kIOUSBPipeStalled)
+		{
+			USBLog(2, "IOUSBPipe[%p]::Read - invalid read on a stalled pipe", this);
+			return kIOUSBPipeStalled;
+		}
+		
+		if (completion == NULL)
+		{
+			// put in our own completion routine if none was specified to
+			// fake synchronous operation
+			IOUSBCompletion	tap;
+			
+			if (bytesRead)
+				*bytesRead = reqCount;
+			
+			// The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
+			//
+			tap.target = NULL;
+			tap.action = &IOUSBSyncCompletion;
+			tap.parameter = bytesRead;
+			
+			err = _controller->Read(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
+			if (err != kIOReturnSuccess)
+			{
+				// any err coming back in the callback indicates a stalled pipe
+            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
+				{
+					USBLog(2, "IOUSBPipe[%p]::Read(sync)  returned 0x%x (%s) - stalling pipe", this, err, USBStringFromReturn(err));
+					_CORRECTSTATUS = kIOUSBPipeStalled;
+				}
+			}
+		}
+		else
+		{
+			if (completion->action == NULL)
+			{
+				USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+				USBTrace(kUSBTPipe,  kTPBulkPipeRead, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
+				return kIOReturnBadArgument;
+			}
+			err = _controller->Read(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
+		}
+		
+		if (err == kIOUSBPipeStalled)
+		{
+			USBLog(2, "IOUSBPipe[%p]::Read  - controller returned stalled pipe, changing status", this);
+			_CORRECTSTATUS = kIOUSBPipeStalled;
+		}
+		
+ 		if ( err == kIOUSBTransactionTimeout )
+		{
+			USBLog(1, "IOUSBPipe[%p]::Read - Location: 0x%x returned a kIOUSBTransactionTimeout", this, (uint32_t)_DEVICE->_expansionData->_locationID);
+		}
+		
+		USBTrace_End( kUSBTPipe, kTPBulkPipeRead, (uintptr_t)this, _address, _endpoint.number, err);
+		
+		return(err);
+	}
 }
-
 
 IOReturn
 IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletionWithTimeStamp *completionWithTimeStamp, IOByteCount *bytesRead)
@@ -696,7 +729,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     }
     
     USBLog(7, "IOUSBPipe[%p]::Read #4 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
-	// USBTrace_Start( kUSBTPipe, kTPIBulkReadTS, _address, _endpoint.number , _endpoint.transferType, reqCount );
+	USBTrace_Start( kUSBTPipe, kTPIBulkReadTS, _address, _endpoint.number , _endpoint.transferType, reqCount );
 	
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
@@ -759,7 +792,11 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         _CORRECTSTATUS = kIOUSBPipeStalled;
     }
 	
-	// USBTrace_End( kUSBTPipe, kTPIBulkReadTS, (uintptr_t)this);
+	if ( err == kIOUSBTransactionTimeout )
+	{
+		USBLog(1, "IOUSBPipe[%p]::Read #4 - Location: 0x%x returned a kIOUSBTransactionTimeout", this, (uint32_t)_DEVICE->_expansionData->_locationID);
+	}
+	USBTrace_End( kUSBTPipe, kTPIBulkReadTS, (uintptr_t)this, _address, _endpoint.number, err);
 	
     return(err);
 }
@@ -797,72 +834,87 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 IOReturn 
 IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletion *completion)
 {
-    IOReturn	err = kIOReturnSuccess;
+#ifdef SUPPORTS_SS_USB
+	IOUSBPipeV2		*pipev2 = OSDynamicCast(IOUSBPipeV2, this);
 	
-    USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
-	// USBTrace_Start( kUSBTPipe, kTPBulkPipeWrite, _address, _endpoint.number , _endpoint.transferType, reqCount );
-	
-    if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
-    {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
-		return kIOReturnBadArgument;
-    }
-	
-    if (!buffer || (buffer->getLength() < reqCount))
-    {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
-		return kIOReturnBadArgument;
-    }
-	
-    if (_CORRECTSTATUS == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Write - invalid write on a stalled pipe", this);
-        return kIOUSBPipeStalled;
-    }
-	
-    if (completion == NULL)
-    {
-        // put in our own completion routine if none was specified to
-        // fake synchronous operation
-        IOUSBCompletion	tap;
+	if ( pipev2 )
+	{
+		return pipev2->Write(0, buffer, noDataTimeout, completionTimeout, reqCount, completion);
+	}
+	else
+#endif
+	{
+		IOReturn	err = kIOReturnSuccess;
 		
-        // The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
-        //
-        tap.target = NULL;
-        tap.action = &IOUSBSyncCompletion;
-        tap.parameter = NULL;
+		USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+		USBTrace_Start( kUSBTPipe, kTPBulkPipeWrite, _address, _endpoint.number , _endpoint.transferType, reqCount );
 		
-        err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
-        if (err != kIOReturnSuccess)
-        {
-            // any err coming back in the callback indicates a stalled pipe
-            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
-            {
-                USBLog(2, "IOUSBPipe[%p]::Write  - i/o err (0x%x) on sync call - stalling pipe", this, err);
-                _CORRECTSTATUS = kIOUSBPipeStalled;
-            }
-        }
-    }
-    else
-    {
-		if (completion->action == NULL)
+		if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
 		{
-			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
-			USBTrace(kUSBTPipe,  kTPBulkPipeWrite, (uintptr_t)this, kIOReturnBadArgument, 0, 0 );
+			USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
 			return kIOReturnBadArgument;
 		}
-        err = _controller->Write(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
-    }
-	
-    if (err == kIOUSBPipeStalled)
-    {
-        USBLog(2, "IOUSBPipe[%p]::Write - controller returned stalled pipe, changing status", this);
-        _CORRECTSTATUS = kIOUSBPipeStalled;
-    }
-	
-	// USBTrace_End( kUSBTPipe, kTPBulkPipeWrite, (uintptr_t)this, err);
-	
-    return err;
+		
+		if (!buffer || (buffer->getLength() < reqCount))
+		{
+			USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
+			return kIOReturnBadArgument;
+		}
+		
+		if (_CORRECTSTATUS == kIOUSBPipeStalled)
+		{
+			USBLog(2, "IOUSBPipe[%p]::Write - invalid write on a stalled pipe", this);
+			return kIOUSBPipeStalled;
+		}
+		
+		if (completion == NULL)
+		{
+			// put in our own completion routine if none was specified to
+			// fake synchronous operation
+			IOUSBCompletion	tap;
+			
+			// The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
+			//
+			tap.target = NULL;
+			tap.action = &IOUSBSyncCompletion;
+			tap.parameter = NULL;
+			
+			err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
+			if (err != kIOReturnSuccess)
+			{
+				// any err coming back in the callback indicates a stalled pipe
+            if (err && (err != kIOUSBTransactionTimeout) && (err != kIOReturnAborted))
+				{
+					USBLog(2, "IOUSBPipe[%p]::Write(sync)  returned 0x%x (%s) - stalling pipe", this, err, USBStringFromReturn(err));
+					_CORRECTSTATUS = kIOUSBPipeStalled;
+				}
+			}
+		}
+		else
+		{
+			if (completion->action == NULL)
+			{
+				USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+				USBTrace(kUSBTPipe,  kTPBulkPipeWrite, (uintptr_t)this, kIOReturnBadArgument, 0, 0 );
+				return kIOReturnBadArgument;
+			}
+			err = _controller->Write(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
+		}
+		
+		if (err == kIOUSBPipeStalled)
+		{
+			USBLog(2, "IOUSBPipe[%p]::Write - controller returned stalled pipe, changing status", this);
+			_CORRECTSTATUS = kIOUSBPipeStalled;
+		}
+		
+ 		if ( err == kIOUSBTransactionTimeout )
+		{
+			USBLog(1, "IOUSBPipe[%p]::Write - Location: 0x%x returned a kIOUSBTransactionTimeout", this, (uint32_t)_DEVICE->_expansionData->_locationID);
+		}
+		USBTrace_End( kUSBTPipe, kTPBulkPipeWrite, (uintptr_t)this, _address, _endpoint.number, err);
+		
+		return err;
+	}
 }
 
 

@@ -25,7 +25,7 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
-#define VersionNumber   "4.1.17"
+#define VersionNumber   "4.1.22"
 
     // USB CDC Common Defintions
 		
@@ -36,6 +36,8 @@
 #define kUSBMobileDirectLineModel	10
 #define kUSBOBEXModel			11
 #define kUSBEthernetEmulationModel  12
+#define kUSBNetworkControlModel  13
+#define kUSBMobileBroadbandInterfaceModel 14
 
 #define kUSBv25				1
 #define kUSBv25PCCA			2
@@ -43,6 +45,8 @@
 #define kUSBv25GSM			4
 #define kUSBv253GPPP			5
 #define kUSBv25CS			6
+
+#define kNetworkTransferBlock	1
 
 enum
 {
@@ -79,7 +83,44 @@ enum
     kUSBNETWORK_CONNECTION 		= 0,			// Notifications
     kUSBRESPONSE_AVAILABLE 		= 1,
     kUSBSERIAL_STATE 			= 0x20,
-    kUSBCONNECTION_SPEED_CHANGE		= 0x2A
+    kUSBCONNECTION_SPEED_CHANGE	= 0x2A
+};
+
+typedef struct
+{
+    UInt8 	bmRequestType;
+    UInt8 	bNotification;
+	UInt16	wValue;
+	UInt16	wIndex;
+	UInt16	wLength;
+} __attribute__((packed)) Notification;
+
+typedef struct
+{
+    Notification	header;
+	UInt16			UART_State_Bit_Map;
+} __attribute__((packed)) SerialState;
+
+typedef struct
+{
+    Notification	header;
+	UInt32			USBitRate;
+	UInt32			DSBitRate;
+} __attribute__((packed)) ConnectionSpeedChange;
+
+enum
+{
+	kGet_NTB_Parameters			= 0x80,
+	kGet_NET_Address			= 0x81,
+	kSet_NET_Address			= 0x82,
+	kGet_NTB_Format				= 0x83,
+	kSet_NTB_Format				= 0x84,
+	kGet_NTB_Input_Size			= 0x85,
+	kSet_NTB_Input_Size			= 0x86,
+	kGet_MAX_Datagram_Size		= 0x87,
+	kSet_MAX_Datagram_Size		= 0x88,
+	kGet_CRC_Mode				= 0x89,
+	kSet_CRC_Mode				= 0x8A
 };
 
 enum
@@ -96,6 +137,8 @@ enum
     DMM_FunctionalDescriptor	= 0x14,
     OBEX_FunctionalDescriptor	= 0x15,
 	EEM_Functional_Descriptor	= 0xff,
+	NCM_Functional_Descriptor	= 0x1A,
+	MBIM_Functional_Descriptor	= 0x1B,
 		
     CM_ManagementData		= 0x01,
     CM_ManagementOnData		= 0x02,
@@ -265,6 +308,144 @@ typedef struct
 	UInt8	bFunctionProtocol;
 	UInt8	iFunction;
 } IADDescriptor;
+	
+typedef struct
+{
+    UInt8 	bFunctionLength;
+    UInt8 	bDescriptorType;
+    UInt8 	bDescriptorSubtype;
+    UInt16 	bcdNcmVersion;
+    UInt8 	bmNetworkingCapabilities;
+} __attribute__((packed)) NCMFunctionalDescriptor;
+
+typedef struct
+{
+    UInt8 	bFunctionLength;
+    UInt8 	bDescriptorType;
+    UInt8 	bDescriptorSubtype;
+    UInt16 	bcdMBIMVersion;
+	UInt16	wMaxControlMessage;
+	UInt8	bNumberFilters;
+	UInt8	bMaxFilterSize;
+	UInt16	wMaxSegmentSize;
+    UInt8 	bmNetworkingCapabilities;
+} __attribute__((packed)) MBIMFunctionalDescriptor;
+
+	// NCM/MBIM definitions
+	
+typedef struct
+{
+    UInt16 	wLength;
+    UInt16 	bmNtbFormatsSupported;
+    UInt32 	dwNtbInMaxSize;
+    UInt16 	wNdpInDivisor;
+    UInt16 	wNdpInPayloadRemainder;
+	UInt16 	wNdpInAlignment;
+	UInt16	wReserved;
+	UInt32 	dwNtbOutMaxSize;
+    UInt16 	wNdpOutDivisor;
+    UInt16 	wNdpOutPayloadRemainder;
+	UInt16 	wNdpOutAlignment;
+	UInt16	wNtbOutMaxDatagrams;
+} __attribute__((packed)) NTBParameters;
+
+typedef struct
+{
+    UInt32 	dwNtbInMaxSize;
+    UInt16 	wNtbInMaxDatagrams;
+	UInt16	wReserved;
+} __attribute__((packed)) NTBInSize;
+
+#define NCM_Support_Packet_Filter		0x01
+#define NCM_Support_Net_Address			0x02
+#define NCM_Support_Encapsulated		0x04
+#define NCM_Support_Max_Datagram_Size	0x08
+#define NCM_Support_CRC_Mode			0x10
+#define NCM_Support_NTB_Size_8_Byte		0x20
+
+#define NCM_Format_Support_NTB16		0x01
+#define NCM_Format_Support_NTB32		0x02
+
+#define NCM_Format_Selection_NTB16		0x00
+#define NCM_Format_Selection_NTB32		0x01
+
+#define NCM_CRC_Mode_NotAppend			0x00
+#define NCM_CRC_Mode_Append				0x01
+
+#define NCM_NO_CRC32					0x30
+#define NCM_WITH_CRC32					0x31
+
+#define NCM_MAX_OUT						16				// Arbitrary for unlimited datagrams
+
+#define NTH16_Signature                 0x484D434E		// NCMH
+#define NTH32_Signature					0x686D636E		// ncmh
+
+#define NCM16_Signature_NoCRC           0x304D434E		// NCM0
+#define NCM16_Signature_CRC             0x314D434E		// NCM1
+#define NCM32_Signature_NoCRC           0x306D636E		// ncm0
+#define NCM32_Signature_CRC             0x316D636E		// ncm1
+
+typedef struct
+{
+    UInt32 	dwSignature;
+    UInt16 	wHeaderLength;
+	UInt16	wSequence;
+	UInt16	wBlockLength;
+	UInt16	wNdpIndex;
+} __attribute__((packed)) NTH16;
+
+typedef struct
+{
+    UInt32 	dwSignature;
+    UInt16 	wHeaderLength;
+	UInt16	wSequence;
+	UInt32	wBlockLength;
+	UInt32	wNdpIndex;
+} __attribute__((packed)) NTH32;
+
+typedef struct
+{
+    UInt32		dwSignature;
+    UInt16		wLength;
+	UInt16		wNextNdpIndex;
+} __attribute__((packed)) NDP16;
+
+typedef struct
+{
+    UInt16 	wDatagramIndex;
+	UInt16	wDatagramLength;
+	UInt16	wDatagramIndex_Next;
+} __attribute__((packed)) DPIndex16;
+
+typedef struct
+{
+    NDP16		ndp16;
+	DPIndex16	dp16;
+	DPIndex16	dp16_Next;
+} __attribute__((packed)) FullNDP16;
+
+typedef struct
+{
+    UInt32		dwSignature;
+    UInt16		wLength;
+	UInt16		wReserved6;
+	UInt32		dwNextNdpIndex;
+	UInt32		dwReserved12;
+} __attribute__((packed)) NDP32;
+
+typedef struct
+{
+    UInt32 	wDatagramIndex;
+	UInt32	wDatagramLength;
+	UInt32	wDatagramIndex_Next;
+} __attribute__((packed)) DPIndex32;
+
+typedef struct
+{
+    NDP32		ndp32;
+	DPIndex32	dp32;
+	DPIndex32	dp32_Next;
+} __attribute__((packed)) FullNDP32;
 
     // Inline conversions
 	

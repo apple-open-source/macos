@@ -33,9 +33,9 @@ namespace CodeSigning {
 
 
 void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutableDictionaryRef result);
-bool xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context);
+CFDictionaryRef xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
+    CF_RETURNS_RETAINED;
 bool xpcEngineControl(const char *name);
-
 
 
 } // end namespace CodeSigning

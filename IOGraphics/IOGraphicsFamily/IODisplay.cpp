@@ -25,6 +25,7 @@
 #include <IOKit/IOUserClient.h>
 
 #define IOFRAMEBUFFER_PRIVATE
+#include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/graphics/IODisplay.h>
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/IOPlatformExpert.h>
@@ -295,15 +296,37 @@ void IODisplayUpdateNVRAM( IOService * entry, OSData * property )
     }
 }
 
+void IODisplay::searchParameterHandlers(IORegistryEntry * entry)
+{
+    IORegistryIterator *        iter;
+    IODisplayParameterHandler * parameterHandler;
+
+    iter = IORegistryIterator::iterateOver(entry, gIOServicePlane,
+                                           kIORegistryIterateRecursively);
+    if (!iter) return;
+	do
+	{
+		iter->reset();
+		while( (entry = iter->getNextObject()))
+		{
+			if (!(parameterHandler = OSDynamicCast(IODisplayParameterHandler, entry)))
+				continue;
+			addParameterHandler(parameterHandler);
+		}
+	} 
+	while (!iter->isValid());
+	iter->release();
+}
+
 bool IODisplay::start( IOService * provider )
 {
     IOFramebuffer *     framebuffer;
-    IOService *         client;
     uintptr_t           connectFlags;
     OSData *            edidData;
     EDID *              edid;
-    UInt32              vendor = 0;
-    UInt32              product = 0;
+    uint32_t            vendor = 0;
+    uint32_t            product = 0;
+    uint32_t            serial = 0;
 
     if (!super::start(provider))
         return (false);
@@ -340,8 +363,14 @@ bool IODisplay::start( IOService * provider )
             // product
             product = (edid->vendorProduct[3] << 8) | edid->vendorProduct[2];
 
-            DEBG(framebuffer->thisName, " vendor/product 0x%02x/0x%02x\n", 
-                    (uint32_t) vendor, (uint32_t) product );
+			serial = (edid->serialNumber[3] << 24)
+				   | (edid->serialNumber[2] << 16)
+				   | (edid->serialNumber[1] << 8)
+				   | (edid->serialNumber[0]);
+			if (serial == 0x01010101) serial = 0;
+
+            DEBG(framebuffer->thisName, " vendor/product/serial 0x%02x/0x%02x/0x%x\n", 
+											vendor, product, serial );
         }
         while (false);
     }
@@ -386,6 +415,8 @@ bool IODisplay::start( IOService * provider )
         setProperty( kDisplayVendorID, vendor, 32);
     if (0 == getProperty(kDisplayProductID))
         setProperty( kDisplayProductID, product, 32);
+    if (0 == getProperty(kDisplaySerialNumber))
+        setProperty( kDisplaySerialNumber, serial, 32);
 
     enum
     {
@@ -432,54 +463,24 @@ bool IODisplay::start( IOService * provider )
 
     // display parameter hooks
 
-    IOService *                 look = this;
-    IODisplayParameterHandler * parameterHandler = 0;
+    IODisplayParameterHandler * parameterHandler;
 
-    IORegistryEntry * entry;
-    IORegistryIterator * iter;
-
-    iter = IORegistryIterator::iterateOver(framebuffer, gIOServicePlane,
-                                           kIORegistryIterateRecursively);
-    if(iter)
-    {
-        do
-        {
-            iter->reset();
-            while( (entry = iter->getNextObject()))
-            {
-                if (!(parameterHandler = OSDynamicCast(IODisplayParameterHandler, entry)))
-                    continue;
-                addParameterHandler(parameterHandler);
-            }
-        } 
-        while (!iter->isValid());
-        iter->release();
-    }
+	searchParameterHandlers(framebuffer);
 
     if (OSDynamicCast(IOBacklightDisplay, this))
     {
         OSDictionary * matching = nameMatching("backlight");
         OSIterator *   iter = NULL;
+        IOService  *   look;
         if (matching)
         {
             iter = getMatchingServices(matching);
             matching->release();
         }
-
         if (iter)
         {
-            parameterHandler = NULL;
-            client = NULL;
             look = OSDynamicCast(IOService, iter->getNextObject());
-            if (look)
-                client = look->copyClientWithCategory(gIODisplayParametersKey);
-            parameterHandler = OSDynamicCast(IODisplayParameterHandler, client);
-            if (parameterHandler)
-            {
-                addParameterHandler(parameterHandler);
-            }
-            if (client)
-                client->release();
+            if (look) searchParameterHandlers(look);
             iter->release();
         }
     }
@@ -584,6 +585,8 @@ void IODisplay::stop( IOService * provider )
         fNotifier->remove();
         fNotifier = 0;
     }
+
+	removeProperty(gIODisplayParametersKey);
 }
 
 void IODisplay::free()

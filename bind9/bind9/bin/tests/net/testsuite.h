@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: testsuite.h,v 1.7 2007-06-19 23:47:00 tbox Exp $ */
+/* $Id: testsuite.h,v 1.7 2007/06/19 23:47:00 tbox Exp $ */
 
 #define SUITENAME "net"
 

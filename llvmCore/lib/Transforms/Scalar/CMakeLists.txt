@@ -1,34 +1,43 @@
 add_llvm_library(LLVMScalarOpts
-  ABCD.cpp
   ADCE.cpp
   BasicBlockPlacement.cpp
   CodeGenPrepare.cpp
   ConstantProp.cpp
+  CorrelatedValuePropagation.cpp
   DCE.cpp
   DeadStoreElimination.cpp
-  GEPSplitter.cpp
+  EarlyCSE.cpp
+  GlobalMerge.cpp
   GVN.cpp
   IndVarSimplify.cpp
   JumpThreading.cpp
   LICM.cpp
   LoopDeletion.cpp
-  LoopIndexSplit.cpp
+  LoopIdiomRecognize.cpp
+  LoopInstSimplify.cpp
   LoopRotation.cpp
   LoopStrengthReduce.cpp
   LoopUnrollPass.cpp
   LoopUnswitch.cpp
+  LowerAtomic.cpp
   MemCpyOptimizer.cpp
+  ObjCARC.cpp
   Reassociate.cpp
   Reg2Mem.cpp
   SCCP.cpp
   Scalar.cpp
   ScalarReplAggregates.cpp
   SimplifyCFGPass.cpp
-  SimplifyHalfPowrLibCalls.cpp
   SimplifyLibCalls.cpp
   Sink.cpp
-  TailDuplication.cpp
   TailRecursionElimination.cpp
   )
 
-target_link_libraries (LLVMScalarOpts LLVMTransformUtils)
+add_llvm_library_dependencies(LLVMScalarOpts
+  LLVMAnalysis
+  LLVMCore
+  LLVMInstCombine
+  LLVMSupport
+  LLVMTarget
+  LLVMTransformUtils
+  )

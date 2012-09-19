@@ -33,7 +33,7 @@
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetFrameInfo.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/GraphWriter.h"
@@ -52,19 +52,24 @@ void ilist_traits<MachineBasicBlock>::deleteNode(MachineBasicBlock *MBB) {
 }
 
 MachineFunction::MachineFunction(const Function *F, const TargetMachine &TM,
-                                 unsigned FunctionNum, MachineModuleInfo &mmi)
-  : Fn(F), Target(TM), Ctx(mmi.getContext()), MMI(mmi) {
+                                 unsigned FunctionNum, MachineModuleInfo &mmi,
+                                 GCModuleInfo* gmi)
+  : Fn(F), Target(TM), Ctx(mmi.getContext()), MMI(mmi), GMI(gmi) {
   if (TM.getRegisterInfo())
     RegInfo = new (Allocator) MachineRegisterInfo(*TM.getRegisterInfo());
   else
     RegInfo = 0;
   MFInfo = 0;
-  FrameInfo = new (Allocator) MachineFrameInfo(*TM.getFrameInfo());
+  FrameInfo = new (Allocator) MachineFrameInfo(*TM.getFrameLowering());
   if (Fn->hasFnAttr(Attribute::StackAlignment))
     FrameInfo->setMaxAlignment(Attribute::getStackAlignmentFromAttrs(
         Fn->getAttributes().getFnAttributes()));
   ConstantPool = new (Allocator) MachineConstantPool(TM.getTargetData());
-  Alignment = TM.getTargetLowering()->getFunctionAlignment(F);
+  Alignment = TM.getTargetLowering()->getMinFunctionAlignment();
+  // FIXME: Shouldn't use pref alignment if explicit alignment is set on Fn.
+  if (!Fn->hasFnAttr(Attribute::OptimizeForSize))
+    Alignment = std::max(Alignment,
+                         TM.getTargetLowering()->getPrefFunctionAlignment());
   FunctionNumber = FunctionNum;
   JumpTableInfo = 0;
 }
@@ -147,10 +152,10 @@ void MachineFunction::RenumberBlocks(MachineBasicBlock *MBB) {
 /// of `new MachineInstr'.
 ///
 MachineInstr *
-MachineFunction::CreateMachineInstr(const TargetInstrDesc &TID,
+MachineFunction::CreateMachineInstr(const MCInstrDesc &MCID,
                                     DebugLoc DL, bool NoImp) {
   return new (InstructionRecycler.Allocate<MachineInstr>(Allocator))
-    MachineInstr(TID, DL, NoImp);
+    MachineInstr(MCID, DL, NoImp);
 }
 
 /// CloneMachineInstr - Create a new MachineInstr which is a copy of the
@@ -190,20 +195,21 @@ MachineFunction::DeleteMachineBasicBlock(MachineBasicBlock *MBB) {
 }
 
 MachineMemOperand *
-MachineFunction::getMachineMemOperand(const Value *v, unsigned f,
-                                      int64_t o, uint64_t s,
-                                      unsigned base_alignment) {
-  return new (Allocator) MachineMemOperand(v, f, o, s, base_alignment);
+MachineFunction::getMachineMemOperand(MachinePointerInfo PtrInfo, unsigned f,
+                                      uint64_t s, unsigned base_alignment,
+                                      const MDNode *TBAAInfo) {
+  return new (Allocator) MachineMemOperand(PtrInfo, f, s, base_alignment,
+                                           TBAAInfo);
 }
 
 MachineMemOperand *
 MachineFunction::getMachineMemOperand(const MachineMemOperand *MMO,
                                       int64_t Offset, uint64_t Size) {
   return new (Allocator)
-             MachineMemOperand(MMO->getValue(), MMO->getFlags(),
-                               int64_t(uint64_t(MMO->getOffset()) +
-                                       uint64_t(Offset)),
-                               Size, MMO->getBaseAlignment());
+             MachineMemOperand(MachinePointerInfo(MMO->getValue(),
+                                                  MMO->getOffset()+Offset),
+                               MMO->getFlags(), Size,
+                               MMO->getBaseAlignment(), 0);
 }
 
 MachineInstr::mmo_iterator
@@ -231,10 +237,10 @@ MachineFunction::extractLoadMemRefs(MachineInstr::mmo_iterator Begin,
       else {
         // Clone the MMO and unset the store flag.
         MachineMemOperand *JustLoad =
-          getMachineMemOperand((*I)->getValue(),
+          getMachineMemOperand((*I)->getPointerInfo(),
                                (*I)->getFlags() & ~MachineMemOperand::MOStore,
-                               (*I)->getOffset(), (*I)->getSize(),
-                               (*I)->getBaseAlignment());
+                               (*I)->getSize(), (*I)->getBaseAlignment(),
+                               (*I)->getTBAAInfo());
         Result[Index] = JustLoad;
       }
       ++Index;
@@ -263,10 +269,10 @@ MachineFunction::extractStoreMemRefs(MachineInstr::mmo_iterator Begin,
       else {
         // Clone the MMO and unset the load flag.
         MachineMemOperand *JustStore =
-          getMachineMemOperand((*I)->getValue(),
+          getMachineMemOperand((*I)->getPointerInfo(),
                                (*I)->getFlags() & ~MachineMemOperand::MOLoad,
-                               (*I)->getOffset(), (*I)->getSize(),
-                               (*I)->getBaseAlignment());
+                               (*I)->getSize(), (*I)->getBaseAlignment(),
+                               (*I)->getTBAAInfo());
         Result[Index] = JustStore;
       }
       ++Index;
@@ -279,7 +285,7 @@ void MachineFunction::dump() const {
   print(dbgs());
 }
 
-void MachineFunction::print(raw_ostream &OS) const {
+void MachineFunction::print(raw_ostream &OS, SlotIndexes *Indexes) const {
   OS << "# Machine code for function " << Fn->getName() << ":\n";
 
   // Print Frame Information
@@ -298,37 +304,25 @@ void MachineFunction::print(raw_ostream &OS) const {
     OS << "Function Live Ins: ";
     for (MachineRegisterInfo::livein_iterator
          I = RegInfo->livein_begin(), E = RegInfo->livein_end(); I != E; ++I) {
-      if (TRI)
-        OS << "%" << TRI->getName(I->first);
-      else
-        OS << " %physreg" << I->first;
-      
+      OS << PrintReg(I->first, TRI);
       if (I->second)
-        OS << " in reg%" << I->second;
-
+        OS << " in " << PrintReg(I->second, TRI);
       if (llvm::next(I) != E)
         OS << ", ";
     }
     OS << '\n';
   }
   if (RegInfo && !RegInfo->liveout_empty()) {
-    OS << "Function Live Outs: ";
+    OS << "Function Live Outs:";
     for (MachineRegisterInfo::liveout_iterator
-         I = RegInfo->liveout_begin(), E = RegInfo->liveout_end(); I != E; ++I){
-      if (TRI)
-        OS << '%' << TRI->getName(*I);
-      else
-        OS << "%physreg" << *I;
-
-      if (llvm::next(I) != E)
-        OS << " ";
-    }
+         I = RegInfo->liveout_begin(), E = RegInfo->liveout_end(); I != E; ++I)
+      OS << ' ' << PrintReg(*I, TRI);
     OS << '\n';
   }
   
   for (const_iterator BB = begin(), E = end(); BB != E; ++BB) {
     OS << '\n';
-    BB->print(OS);
+    BB->print(OS, Indexes);
   }
 
   OS << "\n# End machine code for function " << Fn->getName() << ".\n\n";
@@ -346,17 +340,15 @@ namespace llvm {
 
     std::string getNodeLabel(const MachineBasicBlock *Node,
                              const MachineFunction *Graph) {
-      if (isSimple () && Node->getBasicBlock() &&
-          !Node->getBasicBlock()->getName().empty())
-        return Node->getBasicBlock()->getNameStr() + ":";
-
       std::string OutStr;
       {
         raw_string_ostream OSS(OutStr);
-        
-        if (isSimple())
-          OSS << Node->getNumber() << ':';
-        else
+
+        if (isSimple()) {
+          OSS << "BB#" << Node->getNumber();
+          if (const BasicBlock *BB = Node->getBasicBlock())
+            OSS << ": " << BB->getName();
+        } else
           Node->print(OSS);
       }
 
@@ -378,7 +370,7 @@ void MachineFunction::viewCFG() const
 #ifndef NDEBUG
   ViewGraph(this, "mf" + getFunction()->getNameStr());
 #else
-  errs() << "SelectionDAG::viewGraph is only available in debug builds on "
+  errs() << "MachineFunction::viewCFG is only available in debug builds on "
          << "systems with Graphviz or gv!\n";
 #endif // NDEBUG
 }
@@ -388,7 +380,7 @@ void MachineFunction::viewCFGOnly() const
 #ifndef NDEBUG
   ViewGraph(this, "mf" + getFunction()->getNameStr(), true);
 #else
-  errs() << "SelectionDAG::viewGraph is only available in debug builds on "
+  errs() << "MachineFunction::viewCFGOnly is only available in debug builds on "
          << "systems with Graphviz or gv!\n";
 #endif // NDEBUG
 }
@@ -397,9 +389,14 @@ void MachineFunction::viewCFGOnly() const
 /// create a corresponding virtual register for it.
 unsigned MachineFunction::addLiveIn(unsigned PReg,
                                     const TargetRegisterClass *RC) {
-  assert(RC->contains(PReg) && "Not the correct regclass!");
-  unsigned VReg = getRegInfo().createVirtualRegister(RC);
-  getRegInfo().addLiveIn(PReg, VReg);
+  MachineRegisterInfo &MRI = getRegInfo();
+  unsigned VReg = MRI.getLiveInVirtReg(PReg);
+  if (VReg) {
+    assert(MRI.getRegClass(VReg) == RC && "Register class mismatch!");
+    return VReg;
+  }
+  VReg = MRI.createVirtualRegister(RC);
+  MRI.addLiveIn(PReg, VReg);
   return VReg;
 }
 
@@ -421,6 +418,13 @@ MCSymbol *MachineFunction::getJTISymbol(unsigned JTI, MCContext &Ctx,
   return Ctx.GetOrCreateSymbol(Name.str());
 }
 
+/// getPICBaseSymbol - Return a function-local symbol to represent the PIC
+/// base.
+MCSymbol *MachineFunction::getPICBaseSymbol() const {
+  const MCAsmInfo &MAI = *Target.getMCAsmInfo();
+  return Ctx.GetOrCreateSymbol(Twine(MAI.getPrivateGlobalPrefix())+
+                               Twine(getFunctionNumber())+"$pb");
+}
 
 //===----------------------------------------------------------------------===//
 //  MachineFrameInfo implementation
@@ -432,10 +436,16 @@ MCSymbol *MachineFunction::getJTISymbol(unsigned JTI, MCContext &Ctx,
 /// index with a negative value.
 ///
 int MachineFrameInfo::CreateFixedObject(uint64_t Size, int64_t SPOffset,
-                                        bool Immutable, bool isSS) {
+                                        bool Immutable) {
   assert(Size != 0 && "Cannot allocate zero size fixed stack objects!");
-  Objects.insert(Objects.begin(), StackObject(Size, 1, SPOffset, Immutable,
-                                              isSS));
+  // The alignment of the frame index can be determined from its offset from
+  // the incoming frame position.  If the frame object is at offset 32 and
+  // the stack is guaranteed to be 16-byte aligned, then we know that the
+  // object is 16-byte aligned.
+  unsigned StackAlign = TFI.getStackAlignment();
+  unsigned Align = MinAlign(SPOffset, StackAlign);
+  Objects.insert(Objects.begin(), StackObject(Size, Align, SPOffset, Immutable,
+                                              /*isSS*/false, false));
   return -++NumFixedObjects;
 }
 
@@ -474,7 +484,7 @@ MachineFrameInfo::getPristineRegs(const MachineBasicBlock *MBB) const {
 void MachineFrameInfo::print(const MachineFunction &MF, raw_ostream &OS) const{
   if (Objects.empty()) return;
 
-  const TargetFrameInfo *FI = MF.getTarget().getFrameInfo();
+  const TargetFrameLowering *FI = MF.getTarget().getFrameLowering();
   int ValOffset = (FI ? FI->getOffsetOfLocalArea() : 0);
 
   OS << "Frame Objects:\n";
@@ -609,7 +619,7 @@ void MachineJumpTableInfo::dump() const { print(dbgs()); }
 //  MachineConstantPool implementation
 //===----------------------------------------------------------------------===//
 
-const Type *MachineConstantPoolEntry::getType() const {
+Type *MachineConstantPoolEntry::getType() const {
   if (isMachineConstantPoolEntry())
     return Val.MachineCPVal->getType();
   return Val.ConstVal->getType();
@@ -626,6 +636,10 @@ MachineConstantPool::~MachineConstantPool() {
   for (unsigned i = 0, e = Constants.size(); i != e; ++i)
     if (Constants[i].isMachineConstantPoolEntry())
       delete Constants[i].Val.MachineCPVal;
+  for (DenseSet<MachineConstantPoolValue*>::iterator I =
+       MachineCPVsSharingEntries.begin(), E = MachineCPVsSharingEntries.end();
+       I != E; ++I)
+    delete *I;
 }
 
 /// CanShareConstantPoolEntry - Test whether the given two constants
@@ -703,8 +717,10 @@ unsigned MachineConstantPool::getConstantPoolIndex(MachineConstantPoolValue *V,
   //
   // FIXME, this could be made much more efficient for large constant pools.
   int Idx = V->getExistingMachineCPValue(this, Alignment);
-  if (Idx != -1)
+  if (Idx != -1) {
+    MachineCPVsSharingEntries.insert(V);
     return (unsigned)Idx;
+  }
 
   Constants.push_back(MachineConstantPoolEntry(V, Alignment));
   return Constants.size()-1;

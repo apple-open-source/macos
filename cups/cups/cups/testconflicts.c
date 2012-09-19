@@ -1,9 +1,9 @@
 /*
- * "$Id: testconflicts.c 3277 2011-05-20 07:30:39Z msweet $"
+ * "$Id: testconflicts.c 3821 2012-05-16 01:05:45Z msweet $"
  *
  *   PPD constraint test program for CUPS.
  *
- *   Copyright 2008-2011 by Apple Inc.
+ *   Copyright 2008-2012 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -91,7 +91,13 @@ main(int  argc,				/* I - Number of command-line arguments */
     if (option)
     {
       free(option);
+      option = NULL;
+    }
+
+    if (choice)
+    {
       free(choice);
+      choice = NULL;
     }
 
     printf("\nNew Option(s): ");
@@ -118,10 +124,15 @@ main(int  argc,				/* I - Number of command-line arguments */
     cupsFreeOptions(num_options, options);
   }
 
+  if (option)
+    free(option);
+  if (choice)
+    free(choice);
+
   return (0);
 }
 
 
 /*
- * End of "$Id: testconflicts.c 3277 2011-05-20 07:30:39Z msweet $".
+ * End of "$Id: testconflicts.c 3821 2012-05-16 01:05:45Z msweet $".
  */

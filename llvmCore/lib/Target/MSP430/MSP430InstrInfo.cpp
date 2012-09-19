@@ -15,18 +15,21 @@
 #include "MSP430InstrInfo.h"
 #include "MSP430MachineFunctionInfo.h"
 #include "MSP430TargetMachine.h"
-#include "MSP430GenInstrInfo.inc"
 #include "llvm/Function.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TargetRegistry.h"
+
+#define GET_INSTRINFO_CTOR
+#include "MSP430GenInstrInfo.inc"
 
 using namespace llvm;
 
 MSP430InstrInfo::MSP430InstrInfo(MSP430TargetMachine &tm)
-  : TargetInstrInfoImpl(MSP430Insts, array_lengthof(MSP430Insts)),
+  : MSP430GenInstrInfo(MSP430::ADJCALLSTACKDOWN, MSP430::ADJCALLSTACKUP),
     RI(tm, *this), TM(tm) {}
 
 void MSP430InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
@@ -40,8 +43,9 @@ void MSP430InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   MachineFrameInfo &MFI = *MF.getFrameInfo();
 
   MachineMemOperand *MMO =
-    MF.getMachineMemOperand(PseudoSourceValue::getFixedStack(FrameIdx),
-                            MachineMemOperand::MOStore, 0,
+    MF.getMachineMemOperand(
+              MachinePointerInfo(PseudoSourceValue::getFixedStack(FrameIdx)),
+                            MachineMemOperand::MOStore,
                             MFI.getObjectSize(FrameIdx),
                             MFI.getObjectAlignment(FrameIdx));
 
@@ -68,8 +72,9 @@ void MSP430InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   MachineFrameInfo &MFI = *MF.getFrameInfo();
 
   MachineMemOperand *MMO =
-    MF.getMachineMemOperand(PseudoSourceValue::getFixedStack(FrameIdx),
-                            MachineMemOperand::MOLoad, 0,
+    MF.getMachineMemOperand(
+              MachinePointerInfo(PseudoSourceValue::getFixedStack(FrameIdx)),
+                            MachineMemOperand::MOLoad,
                             MFI.getObjectSize(FrameIdx),
                             MFI.getObjectAlignment(FrameIdx));
 
@@ -83,88 +88,20 @@ void MSP430InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     llvm_unreachable("Cannot store this register to stack slot!");
 }
 
-bool MSP430InstrInfo::copyRegToReg(MachineBasicBlock &MBB,
-                                   MachineBasicBlock::iterator I,
-                                   unsigned DestReg, unsigned SrcReg,
-                                   const TargetRegisterClass *DestRC,
-                                   const TargetRegisterClass *SrcRC,
-                                   DebugLoc DL) const {
-  if (DestRC == SrcRC) {
-    unsigned Opc;
-    if (DestRC == &MSP430::GR16RegClass) {
-      Opc = MSP430::MOV16rr;
-    } else if (DestRC == &MSP430::GR8RegClass) {
-      Opc = MSP430::MOV8rr;
-    } else {
-      return false;
-    }
+void MSP430InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                  MachineBasicBlock::iterator I, DebugLoc DL,
+                                  unsigned DestReg, unsigned SrcReg,
+                                  bool KillSrc) const {
+  unsigned Opc;
+  if (MSP430::GR16RegClass.contains(DestReg, SrcReg))
+    Opc = MSP430::MOV16rr;
+  else if (MSP430::GR8RegClass.contains(DestReg, SrcReg))
+    Opc = MSP430::MOV8rr;
+  else
+    llvm_unreachable("Impossible reg-to-reg copy");
 
-    BuildMI(MBB, I, DL, get(Opc), DestReg).addReg(SrcReg);
-    return true;
-  }
-
-  return false;
-}
-
-bool
-MSP430InstrInfo::isMoveInstr(const MachineInstr& MI,
-                             unsigned &SrcReg, unsigned &DstReg,
-                             unsigned &SrcSubIdx, unsigned &DstSubIdx) const {
-  SrcSubIdx = DstSubIdx = 0; // No sub-registers yet.
-
-  switch (MI.getOpcode()) {
-  default:
-    return false;
-  case MSP430::MOV8rr:
-  case MSP430::MOV16rr:
-   assert(MI.getNumOperands() >= 2 &&
-           MI.getOperand(0).isReg() &&
-           MI.getOperand(1).isReg() &&
-           "invalid register-register move instruction");
-    SrcReg = MI.getOperand(1).getReg();
-    DstReg = MI.getOperand(0).getReg();
-    return true;
-  }
-}
-
-bool
-MSP430InstrInfo::spillCalleeSavedRegisters(MachineBasicBlock &MBB,
-                                           MachineBasicBlock::iterator MI,
-                                const std::vector<CalleeSavedInfo> &CSI) const {
-  if (CSI.empty())
-    return false;
-
-  DebugLoc DL;
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
-
-  MachineFunction &MF = *MBB.getParent();
-  MSP430MachineFunctionInfo *MFI = MF.getInfo<MSP430MachineFunctionInfo>();
-  MFI->setCalleeSavedFrameSize(CSI.size() * 2);
-
-  for (unsigned i = CSI.size(); i != 0; --i) {
-    unsigned Reg = CSI[i-1].getReg();
-    // Add the callee-saved register as live-in. It's killed at the spill.
-    MBB.addLiveIn(Reg);
-    BuildMI(MBB, MI, DL, get(MSP430::PUSH16r))
-      .addReg(Reg, RegState::Kill);
-  }
-  return true;
-}
-
-bool
-MSP430InstrInfo::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
-                                             MachineBasicBlock::iterator MI,
-                                const std::vector<CalleeSavedInfo> &CSI) const {
-  if (CSI.empty())
-    return false;
-
-  DebugLoc DL;
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
-
-  for (unsigned i = 0, e = CSI.size(); i != e; ++i)
-    BuildMI(MBB, MI, DL, get(MSP430::POP16r), CSI[i].getReg());
-
-  return true;
+  BuildMI(MBB, I, DL, get(Opc), DestReg)
+    .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
 unsigned MSP430InstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
@@ -224,13 +161,13 @@ ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
 }
 
 bool MSP430InstrInfo::isUnpredicatedTerminator(const MachineInstr *MI) const {
-  const TargetInstrDesc &TID = MI->getDesc();
-  if (!TID.isTerminator()) return false;
+  const MCInstrDesc &MCID = MI->getDesc();
+  if (!MCID.isTerminator()) return false;
 
   // Conditional branch is a special case.
-  if (TID.isBranch() && !TID.isBarrier())
+  if (MCID.isBranch() && !MCID.isBarrier())
     return true;
-  if (!TID.isPredicable())
+  if (!MCID.isPredicable())
     return true;
   return !isPredicated(MI);
 }
@@ -328,10 +265,8 @@ bool MSP430InstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
 unsigned
 MSP430InstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                               MachineBasicBlock *FBB,
-                            const SmallVectorImpl<MachineOperand> &Cond) const {
-  // FIXME this should probably have a DebugLoc operand
-  DebugLoc DL;
-
+                              const SmallVectorImpl<MachineOperand> &Cond,
+                              DebugLoc DL) const {
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 1 || Cond.size() == 0) &&
@@ -361,14 +296,14 @@ MSP430InstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
 /// instruction may be.  This returns the maximum number of bytes.
 ///
 unsigned MSP430InstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
-  const TargetInstrDesc &Desc = MI->getDesc();
+  const MCInstrDesc &Desc = MI->getDesc();
 
   switch (Desc.TSFlags & MSP430II::SizeMask) {
   default:
     switch (Desc.getOpcode()) {
     default:
       assert(0 && "Unknown instruction size!");
-    case TargetOpcode::DBG_LABEL:
+    case TargetOpcode::PROLOG_LABEL:
     case TargetOpcode::EH_LABEL:
     case TargetOpcode::IMPLICIT_DEF:
     case TargetOpcode::KILL:

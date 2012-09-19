@@ -112,19 +112,20 @@ int BLCreateFile(BLContextPtr context, const CFDataRef data,
         if(err) return 3;
     }
 
-
-	  err = BLSetTypeAndCreator(context, rsrcpath, type, creator);
-	  if(err) {
-		  contextprintf(context, kBLLogLevelError,
-						"Error while setting type/creator for %s\n", rsrcpath );
-		  return 4;
-	  } else {
-		  char printType[5], printCreator[5];
-
-		  contextprintf(context, kBLLogLevelVerbose, "Type/creator set to %4.4s/%4.4s for %s\n",
-						blostype2string(type, printType),
-						blostype2string(creator, printCreator), rsrcpath );
-	  }
+	if (type || creator) {
+		err = BLSetTypeAndCreator(context, rsrcpath, type, creator);
+		if(err) {
+			contextprintf(context, kBLLogLevelError,
+						  "Error while setting type/creator for %s\n", rsrcpath );
+			return 4;
+		} else {
+			char printType[5], printCreator[5];
+			
+			contextprintf(context, kBLLogLevelVerbose, "Type/creator set to %4.4s/%4.4s for %s\n",
+						  blostype2string(type, printType),
+						  blostype2string(creator, printCreator), rsrcpath );
+		}
+	}
 	
 	if(setImmutable) {
 		contextprintf(context, kBLLogLevelVerbose, "Setting UF_IMMUTABLE on %s\n",

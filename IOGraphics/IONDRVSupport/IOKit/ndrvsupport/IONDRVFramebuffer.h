@@ -244,6 +244,8 @@ public:
 
     // Framebuffer info
 
+    virtual IOReturn setupForCurrentConfig( void );
+
     // Current display mode and depth
     virtual IOReturn getCurrentDisplayMode( IODisplayModeID * displayMode,
                             IOIndex * depth );

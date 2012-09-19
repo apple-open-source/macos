@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -16,7 +16,7 @@
  */
 
 /*
- * $Id: dnssec.c,v 1.115.10.4 2010-01-13 23:48:20 tbox Exp $
+ * $Id$
  */
 
 /*! \file */
@@ -543,9 +543,9 @@ dns_dnssec_verify(dns_name_t *name, dns_rdataset_t *set, dst_key_t *key,
 }
 
 static isc_boolean_t
-key_active(dst_key_t *key) {
+key_active(dst_key_t *key, isc_stdtime_t now) {
 	isc_result_t result;
-	isc_stdtime_t now, publish, active, revoke, inactive, delete;
+	isc_stdtime_t publish, active, revoke, inactive, delete;
 	isc_boolean_t pubset = ISC_FALSE, actset = ISC_FALSE;
 	isc_boolean_t revset = ISC_FALSE, inactset = ISC_FALSE;
 	isc_boolean_t delset = ISC_FALSE;
@@ -553,6 +553,7 @@ key_active(dst_key_t *key) {
 
 	/* Is this an old-style key? */
 	result = dst_key_getprivateformat(key, &major, &minor);
+	RUNTIME_CHECK(result == ISC_R_SUCCESS);
 
 	/*
 	 * Smart signing started with key format 1.3; prior to that, all
@@ -560,8 +561,6 @@ key_active(dst_key_t *key) {
 	 */
 	if (major == 1 && minor <= 2)
 		return (ISC_TRUE);
-
-	isc_stdtime_get(&now);
 
 	result = dst_key_gettime(key, DST_TIME_PUBLISH, &publish);
 	if (result == ISC_R_SUCCESS)
@@ -610,9 +609,12 @@ dns_dnssec_findzonekeys2(dns_db_t *db, dns_dbversion_t *ver,
 	isc_result_t result;
 	dst_key_t *pubkey = NULL;
 	unsigned int count = 0;
+	isc_stdtime_t now;
 
 	REQUIRE(nkeys != NULL);
 	REQUIRE(keys != NULL);
+
+	isc_stdtime_get(&now);
 
 	*nkeys = 0;
 	dns_rdataset_init(&rdataset);
@@ -692,7 +694,7 @@ dns_dnssec_findzonekeys2(dns_db_t *db, dns_dbversion_t *ver,
 		/*
 		 * If a key is marked inactive, skip it
 		 */
-		if (!key_active(keys[count])) {
+		if (!key_active(keys[count], now)) {
 			dst_key_free(&keys[count]);
 			keys[count] = pubkey;
 			pubkey = NULL;
@@ -1016,13 +1018,6 @@ dns_dnssec_selfsigns(dns_rdata_t *rdata, dns_name_t *name,
 		     dns_rdataset_t *rdataset, dns_rdataset_t *sigrdataset,
 		     isc_boolean_t ignoretime, isc_mem_t *mctx)
 {
-	dst_key_t *dstkey = NULL;
-	dns_keytag_t keytag;
-	dns_rdata_dnskey_t key;
-	dns_rdata_rrsig_t sig;
-	dns_rdata_t sigrdata = DNS_RDATA_INIT;
-	isc_result_t result;
-
 	INSIST(rdataset->type == dns_rdatatype_key ||
 	       rdataset->type == dns_rdatatype_dnskey);
 	if (rdataset->type == dns_rdatatype_key) {
@@ -1032,6 +1027,27 @@ dns_dnssec_selfsigns(dns_rdata_t *rdata, dns_name_t *name,
 		INSIST(sigrdataset->type == dns_rdatatype_rrsig);
 		INSIST(sigrdataset->covers == dns_rdatatype_dnskey);
 	}
+
+	return (dns_dnssec_signs(rdata, name, rdataset, sigrdataset,
+				 ignoretime, mctx));
+
+}
+
+isc_boolean_t
+dns_dnssec_signs(dns_rdata_t *rdata, dns_name_t *name,
+		     dns_rdataset_t *rdataset, dns_rdataset_t *sigrdataset,
+		     isc_boolean_t ignoretime, isc_mem_t *mctx)
+{
+	dst_key_t *dstkey = NULL;
+	dns_keytag_t keytag;
+	dns_rdata_dnskey_t key;
+	dns_rdata_rrsig_t sig;
+	dns_rdata_t sigrdata = DNS_RDATA_INIT;
+	isc_result_t result;
+
+	INSIST(sigrdataset->type == dns_rdatatype_rrsig);
+	if (sigrdataset->covers != rdataset->type)
+		return (ISC_FALSE);
 
 	result = dns_dnssec_keyfromrdata(name, rdata, mctx, &dstkey);
 	if (result != ISC_R_SUCCESS)
@@ -1095,6 +1111,7 @@ dns_dnsseckey_create(isc_mem_t *mctx, dst_key_t **dstkey,
 
 	/* Is this an old-style key? */
 	result = dst_key_getprivateformat(dk->key, &major, &minor);
+	INSIST(result == ISC_R_SUCCESS);
 
 	/* Smart signing started with key format 1.3 */
 	dk->legacy = ISC_TF(major == 1 && minor <= 2);
@@ -1117,16 +1134,14 @@ dns_dnsseckey_destroy(isc_mem_t *mctx, dns_dnsseckey_t **dkp) {
 }
 
 static void
-get_hints(dns_dnsseckey_t *key) {
+get_hints(dns_dnsseckey_t *key, isc_stdtime_t now) {
 	isc_result_t result;
-	isc_stdtime_t now, publish, active, revoke, inactive, delete;
+	isc_stdtime_t publish, active, revoke, inactive, delete;
 	isc_boolean_t pubset = ISC_FALSE, actset = ISC_FALSE;
 	isc_boolean_t revset = ISC_FALSE, inactset = ISC_FALSE;
 	isc_boolean_t delset = ISC_FALSE;
 
 	REQUIRE(key != NULL && key->key != NULL);
-
-	isc_stdtime_get(&now);
 
 	result = dst_key_gettime(key->key, DST_TIME_PUBLISH, &publish);
 	if (result == ISC_R_SUCCESS)
@@ -1224,13 +1239,14 @@ dns_dnssec_findmatchingkeys(dns_name_t *origin, const char *directory,
 	char namebuf[DNS_NAME_FORMATSIZE], *p;
 	isc_buffer_t b;
 	unsigned int len;
+	isc_stdtime_t now;
 
 	REQUIRE(keylist != NULL);
 	ISC_LIST_INIT(list);
 	isc_dir_init(&dir);
 
 	isc_buffer_init(&b, namebuf, sizeof(namebuf) - 1);
-	RETERR(dns_name_totext(origin, ISC_FALSE, &b));
+	RETERR(dns_name_tofilenametext(origin, ISC_FALSE, &b));
 	len = isc_buffer_usedlength(&b);
 	namebuf[len] = '\0';
 
@@ -1238,6 +1254,8 @@ dns_dnssec_findmatchingkeys(dns_name_t *origin, const char *directory,
 		directory = ".";
 	RETERR(isc_dir_open(&dir, directory));
 	dir_open = ISC_TRUE;
+
+	isc_stdtime_get(&now);
 
 	while (isc_dir_read(&dir) == ISC_R_SUCCESS) {
 		if (dir.entry.name[0] == 'K' &&
@@ -1269,7 +1287,7 @@ dns_dnssec_findmatchingkeys(dns_name_t *origin, const char *directory,
 
 			RETERR(dns_dnsseckey_create(mctx, &dstkey, &key));
 			key->source = dns_keysource_repository;
-			get_hints(key);
+			get_hints(key, now);
 
 			if (key->legacy) {
 				dns_dnsseckey_destroy(mctx, &key);
@@ -1673,9 +1691,6 @@ dns_dnssec_updatekeys(dns_dnsseckeylist_t *keys, dns_dnsseckeylist_t *newkeys,
 
 		/* No match found in keys; add the new key. */
 		if (key2 == NULL) {
-			dns_dnsseckey_t *next;
-
-			next = ISC_LIST_NEXT(key1, link);
 			ISC_LIST_UNLINK(*newkeys, key1, link);
 			ISC_LIST_APPEND(*keys, key1, link);
 

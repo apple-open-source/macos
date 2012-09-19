@@ -1,7 +1,16 @@
 add_llvm_library(LLVMMCParser
   AsmLexer.cpp
   AsmParser.cpp
+  COFFAsmParser.cpp
+  DarwinAsmParser.cpp
+  ELFAsmParser.cpp
   MCAsmLexer.cpp
   MCAsmParser.cpp
-  TargetAsmParser.cpp
+  MCAsmParserExtension.cpp
+  MCTargetAsmParser.cpp
+  )
+
+add_llvm_library_dependencies(LLVMMCParser
+  LLVMMC
+  LLVMSupport
   )

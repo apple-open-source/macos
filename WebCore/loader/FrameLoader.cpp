@@ -926,6 +926,7 @@ void FrameLoader::checkCompleted()
 
     // OK, completed.
     m_isComplete = true;
+    m_requestedHistoryItem = 0;
     m_frame->document()->setReadyState(Document::Complete);
 
     RefPtr<Frame> protect(m_frame);
@@ -2795,7 +2796,8 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
     // Always try UTF-8. If that fails, try frame encoding (if any) and then the default.
     // For a newly opened frame with an empty URL, encoding() should not be used, because this methods asks decoder, which uses ISO-8859-1.
     Settings* settings = m_frame->settings();
-    request.setResponseContentDispositionEncodingFallbackArray("UTF-8", activeDocumentLoader()->writer()->deprecatedFrameEncoding(), settings ? settings->defaultTextEncodingName() : String());
+    DocumentLoader* docLoader = activeDocumentLoader(); 
+    request.setResponseContentDispositionEncodingFallbackArray("UTF-8", docLoader ? docLoader->writer()->deprecatedFrameEncoding() : String(), settings ? settings->defaultTextEncodingName() : String());
 }
 
 void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, String origin)
@@ -3373,6 +3375,7 @@ void FrameLoader::loadDifferentDocumentItem(HistoryItem* item, FrameLoadType loa
 // Loads content into this frame, as specified by history item
 void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
 {
+    m_requestedHistoryItem = item;
     HistoryItem* currentItem = history()->currentItem();
     bool sameDocumentNavigation = currentItem && item->shouldDoSameDocumentNavigationTo(currentItem);
 

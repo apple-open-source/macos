@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2011 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -124,27 +124,27 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 				else
 					pageCount = 2;
 				
-				USBLog(7, "AppleUSBOHCI[%p]::CreateGeneralTransfer - getting segments - offset (%Ld) pageCount (%d) transferOffset (%d) bufferSize (%d)", this, offset, (int)pageCount, (int)transferOffset, (int)bufferSize);
+				USBLog(7, "AppleUSBOHCI[%p]::CreateGeneralTransfer - getting segments - offset (%qd) pageCount (%d) transferOffset (%d) bufferSize (%d)", this, offset, (int)pageCount, (int)transferOffset, (int)bufferSize);
 				status = dmaCommand->gen64IOVMSegments(&offset, segments64, &pageCount);
 				if (status || ((pageCount != 1) && (pageCount != 2)))
 				{
-					USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - could not generate segments - err (%p) pageCount (%d) offset (%Ld) transferOffset (%d) bufferSize (%d) getMemoryDescriptor (%p)", this, (void*)status, (int)pageCount, offset, (int)transferOffset, (int)bufferSize, dmaCommand->getMemoryDescriptor());
+					USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - could not generate segments - err (%p) pageCount (%d) offset (%qd) transferOffset (%d) bufferSize (%d) getMemoryDescriptor (%p)", this, (void*)status, (int)pageCount, offset, (int)transferOffset, (int)bufferSize, dmaCommand->getMemoryDescriptor());
 					status = status ? status : kIOReturnInternalError;
 					return status;
 				}
 				if (pageCount == 2)
 				{
-					USBLog(7, "AppleUSBOHCI[%p]::CreateGeneralTransfer  - after gen64IOVMSegments, offset (%Ld) pageCount (%d) segments64[0].fIOVMAddr (%p) segments64[0].fLength (%d) segments64[1].fIOVMAddr (%p) segments64[1].fLength (%d)", this, offset, (int)pageCount, (void*)segments64[0].fIOVMAddr, (int)segments64[0].fLength, (void*)segments64[1].fIOVMAddr, (int)segments64[1].fLength);
+					USBLog(7, "AppleUSBOHCI[%p]::CreateGeneralTransfer  - after gen64IOVMSegments, offset (%qd) pageCount (%d) segments64[0].fIOVMAddr (%p) segments64[0].fLength (%d) segments64[1].fIOVMAddr (%p) segments64[1].fLength (%d)", this, offset, (int)pageCount, (void*)segments64[0].fIOVMAddr, (int)segments64[0].fLength, (void*)segments64[1].fIOVMAddr, (int)segments64[1].fLength);
 				}
 				else
 				{
-					USBLog(7, "AppleUSBOHCI[%p]::CreateGeneralTransfer  - after gen64IOVMSegments, offset (%Ld) pageCount (%d) segments64[0].fIOVMAddr (%p) segments64[0].fLength (%d)", this, offset, (int)pageCount, (void*)segments64[0].fIOVMAddr, (int)segments64[0].fLength);
+					USBLog(7, "AppleUSBOHCI[%p]::CreateGeneralTransfer  - after gen64IOVMSegments, offset (%qd) pageCount (%d) segments64[0].fIOVMAddr (%p) segments64[0].fLength (%d)", this, offset, (int)pageCount, (void*)segments64[0].fIOVMAddr, (int)segments64[0].fLength);
 				}
 				for (i=0; i< pageCount; i++)
 				{
 					if (((UInt32)(segments64[i].fIOVMAddr >> 32) > 0) || ((UInt32)(segments64[i].fLength >> 32) > 0))
 					{
-						USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - generated segments (%d) not 32 bit -  offset (0x%Lx) length (0x%Lx) ", this, (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
+						USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - generated segments (%d) not 32 bit -  offset (0x%qx) length (0x%qx) ", this, (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
 						return kIOReturnInternalError;
 					}
 					// OK to convert to 32 bit (which it should have been already)
@@ -292,7 +292,8 @@ AppleUSBOHCI::UIMCreateControlEndpoint(
                                           USBDeviceAddress    		highSpeedHub,
                                           int				highSpeedPort)
 {
-    USBLog(5, "AppleUSBOHCI[%p]: UIMCreateControlEndpoint w/ HS ( Addr: %d:%d, max=%d, %s) calling thru", this, functionAddress, endpointNumber, maxPacketSize, (speed == kUSBDeviceSpeedLow) ? "lo" : "full");
+#pragma unused (highSpeedHub, highSpeedPort)
+   USBLog(5, "AppleUSBOHCI[%p]: UIMCreateControlEndpoint w/ HS ( Addr: %d:%d, max=%d, %s) calling thru", this, functionAddress, endpointNumber, maxPacketSize, (speed == kUSBDeviceSpeedLow) ? "lo" : "full");
 
     return UIMCreateControlEndpoint( functionAddress, endpointNumber, maxPacketSize, speed );
 }
@@ -348,6 +349,7 @@ AppleUSBOHCI::UIMCreateControlTransfer(
             UInt32				bufferSize,
             short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBOHCI[%p] UIMCreateControlTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -423,6 +425,7 @@ AppleUSBOHCI::UIMCreateControlTransfer(
             UInt32				bufferSize,
             short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBOHCI[%p]UIMCreateControlTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -439,6 +442,7 @@ AppleUSBOHCI::UIMCreateControlTransfer(short				functionAddress,
 									   UInt32				bufferSize,
 									   short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, command, CBP, bufferRounding, bufferSize, direction)
     IOMemoryDescriptor *		desc = NULL;
     IODirection					descDirection;
     IOReturn					status;
@@ -464,7 +468,8 @@ AppleUSBOHCI::UIMCreateBulkEndpoint(
                                        USBDeviceAddress    		highSpeedHub,
                                        int			                highSpeedPort)
 {
-    USBLog(5,"AppleUSBOHCI[%p]: UIMCreateBulkEndpoint HS(Addr=%d:%d, max=%d, dir=%d, %s) calling thru", this,
+#pragma unused (highSpeedHub, highSpeedPort)
+   USBLog(5,"AppleUSBOHCI[%p]: UIMCreateBulkEndpoint HS(Addr=%d:%d, max=%d, dir=%d, %s) calling thru", this,
            functionAddress, endpointNumber, maxPacketSize, direction, (speed == kUSBDeviceSpeedLow) ? "lo" : "full");
 
     return UIMCreateBulkEndpoint( functionAddress, endpointNumber, direction, speed, maxPacketSize);
@@ -518,6 +523,7 @@ AppleUSBOHCI::UIMCreateBulkTransfer(
             UInt32				bufferSize,
             short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBOHCI[%p]UIMCreateBulkTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -582,6 +588,7 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
                                             USBDeviceAddress    		highSpeedHub,
                                             int                 		highSpeedPort)
 {
+#pragma unused (highSpeedHub, highSpeedPort)
     USBLog(5, "AppleUSBOHCI[%p]: UIMCreateInterruptEndpoint HS ( Addr: %d:%d, max=%d, dir=%d, rate=%d, %s) calling thru", this,
            functionAddress, endpointNumber, maxPacketSize,direction,
            pollingRate, (speed == kUSBDeviceSpeedLow) ? "lo" : "full");
@@ -697,6 +704,7 @@ AppleUSBOHCI::UIMCreateInterruptTransfer(
             UInt32				bufferSize,
             short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBOHCI[%p]UIMCreateInterruptTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -791,6 +799,7 @@ AppleUSBOHCI::UIMCreateIsochEndpoint(
                                           USBDeviceAddress 	highSpeedHub,
                                           int      	highSpeedPort)
 {
+#pragma unused (highSpeedHub, highSpeedPort)
     return UIMCreateIsochEndpoint( functionAddress, endpointNumber, maxPacketSize, direction);
 }
 
@@ -889,6 +898,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(short						functionAddress,
 									 UInt32						frameCount,
 									 IOUSBIsocFrame	*			pFrames)
 {
+#pragma unused (functionAddress, endpointNumber, completion, frameNumberStart, frameNumberStart, pBuffer, direction, frameCount, pFrames)
 	USBError(1, "AppleUSBOHCI::UIMCreateIsochTransfer - old method");
 	return kIOReturnIPCError;
 }
@@ -1371,7 +1381,7 @@ AppleOHCIEndpointDescriptorPtr
 AppleUSBOHCI::FindInterruptEndpoint(
 	short								functionNumber,
 	short								endpointNumber,
-        short							direction,
+    short                               direction,
 	AppleOHCIEndpointDescriptorPtr		*pEDBack)
 {
     UInt32								myEndpointDirection;
@@ -1396,11 +1406,17 @@ AppleUSBOHCI::FindInterruptEndpoint(
         
         while (pEDQueue != _pInterruptHead[i].pTail)
         {
+            if (!pEDQueue)
+            {
+                // see rdar://9840383 - we may want to consider a panic here for logging builds to try to debug this, as it should never happen
+                USBLog(1, "AppleUSBOHCI[%p]::FindInterruptEndpoint - UNEXPECTED NULL pEDQueue at index %d - _pInterruptHead[%p] *pEDBack[%p]", this, i, _pInterruptHead[i].pHead, *pEDBack);
+                return NULL;
+            }
             temp = (USBToHostLong(pEDQueue->pShared->flags)) & kUniqueNumMask;
 
             if ( temp == unique)
             {
-                return(pEDQueue);
+                return pEDQueue;
             }
             *pEDBack = pEDQueue;
             pEDQueue = pEDQueue->pLogicalNext;
@@ -1649,7 +1665,8 @@ AppleUSBOHCI::print_ed(AppleOHCIEndpointDescriptorPtr pED, int level)
 void 
 AppleUSBOHCI::print_isoc_ed(AppleOHCIEndpointDescriptorPtr pED, int level, bool printSkipped, bool printTDs)
 {
-    AppleOHCIIsochTransferDescriptorPtr	pTD;
+#pragma unused (printSkipped, printTDs)
+   AppleOHCIIsochTransferDescriptorPtr	pTD;
     UInt32 w0;
 
 
@@ -2021,7 +2038,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(short						functionAddress,
 									 IOUSBLowLatencyIsocFrame *	pFrames,
 									 UInt32						updateFrequency)
 {
-	
+#pragma unused (functionAddress, endpointNumber, completion, frameNumberStart, frameNumberStart, pBuffer, direction, frameCount, pFrames, updateFrequency)
 	USBError(1, "AppleUSBOHCI::UIMCreateIsochTransfer(LL) - old method");
 	return kIOReturnIPCError;
 }
@@ -2212,7 +2229,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 			numSegs = 2;
 			offset = transferOffset;
 			
-			USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - calling gen64IOVMSegments - transferOffset (%d) offset (%Ld) thisFrameRequest (%d)", this, (int)transferOffset, offset, thisFrameRequest);
+			USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - calling gen64IOVMSegments - transferOffset (%d) offset (%qd) thisFrameRequest (%d)", this, (int)transferOffset, offset, thisFrameRequest);
 			status = dmaCommand->gen64IOVMSegments(&offset, segments64, &numSegs);
 
 			if (status)
@@ -2223,18 +2240,18 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 			
 			if (numSegs == 2)
 			{
-				USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - curFrameInRequest[%d] frameCount[%d] - after gen64IOVMSegments, offset (%Ld) numSegs (%d) segments64[0].fIOVMAddr (0x%Lx) segments64[0].fLength (0x%Lx) segments64[1].fIOVMAddr (0x%Lx) segments64[1].fLength (0x%Lx)", this, (int)curFrameInRequest, (int)frameCount, offset, (int)numSegs, segments64[0].fIOVMAddr, segments64[0].fLength, segments64[1].fIOVMAddr, segments64[1].fLength);
+				USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - curFrameInRequest[%d] frameCount[%d] - after gen64IOVMSegments, offset (%qd) numSegs (%d) segments64[0].fIOVMAddr (0x%qx) segments64[0].fLength (0x%qx) segments64[1].fIOVMAddr (0x%qx) segments64[1].fLength (0x%qx)", this, (int)curFrameInRequest, (int)frameCount, offset, (int)numSegs, segments64[0].fIOVMAddr, segments64[0].fLength, segments64[1].fIOVMAddr, segments64[1].fLength);
 			}
 			else
 			{
-				USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - curFrameInRequest[%d] frameCount[%d] - after gen64IOVMSegments, offset (%Ld) numSegs (%d) segments64[0].fIOVMAddr (0x%Lx) segments64[0].fLength (0x%Lx)", this, (int)curFrameInRequest, (int)frameCount, offset, (int)numSegs, segments64[0].fIOVMAddr, segments64[0].fLength);
+				USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - curFrameInRequest[%d] frameCount[%d] - after gen64IOVMSegments, offset (%qd) numSegs (%d) segments64[0].fIOVMAddr (0x%qx) segments64[0].fLength (0x%qx)", this, (int)curFrameInRequest, (int)frameCount, offset, (int)numSegs, segments64[0].fIOVMAddr, segments64[0].fLength);
 			}
 
 			for (i=0; i< numSegs; i++)
 			{
 				if (((UInt32)(segments64[i].fIOVMAddr >> 32) > 0) || ((UInt32)(segments64[i].fLength >> 32) > 0))
 				{
-					USBError(1, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - generated segments (%d) not 32 bit -  offset (0x%Lx) length (0x%Lx) ", this, (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
+					USBError(1, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - generated segments (%d) not 32 bit -  offset (0x%qx) length (0x%qx) ", this, (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
 					return kIOReturnInternalError;
 				}
 				// OK to convert to 32 bit (which it should have been already)
@@ -2452,6 +2469,7 @@ AppleUSBOHCI::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime)
 IOReturn
 AppleUSBOHCI::GatedGetFrameNumberWithTime(OSObject *owner, void* arg0, void* arg1, void* arg2, void* arg3)
 {
+#pragma unused (arg2, arg3)
 	AppleUSBOHCI		*me = (AppleUSBOHCI*)owner;
 	UInt64				*frameNumber = (UInt64*)arg0;
 	AbsoluteTime		*theTime = (AbsoluteTime*)arg1;

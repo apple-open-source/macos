@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@
 #include <IOKit/storage/IOCDTypes.h>
 #include <IOKit/storage/IOBlockStorageDriver.h>
 
-/*!
+/*
  * @defined kIOCDBlockStorageDriverClass
  * @abstract
  * kIOCDBlockStorageDriverClass is the name of the IOCDBlockStorageDriver class.

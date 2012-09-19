@@ -61,6 +61,12 @@ typedef SuperBlob<0xfade0cc1> DetachedSignatureBlob;	// indexed by main architec
 
 
 //
+// The linkers produces a superblob of dependency records from its dylib inputs
+//
+typedef SuperBlob<0xfade0c05> LibraryDependencyBlob; // indexed sequentially from 0
+
+
+//
 // An entitlement blob is used for embedding entitlement configuration data
 //
 class EntitlementBlob : public Blob<EntitlementBlob, 0xfade7171> {

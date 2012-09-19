@@ -20,7 +20,7 @@
 #include "llvm/GlobalAlias.h"
 #include "llvm/Metadata.h"
 #include "llvm/ADT/OwningPtr.h"
-#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DataTypes.h"
 #include <vector>
 
 namespace llvm {
@@ -28,7 +28,10 @@ namespace llvm {
 class FunctionType;
 class GVMaterializer;
 class LLVMContext;
-class MDSymbolTable;
+class StructType;
+template<typename T> struct DenseMapInfo;
+template<typename KeyT, typename ValueT, 
+         typename KeyInfoT, typename ValueInfoT> class DenseMap;
 
 template<> struct ilist_traits<Function>
   : public SymbolTableListTraits<Function, Module> {
@@ -47,21 +50,39 @@ template<> struct ilist_traits<Function>
 private:
   mutable ilist_node<Function> Sentinel;
 };
+
 template<> struct ilist_traits<GlobalVariable>
   : public SymbolTableListTraits<GlobalVariable, Module> {
   // createSentinel is used to create a node that marks the end of the list.
-  static GlobalVariable *createSentinel();
-  static void destroySentinel(GlobalVariable *GV) { delete GV; }
+  GlobalVariable *createSentinel() const {
+    return static_cast<GlobalVariable*>(&Sentinel);
+  }
+  static void destroySentinel(GlobalVariable*) {}
+
+  GlobalVariable *provideInitialHead() const { return createSentinel(); }
+  GlobalVariable *ensureHead(GlobalVariable*) const { return createSentinel(); }
+  static void noteHead(GlobalVariable*, GlobalVariable*) {}
+private:
+  mutable ilist_node<GlobalVariable> Sentinel;
 };
+
 template<> struct ilist_traits<GlobalAlias>
   : public SymbolTableListTraits<GlobalAlias, Module> {
   // createSentinel is used to create a node that marks the end of the list.
-  static GlobalAlias *createSentinel();
-  static void destroySentinel(GlobalAlias *GA) { delete GA; }
+  GlobalAlias *createSentinel() const {
+    return static_cast<GlobalAlias*>(&Sentinel);
+  }
+  static void destroySentinel(GlobalAlias*) {}
+
+  GlobalAlias *provideInitialHead() const { return createSentinel(); }
+  GlobalAlias *ensureHead(GlobalAlias*) const { return createSentinel(); }
+  static void noteHead(GlobalAlias*, GlobalAlias*) {}
+private:
+  mutable ilist_node<GlobalAlias> Sentinel;
 };
 
 template<> struct ilist_traits<NamedMDNode>
-  : public SymbolTableListTraits<NamedMDNode, Module> {
+  : public ilist_default_traits<NamedMDNode> {
   // createSentinel is used to get hold of a node that marks the end of
   // the list...
   NamedMDNode *createSentinel() const {
@@ -72,8 +93,8 @@ template<> struct ilist_traits<NamedMDNode>
   NamedMDNode *provideInitialHead() const { return createSentinel(); }
   NamedMDNode *ensureHead(NamedMDNode*) const { return createSentinel(); }
   static void noteHead(NamedMDNode*, NamedMDNode*) {}
-  void addNodeToList(NamedMDNode *N);
-  void removeNodeFromList(NamedMDNode *N);
+  void addNodeToList(NamedMDNode *) {}
+  void removeNodeFromList(NamedMDNode *) {}
 private:
   mutable ilist_node<NamedMDNode> Sentinel;
 };
@@ -100,7 +121,7 @@ public:
   /// The type for the list of aliases.
   typedef iplist<GlobalAlias> AliasListType;
   /// The type for the list of named metadata.
-  typedef iplist<NamedMDNode> NamedMDListType;
+  typedef ilist<NamedMDNode> NamedMDListType;
 
   /// The type for the list of dependent libraries.
   typedef std::vector<std::string> LibraryListType;
@@ -146,12 +167,11 @@ private:
   NamedMDListType NamedMDList;    ///< The named metadata in the module
   std::string GlobalScopeAsm;     ///< Inline Asm at global scope.
   ValueSymbolTable *ValSymTab;    ///< Symbol table for values
-  TypeSymbolTable *TypeSymTab;    ///< Symbol table for types
   OwningPtr<GVMaterializer> Materializer;  ///< Used to materialize GlobalValues
   std::string ModuleID;           ///< Human readable identifier for the module
   std::string TargetTriple;       ///< Platform target triple Module compiled on
   std::string DataLayout;         ///< Target data description
-  MDSymbolTable *NamedMDSymTab;   ///< NamedMDNode names.
+  void *NamedMDSymTab;            ///< NamedMDNode names.
 
   friend class Constant;
 
@@ -197,11 +217,11 @@ public:
   /// Get any module-scope inline assembly blocks.
   /// @returns a string containing the module-scope inline assembly blocks.
   const std::string &getModuleInlineAsm() const { return GlobalScopeAsm; }
-  
+
 /// @}
 /// @name Module Level Mutators
 /// @{
-  
+
   /// Set the module identifier.
   void setModuleIdentifier(StringRef ID) { ModuleID = ID; }
 
@@ -212,22 +232,27 @@ public:
   void setTargetTriple(StringRef T) { TargetTriple = T; }
 
   /// Set the module-scope inline assembly blocks.
-  void setModuleInlineAsm(StringRef Asm) { GlobalScopeAsm = Asm; }
+  void setModuleInlineAsm(StringRef Asm) {
+    GlobalScopeAsm = Asm;
+    if (!GlobalScopeAsm.empty() &&
+        GlobalScopeAsm[GlobalScopeAsm.size()-1] != '\n')
+      GlobalScopeAsm += '\n';
+  }
 
   /// Append to the module-scope inline assembly blocks, automatically inserting
   /// a separating newline if necessary.
   void appendModuleInlineAsm(StringRef Asm) {
+    GlobalScopeAsm += Asm;
     if (!GlobalScopeAsm.empty() &&
         GlobalScopeAsm[GlobalScopeAsm.size()-1] != '\n')
       GlobalScopeAsm += '\n';
-    GlobalScopeAsm += Asm;
   }
 
 /// @}
 /// @name Generic Value Accessors
 /// @{
 
-  /// getNamedValue - Return the first global value in the module with
+  /// getNamedValue - Return the global value in the module with
   /// the specified name, of arbitrary type.  This method returns null
   /// if a global with the specified name is not found.
   GlobalValue *getNamedValue(StringRef Name) const;
@@ -235,12 +260,23 @@ public:
   /// getMDKindID - Return a unique non-zero ID for the specified metadata kind.
   /// This ID is uniqued across modules in the current LLVMContext.
   unsigned getMDKindID(StringRef Name) const;
-  
+
   /// getMDKindNames - Populate client supplied SmallVector with the name for
-  /// custom metadata IDs registered in this LLVMContext.   ID #0 is not used,
-  /// so it is filled in as an empty string.
+  /// custom metadata IDs registered in this LLVMContext.
   void getMDKindNames(SmallVectorImpl<StringRef> &Result) const;
+
   
+  typedef DenseMap<StructType*, unsigned, DenseMapInfo<StructType*>,
+                   DenseMapInfo<unsigned> > NumeredTypesMapTy;
+
+  /// findUsedStructTypes - Walk the entire module and find all of the
+  /// struct types that are in use, returning them in a vector.
+  void findUsedStructTypes(std::vector<StructType*> &StructTypes) const;
+  
+  /// getTypeByName - Return the type with the specified name, or null if there
+  /// is none by that name.
+  StructType *getTypeByName(StringRef Name) const;
+
 /// @}
 /// @name Function Accessors
 /// @{
@@ -254,10 +290,10 @@ public:
   ///      the existing function.
   ///   4. Finally, the function exists but has the wrong prototype: return the
   ///      function with a constantexpr cast to the right prototype.
-  Constant *getOrInsertFunction(StringRef Name, const FunctionType *T,
+  Constant *getOrInsertFunction(StringRef Name, FunctionType *T,
                                 AttrListPtr AttributeList);
 
-  Constant *getOrInsertFunction(StringRef Name, const FunctionType *T);
+  Constant *getOrInsertFunction(StringRef Name, FunctionType *T);
 
   /// getOrInsertFunction - Look up the specified function in the module symbol
   /// table.  If it does not exist, add a prototype for the function and return
@@ -268,16 +304,16 @@ public:
   /// clients to use.
   Constant *getOrInsertFunction(StringRef Name,
                                 AttrListPtr AttributeList,
-                                const Type *RetTy, ...)  END_WITH_NULL;
+                                Type *RetTy, ...)  END_WITH_NULL;
 
   /// getOrInsertFunction - Same as above, but without the attributes.
-  Constant *getOrInsertFunction(StringRef Name, const Type *RetTy, ...)
+  Constant *getOrInsertFunction(StringRef Name, Type *RetTy, ...)
     END_WITH_NULL;
 
   Constant *getOrInsertTargetIntrinsic(StringRef Name,
-                                       const FunctionType *Ty,
+                                       FunctionType *Ty,
                                        AttrListPtr AttributeList);
-  
+
   /// getFunction - Look up the specified function in the module symbol table.
   /// If it does not exist, return null.
   Function *getFunction(StringRef Name) const;
@@ -293,7 +329,7 @@ public:
   GlobalVariable *getGlobalVariable(StringRef Name,
                                     bool AllowInternal = false) const;
 
-  /// getNamedGlobal - Return the first global variable in the module with the
+  /// getNamedGlobal - Return the global variable in the module with the
   /// specified name, of arbitrary type.  This method returns null if a global
   /// with the specified name is not found.
   GlobalVariable *getNamedGlobal(StringRef Name) const {
@@ -305,15 +341,15 @@ public:
   ///   1. If it does not exist, add a declaration of the global and return it.
   ///   2. Else, the global exists but has the wrong type: return the function
   ///      with a constantexpr cast to the right type.
-  ///   3. Finally, if the existing global is the correct delclaration, return
+  ///   3. Finally, if the existing global is the correct declaration, return
   ///      the existing global.
-  Constant *getOrInsertGlobal(StringRef Name, const Type *Ty);
+  Constant *getOrInsertGlobal(StringRef Name, Type *Ty);
 
 /// @}
 /// @name Global Alias Accessors
 /// @{
 
-  /// getNamedAlias - Return the first global alias in the module with the
+  /// getNamedAlias - Return the global alias in the module with the
   /// specified name, of arbitrary type.  This method returns null if a global
   /// with the specified name is not found.
   GlobalAlias *getNamedAlias(StringRef Name) const;
@@ -321,33 +357,20 @@ public:
 /// @}
 /// @name Named Metadata Accessors
 /// @{
-  
-  /// getNamedMetadata - Return the first NamedMDNode in the module with the
-  /// specified name. This method returns null if a NamedMDNode with the 
-  /// specified name is not found.
-  NamedMDNode *getNamedMetadata(StringRef Name) const;
 
-  /// getOrInsertNamedMetadata - Return the first named MDNode in the module 
-  /// with the specified name. This method returns a new NamedMDNode if a 
+  /// getNamedMetadata - Return the NamedMDNode in the module with the
+  /// specified name. This method returns null if a NamedMDNode with the
+  /// specified name is not found.
+  NamedMDNode *getNamedMetadata(const Twine &Name) const;
+
+  /// getOrInsertNamedMetadata - Return the named MDNode in the module
+  /// with the specified name. This method returns a new NamedMDNode if a
   /// NamedMDNode with the specified name is not found.
   NamedMDNode *getOrInsertNamedMetadata(StringRef Name);
 
-/// @}
-/// @name Type Accessors
-/// @{
-
-  /// addTypeName - Insert an entry in the symbol table mapping Str to Type.  If
-  /// there is already an entry for this name, true is returned and the symbol
-  /// table is not modified.
-  bool addTypeName(StringRef Name, const Type *Ty);
-
-  /// getTypeName - If there is at least one entry in the symbol table for the
-  /// specified type, return it.
-  std::string getTypeName(const Type *Ty) const;
-
-  /// getTypeByName - Return the type with the specified name in this module, or
-  /// null if there is none by that name.
-  const Type *getTypeByName(StringRef Name) const;
+  /// eraseNamedMetadata - Remove the given NamedMDNode from this module
+  /// and delete it.
+  void eraseNamedMetadata(NamedMDNode *NMD);
 
 /// @}
 /// @name Materialization
@@ -418,56 +441,30 @@ public:
   static iplist<GlobalAlias> Module::*getSublistAccess(GlobalAlias*) {
     return &Module::AliasList;
   }
-  /// Get the Module's list of named metadata (constant).
-  const NamedMDListType  &getNamedMDList() const      { return NamedMDList; }
-  /// Get the Module's list of named metadata.
-  NamedMDListType  &getNamedMDList()                  { return NamedMDList; }
-  static iplist<NamedMDNode> Module::*getSublistAccess(NamedMDNode *) {
-    return &Module::NamedMDList;
-  }
   /// Get the symbol table of global variable and function identifiers
   const ValueSymbolTable &getValueSymbolTable() const { return *ValSymTab; }
   /// Get the Module's symbol table of global variable and function identifiers.
   ValueSymbolTable       &getValueSymbolTable()       { return *ValSymTab; }
-  /// Get the symbol table of types
-  const TypeSymbolTable  &getTypeSymbolTable() const  { return *TypeSymTab; }
-  /// Get the Module's symbol table of types
-  TypeSymbolTable        &getTypeSymbolTable()        { return *TypeSymTab; }
-  /// Get the symbol table of named metadata
-  const MDSymbolTable  &getMDSymbolTable() const      { return *NamedMDSymTab; }
-  /// Get the Module's symbol table of named metadata
-  MDSymbolTable        &getMDSymbolTable()            { return *NamedMDSymTab; }
 
 /// @}
 /// @name Global Variable Iteration
 /// @{
 
-  /// Get an iterator to the first global variable
   global_iterator       global_begin()       { return GlobalList.begin(); }
-  /// Get a constant iterator to the first global variable
   const_global_iterator global_begin() const { return GlobalList.begin(); }
-  /// Get an iterator to the last global variable
   global_iterator       global_end  ()       { return GlobalList.end(); }
-  /// Get a constant iterator to the last global variable
   const_global_iterator global_end  () const { return GlobalList.end(); }
-  /// Determine if the list of globals is empty.
   bool                  global_empty() const { return GlobalList.empty(); }
 
 /// @}
 /// @name Function Iteration
 /// @{
 
-  /// Get an iterator to the first function.
   iterator                begin()       { return FunctionList.begin(); }
-  /// Get a constant iterator to the first function.
   const_iterator          begin() const { return FunctionList.begin(); }
-  /// Get an iterator to the last function.
   iterator                end  ()       { return FunctionList.end();   }
-  /// Get a constant iterator to the last function.
   const_iterator          end  () const { return FunctionList.end();   }
-  /// Determine how many functions are in the Module's list of functions.
   size_t                  size() const  { return FunctionList.size(); }
-  /// Determine if the list of functions is empty.
   bool                    empty() const { return FunctionList.empty(); }
 
 /// @}
@@ -491,17 +488,11 @@ public:
 /// @name Alias Iteration
 /// @{
 
-  /// Get an iterator to the first alias.
   alias_iterator       alias_begin()            { return AliasList.begin(); }
-  /// Get a constant iterator to the first alias.
   const_alias_iterator alias_begin() const      { return AliasList.begin(); }
-  /// Get an iterator to the last alias.
   alias_iterator       alias_end  ()            { return AliasList.end();   }
-  /// Get a constant iterator to the last alias.
   const_alias_iterator alias_end  () const      { return AliasList.end();   }
-  /// Determine how many aliases are in the Module's list of aliases.
   size_t               alias_size () const      { return AliasList.size();  }
-  /// Determine if the list of aliases is empty.
   bool                 alias_empty() const      { return AliasList.empty(); }
 
 
@@ -509,23 +500,17 @@ public:
 /// @name Named Metadata Iteration
 /// @{
 
-  /// Get an iterator to the first named metadata.
   named_metadata_iterator named_metadata_begin() { return NamedMDList.begin(); }
-  /// Get a constant iterator to the first named metadata.
   const_named_metadata_iterator named_metadata_begin() const {
     return NamedMDList.begin();
   }
-  
-  /// Get an iterator to the last named metadata.
+
   named_metadata_iterator named_metadata_end() { return NamedMDList.end(); }
-  /// Get a constant iterator to the last named metadata.
   const_named_metadata_iterator named_metadata_end() const {
     return NamedMDList.end();
   }
-  
-  /// Determine how many NamedMDNodes are in the Module's list of named metadata.
+
   size_t named_metadata_size() const { return NamedMDList.size();  }
-  /// Determine if the list of named metadata is empty.
   bool named_metadata_empty() const { return NamedMDList.empty(); }
 
 
@@ -533,11 +518,13 @@ public:
 /// @name Utility functions for printing and dumping Module objects
 /// @{
 
-  /// Print the module to an output stream with AssemblyAnnotationWriter.
+  /// Print the module to an output stream with an optional
+  /// AssemblyAnnotationWriter.
   void print(raw_ostream &OS, AssemblyAnnotationWriter *AAW) const;
-  
+
   /// Dump the module to stderr (for debugging).
   void dump() const;
+  
   /// This function causes all the subinstructions to "let go" of all references
   /// that they are maintaining.  This allows one to 'delete' a whole class at
   /// a time, even though there may be circular references... first all

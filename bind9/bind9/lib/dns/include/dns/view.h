@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2010, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: view.h,v 1.120.8.7 2010-09-24 05:54:06 marka Exp $ */
+/* $Id$ */
 
 #ifndef DNS_VIEW_H
 #define DNS_VIEW_H 1
@@ -1024,5 +1024,7 @@ dns_view_setnewzones(dns_view_t *view, isc_boolean_t allow, void *cfgctx,
  * Requires:
  * \li 'view' is valid.
  */
+
+ISC_LANG_ENDDECLS
 
 #endif /* DNS_VIEW_H */

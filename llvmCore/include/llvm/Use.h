@@ -25,8 +25,8 @@
 #ifndef LLVM_USE_H
 #define LLVM_USE_H
 
-#include "llvm/Support/Casting.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include <cstddef>
 #include <iterator>
 
 namespace llvm {
@@ -34,9 +34,8 @@ namespace llvm {
 class Value;
 class User;
 class Use;
-
-/// Tag - generic tag type for (at least 32 bit) pointers
-enum Tag { noTag, tagOne, tagTwo, tagThree };
+template<typename>
+struct simplify_type;
 
 // Use** is only 4-byte aligned.
 template<>
@@ -61,22 +60,28 @@ public:
   /// that also works with less standard-compliant compilers
   void swap(Use &RHS);
 
+  // A type for the word following an array of hung-off Uses in memory, which is
+  // a pointer back to their User with the bottom bit set.
+  typedef PointerIntPair<User*, 1, unsigned> UserRef;
+
 private:
   /// Copy ctor - do not implement
   Use(const Use &U);
 
   /// Destructor - Only for zap()
-  inline ~Use() {
+  ~Use() {
     if (Val) removeFromList();
   }
 
-  /// Default ctor - This leaves the Use completely uninitialized.  The only
-  /// thing that is valid to do with this use is to call the "init" method.
-  inline Use() {}
-  enum PrevPtrTag { zeroDigitTag = noTag
-                  , oneDigitTag = tagOne
-                  , stopTag = tagTwo
-                  , fullStopTag = tagThree };
+  enum PrevPtrTag { zeroDigitTag
+                  , oneDigitTag
+                  , stopTag
+                  , fullStopTag };
+
+  /// Constructor
+  Use(PrevPtrTag tag) : Val(0) {
+    Prev.setInt(tag);
+  }
 
 public:
   /// Normally Use will just implicitly convert to a Value* that it holds.
@@ -107,15 +112,16 @@ public:
   Use *getNext() const { return Next; }
 
   
+  /// initTags - initialize the waymarking tags on an array of Uses, so that
+  /// getUser() can find the User from any of those Uses.
+  static Use *initTags(Use *Start, Use *Stop);
+
   /// zap - This is used to destroy Use operands when the number of operands of
   /// a User changes.
   static void zap(Use *Start, const Use *Stop, bool del = false);
 
-  /// getPrefix - Return deletable pointer if appropriate
-  Use *getPrefix();
 private:
   const Use* getImpliedUser() const;
-  static Use *initTags(Use *Start, Use *Stop, ptrdiff_t Done = 0);
   
   Value *Val;
   Use *Next;
@@ -137,7 +143,6 @@ private:
   }
 
   friend class Value;
-  friend class User;
 };
 
 // simplify_type - Allow clients to treat uses just like values when using
@@ -209,30 +214,6 @@ public:
   unsigned getOperandNo() const;
 };
 
-
-template<> struct simplify_type<value_use_iterator<User> > {
-  typedef User* SimpleType;
-  
-  static SimpleType getSimplifiedValue(const value_use_iterator<User> &Val) {
-    return *Val;
-  }
-};
-
-template<> struct simplify_type<const value_use_iterator<User> >
- : public simplify_type<value_use_iterator<User> > {};
-
-template<> struct simplify_type<value_use_iterator<const User> > {
-  typedef const User* SimpleType;
-  
-  static SimpleType getSimplifiedValue(const 
-                                       value_use_iterator<const User> &Val) {
-    return *Val;
-  }
-};
-
-template<> struct simplify_type<const value_use_iterator<const User> >
-  : public simplify_type<value_use_iterator<const User> > {};
- 
 } // End llvm namespace
 
 #endif

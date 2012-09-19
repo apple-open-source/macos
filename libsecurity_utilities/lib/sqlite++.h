@@ -74,6 +74,9 @@ public:
 	
 	void close();
 	
+	// open flags
+	int openFlags() const { return mOpenFlags; }
+	
 	// last error condition encountered
 	int errcode();
 	const char *errmsg();
@@ -106,6 +109,7 @@ public:
 private:
 	sqlite3 *mDb;
 	Mutex mMutex;
+	int mOpenFlags;
 };
 
 
@@ -225,6 +229,7 @@ private:
 		void operator = (sqlite3_int64 value);
 		void operator = (double value);
 		void operator = (const char *value);
+		void operator = (const std::string &value);
 		void operator = (const Value &value);
 		void integer(sqlite3_int64 value);
 		void blob(const void *data, size_t length, bool shared = false);
@@ -242,8 +247,8 @@ public:
 		operator int () const { return ::sqlite3_column_int(statement.sql(), index); }
 		operator sqlite3_int64 () const { return ::sqlite3_column_int64(statement.sql(), index); }
 		operator double () const { return ::sqlite3_column_double(statement.sql(), index); }
-		operator const char *() const
-			{ return (const char *)::sqlite3_column_text(statement.sql(), index); }
+		const char *string() const { return (const char *)::sqlite3_column_text(statement.sql(), index); }
+		operator const char *() const { return this->string(); }
 		const void *blob() const { return ::sqlite3_column_blob(statement.sql(), index); }
 		int length() const { return ::sqlite3_column_bytes(statement.sql(), index); }
 		CFDataRef data() const;

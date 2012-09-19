@@ -109,6 +109,7 @@ namespace llvm {
   typedef signed short exponent_t;
 
   struct fltSemantics;
+  class APSInt;
   class StringRef;
 
   /* When bits of a floating point number are truncated, this enum is
@@ -179,7 +180,7 @@ namespace llvm {
 
     // Constructors.
     APFloat(const fltSemantics &); // Default construct to 0.0
-    APFloat(const fltSemantics &, const StringRef &);
+    APFloat(const fltSemantics &, StringRef);
     APFloat(const fltSemantics &, integerPart);
     APFloat(const fltSemantics &, fltCategory, bool negative);
     APFloat(const fltSemantics &, uninitializedTag);
@@ -246,6 +247,13 @@ namespace llvm {
     static APFloat getSmallestNormalized(const fltSemantics &Sem,
                                          bool Negative = false);
 
+    /// getAllOnesValue - Returns a float which is bitcasted from
+    /// an all one value int.
+    ///
+    /// \param BitWidth - Select float type
+    /// \param isIEEE   - If 128 bit number, select between PPC and IEEE
+    static APFloat getAllOnesValue(unsigned BitWidth, bool isIEEE = false);
+
     /// Profile - Used to insert APFloat objects, or objects that contain
     ///  APFloat objects, into FoldingSets.
     void Profile(FoldingSetNodeID& NID) const;
@@ -276,13 +284,14 @@ namespace llvm {
     opStatus convert(const fltSemantics &, roundingMode, bool *);
     opStatus convertToInteger(integerPart *, unsigned int, bool,
                               roundingMode, bool *) const;
+    opStatus convertToInteger(APSInt&, roundingMode, bool *) const;
     opStatus convertFromAPInt(const APInt &,
                               bool, roundingMode);
     opStatus convertFromSignExtendedInteger(const integerPart *, unsigned int,
                                             bool, roundingMode);
     opStatus convertFromZeroExtendedInteger(const integerPart *, unsigned int,
                                             bool, roundingMode);
-    opStatus convertFromString(const StringRef&, roundingMode);
+    opStatus convertFromString(StringRef, roundingMode);
     APInt bitcastToAPInt() const;
     double convertToDouble() const;
     float convertToFloat() const;
@@ -346,6 +355,10 @@ namespace llvm {
                   unsigned FormatPrecision = 0,
                   unsigned FormatMaxPadding = 3) const;
 
+    /// getExactInverse - If this value has an exact multiplicative inverse,
+    /// store it in inv and return true.
+    bool getExactInverse(APFloat *inv) const;
+
   private:
 
     /* Trivial queries.  */
@@ -386,8 +399,8 @@ namespace llvm {
                                           roundingMode, bool *) const;
     opStatus convertFromUnsignedParts(const integerPart *, unsigned int,
                                       roundingMode);
-    opStatus convertFromHexadecimalString(const StringRef&, roundingMode);
-    opStatus convertFromDecimalString (const StringRef&, roundingMode);
+    opStatus convertFromHexadecimalString(StringRef, roundingMode);
+    opStatus convertFromDecimalString(StringRef, roundingMode);
     char *convertNormalToHexString(char *, unsigned int, bool,
                                    roundingMode) const;
     opStatus roundSignificandWithExponent(const integerPart *, unsigned int,

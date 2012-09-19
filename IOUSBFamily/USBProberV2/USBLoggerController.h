@@ -77,6 +77,7 @@
 - (IBAction)MarkOutput:(id)sender;
 - (IBAction)SaveOutput:(id)sender;
 - (IBAction)Start:(id)sender;
+- (void)actuallyStartLogging;
 - (IBAction)Stop:(id)sender;
 - (IBAction)ToggleDumping:(id)sender;
 - (IBAction)FilterOutput:(id)sender;

@@ -13,10 +13,13 @@
 
 #define DEBUG_TYPE "stackcoloring"
 #include "VirtRegMap.h"
+#include "llvm/Function.h"
+#include "llvm/Module.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/LiveIntervalAnalysis.h"
 #include "llvm/CodeGen/LiveStackAnalysis.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -92,9 +95,13 @@ namespace {
   public:
     static char ID; // Pass identification
     StackSlotColoring() :
-      MachineFunctionPass(&ID), ColorWithRegs(false), NextColor(-1) {}
+      MachineFunctionPass(ID), ColorWithRegs(false), NextColor(-1) {
+        initializeStackSlotColoringPass(*PassRegistry::getPassRegistry());
+      }
     StackSlotColoring(bool RegColor) :
-      MachineFunctionPass(&ID), ColorWithRegs(RegColor), NextColor(-1) {}
+      MachineFunctionPass(ID), ColorWithRegs(RegColor), NextColor(-1) {
+        initializeStackSlotColoringPass(*PassRegistry::getPassRegistry());
+      }
     
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesCFG();
@@ -142,8 +149,14 @@ namespace {
 
 char StackSlotColoring::ID = 0;
 
-static RegisterPass<StackSlotColoring>
-X("stack-slot-coloring", "Stack Slot Coloring");
+INITIALIZE_PASS_BEGIN(StackSlotColoring, "stack-slot-coloring",
+                "Stack Slot Coloring", false, false)
+INITIALIZE_PASS_DEPENDENCY(SlotIndexes)
+INITIALIZE_PASS_DEPENDENCY(LiveStacks)
+INITIALIZE_PASS_DEPENDENCY(VirtRegMap)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
+INITIALIZE_PASS_END(StackSlotColoring, "stack-slot-coloring",
+                "Stack Slot Coloring", false, false)
 
 FunctionPass *llvm::createStackSlotColoringPass(bool RegColor) {
   return new StackSlotColoring(RegColor);
@@ -205,7 +218,7 @@ void StackSlotColoring::InitializeSlots() {
   for (LiveStacks::iterator i = LS->begin(), e = LS->end(); i != e; ++i) {
     LiveInterval &li = i->second;
     DEBUG(li.dump());
-    int FI = li.getStackSlotIndex();
+    int FI = TargetRegisterInfo::stackSlot2Index(li.reg);
     if (MFI->isDeadObjectIndex(FI))
       continue;
     SSIntervals.push_back(&li);
@@ -248,7 +261,7 @@ StackSlotColoring::ColorSlotsWithFreeRegs(SmallVector<int, 16> &SlotMapping,
   DEBUG(dbgs() << "Assigning unused registers to spill slots:\n");
   for (unsigned i = 0, e = SSIntervals.size(); i != e; ++i) {
     LiveInterval *li = SSIntervals[i];
-    int SS = li->getStackSlotIndex();
+    int SS = TargetRegisterInfo::stackSlot2Index(li->reg);
     if (!UsedColors[SS] || li->weight < 20)
       // If the weight is < 20, i.e. two references in a loop with depth 1,
       // don't bother with it.
@@ -337,7 +350,7 @@ int StackSlotColoring::ColorSlot(LiveInterval *li) {
 
   // Record the assignment.
   Assignments[Color].push_back(li);
-  int FI = li->getStackSlotIndex();
+  int FI = TargetRegisterInfo::stackSlot2Index(li->reg);
   DEBUG(dbgs() << "Assigning fi#" << FI << " to fi#" << Color << "\n");
 
   // Change size and alignment of the allocated slot. If there are multiple
@@ -366,7 +379,7 @@ bool StackSlotColoring::ColorSlots(MachineFunction &MF) {
   bool Changed = false;
   for (unsigned i = 0, e = SSIntervals.size(); i != e; ++i) {
     LiveInterval *li = SSIntervals[i];
-    int SS = li->getStackSlotIndex();
+    int SS = TargetRegisterInfo::stackSlot2Index(li->reg);
     int NewSS = ColorSlot(li);
     assert(NewSS >= 0 && "Stack coloring failed?");
     SlotMapping[SS] = NewSS;
@@ -379,7 +392,7 @@ bool StackSlotColoring::ColorSlots(MachineFunction &MF) {
   DEBUG(dbgs() << "\nSpill slots after coloring:\n");
   for (unsigned i = 0, e = SSIntervals.size(); i != e; ++i) {
     LiveInterval *li = SSIntervals[i];
-    int SS = li->getStackSlotIndex();
+    int SS = TargetRegisterInfo::stackSlot2Index(li->reg);
     li->weight = SlotWeights[SS];
   }
   // Sort them by new weight.
@@ -491,7 +504,7 @@ bool StackSlotColoring::PropagateBackward(MachineBasicBlock::iterator MII,
     bool FoundDef = false;  // Not counting 2address def.
 
     Uses.clear();
-    const TargetInstrDesc &TID = MII->getDesc();
+    const MCInstrDesc &MCID = MII->getDesc();
     for (unsigned i = 0, e = MII->getNumOperands(); i != e; ++i) {
       MachineOperand &MO = MII->getOperand(i);
       if (!MO.isReg())
@@ -505,11 +518,10 @@ bool StackSlotColoring::PropagateBackward(MachineBasicBlock::iterator MII,
 
         // Abort the use is actually a sub-register def. We don't have enough
         // information to figure out if it is really legal.
-        if (MO.getSubReg() || MII->isExtractSubreg() ||
-            MII->isInsertSubreg() || MII->isSubregToReg())
+        if (MO.getSubReg() || MII->isSubregToReg())
           return false;
 
-        const TargetRegisterClass *RC = TID.OpInfo[i].getRegClass(TRI);
+        const TargetRegisterClass *RC = TII->getRegClass(MCID, i, TRI);
         if (RC && !RC->contains(NewReg))
           return false;
 
@@ -554,7 +566,7 @@ bool StackSlotColoring::PropagateForward(MachineBasicBlock::iterator MII,
   SmallVector<MachineOperand*, 4> Uses;
   while (++MII != MBB->end()) {
     bool FoundKill = false;
-    const TargetInstrDesc &TID = MII->getDesc();
+    const MCInstrDesc &MCID = MII->getDesc();
     for (unsigned i = 0, e = MII->getNumOperands(); i != e; ++i) {
       MachineOperand &MO = MII->getOperand(i);
       if (!MO.isReg())
@@ -568,10 +580,10 @@ bool StackSlotColoring::PropagateForward(MachineBasicBlock::iterator MII,
 
         // Abort the use is actually a sub-register use. We don't have enough
         // information to figure out if it is really legal.
-        if (MO.getSubReg() || MII->isExtractSubreg())
+        if (MO.getSubReg())
           return false;
 
-        const TargetRegisterClass *RC = TID.OpInfo[i].getRegClass(TRI);
+        const TargetRegisterClass *RC = TII->getRegClass(MCID, i, TRI);
         if (RC && !RC->contains(NewReg))
           return false;
         if (MO.isKill())
@@ -607,8 +619,8 @@ StackSlotColoring::UnfoldAndRewriteInstruction(MachineInstr *MI, int OldFI,
       DEBUG(MI->dump());
       ++NumLoadElim;
     } else {
-      TII->copyRegToReg(*MBB, MI, DstReg, Reg, RC, RC,
-                        MI->getDebugLoc());
+      BuildMI(*MBB, MI, MI->getDebugLoc(), TII->get(TargetOpcode::COPY),
+              DstReg).addReg(Reg);
       ++NumRegRepl;
     }
 
@@ -624,8 +636,8 @@ StackSlotColoring::UnfoldAndRewriteInstruction(MachineInstr *MI, int OldFI,
       DEBUG(MI->dump());
       ++NumStoreElim;
     } else {
-      TII->copyRegToReg(*MBB, MI, Reg, SrcReg, RC, RC,
-                        MI->getDebugLoc());
+      BuildMI(*MBB, MI, MI->getDebugLoc(), TII->get(TargetOpcode::COPY), Reg)
+        .addReg(SrcReg);
       ++NumRegRepl;
     }
 
@@ -634,7 +646,7 @@ StackSlotColoring::UnfoldAndRewriteInstruction(MachineInstr *MI, int OldFI,
   } else {
     SmallVector<MachineInstr*, 4> NewMIs;
     bool Success = TII->unfoldMemoryOperand(MF, MI, Reg, false, false, NewMIs);
-    Success = Success; // Silence compiler warning.
+    (void)Success; // Silence compiler warning.
     assert(Success && "Failed to unfold!");
     MachineInstr *NewMI = NewMIs[0];
     MBB->insert(MI, NewMI);
@@ -699,7 +711,11 @@ bool StackSlotColoring::RemoveDeadStores(MachineBasicBlock* MBB) {
 
 
 bool StackSlotColoring::runOnMachineFunction(MachineFunction &MF) {
-  DEBUG(dbgs() << "********** Stack Slot Coloring **********\n");
+  DEBUG({
+      dbgs() << "********** Stack Slot Coloring **********\n"
+             << "********** Function: " 
+             << MF.getFunction()->getName() << '\n';
+    });
 
   MFI = MF.getFrameInfo();
   MRI = &MF.getRegInfo(); 
@@ -717,6 +733,13 @@ bool StackSlotColoring::runOnMachineFunction(MachineFunction &MF) {
       // Nothing to do!
       return false;
   }
+
+  // If there are calls to setjmp or sigsetjmp, don't perform stack slot
+  // coloring. The stack could be modified before the longjmp is executed,
+  // resulting in the wrong value being used afterwards. (See
+  // <rdar://problem/8007500>.)
+  if (MF.callsSetJmp())
+    return false;
 
   // Gather spill slot references
   ScanForSpillSlotRefs(MF);

@@ -15,179 +15,25 @@
 #define ARMBASEINSTRUCTIONINFO_H
 
 #include "ARM.h"
-#include "ARMRegisterInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallSet.h"
+
+#define GET_INSTRINFO_HEADER
+#include "ARMGenInstrInfo.inc"
 
 namespace llvm {
+  class ARMSubtarget;
+  class ARMBaseRegisterInfo;
 
-/// ARMII - This namespace holds all of the target specific flags that
-/// instruction info tracks.
-///
-namespace ARMII {
-  enum {
-    //===------------------------------------------------------------------===//
-    // Instruction Flags.
+class ARMBaseInstrInfo : public ARMGenInstrInfo {
+  const ARMSubtarget &Subtarget;
 
-    //===------------------------------------------------------------------===//
-    // This four-bit field describes the addressing mode used.
-
-    AddrModeMask  = 0xf,
-    AddrModeNone    = 0,
-    AddrMode1       = 1,
-    AddrMode2       = 2,
-    AddrMode3       = 3,
-    AddrMode4       = 4,
-    AddrMode5       = 5,
-    AddrMode6       = 6,
-    AddrModeT1_1    = 7,
-    AddrModeT1_2    = 8,
-    AddrModeT1_4    = 9,
-    AddrModeT1_s    = 10, // i8 * 4 for pc and sp relative data
-    AddrModeT2_i12  = 11,
-    AddrModeT2_i8   = 12,
-    AddrModeT2_so   = 13,
-    AddrModeT2_pc   = 14, // +/- i12 for pc relative data
-    AddrModeT2_i8s4 = 15, // i8 * 4
-
-    // Size* - Flags to keep track of the size of an instruction.
-    SizeShift     = 4,
-    SizeMask      = 7 << SizeShift,
-    SizeSpecial   = 1,   // 0 byte pseudo or special case.
-    Size8Bytes    = 2,
-    Size4Bytes    = 3,
-    Size2Bytes    = 4,
-
-    // IndexMode - Unindex, pre-indexed, or post-indexed are valid for load
-    // and store ops only.  Generic "updating" flag is used for ld/st multiple.
-    IndexModeShift = 7,
-    IndexModeMask  = 3 << IndexModeShift,
-    IndexModePre   = 1,
-    IndexModePost  = 2,
-    IndexModeUpd   = 3,
-
-    //===------------------------------------------------------------------===//
-    // Instruction encoding formats.
-    //
-    FormShift     = 9,
-    FormMask      = 0x3f << FormShift,
-
-    // Pseudo instructions
-    Pseudo        = 0  << FormShift,
-
-    // Multiply instructions
-    MulFrm        = 1  << FormShift,
-
-    // Branch instructions
-    BrFrm         = 2  << FormShift,
-    BrMiscFrm     = 3  << FormShift,
-
-    // Data Processing instructions
-    DPFrm         = 4  << FormShift,
-    DPSoRegFrm    = 5  << FormShift,
-
-    // Load and Store
-    LdFrm         = 6  << FormShift,
-    StFrm         = 7  << FormShift,
-    LdMiscFrm     = 8  << FormShift,
-    StMiscFrm     = 9  << FormShift,
-    LdStMulFrm    = 10 << FormShift,
-
-    LdStExFrm     = 11 << FormShift,
-
-    // Miscellaneous arithmetic instructions
-    ArithMiscFrm  = 12 << FormShift,
-
-    // Extend instructions
-    ExtFrm        = 13 << FormShift,
-
-    // VFP formats
-    VFPUnaryFrm   = 14 << FormShift,
-    VFPBinaryFrm  = 15 << FormShift,
-    VFPConv1Frm   = 16 << FormShift,
-    VFPConv2Frm   = 17 << FormShift,
-    VFPConv3Frm   = 18 << FormShift,
-    VFPConv4Frm   = 19 << FormShift,
-    VFPConv5Frm   = 20 << FormShift,
-    VFPLdStFrm    = 21 << FormShift,
-    VFPLdStMulFrm = 22 << FormShift,
-    VFPMiscFrm    = 23 << FormShift,
-
-    // Thumb format
-    ThumbFrm      = 24 << FormShift,
-
-    // NEON format
-    NEONFrm       = 25 << FormShift,
-    NEONGetLnFrm  = 26 << FormShift,
-    NEONSetLnFrm  = 27 << FormShift,
-    NEONDupFrm    = 28 << FormShift,
-
-    //===------------------------------------------------------------------===//
-    // Misc flags.
-
-    // UnaryDP - Indicates this is a unary data processing instruction, i.e.
-    // it doesn't have a Rn operand.
-    UnaryDP       = 1 << 15,
-
-    // Xform16Bit - Indicates this Thumb2 instruction may be transformed into
-    // a 16-bit Thumb instruction if certain conditions are met.
-    Xform16Bit    = 1 << 16,
-
-    //===------------------------------------------------------------------===//
-    // Code domain.
-    DomainShift   = 17,
-    DomainMask    = 3 << DomainShift,
-    DomainGeneral = 0 << DomainShift,
-    DomainVFP     = 1 << DomainShift,
-    DomainNEON    = 2 << DomainShift,
-
-    //===------------------------------------------------------------------===//
-    // Field shifts - such shifts are used to set field while generating
-    // machine instructions.
-    M_BitShift     = 5,
-    ShiftImmShift  = 5,
-    ShiftShift     = 7,
-    N_BitShift     = 7,
-    ImmHiShift     = 8,
-    SoRotImmShift  = 8,
-    RegRsShift     = 8,
-    ExtRotImmShift = 10,
-    RegRdLoShift   = 12,
-    RegRdShift     = 12,
-    RegRdHiShift   = 16,
-    RegRnShift     = 16,
-    S_BitShift     = 20,
-    W_BitShift     = 21,
-    AM3_I_BitShift = 22,
-    D_BitShift     = 22,
-    U_BitShift     = 23,
-    P_BitShift     = 24,
-    I_BitShift     = 25,
-    CondShift      = 28
-  };
-
-  /// Target Operand Flag enum.
-  enum TOF {
-    //===------------------------------------------------------------------===//
-    // ARM Specific MachineOperand flags.
-
-    MO_NO_FLAG,
-
-    /// MO_LO16 - On a symbol operand, this represents a relocation containing
-    /// lower 16 bit of the address. Used only via movw instruction.
-    MO_LO16,
-
-    /// MO_HI16 - On a symbol operand, this represents a relocation containing
-    /// higher 16 bit of the address. Used only via movt instruction.
-    MO_HI16
-  };
-}
-
-class ARMBaseInstrInfo : public TargetInstrInfoImpl {
-  const ARMSubtarget& Subtarget;
 protected:
   // Can be only subclassed.
   explicit ARMBaseInstrInfo(const ARMSubtarget &STI);
+
 public:
   // Return the non-pre/post incrementing version of 'Opc'. Return 0
   // if there is not such an opcode.
@@ -200,15 +46,24 @@ public:
   virtual const ARMBaseRegisterInfo &getRegisterInfo() const =0;
   const ARMSubtarget &getSubtarget() const { return Subtarget; }
 
+  ScheduleHazardRecognizer *
+  CreateTargetHazardRecognizer(const TargetMachine *TM,
+                               const ScheduleDAG *DAG) const;
+
+  ScheduleHazardRecognizer *
+  CreateTargetPostRAHazardRecognizer(const InstrItineraryData *II,
+                                     const ScheduleDAG *DAG) const;
+
   // Branch analysis.
   virtual bool AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                              MachineBasicBlock *&FBB,
                              SmallVectorImpl<MachineOperand> &Cond,
-                             bool AllowModify) const;
+                             bool AllowModify = false) const;
   virtual unsigned RemoveBranch(MachineBasicBlock &MBB) const;
   virtual unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                                 MachineBasicBlock *FBB,
-                            const SmallVectorImpl<MachineOperand> &Cond) const;
+                                const SmallVectorImpl<MachineOperand> &Cond,
+                                DebugLoc DL) const;
 
   virtual
   bool ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const;
@@ -242,23 +97,19 @@ public:
   ///
   virtual unsigned GetInstSizeInBytes(const MachineInstr* MI) const;
 
-  /// Return true if the instruction is a register to register move and return
-  /// the source and dest operands and their sub-register indices by reference.
-  virtual bool isMoveInstr(const MachineInstr &MI,
-                           unsigned &SrcReg, unsigned &DstReg,
-                           unsigned &SrcSubIdx, unsigned &DstSubIdx) const;
-
   virtual unsigned isLoadFromStackSlot(const MachineInstr *MI,
                                        int &FrameIndex) const;
   virtual unsigned isStoreToStackSlot(const MachineInstr *MI,
                                       int &FrameIndex) const;
+  virtual unsigned isLoadFromStackSlotPostFE(const MachineInstr *MI,
+                                             int &FrameIndex) const;
+  virtual unsigned isStoreToStackSlotPostFE(const MachineInstr *MI,
+                                            int &FrameIndex) const;
 
-  virtual bool copyRegToReg(MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator I,
-                            unsigned DestReg, unsigned SrcReg,
-                            const TargetRegisterClass *DestRC,
-                            const TargetRegisterClass *SrcRC,
-                            DebugLoc DL) const;
+  virtual void copyPhysReg(MachineBasicBlock &MBB,
+                           MachineBasicBlock::iterator I, DebugLoc DL,
+                           unsigned DestReg, unsigned SrcReg,
+                           bool KillSrc) const;
 
   virtual void storeRegToStackSlot(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MBBI,
@@ -272,35 +123,171 @@ public:
                                     const TargetRegisterClass *RC,
                                     const TargetRegisterInfo *TRI) const;
 
+  virtual bool expandPostRAPseudo(MachineBasicBlock::iterator MI) const;
+
   virtual MachineInstr *emitFrameIndexDebugValue(MachineFunction &MF,
                                                  int FrameIx,
                                                  uint64_t Offset,
                                                  const MDNode *MDPtr,
                                                  DebugLoc DL) const;
 
-  virtual bool canFoldMemoryOperand(const MachineInstr *MI,
-                                    const SmallVectorImpl<unsigned> &Ops) const;
-
-  virtual MachineInstr* foldMemoryOperandImpl(MachineFunction &MF,
-                                              MachineInstr* MI,
-                                              const SmallVectorImpl<unsigned> &Ops,
-                                              int FrameIndex) const;
-
-  virtual MachineInstr* foldMemoryOperandImpl(MachineFunction &MF,
-                                              MachineInstr* MI,
-                                           const SmallVectorImpl<unsigned> &Ops,
-                                              MachineInstr* LoadMI) const;
-
   virtual void reMaterialize(MachineBasicBlock &MBB,
                              MachineBasicBlock::iterator MI,
                              unsigned DestReg, unsigned SubIdx,
                              const MachineInstr *Orig,
-                             const TargetRegisterInfo *TRI) const;
+                             const TargetRegisterInfo &TRI) const;
 
   MachineInstr *duplicate(MachineInstr *Orig, MachineFunction &MF) const;
 
   virtual bool produceSameValue(const MachineInstr *MI0,
-                                const MachineInstr *MI1) const;
+                                const MachineInstr *MI1,
+                                const MachineRegisterInfo *MRI) const;
+
+  /// areLoadsFromSameBasePtr - This is used by the pre-regalloc scheduler to
+  /// determine if two loads are loading from the same base address. It should
+  /// only return true if the base pointers are the same and the only
+  /// differences between the two addresses is the offset. It also returns the
+  /// offsets by reference.
+  virtual bool areLoadsFromSameBasePtr(SDNode *Load1, SDNode *Load2,
+                                       int64_t &Offset1, int64_t &Offset2)const;
+
+  /// shouldScheduleLoadsNear - This is a used by the pre-regalloc scheduler to
+  /// determine (in conjunction with areLoadsFromSameBasePtr) if two loads
+  /// should be scheduled togther. On some targets if two loads are loading from
+  /// addresses in the same cache line, it's better if they are scheduled
+  /// together. This function takes two integers that represent the load offsets
+  /// from the common base address. It returns true if it decides it's desirable
+  /// to schedule the two loads together. "NumLoads" is the number of loads that
+  /// have already been scheduled after Load1.
+  virtual bool shouldScheduleLoadsNear(SDNode *Load1, SDNode *Load2,
+                                       int64_t Offset1, int64_t Offset2,
+                                       unsigned NumLoads) const;
+
+  virtual bool isSchedulingBoundary(const MachineInstr *MI,
+                                    const MachineBasicBlock *MBB,
+                                    const MachineFunction &MF) const;
+
+  virtual bool isProfitableToIfCvt(MachineBasicBlock &MBB,
+                                   unsigned NumCycles, unsigned ExtraPredCycles,
+                                   const BranchProbability &Probability) const;
+
+  virtual bool isProfitableToIfCvt(MachineBasicBlock &TMBB,
+                                   unsigned NumT, unsigned ExtraT,
+                                   MachineBasicBlock &FMBB,
+                                   unsigned NumF, unsigned ExtraF,
+                                   const BranchProbability &Probability) const;
+
+  virtual bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB,
+                                         unsigned NumCycles,
+                                         const BranchProbability
+                                           &Probability) const {
+    return NumCycles == 1;
+  }
+
+  /// AnalyzeCompare - For a comparison instruction, return the source register
+  /// in SrcReg and the value it compares against in CmpValue. Return true if
+  /// the comparison instruction can be analyzed.
+  virtual bool AnalyzeCompare(const MachineInstr *MI, unsigned &SrcReg,
+                              int &CmpMask, int &CmpValue) const;
+
+  /// OptimizeCompareInstr - Convert the instruction to set the zero flag so
+  /// that we can remove a "comparison with zero".
+  virtual bool OptimizeCompareInstr(MachineInstr *CmpInstr, unsigned SrcReg,
+                                    int CmpMask, int CmpValue,
+                                    const MachineRegisterInfo *MRI) const;
+
+  /// FoldImmediate - 'Reg' is known to be defined by a move immediate
+  /// instruction, try to fold the immediate into the use instruction.
+  virtual bool FoldImmediate(MachineInstr *UseMI, MachineInstr *DefMI,
+                             unsigned Reg, MachineRegisterInfo *MRI) const;
+
+  virtual unsigned getNumMicroOps(const InstrItineraryData *ItinData,
+                                  const MachineInstr *MI) const;
+
+  virtual
+  int getOperandLatency(const InstrItineraryData *ItinData,
+                        const MachineInstr *DefMI, unsigned DefIdx,
+                        const MachineInstr *UseMI, unsigned UseIdx) const;
+  virtual
+  int getOperandLatency(const InstrItineraryData *ItinData,
+                        SDNode *DefNode, unsigned DefIdx,
+                        SDNode *UseNode, unsigned UseIdx) const;
+
+  /// VFP/NEON execution domains.
+  std::pair<uint16_t, uint16_t>
+  getExecutionDomain(const MachineInstr *MI) const;
+  void setExecutionDomain(MachineInstr *MI, unsigned Domain) const;
+
+private:
+  int getVLDMDefCycle(const InstrItineraryData *ItinData,
+                      const MCInstrDesc &DefMCID,
+                      unsigned DefClass,
+                      unsigned DefIdx, unsigned DefAlign) const;
+  int getLDMDefCycle(const InstrItineraryData *ItinData,
+                     const MCInstrDesc &DefMCID,
+                     unsigned DefClass,
+                     unsigned DefIdx, unsigned DefAlign) const;
+  int getVSTMUseCycle(const InstrItineraryData *ItinData,
+                      const MCInstrDesc &UseMCID,
+                      unsigned UseClass,
+                      unsigned UseIdx, unsigned UseAlign) const;
+  int getSTMUseCycle(const InstrItineraryData *ItinData,
+                     const MCInstrDesc &UseMCID,
+                     unsigned UseClass,
+                     unsigned UseIdx, unsigned UseAlign) const;
+  int getOperandLatency(const InstrItineraryData *ItinData,
+                        const MCInstrDesc &DefMCID,
+                        unsigned DefIdx, unsigned DefAlign,
+                        const MCInstrDesc &UseMCID,
+                        unsigned UseIdx, unsigned UseAlign) const;
+
+  int getInstrLatency(const InstrItineraryData *ItinData,
+                      const MachineInstr *MI, unsigned *PredCost = 0) const;
+
+  int getInstrLatency(const InstrItineraryData *ItinData,
+                      SDNode *Node) const;
+
+  bool hasHighOperandLatency(const InstrItineraryData *ItinData,
+                             const MachineRegisterInfo *MRI,
+                             const MachineInstr *DefMI, unsigned DefIdx,
+                             const MachineInstr *UseMI, unsigned UseIdx) const;
+  bool hasLowDefLatency(const InstrItineraryData *ItinData,
+                        const MachineInstr *DefMI, unsigned DefIdx) const;
+
+  /// verifyInstruction - Perform target specific instruction verification.
+  bool verifyInstruction(const MachineInstr *MI, StringRef &ErrInfo) const;
+
+private:
+  /// Modeling special VFP / NEON fp MLA / MLS hazards.
+
+  /// MLxEntryMap - Map fp MLA / MLS to the corresponding entry in the internal
+  /// MLx table.
+  DenseMap<unsigned, unsigned> MLxEntryMap;
+
+  /// MLxHazardOpcodes - Set of add / sub and multiply opcodes that would cause
+  /// stalls when scheduled together with fp MLA / MLS opcodes.
+  SmallSet<unsigned, 16> MLxHazardOpcodes;
+
+public:
+  /// isFpMLxInstruction - Return true if the specified opcode is a fp MLA / MLS
+  /// instruction.
+  bool isFpMLxInstruction(unsigned Opcode) const {
+    return MLxEntryMap.count(Opcode);
+  }
+
+  /// isFpMLxInstruction - This version also returns the multiply opcode and the
+  /// addition / subtraction opcode to expand to. Return true for 'HasLane' for
+  /// the MLX instructions with an extra lane operand.
+  bool isFpMLxInstruction(unsigned Opcode, unsigned &MulOpc,
+                          unsigned &AddSubOpc, bool &NegAcc,
+                          bool &HasLane) const;
+
+  /// canCauseFpMLxStall - Return true if an instruction of the specified opcode
+  /// will cause stalls when scheduled after (within 4-cycle window) a fp
+  /// MLA / MLS instruction.
+  bool canCauseFpMLxStall(unsigned Opcode) const {
+    return MLxHazardOpcodes.count(Opcode);
+  }
 };
 
 static inline
@@ -342,7 +329,7 @@ bool isJumpTableBranchOpcode(int Opc) {
 
 static inline
 bool isIndirectBranchOpcode(int Opc) {
-  return Opc == ARM::BRIND || Opc == ARM::MOVPCRX || Opc == ARM::tBRIND;
+  return Opc == ARM::BX || Opc == ARM::MOVPCRX || Opc == ARM::tBRIND;
 }
 
 /// getInstrPredicate - If instruction is predicated, returns its predicate
@@ -352,6 +339,12 @@ ARMCC::CondCodes getInstrPredicate(const MachineInstr *MI, unsigned &PredReg);
 
 int getMatchingCondBranchOpcode(int Opc);
 
+
+/// Map pseudo instructions that imply an 'S' bit onto real opcodes. Whether
+/// the instruction is encoded with an 'S' bit is determined by the optional
+/// CPSR def operand.
+unsigned convertAddSubFlagsOpcode(unsigned OldOpc);
+
 /// emitARMRegPlusImmediate / emitT2RegPlusImmediate - Emits a series of
 /// instructions to materializea destreg = basereg + immediate in ARM / Thumb2
 /// code.
@@ -359,13 +352,19 @@ void emitARMRegPlusImmediate(MachineBasicBlock &MBB,
                              MachineBasicBlock::iterator &MBBI, DebugLoc dl,
                              unsigned DestReg, unsigned BaseReg, int NumBytes,
                              ARMCC::CondCodes Pred, unsigned PredReg,
-                             const ARMBaseInstrInfo &TII);
+                             const ARMBaseInstrInfo &TII, unsigned MIFlags = 0);
 
 void emitT2RegPlusImmediate(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator &MBBI, DebugLoc dl,
                             unsigned DestReg, unsigned BaseReg, int NumBytes,
                             ARMCC::CondCodes Pred, unsigned PredReg,
-                            const ARMBaseInstrInfo &TII);
+                            const ARMBaseInstrInfo &TII, unsigned MIFlags = 0);
+void emitThumbRegPlusImmediate(MachineBasicBlock &MBB,
+                               MachineBasicBlock::iterator &MBBI, DebugLoc dl,
+                               unsigned DestReg, unsigned BaseReg,
+                               int NumBytes, const TargetInstrInfo &TII,
+                               const ARMBaseRegisterInfo& MRI,
+                               unsigned MIFlags = 0);
 
 
 /// rewriteARMFrameIndex / rewriteT2FrameIndex -

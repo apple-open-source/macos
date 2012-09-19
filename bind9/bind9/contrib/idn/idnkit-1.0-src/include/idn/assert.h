@@ -1,4 +1,4 @@
-/* $Id: assert.h,v 1.1.1.1 2003-06-04 00:25:35 marka Exp $ */
+/* $Id: assert.h,v 1.1 2003/06/04 00:25:35 marka Exp $ */
 /*
  * Copyright (c) 2000 Japan Network Information Center.  All rights reserved.
  *  

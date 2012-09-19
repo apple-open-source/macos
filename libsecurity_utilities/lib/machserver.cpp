@@ -32,6 +32,7 @@
 #include <mach/mig_errors.h>
 #include "mach_notify.h"
 #include <security_utilities/debugging.h>
+#include <malloc/malloc.h>
 
 #if defined(USECFCURRENTTIME)
 # include <CoreFoundation/CFDate.h>
@@ -200,9 +201,6 @@ void MachServer::runServerThread(bool doTimeout)
 				}
 			}
             
-            // release deferred-release memory
-            releaseDeferredAllocations();
-			
 			// determine next timeout (if any)
             bool indefinite = false;
 			Time::Interval timeout = workerTimeout;
@@ -309,6 +307,10 @@ void MachServer::runServerThread(bool doTimeout)
 				bufReply.destroy();
 				break;
 			}
+
+            
+            // clean up after the transaction
+            releaseDeferredAllocations();
         }
 		perThread().server = NULL;
 		
@@ -387,6 +389,10 @@ void MachServer::releaseDeferredAllocations()
     set<Allocation> &releaseSet = perThread().deferredAllocations;
 	for (set<Allocation>::iterator it = releaseSet.begin(); it != releaseSet.end(); it++) {
 		SECURITY_MACHSERVER_ALLOC_RELEASE(it->addr, it->allocator);
+        
+        // before we release the deferred allocation, zap it so that secrets aren't left in memory
+        size_t memSize = malloc_size(it->addr);
+        bzero(it->addr, memSize);
 		it->allocator->free(it->addr);
     }
 	releaseSet.erase(releaseSet.begin(), releaseSet.end());

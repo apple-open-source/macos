@@ -47,8 +47,8 @@ use Socket;
 #  -noclean         Do not run 'make clean' before building.
 #  -nobuild         Do not build llvm. If tests are enabled perform them
 #                   on the llvm build specified in the build directory
-#  -release         Build an LLVM Release version
-#  -release-asserts Build an LLVM ReleaseAsserts version
+#  -release         Build an LLVM Release+Asserts version
+#  -release-asserts Build an LLVM Release version
 #  -disable-bindings     Disable building LLVM bindings.
 #  -with-clang      Checkout Clang source into tools/clang.
 #  -compileflags    Next argument specifies extra options passed to make when
@@ -794,7 +794,7 @@ my %hash_of_data = (
   'endtime' => $endtime,
   'target_triple' => $targetTriple,
 
-  # Unused, but left around for backwards compatability.
+  # Unused, but left around for backwards compatibility.
   'warnings' => "",
   'cvsusercommitlist' => "",
   'cvsuserupdatelist' => "",

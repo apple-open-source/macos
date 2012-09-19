@@ -18,24 +18,24 @@
 #include "llvm/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/Verifier.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/Config/config.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/System/Host.h"
-#include "llvm/System/Signals.h"
-#include "llvm/Target/SubtargetFeature.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetSelect.h"
 #include <memory>
 using namespace llvm;
 
@@ -76,6 +76,42 @@ MAttrs("mattr",
   cl::desc("Target specific attributes (-mattr=help for details)"),
   cl::value_desc("a1,+a2,-a3,..."));
 
+static cl::opt<Reloc::Model>
+RelocModel("relocation-model",
+             cl::desc("Choose relocation model"),
+             cl::init(Reloc::Default),
+             cl::values(
+            clEnumValN(Reloc::Default, "default",
+                       "Target default relocation model"),
+            clEnumValN(Reloc::Static, "static",
+                       "Non-relocatable code"),
+            clEnumValN(Reloc::PIC_, "pic",
+                       "Fully relocatable, position independent code"),
+            clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
+                       "Relocatable external references, non-relocatable code"),
+            clEnumValEnd));
+
+static cl::opt<llvm::CodeModel::Model>
+CMModel("code-model",
+        cl::desc("Choose code model"),
+        cl::init(CodeModel::Default),
+        cl::values(clEnumValN(CodeModel::Default, "default",
+                              "Target default code model"),
+                   clEnumValN(CodeModel::Small, "small",
+                              "Small code model"),
+                   clEnumValN(CodeModel::Kernel, "kernel",
+                              "Kernel code model"),
+                   clEnumValN(CodeModel::Medium, "medium",
+                              "Medium code model"),
+                   clEnumValN(CodeModel::Large, "large",
+                              "Large code model"),
+                   clEnumValEnd));
+
+static cl::opt<bool>
+RelaxAll("mc-relax-all",
+  cl::desc("When used with filetype=obj, "
+           "relax all fixups in the emitted object file"));
+
 cl::opt<TargetMachine::CodeGenFileType>
 FileType("filetype", cl::init(TargetMachine::CGFT_AssemblyFile),
   cl::desc("Choose a file type (not all types are supported by all targets):"),
@@ -91,15 +127,18 @@ FileType("filetype", cl::init(TargetMachine::CGFT_AssemblyFile),
 cl::opt<bool> NoVerify("disable-verify", cl::Hidden,
                        cl::desc("Do not verify input module"));
 
+cl::opt<bool> DisableDotLoc("disable-dot-loc", cl::Hidden,
+                            cl::desc("Do not use .loc entries"));
+
+cl::opt<bool> DisableCFI("disable-cfi", cl::Hidden,
+                         cl::desc("Do not use .cfi_* directives"));
+
+cl::opt<bool> EnableDwarfDirectory("enable-dwarf-directory", cl::Hidden,
+    cl::desc("Use .file directives with an explicit directory."));
 
 static cl::opt<bool>
 DisableRedZone("disable-red-zone",
   cl::desc("Do not emit code that uses the red zone."),
-  cl::init(false));
-
-static cl::opt<bool>
-NoImplicitFloats("no-implicit-float",
-  cl::desc("Don't generate implicit floating point instructions (x86-only)"),
   cl::init(false));
 
 // GetFileNameRoot - Helper function to get the basename of a filename.
@@ -119,85 +158,67 @@ GetFileNameRoot(const std::string &InputFilename) {
   return outputFilename;
 }
 
-static formatted_raw_ostream *GetOutputStream(const char *TargetName,
-                                              Triple::OSType OS,
-                                              const char *ProgName) {
-  if (OutputFilename != "") {
-    if (OutputFilename == "-")
-      return &fouts();
+static tool_output_file *GetOutputStream(const char *TargetName,
+                                         Triple::OSType OS,
+                                         const char *ProgName) {
+  // If we don't yet have an output filename, make one.
+  if (OutputFilename.empty()) {
+    if (InputFilename == "-")
+      OutputFilename = "-";
+    else {
+      OutputFilename = GetFileNameRoot(InputFilename);
 
-    // Make sure that the Out file gets unlinked from the disk if we get a
-    // SIGINT
-    sys::RemoveFileOnSignal(sys::Path(OutputFilename));
-
-    std::string error;
-    raw_fd_ostream *FDOut =
-      new raw_fd_ostream(OutputFilename.c_str(), error,
-                         raw_fd_ostream::F_Binary);
-    if (!error.empty()) {
-      errs() << error << '\n';
-      delete FDOut;
-      return 0;
+      switch (FileType) {
+      default: assert(0 && "Unknown file type");
+      case TargetMachine::CGFT_AssemblyFile:
+        if (TargetName[0] == 'c') {
+          if (TargetName[1] == 0)
+            OutputFilename += ".cbe.c";
+          else if (TargetName[1] == 'p' && TargetName[2] == 'p')
+            OutputFilename += ".cpp";
+          else
+            OutputFilename += ".s";
+        } else
+          OutputFilename += ".s";
+        break;
+      case TargetMachine::CGFT_ObjectFile:
+        if (OS == Triple::Win32)
+          OutputFilename += ".obj";
+        else
+          OutputFilename += ".o";
+        break;
+      case TargetMachine::CGFT_Null:
+        OutputFilename += ".null";
+        break;
+      }
     }
-    formatted_raw_ostream *Out =
-      new formatted_raw_ostream(*FDOut, formatted_raw_ostream::DELETE_STREAM);
-
-    return Out;
   }
 
-  if (InputFilename == "-") {
-    OutputFilename = "-";
-    return &fouts();
-  }
-
-  OutputFilename = GetFileNameRoot(InputFilename);
-
+  // Decide if we need "binary" output.
   bool Binary = false;
   switch (FileType) {
   default: assert(0 && "Unknown file type");
   case TargetMachine::CGFT_AssemblyFile:
-    if (TargetName[0] == 'c') {
-      if (TargetName[1] == 0)
-        OutputFilename += ".cbe.c";
-      else if (TargetName[1] == 'p' && TargetName[2] == 'p')
-        OutputFilename += ".cpp";
-      else
-        OutputFilename += ".s";
-    } else
-      OutputFilename += ".s";
     break;
   case TargetMachine::CGFT_ObjectFile:
-    if (OS == Triple::Win32)
-      OutputFilename += ".obj";
-    else
-      OutputFilename += ".o";
-    Binary = true;
-    break;
   case TargetMachine::CGFT_Null:
-    OutputFilename += ".null";
     Binary = true;
     break;
   }
 
-  // Make sure that the Out file gets unlinked from the disk if we get a
-  // SIGINT
-  sys::RemoveFileOnSignal(sys::Path(OutputFilename));
-
+  // Open the file.
   std::string error;
   unsigned OpenFlags = 0;
   if (Binary) OpenFlags |= raw_fd_ostream::F_Binary;
-  raw_fd_ostream *FDOut = new raw_fd_ostream(OutputFilename.c_str(), error,
-                                             OpenFlags);
+  tool_output_file *FDOut = new tool_output_file(OutputFilename.c_str(), error,
+                                                 OpenFlags);
   if (!error.empty()) {
     errs() << error << '\n';
     delete FDOut;
     return 0;
   }
 
-  formatted_raw_ostream *Out =
-    new formatted_raw_ostream(*FDOut, formatted_raw_ostream::DELETE_STREAM);
-
-  return Out;
+  return FDOut;
 }
 
 // main - Entry point for the llc compiler.
@@ -214,29 +235,33 @@ int main(int argc, char **argv) {
 
   // Initialize targets first, so that --version shows registered targets.
   InitializeAllTargets();
+  InitializeAllTargetMCs();
   InitializeAllAsmPrinters();
   InitializeAllAsmParsers();
 
+  // Register the target printer for --version.
+  cl::AddExtraVersionPrinter(TargetRegistry::printRegisteredTargetsForVersion);
+
   cl::ParseCommandLineOptions(argc, argv, "llvm system compiler\n");
-  
+
   // Load the module to be compiled...
   SMDiagnostic Err;
   std::auto_ptr<Module> M;
 
   M.reset(ParseIRFile(InputFilename, Err, Context));
   if (M.get() == 0) {
-    Err.Print(argv[0], errs());
+    Err.print(argv[0], errs());
     return 1;
   }
   Module &mod = *M.get();
 
   // If we are supposed to override the target triple, do so now.
   if (!TargetTriple.empty())
-    mod.setTargetTriple(TargetTriple);
+    mod.setTargetTriple(Triple::normalize(TargetTriple));
 
   Triple TheTriple(mod.getTargetTriple());
   if (TheTriple.getTriple().empty())
-    TheTriple.setTriple(sys::getHostTriple());
+    TheTriple.setTriple(sys::getDefaultTargetTriple());
 
   // Allocate target machine.  First, check whether the user has explicitly
   // specified an architecture to compile for. If so we have to look it up by
@@ -274,23 +299,38 @@ int main(int argc, char **argv) {
 
   // Package up features to be passed to target/subtarget
   std::string FeaturesStr;
-  if (MCPU.size() || MAttrs.size()) {
+  if (MAttrs.size()) {
     SubtargetFeatures Features;
-    Features.setCPU(MCPU);
     for (unsigned i = 0; i != MAttrs.size(); ++i)
       Features.AddFeature(MAttrs[i]);
     FeaturesStr = Features.getString();
   }
 
-  std::auto_ptr<TargetMachine> 
-    target(TheTarget->createTargetMachine(TheTriple.getTriple(), FeaturesStr));
+  std::auto_ptr<TargetMachine>
+    target(TheTarget->createTargetMachine(TheTriple.getTriple(),
+                                          MCPU, FeaturesStr,
+                                          RelocModel, CMModel));
   assert(target.get() && "Could not allocate target machine!");
   TargetMachine &Target = *target.get();
 
+  if (DisableDotLoc)
+    Target.setMCUseLoc(false);
+
+  if (DisableCFI)
+    Target.setMCUseCFI(false);
+
+  if (EnableDwarfDirectory)
+    Target.setMCUseDwarfDirectory(true);
+
+  // Disable .loc support for older OS X versions.
+  if (TheTriple.isMacOSX() &&
+      TheTriple.isMacOSXVersionLT(10, 6))
+    Target.setMCUseLoc(false);
+
   // Figure out where we are going to send the output...
-  formatted_raw_ostream *Out = GetOutputStream(TheTarget->getName(),
-                                               TheTriple.getOS(), argv[0]);
-  if (Out == 0) return 1;
+  OwningPtr<tool_output_file> Out
+    (GetOutputStream(TheTarget->getName(), TheTriple.getOS(), argv[0]));
+  if (!Out) return 1;
 
   CodeGenOpt::Level OLvl = CodeGenOpt::Default;
   switch (OptLevel) {
@@ -304,14 +344,6 @@ int main(int argc, char **argv) {
   case '3': OLvl = CodeGenOpt::Aggressive; break;
   }
 
-  // Request that addPassesToEmitFile run the Verifier after running
-  // passes which modify the IR.
-#ifndef NDEBUG
-  bool DisableVerify = false;
-#else
-  bool DisableVerify = true;
-#endif
-
   // Build up all of the passes that we want to do to the module.
   PassManager PM;
 
@@ -321,27 +353,35 @@ int main(int argc, char **argv) {
   else
     PM.add(new TargetData(&mod));
 
-  if (!NoVerify)
-    PM.add(createVerifierPass());
-
   // Override default to generate verbose assembly.
   Target.setAsmVerbosityDefault(true);
 
-  // Ask the target to add backend passes as necessary.
-  if (Target.addPassesToEmitFile(PM, *Out, FileType, OLvl,
-                                 DisableVerify)) {
-    errs() << argv[0] << ": target does not support generation of this"
-           << " file type!\n";
-    if (Out != &fouts()) delete Out;
-    // And the Out file is empty and useless, so remove it now.
-    sys::Path(OutputFilename).eraseFromDisk();
-    return 1;
+  if (RelaxAll) {
+    if (FileType != TargetMachine::CGFT_ObjectFile)
+      errs() << argv[0]
+             << ": warning: ignoring -mc-relax-all because filetype != obj";
+    else
+      Target.setMCRelaxAll(true);
   }
 
-  PM.run(mod);
+  {
+    formatted_raw_ostream FOS(Out->os());
 
-  // Delete the ostream if it's not a stdout stream
-  if (Out != &fouts()) delete Out;
+    // Ask the target to add backend passes as necessary.
+    if (Target.addPassesToEmitFile(PM, FOS, FileType, OLvl, NoVerify)) {
+      errs() << argv[0] << ": target does not support generation of this"
+             << " file type!\n";
+      return 1;
+    }
+
+    // Before executing passes, print the final values of the LLVM options.
+    cl::PrintOptionValues();
+
+    PM.run(mod);
+  }
+
+  // Declare success.
+  Out->keep();
 
   return 0;
 }

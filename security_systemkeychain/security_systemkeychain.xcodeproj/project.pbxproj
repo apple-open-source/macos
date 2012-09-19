@@ -849,7 +849,6 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
 			};
 			name = Development;
 		};
@@ -880,7 +879,6 @@
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
 			};
 			name = Deployment;
 		};
@@ -911,7 +909,6 @@
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
 			};
 			name = Default;
 		};
@@ -1059,7 +1056,6 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
 			};
 			name = Development;
 		};
@@ -1085,7 +1081,6 @@
 				INSTALL_PATH = /usr/libexec/;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
 			};
 			name = Deployment;
 		};
@@ -1111,7 +1106,6 @@
 				INSTALL_PATH = /usr/libexec/;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
 			};
 			name = Default;
 		};
@@ -1119,7 +1113,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55119;
+				CURRENT_PROJECT_VERSION = 55119.2;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1162,7 +1156,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55119;
+				CURRENT_PROJECT_VERSION = 55119.2;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -1198,7 +1192,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55119;
+				CURRENT_PROJECT_VERSION = 55119.2;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (

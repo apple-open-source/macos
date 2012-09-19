@@ -55,11 +55,13 @@ public:
 	CodeDirectory::HashAlgorithm digestAlgorithm() const { return state.mDigestAlgorithm; }
 	
 	std::string path() const { return cfString(rep->canonicalPath()); }
+	SecIdentityRef signingIdentity() const { return state.mSigner; }
+	std::string signingIdentifier() const { return identifier; }
 	
 protected:
 	void prepare(SecCSFlags flags);				// set up signing parameters
-	void signMachO(Universal *fat);				// sign a Mach-O binary
-	void signArchitectureAgnostic();			// sign anything else
+	void signMachO(Universal *fat, const Requirement::Context &context); // sign a Mach-O binary
+	void signArchitectureAgnostic(const Requirement::Context &context); // sign anything else
 
 	void populate(DiskRep::Writer &writer);		// global
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,

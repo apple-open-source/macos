@@ -25,7 +25,10 @@
 using namespace llvm;
 
 char LiveStacks::ID = 0;
-static RegisterPass<LiveStacks> X("livestacks", "Live Stack Slot Analysis");
+INITIALIZE_PASS(LiveStacks, "livestacks",
+                "Live Stack Slot Analysis", false, false)
+
+char &llvm::LiveStacksID = LiveStacks::ID;
 
 void LiveStacks::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -35,16 +38,33 @@ void LiveStacks::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 void LiveStacks::releaseMemory() {
-  // Release VNInfo memroy regions after all VNInfo objects are dtor'd.
-  VNInfoAllocator.DestroyAll();
+  // Release VNInfo memory regions, VNInfo objects don't need to be dtor'd.
+  VNInfoAllocator.Reset();
   S2IMap.clear();
   S2RCMap.clear();
 }
 
-bool LiveStacks::runOnMachineFunction(MachineFunction &) {
+bool LiveStacks::runOnMachineFunction(MachineFunction &MF) {
+  TRI = MF.getTarget().getRegisterInfo();
   // FIXME: No analysis is being done right now. We are relying on the
   // register allocators to provide the information.
   return false;
+}
+
+LiveInterval &
+LiveStacks::getOrCreateInterval(int Slot, const TargetRegisterClass *RC) {
+  assert(Slot >= 0 && "Spill slot indice must be >= 0");
+  SS2IntervalMap::iterator I = S2IMap.find(Slot);
+  if (I == S2IMap.end()) {
+    I = S2IMap.insert(I, std::make_pair(Slot,
+            LiveInterval(TargetRegisterInfo::index2StackSlot(Slot), 0.0F)));
+    S2RCMap.insert(std::make_pair(Slot, RC));
+  } else {
+    // Use the largest common subclass register class.
+    const TargetRegisterClass *OldRC = S2RCMap[Slot];
+    S2RCMap[Slot] = TRI->getCommonSubClass(OldRC, RC);
+  }
+  return I->second;
 }
 
 /// print - Implement the dump method.

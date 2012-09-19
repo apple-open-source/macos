@@ -13,6 +13,7 @@ buckets/apr_buckets_pool.lo: buckets/apr_buckets_pool.c .make.dirs include/apr_b
 buckets/apr_buckets_refcount.lo: buckets/apr_buckets_refcount.c .make.dirs include/apr_buckets.h
 buckets/apr_buckets_simple.lo: buckets/apr_buckets_simple.c .make.dirs include/apr_buckets.h
 buckets/apr_buckets_socket.lo: buckets/apr_buckets_socket.c .make.dirs include/apr_buckets.h
+crypto/apr_crypto.lo: crypto/apr_crypto.c .make.dirs include/apr_crypto.h include/apu_errno.h include/apu_version.h include/private/apr_crypto_internal.h include/private/apu_internal.h
 crypto/apr_md4.lo: crypto/apr_md4.c .make.dirs include/apr_md4.h include/apr_xlate.h
 crypto/apr_md5.lo: crypto/apr_md5.c .make.dirs include/apr_md5.h include/apr_sha1.h include/apr_xlate.h
 crypto/apr_sha1.lo: crypto/apr_sha1.c .make.dirs include/apr_base64.h include/apr_sha1.h include/apr_xlate.h
@@ -42,7 +43,7 @@ uri/apr_uri.lo: uri/apr_uri.c .make.dirs include/apr_uri.h
 xlate/xlate.lo: xlate/xlate.c .make.dirs include/apr_xlate.h
 xml/apr_xml.lo: xml/apr_xml.c .make.dirs include/apr_xlate.h include/apr_xml.h
 
-OBJECTS_all = buckets/apr_brigade.lo buckets/apr_buckets.lo buckets/apr_buckets_alloc.lo buckets/apr_buckets_eos.lo buckets/apr_buckets_file.lo buckets/apr_buckets_flush.lo buckets/apr_buckets_heap.lo buckets/apr_buckets_mmap.lo buckets/apr_buckets_pipe.lo buckets/apr_buckets_pool.lo buckets/apr_buckets_refcount.lo buckets/apr_buckets_simple.lo buckets/apr_buckets_socket.lo crypto/apr_md4.lo crypto/apr_md5.lo crypto/apr_sha1.lo crypto/getuuid.lo crypto/uuid.lo dbd/apr_dbd.lo dbm/apr_dbm.lo dbm/apr_dbm_sdbm.lo dbm/sdbm/sdbm.lo dbm/sdbm/sdbm_hash.lo dbm/sdbm/sdbm_lock.lo dbm/sdbm/sdbm_pair.lo encoding/apr_base64.lo hooks/apr_hooks.lo ldap/apr_ldap_stub.lo ldap/apr_ldap_url.lo memcache/apr_memcache.lo misc/apr_date.lo misc/apr_queue.lo misc/apr_reslist.lo misc/apr_rmm.lo misc/apr_thread_pool.lo misc/apu_dso.lo misc/apu_version.lo strmatch/apr_strmatch.lo uri/apr_uri.lo xlate/xlate.lo xml/apr_xml.lo
+OBJECTS_all = buckets/apr_brigade.lo buckets/apr_buckets.lo buckets/apr_buckets_alloc.lo buckets/apr_buckets_eos.lo buckets/apr_buckets_file.lo buckets/apr_buckets_flush.lo buckets/apr_buckets_heap.lo buckets/apr_buckets_mmap.lo buckets/apr_buckets_pipe.lo buckets/apr_buckets_pool.lo buckets/apr_buckets_refcount.lo buckets/apr_buckets_simple.lo buckets/apr_buckets_socket.lo crypto/apr_crypto.lo crypto/apr_md4.lo crypto/apr_md5.lo crypto/apr_sha1.lo crypto/getuuid.lo crypto/uuid.lo dbd/apr_dbd.lo dbm/apr_dbm.lo dbm/apr_dbm_sdbm.lo dbm/sdbm/sdbm.lo dbm/sdbm/sdbm_hash.lo dbm/sdbm/sdbm_lock.lo dbm/sdbm/sdbm_pair.lo encoding/apr_base64.lo hooks/apr_hooks.lo ldap/apr_ldap_stub.lo ldap/apr_ldap_url.lo memcache/apr_memcache.lo misc/apr_date.lo misc/apr_queue.lo misc/apr_reslist.lo misc/apr_rmm.lo misc/apr_thread_pool.lo misc/apu_dso.lo misc/apu_version.lo strmatch/apr_strmatch.lo uri/apr_uri.lo xlate/xlate.lo xml/apr_xml.lo
 
 OBJECTS_unix = $(OBJECTS_all)
 
@@ -56,9 +57,29 @@ OBJECTS_os390 = $(OBJECTS_all)
 
 OBJECTS_win32 = $(OBJECTS_all)
 
-HEADERS = $(top_srcdir)/include/apr_anylock.h $(top_srcdir)/include/apr_base64.h $(top_srcdir)/include/apr_buckets.h $(top_srcdir)/include/apr_date.h $(top_srcdir)/include/apr_dbd.h $(top_srcdir)/include/apr_dbm.h $(top_srcdir)/include/apr_hooks.h $(top_srcdir)/include/apr_ldap_init.h $(top_srcdir)/include/apr_ldap_option.h $(top_srcdir)/include/apr_ldap_rebind.h $(top_srcdir)/include/apr_ldap_url.h $(top_srcdir)/include/apr_md4.h $(top_srcdir)/include/apr_md5.h $(top_srcdir)/include/apr_memcache.h $(top_srcdir)/include/apr_optional.h $(top_srcdir)/include/apr_optional_hooks.h $(top_srcdir)/include/apr_queue.h $(top_srcdir)/include/apr_reslist.h $(top_srcdir)/include/apr_rmm.h $(top_srcdir)/include/apr_sdbm.h $(top_srcdir)/include/apr_sha1.h $(top_srcdir)/include/apr_strmatch.h $(top_srcdir)/include/apr_thread_pool.h $(top_srcdir)/include/apr_uri.h $(top_srcdir)/include/apr_uuid.h $(top_srcdir)/include/apr_xlate.h $(top_srcdir)/include/apr_xml.h $(top_srcdir)/include/apu_version.h $(top_srcdir)/include/private/apr_dbd_internal.h $(top_srcdir)/include/private/apr_dbd_odbc_v2.h $(top_srcdir)/include/private/apr_dbm_private.h $(top_srcdir)/include/private/apu_internal.h
+HEADERS = $(top_srcdir)/include/apr_anylock.h $(top_srcdir)/include/apr_base64.h $(top_srcdir)/include/apr_buckets.h $(top_srcdir)/include/apr_crypto.h $(top_srcdir)/include/apr_date.h $(top_srcdir)/include/apr_dbd.h $(top_srcdir)/include/apr_dbm.h $(top_srcdir)/include/apr_hooks.h $(top_srcdir)/include/apr_ldap_init.h $(top_srcdir)/include/apr_ldap_option.h $(top_srcdir)/include/apr_ldap_rebind.h $(top_srcdir)/include/apr_ldap_url.h $(top_srcdir)/include/apr_md4.h $(top_srcdir)/include/apr_md5.h $(top_srcdir)/include/apr_memcache.h $(top_srcdir)/include/apr_optional.h $(top_srcdir)/include/apr_optional_hooks.h $(top_srcdir)/include/apr_queue.h $(top_srcdir)/include/apr_reslist.h $(top_srcdir)/include/apr_rmm.h $(top_srcdir)/include/apr_sdbm.h $(top_srcdir)/include/apr_sha1.h $(top_srcdir)/include/apr_strmatch.h $(top_srcdir)/include/apr_thread_pool.h $(top_srcdir)/include/apr_uri.h $(top_srcdir)/include/apr_uuid.h $(top_srcdir)/include/apr_xlate.h $(top_srcdir)/include/apr_xml.h $(top_srcdir)/include/apu_errno.h $(top_srcdir)/include/apu_version.h $(top_srcdir)/include/private/apr_crypto_internal.h $(top_srcdir)/include/private/apr_dbd_internal.h $(top_srcdir)/include/private/apr_dbd_odbc_v2.h $(top_srcdir)/include/private/apr_dbm_private.h $(top_srcdir)/include/private/apu_internal.h
 
 SOURCE_DIRS = xml dbm encoding hooks buckets uri misc crypto dbd strmatch memcache dbm/sdbm ldap xlate $(EXTRA_SOURCE_DIRS)
+
+ldap/apr_ldap_init.lo: ldap/apr_ldap_init.c .make.dirs include/private/apu_internal.h
+ldap/apr_ldap_option.lo: ldap/apr_ldap_option.c .make.dirs 
+ldap/apr_ldap_rebind.lo: ldap/apr_ldap_rebind.c .make.dirs include/apr_ldap_rebind.h
+OBJECTS_ldap = ldap/apr_ldap_init.lo ldap/apr_ldap_option.lo ldap/apr_ldap_rebind.lo
+MODULE_ldap = ldap/apr_ldap.la
+ldap/apr_ldap.la: ldap/apr_ldap_init.lo ldap/apr_ldap_option.lo ldap/apr_ldap_rebind.lo
+	$(LINK_MODULE) -o $@ $(OBJECTS_ldap) $(LDADD_ldap)
+
+crypto/apr_crypto_openssl.lo: crypto/apr_crypto_openssl.c .make.dirs include/apr_buckets.h include/apr_crypto.h include/apu_errno.h include/private/apr_crypto_internal.h
+OBJECTS_crypto_openssl = crypto/apr_crypto_openssl.lo
+MODULE_crypto_openssl = crypto/apr_crypto_openssl.la
+crypto/apr_crypto_openssl.la: crypto/apr_crypto_openssl.lo
+	$(LINK_MODULE) -o $@ $(OBJECTS_crypto_openssl) $(LDADD_crypto_openssl)
+
+crypto/apr_crypto_nss.lo: crypto/apr_crypto_nss.c .make.dirs include/apr_buckets.h include/apr_crypto.h include/apu_errno.h include/private/apr_crypto_internal.h
+OBJECTS_crypto_nss = crypto/apr_crypto_nss.lo
+MODULE_crypto_nss = crypto/apr_crypto_nss.la
+crypto/apr_crypto_nss.la: crypto/apr_crypto_nss.lo
+	$(LINK_MODULE) -o $@ $(OBJECTS_crypto_nss) $(LDADD_crypto_nss)
 
 dbd/apr_dbd_pgsql.lo: dbd/apr_dbd_pgsql.c .make.dirs include/apr_buckets.h include/apr_dbd.h include/private/apr_dbd_internal.h
 OBJECTS_dbd_pgsql = dbd/apr_dbd_pgsql.lo
@@ -119,14 +140,6 @@ OBJECTS_dbm_ndbm = dbm/apr_dbm_ndbm.lo
 MODULE_dbm_ndbm = dbm/apr_dbm_ndbm.la
 dbm/apr_dbm_ndbm.la: dbm/apr_dbm_ndbm.lo
 	$(LINK_MODULE) -o $@ $(OBJECTS_dbm_ndbm) $(LDADD_dbm_ndbm)
-
-ldap/apr_ldap_init.lo: ldap/apr_ldap_init.c .make.dirs include/private/apu_internal.h
-ldap/apr_ldap_option.lo: ldap/apr_ldap_option.c .make.dirs 
-ldap/apr_ldap_rebind.lo: ldap/apr_ldap_rebind.c .make.dirs include/apr_ldap_rebind.h
-OBJECTS_ldap = ldap/apr_ldap_init.lo ldap/apr_ldap_option.lo ldap/apr_ldap_rebind.lo
-MODULE_ldap = ldap/apr_ldap.la
-ldap/apr_ldap.la: ldap/apr_ldap_init.lo ldap/apr_ldap_option.lo ldap/apr_ldap_rebind.lo
-	$(LINK_MODULE) -o $@ $(OBJECTS_ldap) $(LDADD_ldap)
 
 BUILD_DIRS = buckets crypto dbd dbm dbm/sdbm encoding hooks ldap memcache misc strmatch uri xlate xml
 

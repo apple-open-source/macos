@@ -15,8 +15,10 @@
 #define LTO_MODULE_H
 
 #include "llvm/Module.h"
-#include "llvm/ADT/OwningPtr.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/Target/Mangler.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringMap.h"
 
 #include "llvm-c/lto.h"
@@ -27,7 +29,6 @@
 
 // forward references to llvm classes
 namespace llvm {
-    class Mangler;
     class MemoryBuffer;
     class GlobalValue;
     class Value;
@@ -51,32 +52,41 @@ struct LTOModule {
 
     static LTOModule*        makeLTOModule(const char* path,
                                           std::string& errMsg);
+    static LTOModule*        makeLTOModule(int fd, const char *path,
+                                           size_t size,
+                                           std::string& errMsg);
+    static LTOModule*        makeLTOModule(int fd, const char *path,
+                                           size_t file_size,
+                                           size_t map_size,
+                                           off_t offset,
+                                           std::string& errMsg);
     static LTOModule*        makeLTOModule(const void* mem, size_t length,
                                            std::string& errMsg);
 
     const char*              getTargetTriple();
+    void                     setTargetTriple(const char*);
     uint32_t                 getSymbolCount();
     lto_symbol_attributes    getSymbolAttributes(uint32_t index);
     const char*              getSymbolName(uint32_t index);
     
     llvm::Module *           getLLVVMModule() { return _module.get(); }
+    const std::vector<const char*> &getAsmUndefinedRefs() {
+            return _asm_undefines;
+    }
 
 private:
                             LTOModule(llvm::Module* m, llvm::TargetMachine* t);
 
-    void                    lazyParseSymbols();
-    void                    addDefinedSymbol(llvm::GlobalValue* def, 
-                                                    llvm::Mangler& mangler, 
-                                                    bool isFunction);
-    void                    addPotentialUndefinedSymbol(llvm::GlobalValue* decl, 
-                                                        llvm::Mangler &mangler);
-    void                    findExternalRefs(llvm::Value* value, 
-                                                llvm::Mangler& mangler);
-    void                    addDefinedFunctionSymbol(llvm::Function* f, 
-                                                        llvm::Mangler &mangler);
-    void                    addDefinedDataSymbol(llvm::GlobalValue* v, 
-                                                        llvm::Mangler &mangler);
-    void                    addAsmGlobalSymbol(const char *);
+    bool                    ParseSymbols(std::string &errMsg);
+    void                    addDefinedSymbol(llvm::GlobalValue* def,
+                                             bool isFunction);
+    void                    addPotentialUndefinedSymbol(llvm::GlobalValue* decl);
+    void                    addDefinedFunctionSymbol(llvm::Function* f);
+  void                    addDefinedDataSymbol(llvm::GlobalValue* v);
+    bool                    addAsmGlobalSymbols(std::string &errMsg);
+    void                    addAsmGlobalSymbol(const char *,
+                                               lto_symbol_attributes scope);
+    void                    addAsmGlobalSymbolUndef(const char *);
     void                    addObjCClass(llvm::GlobalVariable* clgv);
     void                    addObjCCategory(llvm::GlobalVariable* clgv);
     void                    addObjCClassRef(llvm::GlobalVariable* clgv);
@@ -99,11 +109,14 @@ private:
 
     llvm::OwningPtr<llvm::Module>           _module;
     llvm::OwningPtr<llvm::TargetMachine>    _target;
-    bool                                    _symbolsParsed;
     std::vector<NameAndAttributes>          _symbols;
     // _defines and _undefines only needed to disambiguate tentative definitions
     StringSet                               _defines;    
     llvm::StringMap<NameAndAttributes>      _undefines;
+    std::vector<const char*>                _asm_undefines;
+    llvm::MCContext                         _context;
+    // Use mangler to add GlobalPrefix to names to match linker names.
+    llvm::Mangler                           _mangler;
 };
 
 #endif // LTO_MODULE_H

@@ -36,7 +36,11 @@
     char                        buf[128];
     
     hubDescriptor = *(IOUSBHubDescriptor *)p;
-    
+#ifdef SUPPORTS_SS_USB
+    IOUSB3HubDescriptor 		hub3Descriptor;
+    hub3Descriptor = *(IOUSB3HubDescriptor *)p;
+#endif
+
     [thisDevice addProperty:"Hub Descriptor" withValue:"" atDepth:HUB_DESCRIPTOR_LEVEL-1];
     
     sprintf(buf, "%u", p[0]);
@@ -55,16 +59,17 @@
             ((hubChar & 0x18) == 0) ? "global" :
             ((hubChar & 0x18) == 0x8) ? "individual port" : "no");
     
-    if ( [thisDevice usbRelease] >= 0x200 )
+    if ( [thisDevice usbRelease] == kUSBRel20 )
     {
         sprintf(buf, " requiring %d FS bit times and %s port indicators)", 
               (((hubChar & 0x60) >> 5) + 1 ) * 8,
                (hubChar & 0x80) ? "having" : " no");
         strcat(temporaryString, buf);
     }
+#ifdef SUPPORTS_SS_USB
     else
         strcat(temporaryString, ")");
-
+#endif
                
     [thisDevice addProperty:"Hub Characteristics:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     
@@ -74,6 +79,27 @@
     sprintf(temporaryString, "%d mA", hubDescriptor.hubCurrent);
     [thisDevice addProperty:"Controller current:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     
+#ifdef SUPPORTS_SS_USB
+	if(hubDescriptor.hubType == kUSB3HUBDesc)
+	{
+		sprintf(temporaryString, "0.%d µsecs", hub3Descriptor.hubHdrDecLat);
+		[thisDevice addProperty:"Header decode latency:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+		sprintf(temporaryString, "%d ns", hub3Descriptor.hubDelay);
+		[thisDevice addProperty:"Hub delay time:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+		if (hubDescriptor.numPorts < 8)
+		{
+			sprintf(temporaryString, "0x%x", hub3Descriptor.removablePortFlags[0]);
+			[thisDevice addProperty:"Device Removable (byte):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+		}
+		else if (hubDescriptor.numPorts < 16)
+		{
+			sprintf(temporaryString, "0x%x", (uint32_t)Swap16( &( (UInt16 *)hub3Descriptor.removablePortFlags)[0]));
+			[thisDevice addProperty:"Device Removable (word):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+		}
+	}
+	else
+#endif
+	{
     if (hubDescriptor.numPorts < 8)
     {
         sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[0]);
@@ -90,6 +116,8 @@
         sprintf(temporaryString, "0x%x", (uint32_t)Swap16(&((UInt16 *)hubDescriptor.removablePortFlags)[1]));
         [thisDevice addProperty:"Port Power Control Mask (word):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     }
+}
+
 }
 
 @end

@@ -37,6 +37,9 @@
 #import "DecodeAudioInterfaceDescriptor.h"
 #import "DecodeVideoInterfaceDescriptor.h"
 #import "DecodeCommClassDescriptor.h"
+#ifdef SUPPORTS_SS_USB
+	#import "DecodeBOSDescriptor.h"
+#endif
 
 #define HID_DESCRIPTOR                  0x21
 #define DFU_FUNCTIONAL_DESCRIPTOR       0x21
@@ -55,5 +58,7 @@ enum ClassSpecific {
 +(void)dumpRawDescriptor:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dumpRawConfigDescriptor:(IOUSBConfigurationDescriptor*)cfg forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dump:(int)n byte:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
-
+#ifdef SUPPORTS_SS_USB
++(void)dumpRawBOSDescriptor:(IOUSBBOSDescriptor*)bos forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
+#endif
 @end

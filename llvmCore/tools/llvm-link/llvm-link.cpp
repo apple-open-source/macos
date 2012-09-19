@@ -20,11 +20,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/System/Signals.h"
-#include "llvm/System/Path.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/Path.h"
 #include <memory>
 using namespace llvm;
 
@@ -62,20 +62,14 @@ static inline std::auto_ptr<Module> LoadFile(const char *argv0,
   }
 
   SMDiagnostic Err;
-  if (Filename.exists()) {
-    if (Verbose) errs() << "Loading '" << Filename.c_str() << "'\n";
-    Module* Result = 0;
-    
-    const std::string &FNStr = Filename.str();
-    Result = ParseIRFile(FNStr, Err, Context);
-    if (Result) return std::auto_ptr<Module>(Result);   // Load successful!
+  if (Verbose) errs() << "Loading '" << Filename.c_str() << "'\n";
+  Module* Result = 0;
+  
+  const std::string &FNStr = Filename.str();
+  Result = ParseIRFile(FNStr, Err, Context);
+  if (Result) return std::auto_ptr<Module>(Result);   // Load successful!
 
-    if (Verbose)
-      Err.Print(argv0, errs());
-  } else {
-    errs() << "Bitcode file: '" << Filename.c_str() << "' does not exist.\n";
-  }
-
+  Err.print(argv0, errs());
   return std::auto_ptr<Module>();
 }
 
@@ -109,7 +103,8 @@ int main(int argc, char **argv) {
 
     if (Verbose) errs() << "Linking in '" << InputFilenames[i] << "'\n";
 
-    if (Linker::LinkModules(Composite.get(), M.get(), &ErrorMessage)) {
+    if (Linker::LinkModules(Composite.get(), M.get(), Linker::DestroySource,
+                            &ErrorMessage)) {
       errs() << argv[0] << ": link error in '" << InputFilenames[i]
              << "': " << ErrorMessage << "\n";
       return 1;
@@ -122,18 +117,12 @@ int main(int argc, char **argv) {
   if (DumpAsm) errs() << "Here's the assembly:\n" << *Composite;
 
   std::string ErrorInfo;
-  std::auto_ptr<raw_ostream> 
-  Out(new raw_fd_ostream(OutputFilename.c_str(), ErrorInfo,
-                         raw_fd_ostream::F_Binary));
+  tool_output_file Out(OutputFilename.c_str(), ErrorInfo,
+                       raw_fd_ostream::F_Binary);
   if (!ErrorInfo.empty()) {
     errs() << ErrorInfo << '\n';
     return 1;
   }
-
-    // Make sure that the Out file gets unlinked from the disk if we get a
-    // SIGINT
-  if (OutputFilename != "-")
-    sys::RemoveFileOnSignal(sys::Path(OutputFilename));
 
   if (verifyModule(*Composite)) {
     errs() << argv[0] << ": linked module is broken!\n";
@@ -142,9 +131,12 @@ int main(int argc, char **argv) {
 
   if (Verbose) errs() << "Writing bitcode...\n";
   if (OutputAssembly) {
-    *Out << *Composite;
-  } else if (Force || !CheckBitcodeOutputToConsole(*Out, true))
-    WriteBitcodeToFile(Composite.get(), *Out);
+    Out.os() << *Composite;
+  } else if (Force || !CheckBitcodeOutputToConsole(Out.os(), true))
+    WriteBitcodeToFile(Composite.get(), Out.os());
+
+  // Declare success.
+  Out.keep();
 
   return 0;
 }

@@ -28,6 +28,7 @@
 #ifndef _H_UTILITIES_ERROR
 #define _H_UTILITIES_ERROR
 
+#include <AvailabilityMacros.h>
 #include <exception>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <errno.h>

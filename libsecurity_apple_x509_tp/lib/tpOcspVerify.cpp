@@ -38,6 +38,7 @@
 #include <security_asn1/SecNssCoder.h>
 #include <security_ocspd/ocspdClient.h>
 #include <security_ocspd/ocspdUtils.h>
+#include "tpTime.h"
 
 #pragma mark ---- private routines ----
 
@@ -269,18 +270,51 @@ errOut:
 	return ocspdReq;
 }
 
-/* 
- * Apply a verified OCSPSingleResponse to a TPCertInfo. 
+static bool revocationTimeAfterVerificationTime(CFAbsoluteTime revokedTime, CSSM_TIMESTRING verifyTimeStr)
+{
+    // Return true if the revocation time is after the specified verification time (i.e. "good")
+    // If verifyTime not specified, use now for the verifyTime
+    
+    CFAbsoluteTime verifyTime = 0;
+    
+    if (verifyTimeStr)
+    {
+        CFDateRef cfVerifyTime = NULL;  // made with CFDateCreate
+        int rtn = timeStringToCfDate((char *)verifyTimeStr, (unsigned)strlen(verifyTimeStr), &cfVerifyTime);
+        if (!rtn)
+            if (cfVerifyTime)
+            {
+                verifyTime = CFDateGetAbsoluteTime(cfVerifyTime);
+                CFRelease(cfVerifyTime);
+            }
+    }
+    
+    if (verifyTime == 0)
+        verifyTime = CFAbsoluteTimeGetCurrent();
+
+    return verifyTime < revokedTime;
+}
+
+/*
+ * Apply a verified OCSPSingleResponse to a TPCertInfo.
  */
 static CSSM_RETURN tpApplySingleResp(
 	OCSPSingleResponse				&singleResp,
 	TPCertInfo						&cert,
 	unsigned						dex,			// for debug
 	CSSM_APPLE_TP_OCSP_OPT_FLAGS	flags,			// for OCSP_SUFFICIENT
+    CSSM_TIMESTRING 				verifyTime,     // Check revocation at specific time
 	bool							&processed)		// set true iff CS_Good or CS_Revoked found
 {
 	SecAsn1OCSPCertStatusTag certStatus = singleResp.certStatus();
 	CSSM_RETURN crtn = CSSM_OK;
+    if ((certStatus == CS_Revoked) && 
+        revocationTimeAfterVerificationTime(singleResp.revokedTime(), verifyTime))
+    {
+        tpOcspDebug("tpApplySingleResp: CS_Revoked for cert %u, but revoked after verification time", dex);
+        certStatus = CS_Good;
+    }
+    
 	switch(certStatus) {
 		case CS_Good:
 			tpOcspDebug("tpApplySingleResp: CS_Good for cert %u", dex);
@@ -513,7 +547,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 			tpOcspDebug("...tpVerifyCertGroupWithOCSP: localCache hit (1) dex %u", 
 				(unsigned)dex);
 			crtn = tpApplySingleResp(*singleResp, pendReq->subject, dex, optFlags,
-				pendReq->processed);
+				vfyCtx.verifyTime, pendReq->processed);
 			delete singleResp;
 			if(pendReq->processed) {
 				/* definitely done with this cert one way or the other */
@@ -727,7 +761,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				ocspResp->singleResponseFor(pendReq->certID);
 			if(singleResp) {
 				crtn = tpApplySingleResp(*singleResp, pendReq->subject, pendReq->dex, 
-					optFlags, pendReq->processed);
+					optFlags, vfyCtx.verifyTime, pendReq->processed);
 				if(crtn && (ourRtn == CSSM_OK)) {
 					ourRtn = crtn;
 				}
@@ -770,7 +804,7 @@ postOcspd:
 			tpOcspDebug("...tpVerifyCertGroupWithOCSP: localCache (2) hit dex %u", 
 					(unsigned)dex);
 			crtn = tpApplySingleResp(*singleResp, pendReq->subject, dex, optFlags, 
-					pendReq->processed);
+					vfyCtx.verifyTime, pendReq->processed);
 			if(crtn) {
 				if(ourRtn == CSSM_OK) {
 					ourRtn = crtn;
@@ -790,7 +824,7 @@ postOcspd:
 				 * error, even under Best Attempt processing. (10743149)
 				 */
 				if(pendReq->subject.hasStatusCode(CSSMERR_APPLETP_OCSP_BAD_RESPONSE)) {
-					responseStatus = CSSMERR_APPLETP_OCSP_BAD_RESPONSE;
+//					responseStatus = CSSMERR_APPLETP_OCSP_BAD_RESPONSE; <rdar://problem/10831157>
 				} else if(pendReq->subject.hasStatusCode(CSSMERR_APPLETP_OCSP_SIG_ERROR)) {
 					responseStatus = CSSMERR_APPLETP_OCSP_SIG_ERROR;
 				} else if(pendReq->subject.hasStatusCode(CSSMERR_APPLETP_OCSP_NO_SIGNER)) {

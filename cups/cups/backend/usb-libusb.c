@@ -1,5 +1,5 @@
 /*
- * "$Id: usb-libusb.c 3648 2012-02-13 17:37:38Z msweet $"
+ * "$Id: usb-libusb.c 3841 2012-05-24 20:36:26Z msweet $"
  *
  *   LIBUSB interface code for CUPS.
  *
@@ -1148,9 +1148,14 @@ open_device(usb_printer_t *printer,	/* I - Printer */
   else
   {
     printer->usblp_attached = 0;
-    fprintf(stderr, "DEBUG: Failed to check whether %04x:%04x has the \"usblp\" kernel module attached\n",
-	      devdesc.idVendor, devdesc.idProduct);
-    goto error;
+
+    if (errcode != LIBUSB_ERROR_NOT_SUPPORTED)
+    {
+      fprintf(stderr,
+              "DEBUG: Failed to check whether %04x:%04x has the \"usblp\" "
+              "kernel module attached\n", devdesc.idVendor, devdesc.idProduct);
+      goto error;
+    }
   }
 
  /*
@@ -1601,6 +1606,6 @@ static void soft_reset(void)
 
 
 /*
- * End of "$Id: usb-libusb.c 3648 2012-02-13 17:37:38Z msweet $".
+ * End of "$Id: usb-libusb.c 3841 2012-05-24 20:36:26Z msweet $".
  */
 

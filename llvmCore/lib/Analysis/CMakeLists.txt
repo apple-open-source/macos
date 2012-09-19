@@ -6,12 +6,16 @@ add_llvm_library(LLVMAnalysis
   AliasSetTracker.cpp
   Analysis.cpp
   BasicAliasAnalysis.cpp
+  BlockFrequencyInfo.cpp
+  BranchProbabilityInfo.cpp
   CFGPrinter.cpp
   CaptureTracking.cpp
   ConstantFolding.cpp
+  DIBuilder.cpp
   DbgInfoPrinter.cpp
   DebugInfo.cpp
   DomPrinter.cpp
+  DominanceFrontier.cpp
   IVUsers.cpp
   InlineCost.cpp
   InstCount.cpp
@@ -22,28 +26,42 @@ add_llvm_library(LLVMAnalysis
   LibCallAliasAnalysis.cpp
   LibCallSemantics.cpp
   Lint.cpp
-  LiveValues.cpp
+  Loads.cpp
   LoopDependenceAnalysis.cpp
   LoopInfo.cpp
   LoopPass.cpp
+  MemDepPrinter.cpp
   MemoryBuiltins.cpp
   MemoryDependenceAnalysis.cpp
   ModuleDebugInfoPrinter.cpp
+  NoAliasAnalysis.cpp
   PHITransAddr.cpp
-  PointerTracking.cpp
+  PathNumbering.cpp
+  PathProfileInfo.cpp
+  PathProfileVerifier.cpp
   PostDominators.cpp
   ProfileEstimatorPass.cpp
   ProfileInfo.cpp
   ProfileInfoLoader.cpp
   ProfileInfoLoaderPass.cpp
   ProfileVerifierPass.cpp
+  RegionInfo.cpp
+  RegionPass.cpp
+  RegionPrinter.cpp
   ScalarEvolution.cpp
   ScalarEvolutionAliasAnalysis.cpp
   ScalarEvolutionExpander.cpp
   ScalarEvolutionNormalization.cpp
   SparsePropagation.cpp
   Trace.cpp
+  TypeBasedAliasAnalysis.cpp
   ValueTracking.cpp
   )
 
-target_link_libraries (LLVMAnalysis LLVMSupport)
+add_llvm_library_dependencies(LLVMAnalysis
+  LLVMCore
+  LLVMSupport
+  LLVMTarget
+  )
+
+add_subdirectory(IPA)

@@ -76,7 +76,12 @@
     _protocolNum = protocolNum;
 }
 
-- (NSString *)className {
+- (NSString *)className 
+{
+    if (_className == nil)
+    {
+        return @"";
+    }
     return _className;
 }
 - (void)setClassName:(NSString *)deviceClass {
@@ -84,7 +89,12 @@
     _className = [deviceClass retain];
 }
 
-- (NSString *)subclassName {
+- (NSString *)subclassName 
+{
+    if (_subclassName == nil)
+    {
+        return @"";
+    }
     return _subclassName;
 }
 
@@ -93,7 +103,12 @@
     _subclassName = [deviceSubclass retain];
 }
 
-- (NSString *)protocolName {
+- (NSString *)protocolName 
+{
+    if (_protocolName == nil)
+    {
+        return @"";
+    }
     return _protocolName;
 }
 
@@ -121,6 +136,18 @@
         return [NSString stringWithFormat:@"%d",_protocolNum];
     else
         return [NSString stringWithFormat:@"%d   (%@)",_protocolNum,_protocolName];
+}
+
+-(NSMutableDictionary *)dictionaryVersionOfMe
+{
+    NSMutableDictionary *returnDict = [NSMutableDictionary dictionary];
+    [returnDict setObject:[NSNumber numberWithInt:_classNum] forKey:@"classNum"];
+    [returnDict setObject:[NSNumber numberWithInt:_subclassNum] forKey:@"subclassNum"];
+    [returnDict setObject:[NSNumber numberWithInt:_protocolNum] forKey:@"protocolNum"];
+    [returnDict setObject:[self className] forKey:@"className"];
+    [returnDict setObject:[self subclassName] forKey:@"subclassName"];
+    [returnDict setObject:[self protocolName] forKey:@"protocolName"];
+    return returnDict;
 }
 
 @end

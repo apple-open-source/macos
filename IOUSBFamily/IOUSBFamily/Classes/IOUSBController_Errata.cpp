@@ -99,29 +99,33 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x3a3a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #1
 	{0x8086, 0x3a3c, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #2
 	
-	{0x8086, 0x3b36, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #1
-	{0x8086, 0x3b37, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #2
-	{0x8086, 0x3b38, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #3
-	{0x8086, 0x3b39, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #4
-	{0x8086, 0x3b3b, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #5
-	{0x8086, 0x3b3e, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #6
-	{0x8086, 0x3b3f, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #7
-	{0x8086, 0x3b34, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #1
-	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #2
+	{0x8086, 0x3b36, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #1 (Ibex Peak)
+	{0x8086, 0x3b37, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #2 (Ibex Peak)
+	{0x8086, 0x3b38, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #3 (Ibex Peak)
+	{0x8086, 0x3b39, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #4 (Ibex Peak)
+	{0x8086, 0x3b3b, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #5 (Ibex Peak)
+	{0x8086, 0x3b3e, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #6 (Ibex Peak)
+	{0x8086, 0x3b3f, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #7 (Ibex Peak)
+	{0x8086, 0x3b34, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #1 (Ibex Peak)
+	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #2 (Ibex Peak)
 	
-	{0x8086, 0x1c27, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #1
-	{0x8086, 0x1c28, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #2
-	{0x8086, 0x1c29, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #3
-	{0x8086, 0x1c2a, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #4
-	{0x8086, 0x1c2c, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #5
-	{0x8086, 0x1c2e, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #6
-	{0x8086, 0x1c2f, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #7
-	{0x8086, 0x1c26, 0x00, 0xff, kErrataDontUseCompanionController },	// PCH EHCI #1
-	{0x8086, 0x1c2d, 0x00, 0xff, kErrataDontUseCompanionController },	// PCH EHCI #2
+	{0x8086, 0x1c27, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #1
+	{0x8086, 0x1c28, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #2
+	{0x8086, 0x1c29, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #3
+	{0x8086, 0x1c2a, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #4
+	{0x8086, 0x1c2c, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #5
+	{0x8086, 0x1c2e, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #6
+	{0x8086, 0x1c2f, 0x00, 0xff, kErrataDontUseCompanionController },   // CPT UHCI #7
+	{0x8086, 0x1c26, 0x00, 0xff, kErrataDontUseCompanionController },	// CPT EHCI #1
+	{0x8086, 0x1c2d, 0x00, 0xff, kErrataDontUseCompanionController },	// CPT EHCI #2
+
+#ifdef SUPPORTS_SS_USB
+#endif
 
 	{0x10de, 0x0d9d, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature },			// MCP89 EHCI #1,2
-	{0x10de, 0x0d9c, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature }			// MCP89 OHCI #1,2
+	{0x10de, 0x0d9c, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature },			// MCP89 OHCI #1,2
 
+	{0x12d8, 0x400f, 0x00, 0x01, kErrataDisablePCIeLinkOnSleep}			// Pericom
 	
 };
 

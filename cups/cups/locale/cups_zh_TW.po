@@ -2,14 +2,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: CUPS 1.4\n"
 "Report-Msgid-Bugs-To: http://www.cups.org/str.php\n"
-"POT-Creation-Date: 2012-02-13 09:11-0800\n"
+"POT-Creation-Date: 2012-03-07 13:38-0800\n"
 "PO-Revision-Date: 2009-02-16 12:00-0800\n"
 "Last-Translator: Apple Inc.\n"
 "Language-Team: Apple Inc.\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
 
 msgid "\t\t(all)"
 msgstr ""
@@ -2904,6 +2904,10 @@ msgstr "Internet Postage 3-Part - 2 1/4 x 7\""
 msgid "Internet Printing Protocol"
 msgstr "Internet 列印通訊協定"
 
+#, c-format
+msgid "Invalid printer command \"%s\"."
+msgstr ""
+
 msgid "JCL"
 msgstr "JCL"
 
@@ -4043,6 +4047,9 @@ msgstr "無法更改印表機："
 msgid "Unable to change server settings:"
 msgstr "無法更改伺服器設定："
 
+msgid "Unable to configure printer options."
+msgstr ""
+
 msgid "Unable to connect to host."
 msgstr "無法連接主機。"
 
@@ -4520,8 +4527,8 @@ msgstr "是"
 
 #, c-format
 msgid ""
-"You must access this page using the URL <A HREF=\"https://%s:%d%s\">https://"
-"%s:%d%s</A>."
+"You must access this page using the URL <A HREF=\"https://%s:%d%s\">https://%"
+"s:%d%s</A>."
 msgstr ""
 "您必須使用 URL <A HREF=\"https://%s:%d%s\">https://%s:%d%s</A> 存取此頁面。"
 
@@ -6707,8 +6714,8 @@ msgstr "variable-bindings 使用的長度不確定"
 #~ msgstr "ERROR: 標語檔案的第 %d 行遺失值！\n"
 
 #~ msgid ""
-#~ "ERROR: Need a msgid line before any translation strings on line %d of "
-#~ "%s!\n"
+#~ "ERROR: Need a msgid line before any translation strings on line %d of %"
+#~ "s!\n"
 #~ msgstr "ERROR: 在 %2$s 第 %1$d 行的任何轉換字串前面都需要 msgid 行！\n"
 
 #~ msgid "ERROR: No %%BoundingBox: comment in header!\n"
@@ -8250,8 +8257,8 @@ msgstr "variable-bindings 使用的長度不確定"
 #~ msgstr "lppasswd：使用者“%s”和群組“%s”不存在。\n"
 
 #~ msgid ""
-#~ "lpstat: error - %s environment variable names non-existent destination "
-#~ "\"%s\"!\n"
+#~ "lpstat: error - %s environment variable names non-existent destination \"%"
+#~ "s\"!\n"
 #~ msgstr "lpstat：錯誤 - %s 環境變數名稱中有不存在的目的地“%s”！\n"
 
 #~ msgid "members of class %s:\n"
@@ -8331,8 +8338,8 @@ msgstr "variable-bindings 使用的長度不確定"
 #~ msgstr "ppdc：%2$s 的第 %1$d 行上預期有 UIConstraints 的限制字串！\n"
 
 #~ msgid ""
-#~ "ppdc: Expected driver type keyword following DriverType on line %d of "
-#~ "%s!\n"
+#~ "ppdc: Expected driver type keyword following DriverType on line %d of %"
+#~ "s!\n"
 #~ msgstr ""
 #~ "ppdc：%2$s 的第 %1$d 行上 DriverType 後面預期有驅動程式類型關鍵字！\n"
 
@@ -8407,14 +8414,14 @@ msgstr "variable-bindings 使用的長度不確定"
 #~ msgstr "ppdc：%2$s 的第 %1$d 行上預期有實數！\n"
 
 #~ msgid ""
-#~ "ppdc: Expected resolution/mediatype following ColorProfile on line %d of "
-#~ "%s!\n"
+#~ "ppdc: Expected resolution/mediatype following ColorProfile on line %d of %"
+#~ "s!\n"
 #~ msgstr ""
 #~ "ppdc：%2$s 的第 %1$d 行上 ColorProfile 後面預期有解析度∕媒體類型！\n"
 
 #~ msgid ""
-#~ "ppdc: Expected resolution/mediatype following SimpleColorProfile on line "
-#~ "%d of %s!\n"
+#~ "ppdc: Expected resolution/mediatype following SimpleColorProfile on line %"
+#~ "d of %s!\n"
 #~ msgstr ""
 #~ "ppdc：%2$s 的第 %1$d 行上 SimpleColorProfile 後面預期有解析度∕媒體類型！\n"
 
@@ -8524,8 +8531,8 @@ msgstr "variable-bindings 使用的長度不確定"
 #~ msgstr "ppdc：發現未知的代號“%1$s”，在 %3$s 的第 %2$d 行上！\n"
 
 #~ msgid ""
-#~ "ppdc: Unknown trailing characters in real number \"%s\" on line %d of "
-#~ "%s!\n"
+#~ "ppdc: Unknown trailing characters in real number \"%s\" on line %d of %"
+#~ "s!\n"
 #~ msgstr "ppdc：實數“%1$s”中有未知的尾字元，在 %3$s 的第 %2$d 行上！\n"
 
 #~ msgid "ppdc: Unterminated string starting with %c on line %d of %s!\n"

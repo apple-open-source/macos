@@ -15,7 +15,7 @@
 #ifndef LLVM_ADT_EQUIVALENCECLASSES_H
 #define LLVM_ADT_EQUIVALENCECLASSES_H
 
-#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DataTypes.h"
 #include <cassert>
 #include <set>
 
@@ -169,7 +169,7 @@ public:
   /// getOrInsertLeaderValue - Return the leader for the specified value that is
   /// in the set.  If the member is not in the set, it is inserted, then
   /// returned.
-  const ElemTy &getOrInsertLeaderValue(const ElemTy &V) const {
+  const ElemTy &getOrInsertLeaderValue(const ElemTy &V) {
     member_iterator MI = findLeader(insert(V));
     assert(MI != member_end() && "Value is not in the set!");
     return *MI;

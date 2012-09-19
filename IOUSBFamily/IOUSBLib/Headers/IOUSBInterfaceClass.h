@@ -20,12 +20,21 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_IOUSBInterfaceClass_H
 #define _IOKIT_IOUSBInterfaceClass_H
 
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/usb/USB.h>
 #include <asl.h>
+
+#include <AvailabilityMacros.h>
+
+#define SUPPORTS_SS_USB 1
+
+#ifndef IOUSBLIBDEBUG
+#define IOUSBLIBDEBUG		0
+#endif
 
 #include "IOUSBIUnknown.h"
 
@@ -41,7 +50,11 @@ protected:
     virtual ~IOUSBInterfaceClass();
 
     static IOCFPlugInInterface			sIOCFPlugInInterfaceV1;
+#ifdef SUPPORTS_SS_USB
+    static IOUSBInterfaceInterface500  	sUSBInterfaceInterfaceV500;
+#else
     static IOUSBInterfaceInterface300  	sUSBInterfaceInterfaceV300;
+#endif
 
     struct InterfaceMap					fUSBInterface;
     io_service_t						fService;
@@ -147,9 +160,10 @@ public:
     virtual IOUSBDescriptorHeader		*NextDescriptor(const void *desc);
     // ----- new with 3.0.0
     virtual IOReturn					GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime);
-
-
-				  
+#ifdef SUPPORTS_SS_USB
+    // ----- new with 5.0.0
+	virtual IOReturn					GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 *address, UInt8 *attributes, UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval);
+#endif
 private:
     IOReturn							GetPropertyInfo(void);
 
@@ -227,7 +241,10 @@ protected:
     static IOUSBDescriptorHeader *interfaceFindNextAltInterface( void *self, const void *currentDescriptor, IOUSBFindInterfaceRequest *request);
     // ----------------- added in 3.0.0
     static IOReturn				interfaceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime);
-   
+#ifdef SUPPORTS_SS_USB
+   // ----------------- added in 5.0.0
+    static IOReturn				interfaceGetPipePropertiesV2(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *address, UInt8 *attributes,  UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval);
+#endif
 };
 
 #endif /* !_IOKIT_IOUSBInterfaceClass_H */

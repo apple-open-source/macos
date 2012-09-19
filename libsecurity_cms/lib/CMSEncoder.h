@@ -389,6 +389,11 @@ OSStatus CMSEncodeContent(
 	CFDataRef			*encodedContentOut)	/* RETURNED */
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
+OSStatus CMSEncoderCopySignerTimestamp(
+	CMSEncoderRef		cmsEncoder,
+	size_t				signerIndex,        /* usually 0 */
+	CFAbsoluteTime      *timestamp)			/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 #ifdef __cplusplus
 }

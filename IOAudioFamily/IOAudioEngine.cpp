@@ -2065,11 +2065,11 @@ void IOAudioEngine::performErase()
                 
                 if (currentSampleFrame < eraseHeadSampleFrame) {
 					// <rdar://problem/10040608> Add additional checks to ensure buffer is still of the appropriate length
-					if (	(outputStream->getSampleBufferSize() == 0) ||                         //  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
+					if (	(outputStream->getSampleBufferSize() == 0) ||                      									  	//  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
                             ((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
-							(currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) &&
+							((currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) || !mixBuf ) &&			//	<rdar://10866244> Don't check mix buffer if it's not in use (eg. !fIsMixable)
 							(numSampleFramesPerBuffer * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
-							(numSampleFramesPerBuffer * mixBufferFrameSize <= outputStream->getMixBufferSize() ) &&
+							((numSampleFramesPerBuffer * mixBufferFrameSize <= outputStream->getMixBufferSize() ) || !mixBuf ) &&	//	<rdar://10866244> Don't check mix buffer if it's not in use (eg. !fIsMixable)
 							(numSampleFramesPerBuffer > eraseHeadSampleFrame)) ) {
 						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)numSampleFramesPerBuffer);
 						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%x to 0x%lx\n", this, 0, (long unsigned int)currentSampleFrame);
@@ -2078,9 +2078,9 @@ void IOAudioEngine::performErase()
 					}
                 } else {
 					// <rdar://problem/10040608> Add additional checks to ensure buffer is still of the appropriate length
-					if (	(outputStream->getSampleBufferSize() == 0) ||                         //  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
+					if (	(outputStream->getSampleBufferSize() == 0) ||                       									//  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
                             ( (currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
-							(currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) ) ) {
+							( (currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) || !mixBuf ) ) ) {		//	<rdar://10866244> Don't check mix buffer if it's not in use (eg. !fIsMixable)
 						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)currentSampleFrame);
 						eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, currentSampleFrame - eraseHeadSampleFrame, &outputStream->format, outputStream);
 					}

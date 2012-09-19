@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: config.c,v 1.106.4.6 2010-08-11 18:19:54 each Exp $ */
+/* $Id: config.c,v 1.106.4.6 2010/08/11 18:19:54 each Exp $ */
 
 /*! \file */
 

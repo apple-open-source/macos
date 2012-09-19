@@ -124,8 +124,6 @@ enum {
 	@constant kSecAssessmentContextKeyOperation Type of operation (see overview above). This defaults
 		to the kSecAssessmentOperationTypeExecute.
  */
-extern const CFStringRef kSecAssessmentContextKeyCertificates; // certificate chain as provided by caller
-
 extern const CFStringRef kSecAssessmentAssessmentVerdict;		// CFBooleanRef: master result - allow or deny
 extern const CFStringRef kSecAssessmentAssessmentOriginator;	// CFStringRef: describing the signature originator
 extern const CFStringRef kSecAssessmentAssessmentAuthority;	// CFDictionaryRef: authority used to arrive at result
@@ -133,6 +131,8 @@ extern const CFStringRef kSecAssessmentAssessmentSource;		// CFStringRef: primar
 extern const CFStringRef kSecAssessmentAssessmentFromCache;	// present if result is from cache
 extern const CFStringRef kSecAssessmentAssessmentAuthorityRow; // (internal)
 extern const CFStringRef kSecAssessmentAssessmentAuthorityOverride; // (internal)
+
+extern const CFStringRef kDisabledOverride;					// AuthorityOverride value for "Gatekeeper is disabled"
 
 enum {
 	kSecAssessmentFlagRequestOrigin = 1 << 0,		// request origin information (slower)
@@ -174,7 +174,7 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessment,
 
 
 /*!
-	@function SecAssessmentUpdate
+	@function SecAssessmentCopyUpdate
 	Make changes to the system policy configuration.
 	
 	@param path CFTypeRef describing the subject of the operation. Depending on the operation,
@@ -187,7 +187,10 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessment,
 		on the requested assessment. Must at least contain the kSecAssessmentContextKeyEdit key.
 	@param errors Standard CFError argument for reporting errors. Note that declining to permit
 		the proposed operation is not an error. Inability to form a judgment is.
-	@result Returns True on success. Returns False on failure (and sets *error).
+	@result Returns On success, a CFDictionary containing information pertaining to the completed operation.
+		Caller must CFRelease it when done. On failure, NULL, with *errors set if provided.
+	
+	Note: The SecAssessmentUpdate variant does not return data. It returns True on success, or False on error.
 	
 	Context keys and values:
 
@@ -197,6 +200,9 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessment,
 	@constant kSecAssessmentUpdateOperationRemove Remove rules from the rule database.
 	@constant kSecAssessmentUpdateOperationEnable (Re)enable rules in the rule database.
 	@constant kSecAssessmentUpdateOperationDisable Disable rules in the rule database.
+	@constant kSecAssessmentUpdateOperationFind Locate and return rules from the rule database.
+		This operation does not change the database, and does not require authorization or privileges.
+		
 	@constant kSecAssessmentUpdateKeyAuthorization A CFData containing the external form of a
 		system AuthorizationRef used to authorize the change. The call will automatically generate
 		a suitable authorization if this is missing; however, if the request is on behalf of
@@ -211,13 +217,32 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessment,
 		assessment. The default is to allow; set to kCFBooleanFalse to create a negative (denial) rule.
 	@constant kSecAssessmentUpdateKeyRemarks CFString containing a colloquial description or comment
 		about a newly created rule. This is mean to be human readable and is not used when evaluating rules.
+	
+	Keys returned as the result of a successful kSecAssessmentUpdateOperationFind operation:
+	
+	@constant kSecAssessmentRuleKeyID A CFNumber uniquely identifying a rule.
+	@constant kSecAssessmentRuleKeyPriority A CFNumber indicating the rule's priority.
+		This is a floating point number. Higher values indicate higher priority.
+	@constant kSecAssessmentRuleKeyAllow A CFBoolean indicating whether the rule allows (true) or denies (false) the operation.
+	@constant kSecAssessmentRuleKeyLabel An optional CFString labeling the rule. Multiple rules may have the same label;
+		this can be used to group rules. Labels are not presented to the user. The label has no effect on evaluation.
+	@constant kSecAssessmentRuleKeyRemarks An optional CFString containing user-readable text characterizing the rule's meaning.
+		The remark has no effect on the evaluation.
+	@constant kSecAssessmentRuleKeyRequirement A CFString containing the (text form of) the code requirement governing the rule's match.
+	@constant kSecAssessmentRuleKeyType A CFString denoting the type of operation governed by the rule.
+		One of the kSecAssessmentOperationType* constants.
+	@constant kSecAssessmentRuleKeyExpires A CFDate indicating when the rule expires. Absent if the rule does not expire. Expired rules are never returned.
+	@constant kSecAssessmentRuleKeyDisabled A CFNumber; non zero if temporarily disabled. Optional.
+	@constant kSecAssessmentRuleKeyBookmark A CFData with the bookmark to the rule. Optional.
  */
 extern const CFStringRef kSecAssessmentContextKeyUpdate;		// proposed operation
 extern const CFStringRef kSecAssessmentUpdateOperationAdd;		// add rule to policy database
 extern const CFStringRef kSecAssessmentUpdateOperationRemove;	// remove rule from policy database
 extern const CFStringRef kSecAssessmentUpdateOperationEnable;	// enable rule(s) in policy database
 extern const CFStringRef kSecAssessmentUpdateOperationDisable;	// disable rule(s) in policy database
+extern const CFStringRef kSecAssessmentUpdateOperationFind;	// extract rule(s) from the policy database
 
+extern const CFStringRef kSecAssessmentContextKeyCertificates; // obsolete
 extern const CFStringRef kSecAssessmentUpdateKeyAuthorization;	// [CFData] external form of governing authorization
 
 extern const CFStringRef kSecAssessmentUpdateKeyPriority;		// rule priority
@@ -226,7 +251,25 @@ extern const CFStringRef kSecAssessmentUpdateKeyExpires;		// rule expiration
 extern const CFStringRef kSecAssessmentUpdateKeyAllow;			// rule outcome (allow/deny)
 extern const CFStringRef kSecAssessmentUpdateKeyRemarks;		// rule remarks (human readable)
 
-extern const CFStringRef kSecAssessmentContextKeyCertificates;	// obsolete
+extern const CFStringRef kSecAssessmentUpdateKeyRow;			// rule identifier (CFNumber; add only)
+extern const CFStringRef kSecAssessmentUpdateKeyCount;			// count of changed rules (CFNumber)
+extern const CFStringRef kSecAssessmentUpdateKeyFound;			// set of found rules (CFArray of CFDictionaries)
+
+extern const CFStringRef kSecAssessmentRuleKeyID;				// rule content returned: rule ID
+extern const CFStringRef kSecAssessmentRuleKeyPriority;			// rule content returned: rule priority (floating point)
+extern const CFStringRef kSecAssessmentRuleKeyAllow;			// rule content returned: rule allows (boolean)
+extern const CFStringRef kSecAssessmentRuleKeyLabel;			// rule content returned: rule label (string; optional)
+extern const CFStringRef kSecAssessmentRuleKeyRemarks;			// rule content returned: rule remarks (string; optional)
+extern const CFStringRef kSecAssessmentRuleKeyRequirement;		// rule content returned: rule code requirement (string)
+extern const CFStringRef kSecAssessmentRuleKeyType;				// rule content returned: rule type (string)
+extern const CFStringRef kSecAssessmentRuleKeyExpires;			// rule content returned: rule expiration (CFDate; optional)
+extern const CFStringRef kSecAssessmentRuleKeyDisabled;			// rule content returned: rule disabled (CFNumber; nonzero means temporarily disabled)
+extern const CFStringRef kSecAssessmentRuleKeyBookmark;			// rule content returned: bookmark data (CFBookmark; optional)
+	
+CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
+	SecAssessmentFlags flags,
+	CFDictionaryRef context,
+	CFErrorRef *errors);
 
 Boolean SecAssessmentUpdate(CFTypeRef target,
 	SecAssessmentFlags flags,
@@ -242,7 +285,6 @@ Boolean SecAssessmentUpdate(CFTypeRef target,
 	@param arguments Arguments to the operation as documented for control.
 	@param errors Standard CFErrorRef * argument to report errors.
 	@result Returns True on success. Returns False on failure (and sets *errors).
-	
  */
 Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *errors);
 

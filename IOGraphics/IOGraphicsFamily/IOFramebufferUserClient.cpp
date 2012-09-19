@@ -20,18 +20,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define IOFRAMEBUFFER_PRIVATE
-#include <IOKit/graphics/IOFramebufferShared.h>
-#include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMessage.h>
 #include <libkern/c++/OSContainers.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-
 #include <IOKit/IOPlatformExpert.h>
-
+#include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/assert.h>
+
+#define IOFRAMEBUFFER_PRIVATE
+#include <IOKit/graphics/IOFramebufferShared.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 
 #include "IOFramebufferUserClient.h"
 

@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -35,6 +35,7 @@
 #include "SecCertificateP.h"
 #include "SecCertificatePrivP.h"
 #include <CoreFoundation/CFNumber.h>
+#include "SecCertificateP.h"
 
 extern "C" void appendProperty(CFMutableArrayRef properties, CFStringRef propertyType, CFStringRef label, CFTypeRef value);
 
@@ -69,15 +70,19 @@ typedef struct FieldValueFilterContext
 	CFArrayRef filterKeys;
 } FieldValueFilterContext;
 
-CertificateValues::CertificateValues(SecCertificateRef certificateRef) : mCertificateRef(certificateRef), 
+CertificateValues::CertificateValues(SecCertificateRef certificateRef) : mCertificateRef(certificateRef),
 	mCertificateData(NULL)
 {
+	if (mCertificateRef)
+		CFRetain(mCertificateRef);
 }
 
 CertificateValues::~CertificateValues() throw()
 {
 	if (mCertificateData)
 		CFRelease(mCertificateData);
+	if (mCertificateRef)
+		CFRelease(mCertificateRef);
 }
 
 CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *error)
@@ -111,13 +116,14 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 	}
 
 	SecCertificateRefP certificateP = SecCertificateCreateWithDataP(kCFAllocatorDefault, mCertificateData);
-	if (!certificateP && error)
+	if (!certificateP)
 	{
-		*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateGroup, NULL);
+		if (error)
+			*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateGroup, NULL);
 		return NULL;
 	}
-	
-	CFMutableDictionaryRef fieldValues=CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
+
+	CFMutableDictionaryRef fieldValues=CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 	// Return an array of CFStringRefs representing the common names in the certificates subject if any
@@ -217,7 +223,7 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 	}
 
 	CFAbsoluteTime verifyTime = CFAbsoluteTimeGetCurrent();
-	CFMutableArrayRef summaryProperties = 
+	CFMutableArrayRef summaryProperties =
 		SecCertificateCopySummaryProperties(certificateP, verifyTime);
 	if (summaryProperties)
 	{
@@ -233,15 +239,15 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 
 	if (keys==NULL)
 		return (CFDictionaryRef)fieldValues;
-	
+
 	// Otherwise, we need to filter
-	CFMutableDictionaryRef filteredFieldValues=CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
+	CFMutableDictionaryRef filteredFieldValues=CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 	FieldValueFilterContext fvcontext;
 	fvcontext.filteredValues = filteredFieldValues;
 	fvcontext.filterKeys = keys;
-		
+
 	CFDictionaryApplyFunction(fieldValues, filterFieldValues, &fvcontext);
 
 	CFRelease(fieldValues);
@@ -263,9 +269,9 @@ void filterFieldValues(const void *key, const void *value, void *context)
 	CFTypeRef fieldKey = (CFTypeRef)key;
 	if (fieldKey == NULL || (CFGetTypeID(fieldKey)!=CFStringGetTypeID()) || context==NULL)
 		return;
-	
+
 	FieldValueFilterContext *fvcontext = (FieldValueFilterContext *)context;
-		
+
 	CFRange range = CFRangeMake(0, CFArrayGetCount(fvcontext->filterKeys));
 	CFIndex idx = CFArrayGetFirstIndexOfValue(fvcontext->filterKeys, range, fieldKey);
 	if (idx != kCFNotFound)
@@ -289,7 +295,7 @@ void addPropertyToFieldValues(const void *value, void *context)
 		CFTypeRef valueD = (CFStringRef)CFDictionaryGetValue((CFDictionaryRef)value, kSecPropertyKeyValue);
 #endif
 		CFStringRef key = CertificateValues::remapLabelToKey(label);
-		if (key) 
+		if (key)
 			CFDictionaryAddValue(fieldValues, key, value);
 	}
 }
@@ -298,7 +304,7 @@ CFStringRef CertificateValues::remapLabelToKey(CFStringRef label)
 {
 	if (!label)
 		return NULL;
-		
+
 	if (!mOIDRemap)
 	{
 		CFTypeRef keys[] =
@@ -319,13 +325,13 @@ CFStringRef CertificateValues::remapLabelToKey(CFStringRef label)
 			CFSTR("Not Valid After"),
 			CFSTR("Expires")
 		};
-		
+
 		CFTypeRef values[] =
-		{ 
+		{
 			kSecOIDX509V1SubjectName,
 			kSecOIDX509V1SubjectNameStd,
-			kSecOIDX509V1IssuerName, 
-			kSecOIDX509V1IssuerNameStd, 
+			kSecOIDX509V1IssuerName,
+			kSecOIDX509V1IssuerNameStd,
 			kSecOIDX509V1Version,
 			kSecOIDX509V1SerialNumber,
 			kSecOIDX509V1SignatureAlgorithm,	// or CSSMOID_X509V1SignatureAlgorithmTBS?
@@ -336,14 +342,14 @@ CFStringRef CertificateValues::remapLabelToKey(CFStringRef label)
 			kSecOIDX509V1Signature,
 			kSecOIDX509V1ValidityNotBefore,
 			kSecOIDX509V1ValidityNotAfter,
-			kSecOIDInvalidityDate	
+			kSecOIDInvalidityDate
 		};
 
 		mOIDRemap = CFDictionaryCreate(NULL, keys, values,
-			(sizeof(keys) / sizeof(*keys)), &kCFTypeDictionaryKeyCallBacks, 
+			(sizeof(keys) / sizeof(*keys)), &kCFTypeDictionaryKeyCallBacks,
 			&kCFTypeDictionaryValueCallBacks);
 	}
-	
+
 	CFTypeRef result = (CFTypeRef)CFDictionaryGetValue(mOIDRemap, label);
 
 	return result?(CFStringRef)result:label;
@@ -353,7 +359,7 @@ CFDataRef CertificateValues::copySerialNumber(CFErrorRef *error)
 {
     CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-		
+
     if (certificateP)
     {
         result = SecCertificateCopySerialNumberP(certificateP);
@@ -388,17 +394,30 @@ CFDataRef CertificateValues::getNormalizedSubjectContent(CFErrorRef *error)
     return result;
 }
 
+bool CertificateValues::SecCertificateIsValidX(CFAbsoluteTime verifyTime, CFErrorRef *error)
+{
+	// We wrap with SecDERItemCopySequence, since SecItemCopyMatching expects it
+    bool result = NULL;
+	SecCertificateRefP certificateP = getSecCertificateRefP(error);
+    if (certificateP)
+    {
+        result = SecCertificateIsValid(certificateP, verifyTime);
+        CFRelease(certificateP);
+    }
+    return result;
+}
+
 SecCertificateRefP CertificateValues::getSecCertificateRefP(CFErrorRef *error)
 {
 	// SecCertificateCopyData returns an object created with CFDataCreate, so we
 	// own it and must release it
-	
+
 	if (mCertificateData)
 	{
 		CFRelease(mCertificateData);
 		mCertificateData = NULL;
 	}
-	
+
 	mCertificateData = SecCertificateCopyData(mCertificateRef);	// OK to call, no big lock
 	if (!mCertificateData && error)
 	{
@@ -412,7 +431,7 @@ SecCertificateRefP CertificateValues::getSecCertificateRefP(CFErrorRef *error)
 		*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificateGroup, NULL);
 		return NULL;
 	}
-	
+
 	return certificateP;
 }
 

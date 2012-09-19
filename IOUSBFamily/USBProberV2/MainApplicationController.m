@@ -101,6 +101,11 @@
     [IORegDetailedOutputDrawer toggle:self];
 }
 
+-(IBAction)changeFileType:(id)sender
+{
+    // NSLog(@"iChnaged");
+}
+
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
     if (tabView == MainTabView) {
         int index = [tabView indexOfTabViewItem:[tabView selectedTabViewItem]];

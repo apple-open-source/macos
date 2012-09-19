@@ -507,6 +507,8 @@ bool IOPCIRangeAppendSubRange(IOPCIRange ** list,
 			continue;
         if (newRange->alignment > range->alignment)
             break;
+        if (newRange->proposedSize > range->proposedSize)
+            break;
     }
     while (prev = &range->nextSubRange, true);
 

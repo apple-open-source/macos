@@ -23,6 +23,10 @@
  */
 
 
+#include <AvailabilityMacros.h>
+
+#define SUPPORTS_SS_USB 1
+
 #import <Foundation/Foundation.h>
 #import <IOKit/usb/IOUSBLib.h>
 #import <IOKit/usb/USB.h>
@@ -43,6 +47,9 @@ typedef struct 	IOUSBInterfaceStruct220**	 		IOUSBInterfaceRef ;
 #define CCID_DESCRIPTOR_LEVEL			INTERFACE_LEVEL + 1
 #define HUB_DESCRIPTOR_LEVEL			ROOT_LEVEL + 1
 #define DEVICE_QUAL_DESCRIPTOR_LEVEL            ROOT_LEVEL + 1
+#ifdef SUPPORTS_SS_USB
+	#define	BOS_DESCRIPTOR_LEVEL			ROOT_LEVEL + 1
+#endif
 
 enum {
     kIntegerOutputStyle = 0,

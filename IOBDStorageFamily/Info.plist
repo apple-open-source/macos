@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6</string>
+	<string>1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.6</string>
+	<string>1.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOBDBlockStorageDriver</key>
@@ -49,7 +49,7 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2006-2009 Apple Inc. All rights reserved.</string>
+	<string>Copyright © 2006-2012 Apple Inc. All rights reserved.</string>
 	<key>OSBundleAllowUserLoad</key>
 	<true/>
 	<key>OSBundleCompatibleVersion</key>
@@ -57,11 +57,11 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IODVDStorageFamily</key>
-		<string>1.6</string>
+		<string>1.7</string>
 		<key>com.apple.iokit.IOCDStorageFamily</key>
-		<string>1.6</string>
+		<string>1.7</string>
 		<key>com.apple.iokit.IOStorageFamily</key>
-		<string>1.6</string>
+		<string>1.7</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0</string>
 		<key>com.apple.kpi.iokit</key>

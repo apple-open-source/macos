@@ -139,6 +139,7 @@ struct updatingVol {
 // for non-RPS content, including booters
 #define OLDEXT ".old"
 #define NEWEXT ".new"
+#define SCALE_2xEXT "_2x"
 #define CONTENTEXT ".contentDetails"
 
 // NOTE: These strings must be the same length, or code in ucopyRPS will break!
@@ -1869,6 +1870,7 @@ nukeBRLabels(struct updatingVol *up)
    OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogGeneralFlag,
               "Removing current disk label.");
 
+    // .disk_label
     pathcpy(labelp, up->curMount);
     pathcat(labelp, up->caches->label->rpath);
     if (0 == (stat(labelp, &sb))) {
@@ -1878,9 +1880,21 @@ nukeBRLabels(struct updatingVol *up)
         errno = 0;
     }
 
-    // now for the content details (if any)
-    pathcat(labelp, CONTENTEXT);        // append extension
+    // .disk_label_2x
+    pathcpy(labelp, up->curMount);
+    pathcat(labelp, up->caches->label->rpath);
+    pathcat(labelp, SCALE_2xEXT);       // append extension
+    if (0 == (stat(labelp, &sb))) {
+        opres = sunlink(up->curbootfd, labelp);
+        RECERR(up, opres, "error removing .contentDetails" /*NULL w/9217695*/);
+    } else {
+        errno = 0;
+    }
 
+    // .disk_label.contentsDetail
+    pathcpy(labelp, up->curMount);
+    pathcat(labelp, up->caches->label->rpath);
+    pathcat(labelp, CONTENTEXT);        // append extension
     if (0 == (stat(labelp, &sb))) {
         opres = sunlink(up->curbootfd, labelp);
         RECERR(up, opres, "error removing .contentDetails" /*NULL w/9217695*/);
@@ -2116,10 +2130,10 @@ finish:
 * activateMisc renames .new files to final names and relabels the volumes
 * active label indicates an updated helper partition
 * - construct new label with a trailing number as appropriate
-* - use BLGenerateOFLabel() and overwrite any copied-down label
+* - use BLGenerateLabelData() and overwrite any copied-down label
 * X need to be consistent throughout regarding missing misc files (esp. label?)
 ******************************************************************************/
-#ifndef OPENSOURCE      // BLGenerateOFLabel uses CG
+#ifndef OPENSOURCE      // BLGenerateLabelData() uses CG?
 static int writeLabels(struct updatingVol *up, char *labelpath)
 {
     int temp_err, rval = ELAST + 1;
@@ -2127,7 +2141,7 @@ static int writeLabels(struct updatingVol *up, char *labelpath)
     CFIndex len;
     int fd = -1;
     char bootname[NAME_MAX];
-    char labeldir[PATH_MAX], contentPath[PATH_MAX];
+    char path[PATH_MAX];
     // if .disk_label stayed up to date, we wouldn't need to call this
     // with w/1 Apple_Boot.
     char *fmt = (CFArrayGetCount(up->boots) == 1) ? "%s" : "%s %d";
@@ -2135,33 +2149,50 @@ static int writeLabels(struct updatingVol *up, char *labelpath)
     OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogGeneralFlag,
               "Writing new disk label.");
 
+    // create name & parent directory for .disk_label* files
     if (NAME_MAX <= snprintf(bootname, NAME_MAX, fmt,
                             up->caches->volname, up->bootIdx + 1))
         goto finish;
-    temp_err = BLGenerateOFLabel(NULL, bootname, &lData);
+    pathcpy(path, dirname(labelpath));
+    if (-1 == sdeepmkdir(up->curbootfd, path, kCacheDirMode))
+        goto finish;
+
+    // generate and write .disk_label
+    temp_err = BLGenerateLabelData(NULL, bootname, kBitmapScale_1x, &lData);
     if (temp_err) {
-        // BLGenerateOFLabel will return a non zero error code that indicates
-        // at what point it failed within the function.
-        OSKextLog(NULL, up->errLogSpec,
-                  "%s - BLGenerateOFLabel with err %d", 
+        // BLGenerateLabelData() will return a non-zero error code that
+        // indicates at what point it failed within the function.
+        OSKextLog(NULL, up->errLogSpec, "%s - BLGenerateLabelData(): %d", 
                   __FUNCTION__, temp_err);
         goto finish;
-   }
-
-    // create parent directory and write the data
-    pathcpy(labeldir, dirname(labelpath));
-    if (-1 == sdeepmkdir(up->curbootfd, labeldir, kCacheDirMode))
-        goto finish;
+    }
     fd = sopen(up->curbootfd, labelpath, O_CREAT|O_WRONLY, kCacheFileMode);
     if (fd == -1)           goto finish;
     len = CFDataGetLength(lData);
     if (write(fd, CFDataGetBytePtr(lData), len) != len) goto finish;
 
+    // generate and write .disk_label_2x
+    CFRelease(lData);   lData = NULL;
+    temp_err = BLGenerateLabelData(NULL, bootname, kBitmapScale_2x, &lData);
+    if (temp_err) {
+        // BLGenerateLabelData() will return a non-zero error code that
+        // indicates at what point it failed within the function.
+        OSKextLog(NULL, up->errLogSpec, "%s - BLGenerateLabelData(): %d", 
+                  __FUNCTION__, temp_err);
+        goto finish;
+    }
+    pathcpy(path, labelpath);
+    pathcat(path, SCALE_2xEXT);
+    fd = sopen(up->curbootfd, path, O_CREAT|O_WRONLY, kCacheFileMode);
+    if (fd == -1)           goto finish;
+    len = CFDataGetLength(lData);
+    if (write(fd, CFDataGetBytePtr(lData), len) != len) goto finish;
+
     // and write the content detail
-    pathcpy(contentPath, labelpath);
-    pathcat(contentPath, CONTENTEXT);
+    pathcpy(path, labelpath);
+    pathcat(path, CONTENTEXT);
     close(fd);
-    fd = sopen(up->curbootfd, contentPath, O_CREAT|O_WRONLY, kCacheFileMode);
+    fd = sopen(up->curbootfd, path, O_CREAT|O_WRONLY, kCacheFileMode);
     if (fd == -1)           goto finish;
     len = strlen(bootname);
     if (write(fd, bootname, len) != len)        goto finish;

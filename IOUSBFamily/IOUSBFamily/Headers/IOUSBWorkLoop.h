@@ -57,5 +57,5 @@ public:
     void OpenGate(void);
 };
 
-#endif /* ! _IOKIT_IOUSBWORKLOOP_H */
+#endif
 

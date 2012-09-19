@@ -17,6 +17,7 @@
 
 namespace llvm {
   class MachineFunction;
+  class StringRef;
 
   // Possible float ABI settings. Used with FloatABIType in TargetOptions.h.
   namespace FloatABI {
@@ -68,16 +69,21 @@ namespace llvm {
   /// this flag is off (the default), the code generator is not allowed to
   /// produce results that are "less precise" than IEEE allows.  This includes
   /// use of X86 instructions like FSIN and FCOS instead of libcalls.
-  /// UnsafeFPMath implies FiniteOnlyFPMath and LessPreciseFPMAD.
+  /// UnsafeFPMath implies LessPreciseFPMAD.
   extern bool UnsafeFPMath;
 
-  /// FiniteOnlyFPMath - This returns true when the -enable-finite-only-fp-math
-  /// option is specified on the command line. If this returns false (default),
-  /// the code generator is not allowed to assume that FP arithmetic arguments
-  /// and results are never NaNs or +-Infs.
-  extern bool FiniteOnlyFPMathOption;
-  extern bool FiniteOnlyFPMath();
-  
+  /// NoInfsFPMath - This flag is enabled when the
+  /// -enable-no-infs-fp-math flag is specified on the command line. When
+  /// this flag is off (the default), the code generator is not allowed to
+  /// assume the FP arithmetic arguments and results are never +-Infs.
+  extern bool NoInfsFPMath;
+
+  /// NoNaNsFPMath - This flag is enabled when the
+  /// -enable-no-nans-fp-math flag is specified on the command line. When
+  /// this flag is off (the default), the code generator is not allowed to
+  /// assume the FP arithmetic arguments and results are never NaNs.
+  extern bool NoNaNsFPMath;
+
   /// HonorSignDependentRoundingFPMath - This returns true when the
   /// -enable-sign-dependent-rounding-fp-math is specified.  If this returns
   /// false (the default), the code generator is allowed to assume that the
@@ -120,10 +126,6 @@ namespace llvm {
   /// flag is hidden and is only for debugging the debug info.
   extern bool JITEmitDebugInfoToDisk;
 
-  /// UnwindTablesMandatory - This flag indicates that unwind tables should
-  /// be emitted for all functions.
-  extern bool UnwindTablesMandatory;
-
   /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
   /// specified on the commandline. When the flag is on, participating targets
   /// will perform tail call optimization on all calls which use the fastcc
@@ -132,11 +134,11 @@ namespace llvm {
   /// as their parent function, etc.), using an alternate ABI if necessary.
   extern bool GuaranteedTailCallOpt;
 
-  /// StackAlignment - Override default stack alignment for target.
-  extern unsigned StackAlignment;
+  /// StackAlignmentOverride - Override default stack alignment for target.
+  extern unsigned StackAlignmentOverride;
 
-  /// RealignStack - This flag indicates, whether stack should be automatically
-  /// realigned, if needed.
+  /// RealignStack - This flag indicates whether the stack should be
+  /// automatically realigned, if needed.
   extern bool RealignStack;
 
   /// DisableJumpTables - This flag indicates jump tables should not be 
@@ -151,6 +153,13 @@ namespace llvm {
   /// StrongPHIElim - This flag enables more aggressive PHI elimination
   /// wth earlier copy coalescing.
   extern bool StrongPHIElim;
+
+  /// getTrapFunctionName - If this returns a non-empty string, this means isel
+  /// should lower Intrinsic::trap to a call to the specified function name
+  /// instead of an ISD::TRAP node.
+  extern StringRef getTrapFunctionName();
+
+  extern bool EnableSegmentedStacks;
 
 } // End llvm namespace
 

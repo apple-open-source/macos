@@ -48,6 +48,7 @@ enum Operation {
 	doRemove,						// remove rule(s)
 	doRuleEnable,					// (re)enable rule(s)
 	doRuleDisable,					// disable rule(s)
+	doList,							// list authority rules
 	doPurge,						// purge object cache
 };
 Operation operation = doNothing;
@@ -77,6 +78,7 @@ const char *priority;
 const char *remarks;
 bool rawOutput;
 CFMutableDictionaryRef context = makeCFMutableDictionary();
+// additional variables declared in cs_utils
 
 
 //
@@ -98,6 +100,7 @@ static void addAuthority(const char *target);
 static void removeAuthority(const char *target);
 static void enableAuthority(const char *target);
 static void disableAuthority(const char *target);
+static void listAuthority(const char *target);
 static void status(Operation op);
 static void purgeCache();
 
@@ -147,17 +150,18 @@ const struct option options[] = {
 	{ "continue",	no_argument,			NULL, optContinue },
 	{ "direct",		no_argument,			NULL, 'D' },
 	{ "status",		optional_argument,		NULL, optStatus },
-	{ "enable",	no_argument,		NULL, optRuleEnable },
-	{ "disable", no_argument,		NULL, optRuleDisable },
+	{ "enable",		no_argument,			NULL, optRuleEnable },
+	{ "disable",	no_argument,			NULL, optRuleDisable },
 	{ "master-enable",	no_argument,		NULL, optMasterEnable },
 	{ "master-disable", no_argument,		NULL, optMasterDisable },
-	{ "test-devid-status",	no_argument,		NULL, optDevIDStatus },
-	{ "test-devid-enable",	no_argument,		NULL, optDevIDEnable },
-	{ "test-devid-disable", no_argument,		NULL, optDevIDDisable },
+	{ "test-devid-status",	no_argument,	NULL, optDevIDStatus },
+	{ "test-devid-enable",	no_argument,	NULL, optDevIDEnable },
+	{ "test-devid-disable", no_argument,	NULL, optDevIDDisable },
 	{ "features",	optional_argument,		NULL, optFeatures },
 	{ "hash",		no_argument,			NULL, optHash },
 	{ "ignore-cache", no_argument,			NULL, optIgnoreCache },
 	{ "label",		required_argument,		NULL, optLabel },
+	{ "list",		no_argument,			NULL, 'l' },
 	{ "no-cache",	no_argument,			NULL, optNoCache },
 	{ "path",		no_argument,			NULL, optPath },
 	{ "priority",	required_argument,		NULL, optPriority },
@@ -181,13 +185,16 @@ int main(int argc, char *argv[])
 	try {
 		int arg, argslot;
 		while (argslot = -1,
-				(arg = getopt_long(argc, argv, "aDt:v", options, &argslot)) != -1)
+				(arg = getopt_long(argc, argv, "aDlt:v", options, &argslot)) != -1)
 			switch (arg) {
 			case 'a':
 				operation = doAssess;
 				break;
 			case 'D':
 				assessmentFlags |= kSecAssessmentFlagDirect;
+				break;
+			case 'l':
+				operation = doList;
 				break;
 			case 't':
 				assessmentType = optarg;
@@ -238,6 +245,9 @@ int main(int argc, char *argv[])
 				break;
 			case optHash:
 				specification = specHash;
+				break;
+			case optIgnoreCache:
+				assessmentFlags |= kSecAssessmentFlagIgnoreCache;
 				break;
 			case optLabel:
 				label = optarg;
@@ -315,6 +325,12 @@ int main(int argc, char *argv[])
 				exit(0);
 			}
 			break;
+		case doList:
+			if (optind == argc) {
+				listAuthority(NULL);
+				exit(0);
+			}
+			break;
 		default:
 			if (optind == argc)
 				usage();
@@ -340,6 +356,9 @@ int main(int argc, char *argv[])
 					break;
 				case doRuleDisable:
 					disableAuthority(target);
+					break;
+				case doList:
+					listAuthority(target);
 					break;
 				default:
 					assert(false);
@@ -429,7 +448,7 @@ void assess(const char *target)
 // Apply a change to the system-wide authority configuration.
 // These are all privileged operations, of course.
 //
-static void updateOperation(const char *target, CFMutableDictionaryRef context,
+static CFDictionaryRef updateOperation(const char *target, CFMutableDictionaryRef context,
 	CFStringRef operation)
 {
 	SecCSFlags flags = assessmentFlags;
@@ -443,6 +462,12 @@ static void updateOperation(const char *target, CFMutableDictionaryRef context,
 		case specPath:
 			{
 				subject = makeCFURL(target);
+				// For add operations, add a bookmark so we get icons
+				if (operation == kSecAssessmentUpdateOperationAdd) {
+					CFRef<CFDataRef> bookmark = CFURLCreateBookmarkData(NULL, subject.as<CFURLRef>(), 0, NULL, NULL, NULL);
+					if (bookmark)
+						CFDictionaryAddValue(context, kSecAssessmentRuleKeyBookmark, bookmark);
+				}
 				break;
 			}
 		case specRequirement:
@@ -470,7 +495,7 @@ static void updateOperation(const char *target, CFMutableDictionaryRef context,
 			}
 		case specRule:
 			{
-				if (operation != kSecAssessmentUpdateOperationRemove)
+				if (operation == kSecAssessmentUpdateOperationAdd)
 					fail("cannot insert by rule number");
 				char *end;
 				uint64_t rule = strtol(target, &end, 0);
@@ -494,28 +519,78 @@ static void updateOperation(const char *target, CFMutableDictionaryRef context,
 		CFDictionaryAddValue(context, kSecAssessmentUpdateKeyRemarks, CFTempString(remarks));
 	
 	ErrorCheck check;
-	check(SecAssessmentUpdate(subject.get(), flags, context, check));
+	CFRef<CFDictionaryRef> outcome = SecAssessmentCopyUpdate(subject.get(), flags, context, check);
+	check(outcome);
+	
+	if (rawOutput)
+		if (CFRef<CFDataRef> xml = makeCFData(outcome.get()))
+			fwrite(CFDataGetBytePtr(xml), CFDataGetLength(xml), 1, stdout);
+	
+	return outcome.yield();
 }
 
 void addAuthority(const char *target)
 {
-	updateOperation(target, context, kSecAssessmentUpdateOperationAdd);
+	CFDictionary result(updateOperation(target, context, kSecAssessmentUpdateOperationAdd), noErr);
+	if (verbose && !rawOutput)
+		printf("Created rule %lld\n", cfNumber<long long>(result.get<CFNumberRef>(kSecAssessmentUpdateKeyRow)));
 }
 
 
 void removeAuthority(const char *target)
 {
-	updateOperation(target, context, kSecAssessmentUpdateOperationRemove);
+	CFDictionary result(updateOperation(target, context, kSecAssessmentUpdateOperationRemove), noErr);
+	if (verbose && !rawOutput)
+		printf("Removed %lld rule(s)\n", cfNumber<long long>(result.get<CFNumberRef>(kSecAssessmentUpdateKeyCount)));
 }
 
 void enableAuthority(const char *target)
 {
-	updateOperation(target, context, kSecAssessmentUpdateOperationEnable);
+	CFDictionary result(updateOperation(target, context, kSecAssessmentUpdateOperationEnable), noErr);
+	if (verbose && !rawOutput)
+		printf("Enabled %lld rule(s)\n", cfNumber<long long>(result.get<CFNumberRef>(kSecAssessmentUpdateKeyCount)));
 }
 
 void disableAuthority(const char *target)
 {
-	updateOperation(target, context, kSecAssessmentUpdateOperationDisable);
+	CFDictionary result(updateOperation(target, context, kSecAssessmentUpdateOperationDisable), noErr);
+	if (verbose && !rawOutput)
+		printf("Disabled %lld rule(s)\n", cfNumber<long long>(result.get<CFNumberRef>(kSecAssessmentUpdateKeyCount)));
+}
+
+void listAuthority(const char *target)
+{
+	CFDictionary result(updateOperation(target, context, kSecAssessmentUpdateOperationFind), noErr);
+	if (rawOutput)
+		return;
+	CFArrayRef rules = result.get<CFArrayRef>(kSecAssessmentUpdateKeyFound);
+	CFIndex count = CFArrayGetCount(rules);
+	for (CFIndex n = 0; n < count; n++) {
+		CFDictionary rule(CFArrayGetValueAtIndex(rules, n), noErr);
+		string typeString = "?";
+		if (CFStringRef type = rule.get<CFStringRef>(kSecAssessmentRuleKeyType)) {
+			typeString = cfString(type);
+			string::size_type colon = typeString.find(':');
+			if (colon != string::npos)
+				typeString = typeString.substr(colon+1);
+		}
+		string label = "UNLABELED";
+		if (CFStringRef lab = rule.get<CFStringRef>(kSecAssessmentRuleKeyLabel))
+			label = cfString(lab);
+		printf("%lld[%s] P%g %s %s",
+			cfNumber<long long>(rule.get<CFNumberRef>(kSecAssessmentRuleKeyID)),
+			label.c_str(),
+			cfNumber<double>(rule.get<CFNumberRef>(kSecAssessmentRuleKeyPriority)),
+			(rule.get<CFBooleanRef>(kSecAssessmentRuleKeyAllow) == kCFBooleanTrue) ? "allow" : "deny",
+			typeString.c_str()
+		);
+		if (CFStringRef remarks = rule.get<CFStringRef>(kSecAssessmentRuleKeyRemarks))
+			printf(" [%s]", cfString(remarks).c_str());
+		printf("\n");
+		printf("\t%s\n",
+			cfString(rule.get<CFStringRef>(kSecAssessmentRuleKeyRequirement)).c_str()
+		);
+	}
 }
 
 

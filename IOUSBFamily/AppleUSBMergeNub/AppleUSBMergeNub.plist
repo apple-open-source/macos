@@ -26,6 +26,24 @@
 	<string>APPLEUSBMERGENUB_VERSION</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>HITACHI Touro MOBILE HDD</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ForceBOTProtocol</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>4114</integer>
+			<key>idVendor</key>
+			<integer>18801</integer>
+		</dict>
 		<key>Kensington 7-in-1 card reader</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -43,6 +61,78 @@
 			<integer>1813</integer>
 			<key>idVendor</key>
 			<integer>1507</integer>
+		</dict>
+		<key>iomega drives</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ForceBOTProtocol</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<string>*</string>
+			<key>idVendor</key>
+			<integer>1435</integer>
+		</dict>
+		<key>LaCie Rugged</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ForceBOTProtocol</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>4171</integer>
+			<key>idVendor</key>
+			<integer>1439</integer>
+		</dict>
+		<key>I-O Data portable HARDDISK</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ForceBOTProtocol</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>314</integer>
+			<key>idVendor</key>
+			<integer>1211</integer>
+		</dict>
+		<key>Hitachi Touro Desk Pro</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ForceBOTProtocol</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>4115</integer>
+			<key>idVendor</key>
+			<integer>18801</integer>
 		</dict>
 		<key>64GB ExpressCard/34 SSD</key>
 		<dict>
@@ -404,6 +494,122 @@
 			<key>idVendor</key>
 			<integer>4794</integer>
 		</dict>
+		<key>VIA810</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kVIASSHub</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>2064</integer>
+			<key>idVendor</key>
+			<integer>8457</integer>
+		</dict>
+		<key>VIA811</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kVIASSHub</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>2065</integer>
+			<key>idVendor</key>
+			<integer>8457</integer>
+		</dict>
+		<key>VIA810v3.88</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kIgnoreDisconnectOnWakeup</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>2064</integer>
+			<key>idVendor</key>
+			<integer>8457</integer>
+			<key>bcdDevice</key>
+			<integer>904</integer>
+		</dict>
+		<key>VIA810v3.89</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kIgnoreDisconnectOnWakeup</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>2064</integer>
+			<key>idVendor</key>
+			<integer>8457</integer>
+			<key>bcdDevice</key>
+			<integer>905</integer>
+		</dict>
+		<key>VIA810v3.95</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kAssumePortsAreCaptive</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>2064</integer>
+			<key>idVendor</key>
+			<integer>8457</integer>
+			<key>bcdDevice</key>
+			<integer>917</integer>
+		</dict>
+		<key>TIHub</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kAssumePortsAreCaptive</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>32833</integer>
+			<key>idVendor</key>
+			<integer>1105</integer>
+			<key>bcdDevice</key>
+			<integer>256</integer>
+		</dict>
 		<key>AppleUSBHub37151v1</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -530,6 +736,33 @@
 			<integer>37174</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
+		</dict>
+		<key>AppleUSBHub 4105-6</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>AAPL,current-available</key>
+				<integer>1000</integer>
+				<key>AAPL,current-extra</key>
+				<integer>500</integer>
+				<key>AAPL,max-port-current-in-sleep</key>
+				<integer>1000</integer>
+				<key>AAPL,current-extra-in-sleep</key>
+				<integer>500</integer>
+			</dict>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>4105</integer>
+				<integer>4106</integer>
+			</array>
 		</dict>
 		<key>AppleUSBHub37158</key>
 		<dict>
@@ -970,6 +1203,11 @@
 				<integer>2269</integer>
 				<integer>2075</integer>
 				<integer>2077</integer>
+				<integer>2081</integer>
+				<integer>2089</integer>
+				<integer>2092</integer>
+				<integer>2074</integer>
+				<integer>2063</integer>
 			</array>
 		</dict>
 		<key>Apple 8403</key>
@@ -1004,7 +1242,7 @@
 			<key>IOProviderMergeProperties</key>
 			<dict>
 				<key>USB Product Name</key>
-				<string>Mac OS X Install Disk</string>
+				<string>OS X Install Disk</string>
 			</dict>
 			<key>idProductArray</key>
 			<array>
@@ -1398,6 +1636,120 @@
 				<integer>37414</integer>
 				<integer>37415</integer>
 				<integer>37430</integer>
+			</array>
+		</dict>
+		<key>Apple WS Device</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ExtendedData</key>
+				<array>
+					<integer>50399521</integer>
+					<integer>50465057</integer>
+				</array>
+			</dict>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>547</integer>
+				<integer>548</integer>
+				<integer>549</integer>
+				<integer>560</integer>
+				<integer>561</integer>
+				<integer>562</integer>
+				<integer>566</integer>
+				<integer>567</integer>
+				<integer>568</integer>
+				<integer>575</integer>
+				<integer>576</integer>
+				<integer>577</integer>
+				<integer>578</integer>
+				<integer>579</integer>
+				<integer>580</integer>
+				<integer>581</integer>
+				<integer>582</integer>
+				<integer>583</integer>
+				<integer>594</integer>
+				<integer>595</integer>
+				<integer>596</integer>
+				<integer>585</integer>
+				<integer>586</integer>
+				<integer>587</integer>
+				<integer>588</integer>
+				<integer>589</integer>
+				<integer>590</integer>
+				<integer>601</integer>
+				<integer>602</integer>
+				<integer>603</integer>
+				<integer>610</integer>
+				<integer>611</integer>
+				<integer>612</integer>
+			</array>
+		</dict>
+		<key>Apple WS Interface</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ExtendedData</key>
+				<array>
+					<integer>50399521</integer>
+					<integer>50465057</integer>
+				</array>
+			</dict>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>bConfigurationValue</key>
+			<string>*</string>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>547</integer>
+				<integer>548</integer>
+				<integer>549</integer>
+				<integer>560</integer>
+				<integer>561</integer>
+				<integer>562</integer>
+				<integer>566</integer>
+				<integer>567</integer>
+				<integer>568</integer>
+				<integer>575</integer>
+				<integer>576</integer>
+				<integer>577</integer>
+				<integer>578</integer>
+				<integer>579</integer>
+				<integer>580</integer>
+				<integer>581</integer>
+				<integer>582</integer>
+				<integer>583</integer>
+				<integer>594</integer>
+				<integer>595</integer>
+				<integer>596</integer>
+				<integer>585</integer>
+				<integer>586</integer>
+				<integer>587</integer>
+				<integer>588</integer>
+				<integer>589</integer>
+				<integer>590</integer>
+				<integer>601</integer>
+				<integer>602</integer>
+				<integer>603</integer>
+				<integer>610</integer>
+				<integer>611</integer>
+				<integer>612</integer>
 			</array>
 		</dict>
 		<key>ComfortKbdHub</key>

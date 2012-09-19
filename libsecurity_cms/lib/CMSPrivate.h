@@ -82,6 +82,8 @@ OSStatus CMSEncoderSetSigningTime(
 	CMSEncoderRef		cmsEncoder,
 	CFAbsoluteTime		time);
 
+void
+CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext);
 	
 /***
  *** Private CMSDecoder routines

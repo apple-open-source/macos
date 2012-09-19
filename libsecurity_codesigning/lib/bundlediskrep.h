@@ -90,7 +90,8 @@ private:
 	CFRef<CFBundleRef> mBundle;
 	std::string mMetaPath;					// path to directory containing signing files
 	bool mMetaExists;						// separate meta-file directory exists
-	CFRef<CFURLRef> mMainExecutableURL;	// chosen main executable URL
+	CFRef<CFURLRef> mMainExecutableURL;		// chosen main executable URL
+	bool mInstallerPackage;					// is an installer (not executable) bundle
 	string mFormat;							// format description string
 	RefPointer<DiskRep> mExecRep;			// DiskRep for main executable file
 };

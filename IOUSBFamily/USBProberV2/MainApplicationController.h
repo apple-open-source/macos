@@ -52,6 +52,7 @@
 - (IBAction)Refresh:(id)sender;
 - (IBAction)SaveOutput:(id)sender;
 - (IBAction)ToggleIORegDetaiLDrawer:(id)sender;
+- (IBAction)changeFileType:(id)sender;
 
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem;
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification;

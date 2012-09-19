@@ -1,25 +1,21 @@
-set(LLVM_NO_RTTI 1)
-
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/EDInfo.inc
-  COMMAND ${LLVM_TABLEGEN_EXE} -o ${CMAKE_CURRENT_BINARY_DIR}/EDInfo.inc
-          -gen-enhanced-disassembly-header ${CMAKE_CURRENT_SOURCE_DIR}/EDInfo.td
-  DEPENDS tblgen
-  COMMENT "Building enhanced disassembly semantic information header (EDInfo.inc)")
-set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/EDInfo.inc PROPERTIES GENERATED 1)
-
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_llvm_library(EnhancedDisassembly
-  EDDisassembler.cpp
-  EDInst.cpp
-  EDMain.cpp
-  EDOperand.cpp
-  EDToken.cpp
+set(SOURCES
   ../../include/llvm-c/EnhancedDisassembly.h
-  ${CMAKE_CURRENT_BINARY_DIR}/EDInfo.inc
-)
+  EDMain.cpp
+  )
 
-set_target_properties(EnhancedDisassembly
-  PROPERTIES
-  LINKER_LANGUAGE CXX)
+set(EDIS_DEPENDS LLVMMCDisassembler LLVMMCParser)
+if( LLVM_TARGETS_TO_BUILD MATCHES X86 )
+  list(APPEND EDIS_DEPENDS LLVMX86AsmPrinter LLVMX86AsmParser LLVMX86Disassembler LLVMX86Desc)
+endif()
+if( LLVM_TARGETS_TO_BUILD MATCHES ARM )
+  list(APPEND EDIS_DEPENDS LLVMARMAsmPrinter LLVMARMAsmParser LLVMARMDisassembler LLVMARMDesc)
+endif()
 
+add_llvm_library(EnhancedDisassembly ${SOURCES})
+set_property(TARGET EnhancedDisassembly PROPERTY
+  OUTPUT_NAME "EnhancedDisassembly")
+
+add_llvm_library_dependencies(EnhancedDisassembly
+  ${EDIS_DEPENDS})

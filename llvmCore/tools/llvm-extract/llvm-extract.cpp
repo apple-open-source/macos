@@ -23,9 +23,12 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/SystemUtils.h"
-#include "llvm/System/Signals.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/Regex.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SetVector.h"
 #include <memory>
 using namespace llvm;
 
@@ -44,19 +47,29 @@ Force("f", cl::desc("Enable binary output on terminals"));
 static cl::opt<bool>
 DeleteFn("delete", cl::desc("Delete specified Globals from Module"));
 
-static cl::opt<bool>
-Relink("relink",
-       cl::desc("Turn external linkage for callees of function to delete"));
-
-// ExtractFuncs - The functions to extract from the module... 
+// ExtractFuncs - The functions to extract from the module.
 static cl::list<std::string>
 ExtractFuncs("func", cl::desc("Specify function to extract"),
              cl::ZeroOrMore, cl::value_desc("function"));
 
-// ExtractGlobals - The globals to extract from the module...
+// ExtractRegExpFuncs - The functions, matched via regular expression, to 
+// extract from the module.
+static cl::list<std::string>
+ExtractRegExpFuncs("rfunc", cl::desc("Specify function(s) to extract using a "
+                                     "regular expression"),
+                   cl::ZeroOrMore, cl::value_desc("rfunction"));
+
+// ExtractGlobals - The globals to extract from the module.
 static cl::list<std::string>
 ExtractGlobals("glob", cl::desc("Specify global to extract"),
                cl::ZeroOrMore, cl::value_desc("global"));
+
+// ExtractRegExpGlobals - The globals, matched via regular expression, to
+// extract from the module...
+static cl::list<std::string>
+ExtractRegExpGlobals("rglob", cl::desc("Specify global(s) to extract using a "
+                                       "regular expression"),
+                     cl::ZeroOrMore, cl::value_desc("rglobal"));
 
 static cl::opt<bool>
 OutputAssembly("S",
@@ -71,16 +84,18 @@ int main(int argc, char **argv) {
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
   cl::ParseCommandLineOptions(argc, argv, "llvm extractor\n");
 
+  // Use lazy loading, since we only care about selected global values.
   SMDiagnostic Err;
   std::auto_ptr<Module> M;
-  M.reset(ParseIRFile(InputFilename, Err, Context));
+  M.reset(getLazyIRFileModule(InputFilename, Err, Context));
 
   if (M.get() == 0) {
-    Err.Print(argv[0], errs());
+    Err.print(argv[0], errs());
     return 1;
   }
 
-  std::vector<GlobalValue *> GVs;
+  // Use SetVector to avoid duplicates.
+  SetVector<GlobalValue *> GVs;
 
   // Figure out which globals we should extract.
   for (size_t i = 0, e = ExtractGlobals.size(); i != e; ++i) {
@@ -90,7 +105,30 @@ int main(int argc, char **argv) {
              << ExtractGlobals[i] << "'!\n";
       return 1;
     }
-    GVs.push_back(GV);
+    GVs.insert(GV);
+  }
+
+  // Extract globals via regular expression matching.
+  for (size_t i = 0, e = ExtractRegExpGlobals.size(); i != e; ++i) {
+    std::string Error;
+    Regex RegEx(ExtractRegExpGlobals[i]);
+    if (!RegEx.isValid(Error)) {
+      errs() << argv[0] << ": '" << ExtractRegExpGlobals[i] << "' "
+        "invalid regex: " << Error;
+    }
+    bool match = false;
+    for (Module::global_iterator GV = M.get()->global_begin(), 
+           E = M.get()->global_end(); GV != E; GV++) {
+      if (RegEx.match(GV->getName())) {
+        GVs.insert(&*GV);
+        match = true;
+      }
+    }
+    if (!match) {
+      errs() << argv[0] << ": program doesn't contain global named '"
+             << ExtractRegExpGlobals[i] << "'!\n";
+      return 1;
+    }
   }
 
   // Figure out which functions we should extract.
@@ -101,7 +139,68 @@ int main(int argc, char **argv) {
              << ExtractFuncs[i] << "'!\n";
       return 1;
     }
-    GVs.push_back(GV);
+    GVs.insert(GV);
+  }
+  // Extract functions via regular expression matching.
+  for (size_t i = 0, e = ExtractRegExpFuncs.size(); i != e; ++i) {
+    std::string Error;
+    StringRef RegExStr = ExtractRegExpFuncs[i];
+    Regex RegEx(RegExStr);
+    if (!RegEx.isValid(Error)) {
+      errs() << argv[0] << ": '" << ExtractRegExpFuncs[i] << "' "
+        "invalid regex: " << Error;
+    }
+    bool match = false;
+    for (Module::iterator F = M.get()->begin(), E = M.get()->end(); F != E; 
+         F++) {
+      if (RegEx.match(F->getName())) {
+        GVs.insert(&*F);
+        match = true;
+      }
+    }
+    if (!match) {
+      errs() << argv[0] << ": program doesn't contain global named '"
+             << ExtractRegExpFuncs[i] << "'!\n";
+      return 1;
+    }
+  }
+
+  // Materialize requisite global values.
+  if (!DeleteFn)
+    for (size_t i = 0, e = GVs.size(); i != e; ++i) {
+      GlobalValue *GV = GVs[i];
+      if (GV->isMaterializable()) {
+        std::string ErrInfo;
+        if (GV->Materialize(&ErrInfo)) {
+          errs() << argv[0] << ": error reading input: " << ErrInfo << "\n";
+          return 1;
+        }
+      }
+    }
+  else {
+    // Deleting. Materialize every GV that's *not* in GVs.
+    SmallPtrSet<GlobalValue *, 8> GVSet(GVs.begin(), GVs.end());
+    for (Module::global_iterator I = M->global_begin(), E = M->global_end();
+         I != E; ++I) {
+      GlobalVariable *G = I;
+      if (!GVSet.count(G) && G->isMaterializable()) {
+        std::string ErrInfo;
+        if (G->Materialize(&ErrInfo)) {
+          errs() << argv[0] << ": error reading input: " << ErrInfo << "\n";
+          return 1;
+        }
+      }
+    }
+    for (Module::iterator I = M->begin(), E = M->end(); I != E; ++I) {
+      Function *F = I;
+      if (!GVSet.count(F) && F->isMaterializable()) {
+        std::string ErrInfo;
+        if (F->Materialize(&ErrInfo)) {
+          errs() << argv[0] << ": error reading input: " << ErrInfo << "\n";
+          return 1;
+        }
+      }
+    }
   }
 
   // In addition to deleting all other functions, we also want to spiff it
@@ -109,30 +208,31 @@ int main(int argc, char **argv) {
   PassManager Passes;
   Passes.add(new TargetData(M.get())); // Use correct TargetData
 
-  Passes.add(createGVExtractionPass(GVs, DeleteFn, Relink));
+  std::vector<GlobalValue*> Gvs(GVs.begin(), GVs.end());
+
+  Passes.add(createGVExtractionPass(Gvs, DeleteFn));
   if (!DeleteFn)
     Passes.add(createGlobalDCEPass());           // Delete unreachable globals
-  Passes.add(createDeadTypeEliminationPass());   // Remove dead types...
+  Passes.add(createStripDeadDebugInfoPass());    // Remove dead debug info
   Passes.add(createStripDeadPrototypesPass());   // Remove dead func decls
 
-  // Make sure that the Output file gets unlinked from the disk if we get a
-  // SIGINT
-  sys::RemoveFileOnSignal(sys::Path(OutputFilename));
-
   std::string ErrorInfo;
-  raw_fd_ostream Out(OutputFilename.c_str(), ErrorInfo,
-                     raw_fd_ostream::F_Binary);
+  tool_output_file Out(OutputFilename.c_str(), ErrorInfo,
+                       raw_fd_ostream::F_Binary);
   if (!ErrorInfo.empty()) {
     errs() << ErrorInfo << '\n';
     return 1;
   }
 
   if (OutputAssembly)
-    Passes.add(createPrintModulePass(&Out));
-  else if (Force || !CheckBitcodeOutputToConsole(Out, true))
-    Passes.add(createBitcodeWriterPass(Out));
+    Passes.add(createPrintModulePass(&Out.os()));
+  else if (Force || !CheckBitcodeOutputToConsole(Out.os(), true))
+    Passes.add(createBitcodeWriterPass(Out.os()));
 
   Passes.run(*M.get());
+
+  // Declare success.
+  Out.keep();
 
   return 0;
 }

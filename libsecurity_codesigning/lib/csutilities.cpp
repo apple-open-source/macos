@@ -61,7 +61,7 @@ void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest)
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,
 // even ones not recognized by the local CL. It does not return any value, only presence.
 //
-bool certificateHasField(SecCertificateRef cert, const CssmOid &oid)
+bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid)
 {
 	assert(cert);
 	CSSM_DATA *value;
@@ -97,7 +97,7 @@ bool certificateHasField(SecCertificateRef cert, const CssmOid &oid)
 // Retrieve X.509 policy extension OIDs, if any.
 // This currently ignores policy qualifiers.
 //
-bool certificateHasPolicy(SecCertificateRef cert, const CssmOid &policyOid)
+bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid)
 {
 	bool matched = false;
 	assert(cert);

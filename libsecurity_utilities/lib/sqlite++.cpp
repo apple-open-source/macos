@@ -104,6 +104,7 @@ Database::Database(const char *path, int flags)
 	try {
 		check(::sqlite3_open_v2(path, &mDb, flags, NULL));
 		check(::sqlite3_extended_result_codes(mDb, true));
+		mOpenFlags = flags;
 	} catch (...) {
 		sqlite3_close(mDb);		// allocated even if open fails(!)
 		throw;
@@ -361,6 +362,12 @@ void Statement::Binding::operator = (const char *value)
 {
 	statement.check(::sqlite3_bind_text(statement.sql(), index,
 		::strdup(value), -1, ::free));
+}
+
+void Statement::Binding::operator = (const std::string &value)
+{
+	statement.check(::sqlite3_bind_text(statement.sql(), index,
+		::strdup(value.c_str()), -1, ::free));
 }
 
 void Statement::Binding::blob(const void *data, size_t length, bool shared /* = false */)

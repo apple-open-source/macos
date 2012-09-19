@@ -138,6 +138,16 @@ struct SecCmsContentInfoStr {
  * MESSAGE
  */
 
+/*!
+    @typedef
+    @discussion    Type of function called inside SecCmsSignedDataEncodeAfterData to
+                    fire up XPC service to talk to TimeStamping server, etc.
+    @param context  Typically a CFDictionary with URL, etc.
+    @param messageImprint   a SecAsn1TSAMessageImprint with the algorithm and hash value
+    @param tstoken  The returned TimeStampToken
+ */
+typedef OSStatus (*SecCmsTSACallback)(const void *context, void *messageImprint, uint64_t nonce, CSSM_DATA *tstoken);
+
 struct SecCmsMessageStr {
     SecCmsContentInfo	contentInfo;		/* "outer" cinfo */
     /* --------- local; not part of encoding --------- */
@@ -150,6 +160,10 @@ struct SecCmsMessageStr {
     void *		pwfn_arg;
     SecCmsGetDecryptKeyCallback decrypt_key_cb;
     void *		decrypt_key_cb_arg;
+    
+    /* Fields for Time Stamping */
+    SecCmsTSACallback tsaCallback;
+    CFTypeRef tsaContext;
 };
 
 /* =============================================================================
@@ -208,6 +222,10 @@ struct SecCmsSignerInfoStr {
     SecCmsVerificationStatus	verificationStatus;
     SecPrivateKeyRef		signingKey; /* Used if we're using subjKeyID*/
     SecPublicKeyRef		pubKey;
+    CFAbsoluteTime		timestampTime;
+    CFAbsoluteTime		tsaLeafNotBefore;   /* Start date for Timestamp Authority leaf */
+    CFAbsoluteTime		tsaLeafNotAfter;    /* Expiration date for Timestamp Authority leaf */
+    CFMutableArrayRef	timestampCertList;
 };
 #define SEC_CMS_SIGNER_INFO_VERSION_ISSUERSN	1	/* what we *create* */
 #define SEC_CMS_SIGNER_INFO_VERSION_SUBJKEY	3	/* what we *create* */

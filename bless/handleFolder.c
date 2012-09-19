@@ -53,6 +53,7 @@ enum {
 
 
 static int isOFLabel(const char *data, int labelsize);
+static int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);
 
 int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	
@@ -64,7 +65,8 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	CFDataRef bootXdata = NULL;
 	CFDataRef bootEFIdata = NULL;
 	CFDataRef labeldata = NULL;
-    struct statfs sb;
+	CFDataRef labeldata2 = NULL;
+	struct statfs sb;
 
     BLPreBootEnvType	preboot;
 	
@@ -495,47 +497,38 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 				return 2;
 			}
 		} else {
-			ret = BLGenerateOFLabel(context, actargs[klabel].argument, &labeldata);
-			if(ret) {
+			ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_1x, &labeldata);
+			if (ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
+								   actargs[klabel].argument);
+				return 3;
+			}
+			ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_2x, &labeldata2);
+			if (ret) {
 				blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
 								   actargs[klabel].argument);
 				return 3;
 			}
 		}
 		
-		isLabel = isOFLabel((const char *)CFDataGetBytePtr(labeldata),
-							CFDataGetLength(labeldata));
-		blesscontextprintf(context, kBLLogLevelVerbose,  "OF label data is valid: %s\n", isLabel ? "YES" : "NO");
+		isLabel = isOFLabel((const char *)CFDataGetBytePtr(labeldata), CFDataGetLength(labeldata));
+		blesscontextprintf(context, kBLLogLevelVerbose,  "Scale 1 label data is valid: %s\n",
+                           isLabel ? "YES" : "NO");
 		
-		if(actargs[kfolder].present) {
+		if (actargs[kfolder].present) {
 			char sysfolder[MAXPATHLEN];
 		
 			sprintf(sysfolder, "%s/.disk_label", actargs[kfolder].argument);
-			
-			blesscontextprintf(context, kBLLogLevelVerbose,  "Putting label bitmap in %s\n",
-							   sysfolder );
-
-			ret = BLCreateFile(context, labeldata,
-							   sysfolder,
-							   0,
-							   isLabel ? kBL_OSTYPE_PPC_TYPE_OFLABEL :
-									kBL_OSTYPE_PPC_TYPE_OFLABEL_PLACEHOLDER,
-							   kBL_OSTYPE_PPC_CREATOR_CHRP);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Could not write bitmap label file\n" );
-			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose, "OF label written\n");
-			}
-			
-			ret = BLSetFinderFlag(context, sysfolder, kIsInvisible, 1);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Could not set invisibility for %s\n", sysfolder );
-				return 1;
-			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "Invisibility set for %s\n", sysfolder );
+			ret = WriteLabelFile(context, sysfolder, labeldata, isLabel, kBitmapScale_1x);
+			if (ret) return 1;
+            
+			if (labeldata2) {
+				sprintf(sysfolder, "%s/.disk_label_2x", actargs[kfolder].argument);
+				ret = WriteLabelFile(context, sysfolder, labeldata2, 0, kBitmapScale_2x);
+				if (ret) return 1;
 			}
 		}
-    }
+	}
 	
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
@@ -578,12 +571,13 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         }		
     }
 	
-	if(bootXdata) CFRelease(bootXdata);
-	if(bootEFIdata) CFRelease(bootEFIdata);
-	if(labeldata) CFRelease(labeldata);
+	if (bootXdata) CFRelease(bootXdata);
+	if (bootEFIdata) CFRelease(bootEFIdata);
+	if (labeldata) CFRelease(labeldata);
+	if (labeldata2) CFRelease(labeldata2);
 
 	
-    return 0;
+	return 0;
 }
 
 static int isOFLabel(const char *data, int labelsize)
@@ -599,4 +593,33 @@ static int isOFLabel(const char *data, int labelsize)
 
     // basic sanity checks for version and dimensions were satisfied
     return 1;
+}
+
+
+
+static int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale)
+{
+    int ret;
+    
+    blesscontextprintf(context, kBLLogLevelVerbose,  "Putting scale %d label bitmap in %s\n", scale, path);
+    
+    ret = BLCreateFile(context, labeldata, path, 
+                       0,
+                       doTypeCreator ? kBL_OSTYPE_PPC_TYPE_OFLABEL : 0,
+                       doTypeCreator ? kBL_OSTYPE_PPC_CREATOR_CHRP : 0);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not write scale %d bitmap label file\n", scale);
+    } else {
+        blesscontextprintf(context, kBLLogLevelVerbose, "Scale %d label written\n", scale);
+    }
+    
+    if (!ret) {
+        ret = BLSetFinderFlag(context, path, kIsInvisible, 1);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError,  "Could not set invisibility for %s\n", path);
+        } else {
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Invisibility set for %s\n", path);
+        }
+    }
+    return ret;
 }

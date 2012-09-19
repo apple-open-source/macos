@@ -88,9 +88,6 @@
 		60DDA50407382C6A00FAB8B3 /* IOPartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFB0008B961F11CA2AA4 /* IOPartitionScheme.h */; };
 		60DDA50507382C6A00FAB8B3 /* IOStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFB1008B961F11CA2AA4 /* IOStorage.h */; };
 		60DDA50707382C6A00FAB8B3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		60DDA50807382C6A00FAB8B3 /* External.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8301BFAE8903A87B01 /* External.icns */; };
-		60DDA50907382C6A00FAB8B3 /* Internal.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8401BFAE8903A87B01 /* Internal.icns */; };
-		60DDA50A07382C6A00FAB8B3 /* Removable.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8501BFAE8903A87B01 /* Removable.icns */; };
 		60DDA50C07382C6A00FAB8B3 /* IOAppleLabelScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 60DB532606DCFE850053A0B9 /* IOAppleLabelScheme.cpp */; };
 		60DDA50D07382C6A00FAB8B3 /* IOApplePartitionScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FF97008B94F111CA2AA4 /* IOApplePartitionScheme.cpp */; };
 		60DDA50E07382C6A00FAB8B3 /* IOBlockStorageDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFA7008B954511CA2AA4 /* IOBlockStorageDevice.cpp */; };
@@ -278,9 +275,6 @@
 		0560FFB0008B961F11CA2AA4 /* IOPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPartitionScheme.h; sourceTree = "<group>"; };
 		0560FFB1008B961F11CA2AA4 /* IOStorage.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOStorage.h; sourceTree = "<group>"; };
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		126DFF8301BFAE8903A87B01 /* External.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = External.icns; sourceTree = "<group>"; };
-		126DFF8401BFAE8903A87B01 /* Internal.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Internal.icns; sourceTree = "<group>"; };
-		126DFF8501BFAE8903A87B01 /* Removable.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Removable.icns; sourceTree = "<group>"; };
 		6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOGUIDPartitionScheme.h; sourceTree = "<group>"; };
 		6008184605C5671B00B652A2 /* IOGUIDPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOGUIDPartitionScheme.cpp; sourceTree = "<group>"; };
 		60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageDeviceCharacteristics.h; sourceTree = "<group>"; };
@@ -312,11 +306,8 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				126DFF8301BFAE8903A87B01 /* External.icns */,
 				60DDA51B07382C6A00FAB8B3 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
-				126DFF8401BFAE8903A87B01 /* Internal.icns */,
-				126DFF8501BFAE8903A87B01 /* Removable.icns */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -425,6 +416,7 @@
 			buildPhases = (
 				60DDA4F907382C6A00FAB8B3 /* Headers */,
 				60DDA50607382C6A00FAB8B3 /* Resources */,
+				60284E141517B57C00FDF55B /* ShellScript */,
 				60DDA50B07382C6A00FAB8B3 /* Sources */,
 			);
 			buildRules = (
@@ -463,7 +455,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 60CD8A3708A7E7F300DC31BD /* Build configuration list for PBXProject "IOStorageFamily" */;
 			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOStorageFamily */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -481,16 +477,26 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				60DDA50807382C6A00FAB8B3 /* External.icns in Resources */,
 				60DDA50707382C6A00FAB8B3 /* InfoPlist.strings in Resources */,
-				60DDA50907382C6A00FAB8B3 /* Internal.icns in Resources */,
-				60DDA50A07382C6A00FAB8B3 /* Removable.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		60284E141517B57C00FDF55B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i \"External\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"Internal\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"Removable\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1";
+		};
 		606B78B30D4A562200A2EB99 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;

@@ -25,8 +25,8 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Signals.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/Signals.h"
 #include <memory>
 using namespace llvm;
 
@@ -68,22 +68,20 @@ static void WriteOutputFile(const Module *M) {
     }
   }
 
-  // Make sure that the Out file gets unlinked from the disk if we get a
-  // SIGINT.
-  if (OutputFilename != "-")
-    sys::RemoveFileOnSignal(sys::Path(OutputFilename));
-
   std::string ErrorInfo;
-  std::auto_ptr<raw_ostream> Out
-  (new raw_fd_ostream(OutputFilename.c_str(), ErrorInfo,
-                      raw_fd_ostream::F_Binary));
+  OwningPtr<tool_output_file> Out
+  (new tool_output_file(OutputFilename.c_str(), ErrorInfo,
+                        raw_fd_ostream::F_Binary));
   if (!ErrorInfo.empty()) {
     errs() << ErrorInfo << '\n';
     exit(1);
   }
 
-  if (Force || !CheckBitcodeOutputToConsole(*Out, true))
-    WriteBitcodeToFile(M, *Out);
+  if (Force || !CheckBitcodeOutputToConsole(Out->os(), true))
+    WriteBitcodeToFile(M, Out->os());
+
+  // Declare success.
+  Out->keep();
 }
 
 int main(int argc, char **argv) {
@@ -98,7 +96,7 @@ int main(int argc, char **argv) {
   SMDiagnostic Err;
   std::auto_ptr<Module> M(ParseAssemblyFile(InputFilename, Err, Context));
   if (M.get() == 0) {
-    Err.Print(argv[0], errs());
+    Err.print(argv[0], errs());
     return 1;
   }
 

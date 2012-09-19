@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2011 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2012 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -46,9 +46,6 @@
 
 #define MICROSECOND		(1)
 #define MILLISECOND		(1000)
-
-// Change the define to get the TT Scheduler logs to show up at a different level
-#define EHCISPLITTRANSFERLOGGING	7
 
 // Convert USBLog to use kprintf debugging
 // The switch is here, but the work is done in the individual source files because this header is included by the companion controllers
@@ -300,6 +297,9 @@ protected:
 
 	UIMDiagnostics							_UIMDiagnostics;
 	
+#ifdef SUPPORTS_SS_USB
+	IOService								*_xhciController;                       // if this is non-NULL, then we share some ports with an XHCI controller using a MUX
+#endif
 	
 	// methods
     
@@ -427,6 +427,10 @@ protected:
 	IOReturn			ReservePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth);
 	IOReturn			ReleasePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth);
 	IOReturn			ShowPeriodicBandwidthUsed(int level, const char *fromStr);
+    
+#ifdef SUPPORTS_SS_USB
+	IOReturn			EHCIMuxedPortDeviceDisconnected(char *muxMethod);
+#endif
 	
 public:
 	virtual bool		init(OSDictionary * propTable);
@@ -696,7 +700,13 @@ public:
 	virtual IOReturn				UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable);
 	virtual IOReturn				UIMEnableAllEndpoints(bool enable);
 	virtual IOReturn				EnableInterruptsFromController(bool enable);
-	
+
+#ifdef SUPPORTS_SS_USB
+protected:
+	void                            CheckForSharedXHCIController(void);
+	void							SwitchMuxes(UInt8 numPorts, UInt32 type);
+#endif
+
 };
 
 

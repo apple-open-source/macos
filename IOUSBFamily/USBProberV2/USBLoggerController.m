@@ -193,7 +193,7 @@ static int remainingFreshEntries = 0;
     
 }
 
-- (IBAction)SaveOutput:(id)sender
+/*- (IBAction)SaveOutput:(id)sender
 {
     NSSavePanel *sp = [NSSavePanel savePanel];
     int result;
@@ -212,6 +212,32 @@ static int remainingFreshEntries = 0;
         
         [_outputLock unlock];
     }
+}*/
+
+- (IBAction)SaveOutput:(id)sender
+{
+    NSSavePanel *sp = [NSSavePanel savePanel];
+    [sp setAllowedFileTypes:[NSArray arrayWithObjects:@"txt", nil]];
+    [sp setDirectoryURL:[NSURL URLWithString:NSHomeDirectory()]];
+    [sp setNameFieldStringValue:@"USB Log"];
+    [sp setExtensionHidden:NO];
+    [sp beginSheetModalForWindow:[NSApp mainWindow] completionHandler:^(NSInteger returnCode){
+        
+        if (returnCode==NSOKButton)
+        {
+            NSString *finalString;
+            
+            [_outputLock lock];
+            
+            finalString = [LoggerOutputTV string];
+                
+            if (![finalString writeToURL:[sp URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
+            {
+                NSBeep();
+            }
+            [_outputLock unlock];
+        }
+    }];
 }
 
 - (IBAction)Start:(id)sender
@@ -251,27 +277,42 @@ static int remainingFreshEntries = 0;
 		}
 	}
     
-    if ([DumpCheckBox state] == NSOnState) {
+    if ([DumpCheckBox state] == NSOnState) 
+    {
         NSSavePanel *sp;
-        int result;
         NSCalendarDate *currentDate = [NSCalendarDate date];
         
         sp = [NSSavePanel savePanel];
-        [sp setRequiredFileType:@"txt"];
+        [sp setAllowedFileTypes:[NSArray arrayWithObjects:@"txt", nil]];
         
-        result = [sp runModalForDirectory:NSHomeDirectory() file:@"USB Log"];
-        if (result != NSOKButton) {
-            return;
-        }
+        [sp setDirectoryURL:[NSURL URLWithString:NSHomeDirectory()]];
+        [sp setNameFieldStringValue:@"USB Log"];
+        [sp setExtensionHidden:NO];
+        [sp beginSheetModalForWindow:[NSApp mainWindow] completionHandler:^(NSInteger returnCode){
+            if (returnCode == NSOKButton)
+            {
+                NSString *theFileName;
+                theFileName = [[sp URL] path];
         
-        _dumpingFile = fopen ([[sp filename] cStringUsingEncoding:NSUTF8StringEncoding],"w");
+                _dumpingFile = fopen ([theFileName cStringUsingEncoding:NSUTF8StringEncoding],"w");
         if (_dumpingFile == NULL) {
-            [self appendOutput:[NSString stringWithFormat:@"%@: Error - unable to open the file %@\n\n",currentDate,[sp filename]] atLevel:[NSNumber numberWithInt:0]];
+                    [self appendOutput:[NSString stringWithFormat:@"%@: Error - unable to open the file %@\n\n",currentDate,theFileName] atLevel:[NSNumber numberWithInt:0]];
         } else {
             [currentDate setCalendarFormat:@"%b %d %H:%M:%S"];
-            [self appendOutput:[NSString stringWithFormat:@"%@: Saving output to file %@\n\n",currentDate,[sp filename]] atLevel:[NSNumber numberWithInt:0]];
+                    [self appendOutput:[NSString stringWithFormat:@"%@: Saving output to file %@\n\n",currentDate,theFileName] atLevel:[NSNumber numberWithInt:0]];
+                }
+                [self actuallyStartLogging];
+            }
+        }];
         }
+    else
+    {
+        [self actuallyStartLogging];
     }
+}
+
+- (void) actuallyStartLogging
+{
     if (_logger == nil) {
         _logger = [[USBLogger alloc] initWithListener:self level:[[LoggingLevelPopUp selectedItem] tag]];
         
@@ -362,7 +403,7 @@ static int remainingFreshEntries = 0;
 		
 		NSDictionary *plist = [klogBundle infoDictionary];
 		uint32_t version = [[plist valueForKey:@"CFBundleNumericVersion"] intValue];
-		if ( version < 0x03600000)
+		if ( (version < 0x03600000) && (version != 0) )
 			return NO;
 		else
 			return YES;

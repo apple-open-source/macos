@@ -22,11 +22,11 @@
  */
 
 
-
 #ifndef _IOKIT_IOUSBHUBDEVICE_H
 #define _IOKIT_IOUSBHUBDEVICE_H
 
 #include <IOKit/usb/IOUSBDevice.h>						// our superclass
+#include <IOKit/usb/IOUSBHubPolicyMaker.h>
 
 // forward refeference. we don't include the header file because it would cause a circular reference
 class IOUSBHubPolicyMaker;
@@ -35,6 +35,10 @@ enum {
 	kIOUSBHubDeviceIsRootHub			=	0x0001,
 	kIOUSBHubDeviceIsOnHighSpeedBus		=	0x0002,
 	kIOUSBHubDeviceCanSleep				=	0x0004
+#ifdef SUPPORTS_SS_USB
+    ,
+    kIOUSBHubDeviceIsOnSuperSpeedBus    =   0x0008
+#endif
 };
 
 /*!
@@ -71,6 +75,7 @@ private:
 		UInt32					_extraSleepPowerAllocated;		// Amount of sleep power that we actually got from our parent
 		UInt32					_canRequestExtraSleepPower;		// If 0, this hub does not support requesting extra sleep power from its parent, non-zero:  how much power we need to request in order to give out _extraPowerForPorts
 		UInt32					_standardPortSleepCurrent;		// Standard current that can be drawn in sleep -- usually 1 USB load
+		volatile SInt32			_unconnectedExternalPorts;		// Number of ports that have a connector and are presently empty
 	};
     ExpansionData			*_expansionData;
 	
@@ -106,6 +111,7 @@ public:
 
 	void					SetTotalSleepCurrent(UInt32 sleepCurrent);
 	UInt32					GetTotalSleepCurrent();
+	SInt32					UpdateUnconnectedExternalPorts(SInt32 count);
 	
     /*!
 	 @function GetPolicyMaker
@@ -177,5 +183,5 @@ public:
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  15);
 };
 
-#endif /* _IOKIT_IOUSBROOTHUBDEVICE_H */
+#endif
 

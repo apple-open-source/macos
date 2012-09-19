@@ -81,10 +81,8 @@ int main(int argc, const char *argv[])
 		// Check what Mac OS X version the user is running, and load the appropriate nib file. Prober requires
 		// Mac OS X version 10.2 at the minimum, but some features require 10.3.
 		if ( result < 0x1020 ) {
-			NSRunCriticalAlertPanel(@"Mac OS X Version error", @"USB Prober requires Mac OS X version 10.2 or newer to run.", @"Okay", nil, nil);
+			NSRunCriticalAlertPanel(@"Mac OS X Version error", @"USB Prober requires Mac OS X version 10.6 or newer to run.", @"Okay", nil, nil);
 			exit(0);
-		} else if ( result < 0x1030 ) {
-			[NSBundle loadNibNamed:@"MainMenu-Jaguar" owner:NSApp];
 		} else {
 			[NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
 		}

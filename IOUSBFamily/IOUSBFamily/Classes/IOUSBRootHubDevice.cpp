@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -68,14 +68,19 @@ if (object) object->release();				\
 (object) = NULL;							\
 } while (0)
 
-#define _IORESOURCESENTRY					_expansionData->_IOResourcesEntry
+// #define _IORESOURCESENTRY					_expansionData->_IOResourcesEntry - deprecated
+#define _MYCONTROLLERSPEED					_expansionData->_myControllerSpeed
+#define _BUILTINCONTROLLER					_expansionData->_builtInController
+
+// From our superclass
 #define _STANDARD_PORT_POWER_IN_SLEEP		super::_expansionData->_standardPortSleepCurrent
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+//================================================================================================
 
 OSDefineMetaClassAndStructors( IOUSBRootHubDevice, IOUSBHubDevice )
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//================================================================================================
 
 IOUSBRootHubDevice*
 IOUSBRootHubDevice::NewRootHubDevice()
@@ -114,8 +119,6 @@ IOUSBRootHubDevice::init()
     return true;
  }
 
-
-
 bool
 IOUSBRootHubDevice::InitializeCharacteristics()
 {
@@ -127,7 +130,13 @@ IOUSBRootHubDevice::InitializeCharacteristics()
 	if (GetSpeed() == kUSBDeviceSpeedHigh)
 		characteristics |= kIOUSBHubDeviceIsOnHighSpeedBus;
 		
+#ifdef SUPPORTS_SS_USB
+	if (GetSpeed() == kUSBDeviceSpeedSuper)
+		characteristics |= kIOUSBHubDeviceIsOnSuperSpeedBus;
+#endif
+    
 	SetHubCharacteristics(characteristics);
+
 	return true;
 }
 
@@ -136,25 +145,43 @@ IOUSBRootHubDevice::InitializeCharacteristics()
 bool
 IOUSBRootHubDevice::start(IOService *provider)
 {
-	mach_timespec_t				timeSpec;
 	bool						returnValue = false;
 	OSString *					cardTypeRef = NULL;
 	
 	USBLog(5, "%s[%p]::start", getName(), this);
 
+	_controller = OSDynamicCast(IOUSBController, provider);
+
+	if(_controller)
+	{
+		IOUSBControllerV3		*v3Bus = OSDynamicCast(IOUSBControllerV3, _controller);
+		if(v3Bus && _expansionData)
+		{
+			_MYCONTROLLERSPEED = v3Bus->_controllerSpeed;
+			USBLog(5, "%s[%p]::start - _MYCONTROLLERSPEED: %d", getName(), this, _MYCONTROLLERSPEED);
+		}
+		else 
+		{
+			USBLog(5, "%s[%p]::start - _MYCONTROLLERSPEED is zero!!", getName(), this);
+		}
+	}
+	else 
+	{
+		USBLog(5, "%s[%p]::start - _controller is NULL", getName(), this);
+	}
+
+	
 	// Only do this for "Built-in" controllers. If we ever are to support PCI cards, then we need to convert
 	// this to a dictionary with entries for the different possible controllers.
 	cardTypeRef = OSDynamicCast(OSString, provider->getProperty("Card Type"));
 	if ( cardTypeRef && cardTypeRef->isEqualTo("Built-in") )
 	{
-		timeSpec.tv_sec = 5;
-		timeSpec.tv_nsec = 0;
-		
-		_IORESOURCESENTRY = waitForService(serviceMatching("IOResources"), &timeSpec);
+		_BUILTINCONTROLLER = true;
 	}
 	else
 	{
 		USBLog(6, "IOUSBRootHubDevice[%p]::start - no 'Card Type' property or is NOT 'Built'-in' ", this);
+		_BUILTINCONTROLLER = false;
 	}
 	
 	returnValue = super::start(provider);
@@ -268,14 +295,11 @@ IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout
     return kr;
 }
 
-
-
-
 IOReturn 
 IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion)
 {
 #pragma unused (noDataTimeout, completionTimeout, completion)
-	IOReturn	err = 0;
+	IOReturn	err = kIOReturnSuccess;
     UInt16		theRequest;
     UInt8		dType, dIndex;
 
@@ -284,6 +308,8 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
         return(kIOReturnBadArgument);
 
     theRequest = (request->bRequest << 8) | request->bmRequestType;
+
+	USBLog(7, "+IOUSBRootHubDevice[%p]::DeviceRequestWorker speed: %d _MYCONTROLLERSPEED: %d theRequest: %d", this, _speed, _MYCONTROLLERSPEED, theRequest);
 
     switch (theRequest)
     {
@@ -301,9 +327,19 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
             dIndex = request->wValue & 0x00FF;
             switch (dType) {
                 case kUSBDeviceDesc:
+				{
+#ifdef SUPPORTS_SS_USB
+					if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+					{
+						RHCommandHeaderPtr command = (RHCommandHeaderPtr)request->pData;
+						command->request = 0;
+						command->request |=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+					}
+#endif
                     err = _controller->GetRootHubDeviceDescriptor((IOUSBDeviceDescriptor*)request->pData);
                     request->wLenDone = sizeof(IOUSBDeviceDescriptor);
                     break;
+				}
 
                 case kUSBConfDesc:
                 {
@@ -320,16 +356,57 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
                     break;
                 }
 
+#ifdef SUPPORTS_SS_USB
+				case kUSBBOSDescriptor:
+                {
+					IOUSBControllerV3		*v3Bus = OSDynamicCast(IOUSBControllerV3, _controller);
+                    OSData *fullDesc = OSData::withCapacity(1024); // FIXME
+                    UInt16 newLength;
+                    
+					err = kIOReturnUnsupported;
+					
+					if ( v3Bus )
+					{
+						err = v3Bus->GetRootHubBOSDescriptor(fullDesc);
+						if ( err == kIOReturnSuccess)
+						{
+							newLength = fullDesc->getLength();
+							if (newLength < request->wLength)
+								request->wLength = newLength;
+							bcopy(fullDesc->getBytesNoCopy(), (char *)request->pData, request->wLength);
+							request->wLenDone = request->wLength;
+						}
+						else 
+						{
+							request->wLenDone = 0;
+						}
+						
+						fullDesc->free();
+					}
+                    break;
+                }
+#endif					
                 case kUSBStringDesc:
                 {
                     OSData *fullDesc = OSData::withCapacity(1024); // FIXME
                     UInt16 newLength;
+					unsigned int offset = 0;
                     
+#ifdef SUPPORTS_SS_USB
+					if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+					{
+						RHCommandHeader command;
+						command.request = 0;
+						command.request |=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+						offset = sizeof(UInt32);
+						fullDesc->appendBytes(&command, offset);
+					}
+#endif                    
                     err = _controller->GetRootHubStringDescriptor((request->wValue & 0x00ff), fullDesc);
                     newLength = fullDesc->getLength();
                     if (newLength < request->wLength)
                         request->wLength = newLength;
-                    bcopy(fullDesc->getBytesNoCopy(), (char *)request->pData, request->wLength);
+                    bcopy(fullDesc->getBytesNoCopy(offset,request->wLength), (char *)request->pData, request->wLength);
                     request->wLenDone = request->wLength;
                     fullDesc->free();
                     break;
@@ -365,6 +442,15 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
             break;
 
         case kSetDeviceFeature:
+#ifdef SUPPORTS_SS_USB
+			if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+			{
+				USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequestWorker kSetDeviceFeature unimplemented for SS RH for speed: %d ", this, _speed);
+				RHCommandHeader command;
+				command.request = 0;
+				command.request |=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+			}
+#endif			
             if (request->wIndex == 0)
                 err = _controller->SetRootHubFeature(request->wValue);
             else
@@ -397,6 +483,15 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
         // Class Requests
         //
         case kClearHubFeature:
+#ifdef SUPPORTS_SS_USB
+			if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+			{
+				USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequestWorker kClearHubFeature unimplemented for SS RH for speed: %d ", this, _speed);
+				RHCommandHeader command;
+				command.request = 0;
+				command.request |=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+			}
+#endif			
             if (request->wIndex == 0)
                 err = _controller->ClearRootHubFeature(request->wValue);
             else
@@ -404,6 +499,13 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
             break;
 
         case kClearPortFeature:
+#ifdef SUPPORTS_SS_USB
+			if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+			{
+				request->wValue <<= 8;
+				request->wValue	|=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+			}
+#endif			
             err = _controller->ClearRootHubPortFeature(request->wValue, request->wIndex);
             break;
 
@@ -415,13 +517,26 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
             break;
 
         case kGetHubDescriptor:
-            if ((request->wValue == ((kUSBHubDescriptorType << 8) + 0)) && (request->pData != 0))
+		{
+#ifdef SUPPORTS_SS_USB
+			IOUSBControllerV3		*v3Bus = OSDynamicCast(IOUSBControllerV3, _controller);
+#endif
+			
+            if ( (request->wValue == ((kUSBHubDescriptorType << 8) + 0)) && (request->pData != 0))
             {
                 err = _controller->GetRootHubDescriptor((IOUSBHubDescriptor *)request->pData);
                 request->wLenDone = sizeof(IOUSBHubDescriptor);
             }
+#ifdef SUPPORTS_SS_USB
+            else if ( v3Bus && (request->wValue == ((kUSB3HubDescriptorType << 8) + 0)) && (request->pData != 0))
+            {
+                err = v3Bus->GetRootHub3Descriptor((IOUSB3HubDescriptor *)request->pData);
+                request->wLenDone = sizeof(IOUSB3HubDescriptor);
+            }
+#endif
             else
                 err = kIOReturnBadArgument;
+		}
             break;
 
         case kGetHubStatus:
@@ -437,6 +552,14 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
         case kGetPortStatus:
             if ((request->wValue == 0) && (request->pData != 0))
             {
+#ifdef SUPPORTS_SS_USB
+				if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+				{
+					RHCommandHeaderPtr command = (RHCommandHeaderPtr)request->pData;
+					command->request = 0;
+					command->request |=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+				}
+#endif				
                 err = _controller->GetRootHubPortStatus((IOUSBHubPortStatus *)request->pData, request->wIndex);
                 request->wLenDone = sizeof(IOUSBHubPortStatus);
             }
@@ -452,6 +575,15 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
             break;
 
         case kSetHubFeature:
+#ifdef SUPPORTS_SS_USB
+			if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+			{
+				USBLog(5, "IOUSBRootHubDevice[%p]::DeviceRequestWorker kSetHubFeature unimplemented for SS RH for speed: %d ", this, _speed);
+				RHCommandHeader command;
+				command.request = 0;
+				command.request |=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+			}
+#endif			
             if (request->wIndex == 0)
                 err = _controller->SetRootHubFeature(request->wValue);
             else
@@ -459,11 +591,40 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
             break;
 
         case kSetPortFeature:
+#ifdef SUPPORTS_SS_USB
+			if(_MYCONTROLLERSPEED == kUSBDeviceSpeedSuper)
+			{
+				request->wValue <<= 8;
+				request->wValue	|=	(_speed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+			}
+#endif			
             err = _controller->SetRootHubPortFeature(request->wValue, request->wIndex);
             break;
-
+			
+#ifdef SUPPORTS_SS_USB
+        case kSetHubDepth:
+			USBLog(1, "%s[%p]::DeviceRequestWorker  unimplemented kSetHubDepth", getName(), this);
+			// err = _controller->SetHubDepth(request->wValue, request->wIndex);
+            break;
+	
+		case kGetPortErrorCount:
+		{
+			IOUSBControllerV3		*v3Bus = OSDynamicCast(IOUSBControllerV3, _controller);
+			if ( v3Bus)
+			{
+				if (request->wValue == 0 && request->wLength == 2)
+					err = v3Bus->GetRootHubPortErrorCount(request->wIndex, (UInt16 *)request->pData);
+				else
+					err = kIOReturnBadArgument;
+			}
+			else
+				err = kIOReturnBadArgument;
+			break;
+		}
+#endif			
         default:
-            err = kIOReturnBadArgument;
+ 			USBLog(3, "%s[%p]::DeviceRequestWorker  unimplemented request 0x%x", getName(), this, theRequest);
+           err = kIOReturnBadArgument;
 
     }
     return(err);
@@ -476,6 +637,8 @@ IOUSBRootHubDevice::IsRootHub(void)
 	return true;
 }
 
+#pragma mark Power API
+
 UInt32
 IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 {
@@ -484,23 +647,24 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 	UInt32			maxPowerPerPort = 0;
 	UInt32			extraAllocated = 0;
 	OSObject *		propertyObject = NULL;
+	IOService *		resourceService = getResourceService();
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ) || (resourceService == NULL))
 	{
-		USBLog(5, "%s[%p]::RequestExtraPower - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
+		USBLog(5, "%s[%p]::RequestExtraPower - _expansionData or _BUILTINCONTROLLER is false", getName(), this);
 		return 0;
 	}
 	
 	IOLockLock(gExtraCurrentIOLockClass.lock);
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ))
 	{
 		USBLog(5, "%s[%p]::RequestExtraPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
 		IOLockUnlock(gExtraCurrentIOLockClass.lock);
 		return 0;
 	}
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
+	propertyObject = resourceService->copyProperty(kAppleCurrentExtra);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
@@ -509,7 +673,7 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 	}
 	SAFE_RELEASE_NULL(propertyObject);
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleMaxPortCurrent);
+	propertyObject = resourceService->copyProperty(kAppleMaxPortCurrent);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
@@ -534,7 +698,7 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 		totalExtraCurrent -= extraAllocated;
 
 		USBLog(5, "%s[%p]::RequestExtraPower - setting kAppleCurrentExtra to %d", getName(), this, (uint32_t) totalExtraCurrent);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtra, totalExtraCurrent, 32);
+		resourceService->setProperty(kAppleCurrentExtra, totalExtraCurrent, 32);
 	}	
 
 	// this method may be overriden by the IOUSBRootHubDevice class to implement this
@@ -553,17 +717,18 @@ IOUSBRootHubDevice::ReturnExtraPower(UInt32 returnedPower)
 	OSNumber *		numberObject = NULL;
 	OSObject *		propertyObject = NULL;
 	UInt32			powerAvailable = 0;
+	IOService *		resourceService = getResourceService();
 	
 	USBLog(5, "%s[%p]::ReturnExtraPower - returning = %d", getName(), this, (uint32_t)returnedPower);
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ) || (resourceService == NULL))
 	{
 		USBLog(5, "%s[%p]::ReturnExtraPower - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
 		return;
 	}
 	
 	IOLockLock(gExtraCurrentIOLockClass.lock);
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ))
 	{
 		USBLog(5, "%s[%p]::ReturnExtraPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
 		IOLockUnlock(gExtraCurrentIOLockClass.lock);
@@ -571,7 +736,7 @@ IOUSBRootHubDevice::ReturnExtraPower(UInt32 returnedPower)
 	}
 	
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
+	propertyObject = resourceService->copyProperty(kAppleCurrentExtra);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
@@ -584,11 +749,13 @@ IOUSBRootHubDevice::ReturnExtraPower(UInt32 returnedPower)
 	{
 		powerAvailable += returnedPower;
 		USBLog(5, "%s[%p]::ReturnExtraPower - setting kAppleCurrentExtra to %d", getName(), this, (uint32_t) powerAvailable);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtra, powerAvailable, 32);
+		resourceService->setProperty(kAppleCurrentExtra, powerAvailable, 32);
 	}
 
 	IOLockUnlock(gExtraCurrentIOLockClass.lock);
 }
+
+
 
 void			
 IOUSBRootHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent)
@@ -596,6 +763,7 @@ IOUSBRootHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtr
 #pragma unused (maxPortCurrent, totalExtraCurrent)
 	USBLog(1, "%s[%p]::InitializeExtraPower - Obsolete method called", getName(), this);
 }
+
 
 
 void
@@ -623,8 +791,9 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 	UInt32			maxSleepCurrentPerPort = 0;
 	UInt32			extraAllocated = 0;			// Above 500mA
 	OSObject *		propertyObject = NULL;
+	IOService *		resourceService = getResourceService();
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ) || (resourceService == NULL))
 	{
 		USBLog(5, "%s[%p]::RequestSleepPower - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
 		return 0;
@@ -651,7 +820,7 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 	}
 
 	IOLockLock(gExtraCurrentIOLockClass.lock);
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ))
 	{
 		USBLog(5, "%s[%p]::RequestSleepPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
 		IOLockUnlock(gExtraCurrentIOLockClass.lock);
@@ -662,7 +831,7 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 	// OK, at this point, we have a request for sleep current that exceeds the "standard" USB load of 500mA, so we need to see if we can give it from our extra.  Note that the
 	// request is total current, while the extra is "extra above 500mA"
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtraInSleep);
+	propertyObject = resourceService->copyProperty(kAppleCurrentExtraInSleep);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
@@ -671,7 +840,7 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 	}
 	SAFE_RELEASE_NULL(propertyObject);
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleMaxPortCurrentInSleep);
+	propertyObject = resourceService->copyProperty(kAppleMaxPortCurrentInSleep);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
@@ -697,7 +866,7 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 		totalExtraSleepCurrent -= extraAllocated;
 		
 		USBLog(5, "%s[%p]::RequestSleepPower - updating kAppleCurrentExtraInSleep to %d", getName(), this, (uint32_t) totalExtraSleepCurrent);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtraInSleep, totalExtraSleepCurrent, 32);
+		resourceService->setProperty(kAppleCurrentExtraInSleep, totalExtraSleepCurrent, 32);
 	}
 	
 	USBLog(5, "%s[%p]::RequestSleepPower - extraAllocated = %d", getName(), this, (uint32_t)extraAllocated);
@@ -708,6 +877,7 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 }
 
 
+
 // The power here is overall, so we have to subtract the standard load
 void
 IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
@@ -715,25 +885,26 @@ IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
 	OSNumber *		numberObject = NULL;
 	OSObject *		propertyObject = NULL;
 	UInt32			powerAvailable = 0;
+	IOService *		resourceService = getResourceService();
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ) || (resourceService == NULL))
 	{
-		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
+		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _BUILTINCONTROLLER is false", getName(), this);
 		return;
 	}
 	
 	USBLog(5, "%s[%p]::ReturnSleepPower - returning = %d", getName(), this, (uint32_t)returnedPower);
 	
 	IOLockLock(gExtraCurrentIOLockClass.lock);
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	if ( (_expansionData == NULL) || ( _BUILTINCONTROLLER == false ))
 	{
-		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _IORESOURCESENTRY is NULL after locking", getName(), this);
+		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _BUILTINCONTROLLER is false after locking", getName(), this);
 		IOLockUnlock(gExtraCurrentIOLockClass.lock);
 		return;
 	}
 	
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtraInSleep);
+	propertyObject = resourceService->copyProperty(kAppleCurrentExtraInSleep);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
@@ -746,11 +917,12 @@ IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
 	{
 		powerAvailable += (returnedPower-_STANDARD_PORT_POWER_IN_SLEEP);
 		USBLog(5, "%s[%p]::ReturnSleepPower - setting kAppleCurrentExtraInSleep to %d", getName(), this, (uint32_t) powerAvailable);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtraInSleep, powerAvailable, 32);
+		resourceService->setProperty(kAppleCurrentExtraInSleep, powerAvailable, 32);
 	}
 	
 	IOLockUnlock(gExtraCurrentIOLockClass.lock);
 }
+
 
 
 IOReturn
@@ -846,7 +1018,6 @@ IOUSBRootHubDevice::SendExtraPowerMessage(UInt32 type, UInt32 returnedPower)
 	}
 
 }
-
 
 OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  0);
 OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  1);

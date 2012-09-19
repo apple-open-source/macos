@@ -17,6 +17,9 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "MSP430RegisterInfo.h"
 
+#define GET_INSTRINFO_HEADER
+#include "MSP430GenInstrInfo.inc"
+
 namespace llvm {
 
 class MSP430TargetMachine;
@@ -37,7 +40,7 @@ namespace MSP430II {
   };
 }
 
-class MSP430InstrInfo : public TargetInstrInfoImpl {
+class MSP430InstrInfo : public MSP430GenInstrInfo {
   const MSP430RegisterInfo RI;
   MSP430TargetMachine &TM;
 public:
@@ -49,15 +52,10 @@ public:
   ///
   virtual const TargetRegisterInfo &getRegisterInfo() const { return RI; }
 
-  bool copyRegToReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                    unsigned DestReg, unsigned SrcReg,
-                    const TargetRegisterClass *DestRC,
-                    const TargetRegisterClass *SrcRC,
-                    DebugLoc DL) const;
-
-  bool isMoveInstr(const MachineInstr& MI,
-                   unsigned &SrcReg, unsigned &DstReg,
-                   unsigned &SrcSubIdx, unsigned &DstSubIdx) const;
+  void copyPhysReg(MachineBasicBlock &MBB,
+                   MachineBasicBlock::iterator I, DebugLoc DL,
+                   unsigned DestReg, unsigned SrcReg,
+                   bool KillSrc) const;
 
   virtual void storeRegToStackSlot(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MI,
@@ -70,13 +68,6 @@ public:
                                     unsigned DestReg, int FrameIdx,
                                     const TargetRegisterClass *RC,
                                     const TargetRegisterInfo *TRI) const;
-
-  virtual bool spillCalleeSavedRegisters(MachineBasicBlock &MBB,
-                                         MachineBasicBlock::iterator MI,
-                                 const std::vector<CalleeSavedInfo> &CSI) const;
-  virtual bool restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
-                                           MachineBasicBlock::iterator MI,
-                                 const std::vector<CalleeSavedInfo> &CSI) const;
 
   unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
 
@@ -91,7 +82,8 @@ public:
   unsigned RemoveBranch(MachineBasicBlock &MBB) const;
   unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB,
-                        const SmallVectorImpl<MachineOperand> &Cond) const;
+                        const SmallVectorImpl<MachineOperand> &Cond,
+                        DebugLoc DL) const;
 
 };
 

@@ -45,6 +45,7 @@ my $CXXFLAGS            = q{@LLVM_CXXFLAGS@};
 my $LDFLAGS             = q{@LLVM_LDFLAGS@};
 my $SYSTEM_LIBS         = q{@LIBS@};
 my $LLVM_BUILDMODE      = q{@LLVM_BUILDMODE@};
+my $LLVM_OBJ_SUFFIX     = q{@LLVM_OBJ_SUFFIX@};
 #---- end Makefile values ----
 
 # Figure out where llvm-config is being run from.  Primarily, we care if it has
@@ -60,7 +61,7 @@ my $ABS_RUN_DIR = abs_path("$RUN_DIR/..");
 chomp($ABS_RUN_DIR);
 
 # Compute the absolute object directory build, e.g. "foo/llvm/Debug".
-my $ABS_OBJ_ROOT = "$LLVM_OBJ_ROOT/$LLVM_BUILDMODE";
+my $ABS_OBJ_ROOT = "$LLVM_OBJ_ROOT$LLVM_OBJ_SUFFIX";
 $ABS_OBJ_ROOT = abs_path("$ABS_OBJ_ROOT") if (-d $ABS_OBJ_ROOT);
 chomp($ABS_OBJ_ROOT);
 
@@ -196,8 +197,7 @@ Options:
   --build-mode       Print build mode of LLVM tree (e.g. Debug or Release).
 Typical components:
   all                All LLVM libraries (default).
-  backend            Either a native backend or the C backend.
-  engine             Either a native JIT or a bytecode interpreter.
+  engine             Either a native JIT or a bitcode interpreter.
 __EOD__
     exit(1);
 }
@@ -314,11 +314,15 @@ sub build_name_map {
     }
 
     # Add target-specific entries
+    my @all_targets;
     foreach my $target (@TARGETS_BUILT) {
         # FIXME: Temporary, until we don't switch all targets
         if (defined $NAME_MAP{$target.'asmprinter'}) {
             $NAME_MAP{$target} = [$target.'info',
                                   $target.'asmprinter', 
+                                  $target.'codegen']
+        } elsif (defined $NAME_MAP{$target.'codegen'}) {
+            $NAME_MAP{$target} = [$target.'info',
                                   $target.'codegen']
         } else {
             $NAME_MAP{$target} = [$target.'info',
@@ -332,13 +336,15 @@ sub build_name_map {
         if (defined $NAME_MAP{$target.'disassembler'}) {
             push @{$NAME_MAP{$target}},$target.'disassembler'
         }
+
+        push @all_targets, $target;
     }
 
     # Add virtual entries.
     $NAME_MAP{'native'}  = have_native_backend() ? [$ARCH] : [];
     $NAME_MAP{'nativecodegen'} = have_native_backend() ? [$ARCH.'codegen'] : [];
-    $NAME_MAP{'backend'} = have_native_backend() ? ['native'] : ['cbackend'];
     $NAME_MAP{'engine'}  = find_best_engine;
+    $NAME_MAP{'all-targets'}     = \@all_targets;
     $NAME_MAP{'all'}     = [name_map_entries];   # Must be last.
 }
 

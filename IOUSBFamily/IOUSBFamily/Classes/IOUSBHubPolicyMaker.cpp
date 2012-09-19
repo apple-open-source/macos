@@ -163,15 +163,23 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 		else
 		{
 			// Do allow hub to go into low power
-			_dontAllowLowPower = false;
-		}
+			if( (gUSBStackDebugFlags & kUSBDontAllowHubLowPowerMask) != 0)
+			{
+				USBLog(5, "IOUSBHubPolicyMaker[%p]::start - boot arg not allowing low power: %x", this, (uint32_t)gUSBStackDebugFlags);
+				_dontAllowLowPower = true;
+			}
+			else
+			{
+				_dontAllowLowPower = false;
+			}
+		} 
 	} 
 	else
 	{
 		// This hub will not go into low power mode because its on a non-V3 controller
 		_dontAllowLowPower = true;
 	}
-	
+		
 	boolObj = OSDynamicCast( OSBoolean, _device->getProperty("kUSBNoExtraSleepCurrent") );
 	if ( boolObj && boolObj->isTrue() )
 	{
@@ -382,6 +390,18 @@ IOUSBHubPolicyMaker::powerStateDidChangeTo(IOPMPowerFlags capabilities, unsigned
 void
 IOUSBHubPolicyMaker::powerChangeDone(unsigned long fromState)
 {
+    if (isInactive())
+    {
+        // 10762286 - if we are inactive, then it is possible that powerStateDidChangeTo did not get called
+        // and so we need to recalculate our current state
+        unsigned long curState = getPowerState();
+        if (_myPowerState != curState)
+        {
+            USBLog(2, "IOUSBHubPolicyMaker[%p]::powerChangeDone - we must have skipped powerStateDidChangeTo _myPowerState(%d) curState(%d)", this, (int)_myPowerState, (int)curState);
+            _myPowerState = curState;
+        }
+        
+    }
 	_powerStateChangingTo = kIOUSBHubPowerStateStable;
 	if (_isRootHub && (_myPowerState < kIOUSBHubPowerStateSleep))
 	{
@@ -442,7 +462,11 @@ IOUSBHubPolicyMaker::AllocateExtraPower()
 	//	Initially, this was just root hubs, but now there are monitor hubs that can provide 
 	//	extra power as well.
 	
+#ifdef SUPPORTS_SS_USB
+	maxPortCurrent = _device->GetSpeed() == kUSBDeviceSpeedSuper ? kUSB3MaxPowerPerPort: kUSB2MaxPowerPerPort;;	// for extra-power purposes assume all hubs have the USB spec (500/900) ma per port available;
+#else
 	maxPortCurrent = kUSB2MaxPowerPerPort;	// for extra-power purposes assume all hubs have 500ma per port available;
+#endif
 	totalExtraCurrent = 0;					// with no extra
 	
 	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleMaxPortCurrent));

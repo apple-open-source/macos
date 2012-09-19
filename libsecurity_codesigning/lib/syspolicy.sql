@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2011 Apple Inc. All Rights Reserved.
+-- Copyright (c) 2011-2012 Apple Inc. All Rights Reserved.
 -- 
 -- @APPLE_LICENSE_HEADER_START@
 -- 
@@ -39,10 +39,10 @@ PRAGMA recursive_triggers = true;
 -- The feature table hold configuration features and options
 --
 CREATE TABLE feature (
-	id INTEGER PRIMARY KEY,			-- canononical
+	id INTEGER PRIMARY KEY,				-- canononical
 	name TEXT NOT NULL UNIQUE,			-- name of option
 	value TEXT NULL,					-- value of option, if any
-	remarks TEXT NOT NULL				-- optional remarks string
+	remarks TEXT NULL					-- optional remarks string
 );
 
 
@@ -63,9 +63,9 @@ CREATE TABLE authority (
 	disabled INTEGER NOT NULL DEFAULT (0)				-- disable count (stacks; enabled if zero)
 		CHECK (disabled >= 0),
 	expires FLOAT NOT NULL DEFAULT (5000000),			-- expiration of rule authority (Julian date)
-	priority REAL NOT NULL DEFAULT (0),				-- rule priority (full float)
+	priority REAL NOT NULL DEFAULT (0),					-- rule priority (full float)
 	label TEXT NULL,									-- text label for authority rule
-	flags INTEGER NOT NULL DEFAULT (0),				-- amalgamated binary flags
+	flags INTEGER NOT NULL DEFAULT (0),					-- amalgamated binary flags
 	-- following fields are for documentation only
 	ctime FLOAT NOT NULL DEFAULT (JULIANDAY('now')),	-- rule creation time (Julian)
 	mtime FLOAT NOT NULL DEFAULT (JULIANDAY('now')),	-- time rule was last changed (Julian)
@@ -96,6 +96,27 @@ WHERE JULIANDAY('now') < expires AND (flags & 1) = 0;
 
 
 --
+-- A table to carry (potentially large-ish) filesystem data stored as a bookmark blob.
+--
+CREATE TABLE bookmarkhints (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	bookmark BLOB NOT NULL,
+	authority INTEGER NOT NULL
+		REFERENCES authority(id) ON DELETE CASCADE
+);
+
+
+--
+-- Upgradable features already contained in this baseline.
+-- See policydatabase.cpp for upgrade code.
+--
+INSERT INTO feature (name, value, remarks)
+	VALUES ('bookmarkhints', 'value', 'builtin');
+INSERT INTO feature (name, value, remarks)
+	VALUES ('codesignedpackages', 'value', 'builtin');
+
+
+--
 -- Initial canonical contents of a fresh database
 --
 
@@ -119,7 +140,7 @@ insert into authority (type, allow, flags, label, requirement)
 insert into authority (type, allow, flags, label, requirement)
 	values (1, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists');
 insert into authority (type, allow, flags, label, requirement)
-	values (2, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.14] exists');
+	values (2, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13])');
 
 
 --

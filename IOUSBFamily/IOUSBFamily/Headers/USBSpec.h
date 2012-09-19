@@ -102,7 +102,11 @@ enum {
     kUSBRqSetConfig     = 9,
     kUSBRqGetInterface  = 10,
     kUSBRqSetInterface  = 11,
-    kUSBRqSyncFrame     = 12
+    kUSBRqSyncFrame     = 12,
+#ifdef SUPPORTS_SS_USB
+	kUSBSetSel			= 48,
+	kUSBSetIsochDelay	= 49
+#endif
 };
 
     /*!
@@ -122,19 +126,46 @@ enum {
     kUSBOnTheGoDesc	    = 9,
     kUSDebugDesc	    = 10,
     kUSBInterfaceAssociationDesc 	= 11,
+#ifdef SUPPORTS_SS_USB
+	kUSBBOSDescriptor				= 15,
+	kUSBDeviceCapability			= 16,
+	kUSBSuperSpeedEndpointCompanion = 48,
+    kUSB3HUBDesc             		= 0x2A,
+#endif
     kUSBHIDDesc             		= 0x21,
     kUSBReportDesc          		= 0x22,
     kUSBPhysicalDesc        		= 0x23,
-    kUSBHUBDesc             		= 0x29
+    kUSBHUBDesc             		= 0x29,
 };
+
+	
+#ifdef SUPPORTS_SS_USB
+    /*!
+	 @enum Device Capability Types
+	 @discussion Used with decoding the Device Capability descriptor
+	 */
+	enum {
+		kUSBDeviceCapabilityWirelessUSB		= 1,
+		kUSBDeviceCapabilityUSB20Extension	= 2,
+		kUSBDeviceCapabilitySuperSpeedUSB	= 3,
+		kUSBDeviceCapabilityContainerID		= 4
+};
+#endif
 
     /*!
     @enum Feature Selectors
     @discussion Used with SET/CLEAR_FEATURE requests.
     */
 enum {
-        kUSBFeatureEndpointStall = 0,
-        kUSBFeatureDeviceRemoteWakeup = 1
+	kUSBFeatureEndpointStall 		= 0,		// Endpoint
+	kUSBFeatureDeviceRemoteWakeup	= 1,		// Device
+	kUSBFeatureTestMode				= 2,		// Device
+#ifdef SUPPORTS_SS_USB
+	kUSBFeatureFunctionSuspend		= 0,		// Interface
+	kUSBFeatureU1Enable				= 48,		// Device
+	kUSBFeatureU2Enable				= 49,		// Device
+	kUSBFeatureLTMEnable			= 50		// Device
+#endif
 }; 
 
     /*!
@@ -148,7 +179,13 @@ enum {
     kUSBAtrBusPowered   = 0x80,
     kUSBAtrSelfPowered  = 0x40,
     kUSBAtrRemoteWakeup = 0x20,
-	kUSB2MaxPowerPerPort = 500
+	kUSB2MaxPowerPerPort = kUSB500mAAvailable * 2,
+#ifdef SUPPORTS_SS_USB
+    kUSB150mAAvailable  = 75,
+    kUSB900mAAvailable  = 450,
+    kUSB150mA           = 75,
+	kUSB3MaxPowerPerPort = kUSB900mAAvailable * 2
+#endif
 };
 
     /*!
@@ -158,7 +195,10 @@ enum {
 enum {
     kUSBRel10       = 0x0100,
     kUSBRel11       = 0x0110,
-    kUSBRel20       = 0x0200
+    kUSBRel20       = 0x0200,
+#ifdef SUPPORTS_SS_USB
+    kUSBRel30       = 0x0300
+#endif
 };
 
 
@@ -338,6 +378,11 @@ enum {
  */
 enum {
 
+#ifdef SUPPORTS_SS_USB
+	// For kUSBHubClass
+	kHubSuperSpeedProtocol			= 3,
+#endif
+	
     // For kUSBHIDInterfaceClass
     //
     kHIDNoInterfaceProtocol		= 0,
@@ -355,8 +400,16 @@ enum {
 
     // For kUSBMiscellaneousClass
     //
-    KUSBInterfaceAssociationDescriptorProtocol	= 0x01
-    
+    KUSBInterfaceAssociationDescriptorProtocol	= 0x01,
+	
+	// For Mass Storage
+	//
+	kMSCProtocolControlBulkInterrupt	= 0x00,
+	kMSCProtocolControlBulk				= 0x01,
+	kMSCProtocolBulkOnly				= 0x50,
+#ifdef SUPPORTS_SS_USB
+	kMSCProtocolUSBAttachedSCSI			= 0x62
+#endif
 };
 
 
@@ -398,6 +451,21 @@ enum {
     kUSBEndpointbmAttributesUsageTypeShift		= 4
 };
 
+#ifdef SUPPORTS_SS_USB
+	/*!
+	 @enum USB Device Capability Type constants
+	 @discussion Bit definitions and constants for different values of USB Device Capability types
+	 */
+	enum {
+		kUSB20ExtensionLPMSupported	=	1,		// Bit 1 of bmAttributes of USB 2.0 Extension Device Capability
+		kUSBSuperSpeedLTMCapable	=	1,		// Bit 1 of bmAttributes of SuperSpeed USB Device Capability
+		kUSBSuperSpeedSupportsLS	=	0,		// Value of wSpeedSupported indicating that the device supports low speed
+		kUSBSuperSpeedSupportsFS	=	1,		// Value of wSpeedSupported indicating that the device supports full speed
+		kUSBSuperSpeedSupportsHS	=	2,		// Value of wSpeedSupported indicating that the device supports high speed
+		kUSBSuperSpeedSupportsSS	=	3,		// Value of wSpeedSupported indicating that the device supports 5 Gbps
+	};
+#endif
+		
 	/*!
 	 @defineblock USB Descriptor and IORegistry constants
 	 @discussion 	Various constants used to describe the fields in the various USB Device Descriptors and IORegistry names used for some of those fields 
@@ -468,4 +536,4 @@ enum {
 }       
 #endif
 
-#endif /* _USBSPEC_H */
+#endif

@@ -66,10 +66,85 @@ static const char clut[] =
   };
 
 static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
-        uint16_t width, uint16_t height, uint16_t *newwidth);
+        uint16_t width, uint16_t height, int scale, uint16_t *newwidth);
 
 static int refitToWidth(unsigned char *bitmapData,
         uint16_t width, uint16_t height, uint16_t newwidth);
+
+
+
+int BLGenerateLabelData(BLContextPtr context, const char *label, int scale, CFDataRef *data)
+{
+    uint16_t width = 340 * scale;
+    uint16_t height = 12 * scale;
+    uint16_t newwidth;
+    int err;
+    int i;
+    CFDataRef bits = NULL;
+    unsigned char *bitmapData;
+    
+    contextprintf(context, kBLLogLevelError,
+                  "CoreGraphics is not available for rendering\n");
+    return 1;
+	
+    bitmapData = (unsigned char *)malloc(width*height+5);
+    if (!bitmapData) {
+        contextprintf(context, kBLLogLevelError,
+                      "Could not alloc CoreGraphics backing store\n");
+        return 1;
+    }
+    bzero(bitmapData, width*height+5);
+    
+    err = makeLabelOfSize(label, bitmapData+5, width, height, scale, &newwidth);
+	if (err) {
+        free(bitmapData);
+        *data = NULL;
+        return 2;
+	}
+    
+	// cap at 340*scale pixels wide.
+	if (newwidth > width) newwidth = width;
+	
+    contextprintf(context, kBLLogLevelVerbose, "Refitting to width %d\n", newwidth);
+    
+	err = refitToWidth(bitmapData+5, width, height, newwidth);
+	if (err) {
+        free(bitmapData);
+        *data = NULL;
+        return 3;
+	}
+    
+	bitmapData = realloc(bitmapData, newwidth*height+5);
+	if (!bitmapData) {
+        contextprintf(context, kBLLogLevelError,
+                      "Could not realloc to shrink CoreGraphics backing store\n");
+		
+        return 4;
+	}
+    
+    bitmapData[0] = 1;
+    *(uint16_t *)&bitmapData[1] = CFSwapInt16HostToBig(newwidth);
+    *(uint16_t *)&bitmapData[3] = CFSwapInt16HostToBig(height);
+    
+    for(i=5; i < newwidth*height+5; i++) {
+        bitmapData[i] = clut[bitmapData[i] >> 4];
+    }
+    
+	//	bits = CFDataCreate(kCFAllocatorDefault, bitmapData, newwidth*height+5);
+	bits = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (UInt8 *)bitmapData, newwidth*height+5, kCFAllocatorMalloc);
+	//        free(bitmapData);
+    
+	if(bits == NULL) {
+        contextprintf(context, kBLLogLevelError,
+                      "Could not create CFDataRef\n");
+		return 6;
+	}
+    
+    *data = (void *)bits;
+    
+    return 0;
+}
+
 
 int BLGenerateOFLabel(BLContextPtr context,
                     const char label[],
@@ -96,7 +171,7 @@ CFDataRef* data) {
     }
     bzero(bitmapData, width*height+5);
     
-    err = makeLabelOfSize(label, bitmapData+5, width, height, &newwidth);
+    err = makeLabelOfSize(label, bitmapData+5, width, height, 1, &newwidth);
 	if(err) {
         free(bitmapData);
         *data = NULL;
@@ -154,7 +229,7 @@ CFDataRef* data) {
 #include <ApplicationServices/ApplicationServices.h>
 
 static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
-uint16_t width, uint16_t height, uint16_t *newwidth) {
+uint16_t width, uint16_t height, int scale, uint16_t *newwidth) {
     
     int bitmapByteCount;
     int bitmapBytesPerRow;
@@ -206,7 +281,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         color = CGColorCreate(colorSpace, components);
         if(color == NULL) return 1;
         
-        fontRef = CTFontCreateWithName(CFSTR("Helvetica"), (CGFloat)10.0, NULL);
+        fontRef = CTFontCreateWithName(CFSTR("Helvetica"), 10.0 * scale, NULL);
         if(fontRef == NULL) return 1;
         
         dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -226,7 +301,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         
         rect = CTLineGetImageBounds(ct1, context);
         
-        CGContextSetTextPosition(context, (CGFloat)2.0, (CGFloat)2.0);
+        CGContextSetTextPosition(context, 2.0 * scale, 2.0 * scale);
         
         CTLineDraw(ct1, context);
         
@@ -234,7 +309,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         
         CFRelease(ct1);
         
-        if(newwidth) { *newwidth = (int)rect.size.width + 4; }
+        if(newwidth) { *newwidth = (int)rect.size.width + 4 * scale; }
  //           printf("[%f,%f] (%f,%f)\n", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
         
     }
@@ -243,14 +318,14 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         CGPoint pt;
         
         CGContextSetTextDrawingMode(context, kCGTextFill);
-        CGContextSelectFont(context, "Helvetica", 10.0, kCGEncodingMacRoman);
+        CGContextSelectFont(context, "Helvetica", 10.0 * scale, kCGEncodingMacRoman);
         CGContextSetGrayFillColor(context, 1.0, 1.0);
         CGContextSetShouldAntialias(context, 1);
-        CGContextSetCharacterSpacing(context, 0.5);
+        CGContextSetCharacterSpacing(context, 0.5 * scale);
         
         pt = CGContextGetTextPosition(context);
         
-        CGContextShowTextAtPoint(context, 2.0, 2.0, label, strlen(label));    
+        CGContextShowTextAtPoint(context, 2.0 * scale, 2.0 * scale, label, strlen(label));    
         
         pt = CGContextGetTextPosition(context);
         
@@ -289,7 +364,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
 
 #else // !USE_COREGRAPHICS
 static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
-						   uint16_t width, uint16_t height, uint16_t *newwidth) {
+						   uint16_t width, uint16_t height, int scale, uint16_t *newwidth) {
 
 	// just make a blank label
 	*newwidth = 10;
@@ -307,7 +382,7 @@ static int refitToWidth(unsigned char *bitmapData,
         uint16_t width, uint16_t height, uint16_t newwidth)
 {
   uint16_t row;
-  for(row=0; row < height; row++) {
+  for(row=1; row < height; row++) {
     bcopy(&bitmapData[row*width], &bitmapData[row*newwidth], newwidth);
   }
 

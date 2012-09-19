@@ -881,7 +881,6 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
         prelinkedKernelFile =
             _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
             _kOSKextPrelinkedKernelBasename;
-
     length = strlcpy(toolArgs->prelinkedKernelPath, 
         prelinkedKernelFile, PATH_MAX);
     if (length >= PATH_MAX) {

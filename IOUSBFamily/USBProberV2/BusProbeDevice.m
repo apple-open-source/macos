@@ -212,4 +212,38 @@
     return [NSString stringWithFormat:@"%@\n",[[self rootNode] stringRepresentation:name:0]];
 }
 
+- (NSMutableDictionary *)dictionaryVersionOfMe
+{
+    NSMutableDictionary *returnDict = [NSMutableDictionary dictionary];
+    [returnDict setObject:[[self rootNode] dictionaryVersionOfMe] forKey:@"nodeData"];
+    [returnDict setObject:[NSNumber numberWithInt:_speed] forKey:@"speed"];
+    [returnDict setObject:[NSNumber numberWithInt:_address] forKey:@"address"];
+    [returnDict setObject:[NSNumber numberWithInt:_locationID] forKey:@"locationID"];
+    [returnDict setObject:[NSNumber numberWithInt:_vendorID] forKey:@"vendorID"];
+    [returnDict setObject:[NSNumber numberWithInt:_productID] forKey:@"productID"];
+    [returnDict setObject:[NSNumber numberWithInt:_usbRelease] forKey:@"usbRelease"];
+    if (_deviceClassInfo != nil)
+    {
+        [returnDict setObject:[_deviceClassInfo dictionaryVersionOfMe] forKey:@"deviceClassInfo"];
+    }
+    else
+    {
+        [returnDict setObject:[NSMutableDictionary dictionary] forKey:@"deviceClassInfo"];
+    }
+    //disable the printing of last interface class and subclass as part of xml output
+    
+    /*if (_lastInterfaceClassInfo != nil)
+    {
+        [returnDict setObject:[_lastInterfaceClassInfo dictionaryVersionOfMe] forKey:@"lastInterfaceClassInfo"];
+    }
+    else
+    {
+        [returnDict setObject:[NSMutableDictionary dictionary] forKey:@"lastInterfaceClassInfo"];
+    }
+    [returnDict setObject:[NSNumber numberWithInt:_lastInterfaceSubclass] forKey:@"lastInterfaceSubclass"];*/
+    [returnDict setObject:[NSNumber numberWithInt:_currentInterfaceNumber] forKey:@"currentInterfaceNumber"];
+    [returnDict setObject:[NSNumber numberWithInt:_portInfo] forKey:@"portInfo"];
+    return returnDict;
+}
+
 @end

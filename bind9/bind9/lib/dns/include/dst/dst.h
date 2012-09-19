@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dst.h,v 1.25.36.2 2010-12-09 04:31:30 tbox Exp $ */
+/* $Id$ */
 
 #ifndef DST_DST_H
 #define DST_DST_H 1
@@ -640,6 +640,9 @@ dst_key_flags(const dst_key_t *key);
 dns_keytag_t
 dst_key_id(const dst_key_t *key);
 
+dns_keytag_t
+dst_key_rid(const dst_key_t *key);
+
 dns_rdataclass_t
 dst_key_class(const dst_key_t *key);
 
@@ -705,9 +708,11 @@ dst_key_secretsize(const dst_key_t *key, unsigned int *n);
 
 isc_uint16_t
 dst_region_computeid(const isc_region_t *source, unsigned int alg);
+isc_uint16_t
+dst_region_computerid(const isc_region_t *source, unsigned int alg);
 /*%<
- * Computes the key id of the key stored in the provided region with the
- * given algorithm.
+ * Computes the (revoked) key id of the key stored in the provided
+ * region with the given algorithm.
  *
  * Requires:
  *\li	"source" contains a valid, non-NULL region.

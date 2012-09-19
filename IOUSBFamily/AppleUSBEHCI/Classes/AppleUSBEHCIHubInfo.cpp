@@ -70,10 +70,10 @@ AppleUSBEHCIHubInfo::AddHubInfo	(AppleUSBEHCIHubInfo **hubListPtr, USBDeviceAddr
     AppleUSBEHCIHubInfo 	*hiList = *hubListPtr;
     AppleUSBEHCIHubInfo 	*hiPtr = new AppleUSBEHCIHubInfo;
 	
-	USBLog(5, "AppleUSBEHCIHubInfo::NewHubInfo -  new hiPtr[%p] for hubAddr[%d]", hiPtr, hubAddr);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCIHubInfo::NewHubInfo -  new hiPtr[%p] for hubAddr[%d]", hiPtr, hubAddr);
 	if (hiPtr)
 	{
-		if (flags & kUSBEHCIFlagsMuliTT)
+		if (flags & kUSBHSHubFlagsMultiTTMask)
 			hiPtr->multiTT = true;
 		else
 			hiPtr->multiTT = false;
@@ -180,7 +180,7 @@ AppleUSBEHCIHubInfo::GetTTInfo(int portAddress)
 		ttiPtr = AppleUSBEHCITTInfo::NewTTInfo(multiTT ? portAddress : 0);
 		if (ttiPtr)
 		{
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCIHubInfo[%p]::GetTTInfo - Adding ttiPtr[%p] to ttList", this, ttiPtr);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCIHubInfo[%p]::GetTTInfo - Adding ttiPtr[%p] to ttList", this, ttiPtr);
 			ttiPtr->next = ttList;
 			ttList = ttiPtr;
 		}
@@ -202,7 +202,7 @@ OSDefineMetaClassAndStructors(AppleUSBEHCITTInfo, OSObject)
 static SInt32
 CompareSPEs(const AppleUSBEHCISplitPeriodicEndpoint *pSPE1, const AppleUSBEHCISplitPeriodicEndpoint *pSPE2, const AppleUSBEHCITTInfo *forTT)
 {
-	USBLog(6, "AppleUSBEHCITTInfo[%p]::CompareSPEs - pSPE1[%p] pSPE2[%p]", forTT, pSPE1, pSPE2);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CompareSPEs - pSPE1[%p] pSPE2[%p]", forTT, pSPE1, pSPE2);
 	
 	if (!pSPE1 || !pSPE2)
 	{
@@ -210,8 +210,8 @@ CompareSPEs(const AppleUSBEHCISplitPeriodicEndpoint *pSPE1, const AppleUSBEHCISp
 		return 0;
 	}
 	
-	((AppleUSBEHCISplitPeriodicEndpoint *)pSPE1)->print(EHCISPLITTRANSFERLOGGING);
-	((AppleUSBEHCISplitPeriodicEndpoint *)pSPE2)->print(EHCISPLITTRANSFERLOGGING);
+	((AppleUSBEHCISplitPeriodicEndpoint *)pSPE1)->print(gEHCIBandwidthLogLevel);
+	((AppleUSBEHCISplitPeriodicEndpoint *)pSPE2)->print(gEHCIBandwidthLogLevel);
 	
 	// first get the two obvious cases out of the way
 	if ((pSPE1->_epType == kUSBIsoc) && (pSPE2->_epType == kUSBInterrupt))
@@ -234,7 +234,7 @@ CompareSPEs(const AppleUSBEHCISplitPeriodicEndpoint *pSPE1, const AppleUSBEHCISp
 		return -1;
 	}
 	
-	USBLog(6, "AppleUSBEHCITTInfo[%p]::CompareSPEs - EQUAL", forTT);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CompareSPEs - EQUAL", forTT);
 	return 0;
 }
 
@@ -342,7 +342,7 @@ AppleUSBEHCITTInfo::ReserveHSSplitINBytes(int frame, int uFrame, UInt16 bytesToR
 	
 	_HSSplitINBytesUsed[frame][uFrame] += bytesToReserve;
 
-	USBLog(7, "AppleUSBEHCITTInfo[%p]::ReserveHSSplitINBytes - frame[%d] uFrame[%d] reserved _HSSplitINBytesUsed(%d)", this, frame, uFrame, _HSSplitINBytesUsed[frame][uFrame]);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::ReserveHSSplitINBytes - frame[%d] uFrame[%d] reserved _HSSplitINBytesUsed(%d)", this, frame, uFrame, _HSSplitINBytesUsed[frame][uFrame]);
 	return kIOReturnSuccess;
 }
 
@@ -385,7 +385,7 @@ AppleUSBEHCITTInfo::ReleaseHSSplitINBytes(int frame, int uFrame, UInt16 bytesToR
 		_HSSplitINBytesUsed[frame][uFrame] -= bytesToRelease;
 	}
 	
-	USBLog(7, "AppleUSBEHCITTInfo[%p]::ReleaseHSSplitINBytes - frame[%d] uFrame[%d] reserved _HSSplitINBytesUsed(%d)", this, frame, uFrame, _HSSplitINBytesUsed[frame][uFrame]);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::ReleaseHSSplitINBytes - frame[%d] uFrame[%d] reserved _HSSplitINBytesUsed(%d)", this, frame, uFrame, _HSSplitINBytesUsed[frame][uFrame]);
 	return kIOReturnSuccess;
 }
 
@@ -418,11 +418,11 @@ AppleUSBEHCITTInfo::ReserveFSBusBytes(int frame, UInt16 bytesToReserve)
 	_FStimeUsed[frame] += bytesToReserve;
 	if (_FStimeUsed[frame] > kEHCIFSMaxFrameBytes)
 	{
-		USBLog(5, "AppleUSBEHCITTInfo[%p]::ReserveFSBusBytes - frame[%d] reserved space(%d) over the limit - could be OK", this, frame, _FStimeUsed[frame]);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::ReserveFSBusBytes - frame[%d] reserved space(%d) over the limit - could be OK", this, frame, _FStimeUsed[frame]);
 		return kIOReturnNoBandwidth;
 	}
 	
-	USBLog(7, "AppleUSBEHCITTInfo[%p]::ReserveFSBusBytes - frame[%d] reserved _FStimeUsed(%d)", this, frame, _FStimeUsed[frame]);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::ReserveFSBusBytes - frame[%d] reserved _FStimeUsed(%d)", this, frame, _FStimeUsed[frame]);
 	return kIOReturnSuccess;
 }
 
@@ -462,7 +462,7 @@ AppleUSBEHCITTInfo::ReleaseFSBusBytes(int frame, UInt16 bytesToRelease)
 		_FStimeUsed[frame] -= bytesToRelease;
 	}
 	
-	USBLog(7, "AppleUSBEHCITTInfo[%p]::ReleaseFSBusBytes - frame[%d] reserved _FStimeUsed(%d)", this, frame, _FStimeUsed[frame]);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::ReleaseFSBusBytes - frame[%d] reserved _FStimeUsed(%d)", this, frame, _FStimeUsed[frame]);
 	return kIOReturnSuccess;
 }
 
@@ -477,15 +477,15 @@ AppleUSBEHCITTInfo::AllocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoint 
 	AppleUSBEHCISplitPeriodicEndpoint		*prevSPE;
 	AppleUSBEHCISplitPeriodicEndpoint		*tempSPE;
 	
-	USBLog(3, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth: pSPE[%p]", this, pSPE);
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "+AllocatePeriodicBandwidth"); 
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth: pSPE[%p]", this, pSPE);
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "+AllocatePeriodicBandwidth"); 
 	if (!pSPE)
 		return kIOReturnInternalError;
 	
 	err = pSPE->FindStartFrameAndStartTime();
 	if (err)
 	{
-		USBLog(3, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth - pSPE->FindStartFrameAndStartTime returned err[%p]", this, (void*)err);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth - pSPE->FindStartFrameAndStartTime returned err[%p]", this, (void*)err);
 		return err;
 	}
 	
@@ -515,7 +515,7 @@ AppleUSBEHCITTInfo::AllocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoint 
 					_largeIsoch[frameIndex] = pSPE;
 				else
 				{
-					USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth - inserting pSPE(%p) into frame (%d) between (%p) and (%p)", this, pSPE, frameIndex, prevSPE, curSPE);
+					USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth - inserting pSPE(%p) into frame (%d) between (%p) and (%p)", this, pSPE, frameIndex, prevSPE, curSPE);
 					if (frameIndex == pSPE->_startFrame)
 						pSPE->_nextSPE = curSPE;								// only do this for the primary harmonic
 					
@@ -551,7 +551,7 @@ AppleUSBEHCITTInfo::AllocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoint 
 			}
 			if (curSPE != pSPE)
 			{
-				USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth - inserting pSPE(%p) into frame (%d) between (%p) and (%p)", this, pSPE, frameIndex, prevSPE, curSPE);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::AllocatePeriodicBandwidth - inserting pSPE(%p) into frame (%d) between (%p) and (%p)", this, pSPE, frameIndex, prevSPE, curSPE);
 				if (frameIndex == pSPE->_startFrame)
 					pSPE->_nextSPE = curSPE;								// only do this for the primary harmonic
 				prevSPE->_nextSPE = pSPE;
@@ -562,7 +562,7 @@ AppleUSBEHCITTInfo::AllocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoint 
 	
 	// TODO - Adjust all of the starting times as needed..
 	
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-AllocatePeriodicBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-AllocatePeriodicBandwidth");
 	return kIOReturnSuccess;
 }
 
@@ -577,7 +577,7 @@ AppleUSBEHCITTInfo::DeallocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoin
 	AppleUSBEHCISplitPeriodicEndpoint		*prevSPE;
 	AppleUSBEHCISplitPeriodicEndpoint		*tempSPE;
 	
-	USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth: pSPE[%p]", this, pSPE);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth: pSPE[%p]", this, pSPE);
 	if (!pSPE)
 		return kIOReturnInternalError;
 	
@@ -585,7 +585,7 @@ AppleUSBEHCITTInfo::DeallocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoin
 	{
 		if (_largeIsoch[frameIndex] == pSPE)
 		{
-			USBLog(6, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth - removing large Isoch xaction (%p) from frame (%d)", this, pSPE, (int)frameIndex);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth - removing large Isoch xaction (%p) from frame (%d)", this, pSPE, (int)frameIndex);
 			_largeIsoch[frameIndex] = NULL;
 		}
 		else
@@ -614,12 +614,12 @@ AppleUSBEHCITTInfo::DeallocatePeriodicBandwidth(AppleUSBEHCISplitPeriodicEndpoin
 			}
 			if  (curSPE == pSPE)
 			{
-				USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth - removing pSPE(%p) from frame (%d) between (%p) and (%p)", this, pSPE, frameIndex, prevSPE, curSPE->_nextSPE);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth - removing pSPE(%p) from frame (%d) between (%p) and (%p)", this, pSPE, frameIndex, prevSPE, curSPE->_nextSPE);
 				prevSPE->_nextSPE = curSPE->_nextSPE;
 			}
 			else
 			{
-				USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth - could not find pSPE(%p) in frame(%d) often this is fine", this, pSPE, frameIndex);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::DeallocatePeriodicBandwidth - could not find pSPE(%p) in frame(%d) often this is fine", this, pSPE, frameIndex);
 			}			
 		}
 		
@@ -638,7 +638,7 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 	int										index;
 	AppleUSBEHCISplitPeriodicEndpoint		*pSPE;
 	
-	USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - pSPEChanged(%p) %s", this, pSPEChanged, added ? "ADDED" : "REMOVED");
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - pSPEChanged(%p) %s", this, pSPEChanged, added ? "ADDED" : "REMOVED");
 	if (_pSPEsToAdjust->getCount())
 	{
 		USBLog(1, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - ordered set already exists. error", this);
@@ -646,36 +646,36 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 	}
 	if (pSPEChanged->_FSBytesUsed >= kEHCIFSLargeIsochPacket)
 	{
-		USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %s packet is a large one. everyone needs to move", this, added ? "new" : "old");
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %s packet is a large one. everyone needs to move", this, added ? "new" : "old");
 		for (index = 0; index < kEHCIMaxPollingInterval; index++)
 		{
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at Isoch queue index(%d)[%p]", this, index, _isochQueue[index]);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at Isoch queue index(%d)[%p]", this, index, _isochQueue[index]);
 			pSPE = _isochQueue[index]->_nextSPE;						// skip past the dummy
 			while (pSPE)
 			{
 				if (!_pSPEsToAdjust->containsObject(pSPE))
 				{
-					USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+					USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 					_pSPEsToAdjust->setObject(pSPE);
 				}
 				else
 				{
-					USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) already in adjust set", this, index, pSPE);
+					USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) already in adjust set", this, index, pSPE);
 				}
 				pSPE = pSPE->_nextSPE;
 			}
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at interrupt queue index(%d)[%p]", this, index, _interruptQueue[index]);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at interrupt queue index(%d)[%p]", this, index, _interruptQueue[index]);
 			pSPE = _interruptQueue[index]->_nextSPE;					// skip past the dummy
 			while (pSPE)
 			{
 				if (!_pSPEsToAdjust->containsObject(pSPE))
 				{
-					USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+					USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 					_pSPEsToAdjust->setObject(pSPE);
 				}
 				else
 				{
-					USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) already in adjust set", this, index, pSPE);
+					USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) already in adjust set", this, index, pSPE);
 				}
 				pSPE = pSPE->_nextSPE;
 			}
@@ -683,10 +683,10 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 	}
 	else if (pSPEChanged->_epType == kUSBIsoc)
 	{
-		USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %s packet is a ISOCH. some Isoch and all Int will move", this, added ? "new" : "old");
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %s packet is a ISOCH. some Isoch and all Int will move", this, added ? "new" : "old");
 		for (index = 0; index < kEHCIMaxPollingInterval; index++)
 		{
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at Isoch queue index(%d)[%p]", this, index, _isochQueue[index]);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at Isoch queue index(%d)[%p]", this, index, _isochQueue[index]);
 			pSPE = _isochQueue[index]->_nextSPE;						// skip past the dummy
 			if (!added)
 			{
@@ -699,13 +699,13 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 						{
 							if (!_pSPEsToAdjust->containsObject(pSPE))
 							{
-								USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+								USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 								_pSPEsToAdjust->setObject(pSPE);
 							}
 						}
 						else
 						{
-							USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) not a candidate because of a lower start time", this, index, pSPE);
+							USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) not a candidate because of a lower start time", this, index, pSPE);
 						}
 					}
 					pSPE = pSPE->_nextSPE;
@@ -722,29 +722,29 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 				{
 					if (!_pSPEsToAdjust->containsObject(pSPE))
 					{
-						USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+						USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 						_pSPEsToAdjust->setObject(pSPE);
 					}
 					pSPE = pSPE->_nextSPE;
 				}
 			}
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at interrupt queue index(%d)[%p]", this, index, _interruptQueue[index]);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at interrupt queue index(%d)[%p]", this, index, _interruptQueue[index]);
 			pSPE = _interruptQueue[index]->_nextSPE;					// skip past the dummy
 			while (pSPE)
 			{
 				if (!_pSPEsToAdjust->containsObject(pSPE))
 				{
-					USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+					USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 					_pSPEsToAdjust->setObject(pSPE);
 				}
-				USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at interrupt queue _nextSPE[%p]", this, pSPE->_nextSPE);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - looking at interrupt queue _nextSPE[%p]", this, pSPE->_nextSPE);
 				pSPE = pSPE->_nextSPE;
 			}
 		}
 	}
 	else
 	{
-		USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %s packet is INTERRUPT - some  Int will move", this, added ? "new" : "old");
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %s packet is INTERRUPT - some  Int will move", this, added ? "new" : "old");
 		for (index = 0; index < kEHCIMaxPollingInterval; index++)
 		{
 			pSPE = _interruptQueue[index]->_nextSPE;					// skip past the dummy
@@ -759,13 +759,13 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 						{
 							if (!_pSPEsToAdjust->containsObject(pSPE))
 							{
-								USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+								USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 								_pSPEsToAdjust->setObject(pSPE);
 							}
 						}
 						else
 						{
-							USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) not a candidate because of a lower start time", this, index, pSPE);
+							USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) not a candidate because of a lower start time", this, index, pSPE);
 						}
 					}
 					pSPE = pSPE->_nextSPE;
@@ -784,7 +784,7 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 					{
 						if (!_pSPEsToAdjust->containsObject(pSPE))
 						{
-							USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
+							USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - index[%d] pSPE(%p) being added to adjustment set", this, index, pSPE);
 							_pSPEsToAdjust->setObject(pSPE);
 						}
 					}
@@ -793,7 +793,7 @@ AppleUSBEHCITTInfo::CalculateSPEsToAdjustAfterChange(AppleUSBEHCISplitPeriodicEn
 			}
 		}
 	}
-	USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %d candidates to consider", this, _pSPEsToAdjust->getCount());
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::CalculateSPEsToAdjustAfterChange - %d candidates to consider", this, _pSPEsToAdjust->getCount());
 	return kIOReturnSuccess;
 }
 
@@ -821,7 +821,7 @@ AppleUSBEHCITTInfo::release() const
 	
 	if ((oldCount-1) == (2 * kEHCIMaxPollingInterval))
 	{
-		USBLog(6, "AppleUSBEHCITTInfo[%p]::release - retainCount is now %d", this, getRetainCount());
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCITTInfo[%p]::release - retainCount is now %d", this, getRetainCount());
 		if (_pSPEsToAdjust->getCount() > 0)
 		{
 			USBLog(1, "AppleUSBEHCITTInfo[%p]::release - _pSPEsToAdjust has a count of %d", this, _pSPEsToAdjust->getCount());
@@ -935,7 +935,7 @@ AppleUSBEHCISplitPeriodicEndpoint::NewSplitPeriodicEndpoint(	AppleUSBEHCITTInfo 
 	
 	if (pSPE)
 	{
-		USBLog(7, "AppleUSBEHCISplitPeriodicEndpoint[%p]::NewSplitPeriodicEndpoint - retaining TT (%p)", pSPE, whichTT);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::NewSplitPeriodicEndpoint - retaining TT (%p)", pSPE, whichTT);
 		
 		// The SPE will hold a reference to the TT, which will need to be released when the SPE has been released to 0
 		whichTT->retain();											// make sure we have a reference to this TT
@@ -989,7 +989,7 @@ AppleUSBEHCISplitPeriodicEndpoint::release() const
 	// if we are about to go to a retain count of 0, then we are done, and we need to release the TT to which we are tied.
 	if (getRetainCount() == 1)
 	{
-		USBLog(5, "AppleUSBEHCISplitPeriodicEndpoint[%p]::release - down to the last one. releasing TT[%p]", this, _myTT);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::release - down to the last one. releasing TT[%p]", this, _myTT);
 		_myTT->release();
 	}
 	OSObject::release();
@@ -1070,7 +1070,7 @@ AppleUSBEHCISplitPeriodicEndpoint::FindStartFrameAndStartTime(void)
 	bool			foundStartTimeCandidate = false;
 	bool			foundTimeUsedCandidate = false;
 	
-	USBLog(5, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - _FSBytesUsed (%d)", this, _FSBytesUsed);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - _FSBytesUsed (%d)", this, _FSBytesUsed);
 	// first, calculate where I would fit into each frame based on where I would be inserted in that frame
 	CalculateAllFrameStartTimes(tempStartTimes);
 	
@@ -1097,7 +1097,7 @@ AppleUSBEHCISplitPeriodicEndpoint::FindStartFrameAndStartTime(void)
 			
 			if (tempTimeUsed > kEHCIFSMaxFrameBytes)
 			{
-				USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - no room in frame(%d) based on time used", this, frameIndex2);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - no room in frame(%d) based on time used", this, frameIndex2);
 				epWillFit = false;
 				break;				// we won't fit on this harmonic
 			}
@@ -1106,7 +1106,7 @@ AppleUSBEHCISplitPeriodicEndpoint::FindStartFrameAndStartTime(void)
 			startTimeThisHarmonic = tempStartTimes[frameIndex2];
 			if ((startTimeThisHarmonic + _FSBytesUsed) > kEHCIFSMaxFrameBytes)
 			{
-				USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - no room in frame(%d) based on start time", this, frameIndex2);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - no room in frame(%d) based on start time", this, frameIndex2);
 				epWillFit = false;
 				break;
 			}
@@ -1119,7 +1119,7 @@ AppleUSBEHCISplitPeriodicEndpoint::FindStartFrameAndStartTime(void)
 		if (epWillFit)
 		{
 			// since we indexed past the array, we know that we fit in every harmonic
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - looks like we fit at frame (%d)", this, (int)frameIndex);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - looks like we fit at frame (%d)", this, (int)frameIndex);
 			if (!foundStartTimeCandidate)
 			{
 				foundStartTimeCandidate = true;
@@ -1148,7 +1148,7 @@ AppleUSBEHCISplitPeriodicEndpoint::FindStartFrameAndStartTime(void)
 	
 	if (!foundStartTimeCandidate)
 	{
-		USBLog(3, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - using Start Time entry found - _startFrame(%d) _startTime(%d)", this, (int)_startFrame, _startTime);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - using Start Time entry found - _startFrame(%d) _startTime(%d)", this, (int)_startFrame, _startTime);
 		_startTime = 0;
 		_startFrame = kEHCIMaxPollingInterval;			// this is invalid
 		return kIOReturnNoBandwidth;
@@ -1160,13 +1160,13 @@ AppleUSBEHCISplitPeriodicEndpoint::FindStartFrameAndStartTime(void)
 		{
 			_startTime = bestStartTimeFound;
 			_startFrame = bestStartTimeFrame;
-			USBLog(5, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - using Start Time entry found - _startFrame(%d) _startTime(%d)", this, (int)_startFrame, _startTime);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - using Start Time entry found - _startFrame(%d) _startTime(%d)", this, (int)_startFrame, _startTime);
 		}
 		else
 		{
 			_startTime = bestTimeUsedFound;
 			_startFrame = bestTimeUsedFrame;
-			USBLog(5, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - using Start Frame entry found - _startFrame(%d) _startTime(%d)", this, (int)_startFrame, _startTime);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::FindStartFrameAndStartTime - using Start Frame entry found - _startFrame(%d) _startTime(%d)", this, (int)_startFrame, _startTime);
 		}
 	}
 				
@@ -1251,7 +1251,7 @@ AppleUSBEHCISplitPeriodicEndpoint::CheckPlacementBefore(AppleUSBEHCISplitPeriodi
 
 	}
 
-	USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CheckPlacementBefore - afterEP[%p] - returning[%p]", this, afterEP, (void*)result);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CheckPlacementBefore - afterEP[%p] - returning[%p]", this, afterEP, (void*)result);
 	return result;
 }
 
@@ -1277,8 +1277,8 @@ AppleUSBEHCISplitPeriodicEndpoint::CalculateStartTime(UInt16 frameIndex, AppleUS
 		{
 			// the isoch list gets sorted in reverse order, so a postSPE is actually the one BEFORE me
 			startTime = postSPE->_startTime + postSPE->_FSBytesUsed;
-			USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateStartTime - found ISOCH frameIndex(%d) prevSPE(%p)", this, frameIndex, prevSPE);
-			prevSPE->print(EHCISPLITTRANSFERLOGGING);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateStartTime - found ISOCH frameIndex(%d) prevSPE(%p)", this, frameIndex, prevSPE);
+			prevSPE->print(gEHCIBandwidthLogLevel);
 		}
 		else
 		{
@@ -1361,7 +1361,7 @@ AppleUSBEHCISplitPeriodicEndpoint::CalculateStartTime(UInt16 frameIndex, AppleUS
 		}
 	}
 
-	USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateStartTime - index (%d) returning startTime(%d)", this, (int)frameIndex, (int)startTime);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateStartTime - index (%d) returning startTime(%d)", this, (int)frameIndex, (int)startTime);
 	return startTime;
 }
 
@@ -1375,10 +1375,10 @@ AppleUSBEHCISplitPeriodicEndpoint::CalculateNewStartTimeFromChange(AppleUSBEHCIS
 	AppleUSBEHCISplitPeriodicEndpoint	*prevSPE;
 	int									index;
 	
-	USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateNewStartTimeFromChange - changeSPE[%p]", this, changeSPE);
-	print(EHCISPLITTRANSFERLOGGING);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateNewStartTimeFromChange - changeSPE[%p]", this, changeSPE);
+	print(gEHCIBandwidthLogLevel);
 	if (changeSPE)
-		changeSPE->print(EHCISPLITTRANSFERLOGGING);
+		changeSPE->print(gEHCIBandwidthLogLevel);
 	
 	for (index = _startFrame; index < kEHCIMaxPollingInterval; index += _period)
 	{
@@ -1391,11 +1391,11 @@ AppleUSBEHCISplitPeriodicEndpoint::CalculateNewStartTimeFromChange(AppleUSBEHCIS
 		while (prevSPE->_nextSPE != this)
 			prevSPE = prevSPE->_nextSPE;
 		
-		USBLog(5, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateNewStartTimeFromChange - calling CalculateStartTime with index(%d) prevSPE(%p) _nextSPE(%p)", this, index, prevSPE, _nextSPE);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateNewStartTimeFromChange - calling CalculateStartTime with index(%d) prevSPE(%p) _nextSPE(%p)", this, index, prevSPE, _nextSPE);
 		startTime = CalculateStartTime(index, prevSPE, _nextSPE);
 		if (startTime > worstStartTimeFound)
 		{
-			USBLog(5, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateNewStartTimeFromChange - changeSPE(%p) new startTime(%d)", this, changeSPE, (int)startTime);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCISplitPeriodicEndpoint[%p]::CalculateNewStartTimeFromChange - changeSPE(%p) new startTime(%d)", this, changeSPE, (int)startTime);
 			worstStartTimeFound = startTime;
 		}
 	}

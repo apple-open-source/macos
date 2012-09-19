@@ -433,6 +433,14 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			fPreferredSubclass = preferredSubclass->unsigned32BitValue();
 			
 		}
+        
+		// Check if the device needs to be suspended on reboot
+		if ( characterDict->getObject ( kIOUSBMassStorageSuspendOnReboot ) != NULL )
+		{
+			
+			fSuspendOnReboot = true;
+			
+		}
  
 	}
 		
@@ -975,6 +983,28 @@ ErrorExit:
     STATUS_LOG ( ( 3 , "%s[%p]::didTerminate: Returning success=%d defer=%d", getName ( ), this, success, ( defer ? *defer : false ) ) );
 
 	return success;
+	
+}
+
+
+//--------------------------------------------------------------------------------------------------
+//	systemWillShutdown																		[PUBLIC]
+//--------------------------------------------------------------------------------------------------
+
+void		
+IOUSBMassStorageClass::systemWillShutdown ( IOOptionBits specifier )
+{
+	
+	STATUS_LOG ( ( 3 , "%s[%p]::systemWillShutdown: specifier = 0x%x fSuspendOnReboot = %s", getName ( ), this, specifier, fSuspendOnReboot ? "true" : "false" ) );
+	
+	if ( ( fSuspendOnReboot == true ) && ( ( specifier == kIOMessageSystemWillRestart ) || ( specifier == kIOMessageSystemWillPowerOff ) ) )
+	{
+
+		SuspendPort ( true );
+
+	}
+
+	super::systemWillShutdown ( specifier );
 	
 }
 
@@ -2508,6 +2538,16 @@ ErrorExit:
 	if ( driver->fDeviceAttached == false && ( driver->isInactive() == false ) )
 	{
 		
+        // Leave behind some of evidence that there was a catastorphic failure which guided us 
+        // to self termination. 
+        IOLog ( "[%p](%u)/(%u) Device not responding\n", driver, driver->fConsecutiveResetCount, kMaxConsecutiveResets );
+        
+        if  ( driver->GetInterfaceReference() != NULL )
+        {
+            driver->GetInterfaceReference()->setProperty ( "IOUSBMassStorageClass Detached", driver->fConsecutiveResetCount, 8 );
+        }
+        
+        // Terminate.
 		driver->terminate();
 		
 	}

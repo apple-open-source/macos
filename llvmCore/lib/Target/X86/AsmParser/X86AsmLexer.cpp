@@ -7,20 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Target/TargetAsmLexer.h"
-#include "llvm/Target/TargetRegistry.h"
+#include "MCTargetDesc/X86BaseInfo.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
-#include "X86.h"
+#include "llvm/MC/MCTargetAsmLexer.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/ADT/SmallVector.h"
 
 using namespace llvm;
 
 namespace {
   
-class X86AsmLexer : public TargetAsmLexer {
+class X86AsmLexer : public MCTargetAsmLexer {
   const MCAsmInfo &AsmInfo;
   
   bool tentativeIsValid;
@@ -33,13 +32,11 @@ class X86AsmLexer : public TargetAsmLexer {
   }
   
   const AsmToken &lexDefinite() {
-    if(tentativeIsValid) {
+    if (tentativeIsValid) {
       tentativeIsValid = false;
       return tentativeToken;
     }
-    else {
-      return getLexer()->Lex();
-    }
+    return getLexer()->Lex();
   }
   
   AsmToken LexTokenATT();
@@ -62,48 +59,76 @@ protected:
     }
   }
 public:
-  X86AsmLexer(const Target &T, const MCAsmInfo &MAI)
-    : TargetAsmLexer(T), AsmInfo(MAI), tentativeIsValid(false) {
+  X86AsmLexer(const Target &T, const MCRegisterInfo &MRI, const MCAsmInfo &MAI)
+    : MCTargetAsmLexer(T), AsmInfo(MAI), tentativeIsValid(false) {
   }
 };
 
-}
+} // end anonymous namespace
 
-static unsigned MatchRegisterName(StringRef Name);
+#define GET_REGISTER_MATCHER
+#include "X86GenAsmMatcher.inc"
 
 AsmToken X86AsmLexer::LexTokenATT() {
-  const AsmToken lexedToken = lexDefinite();
+  AsmToken lexedToken = lexDefinite();
   
   switch (lexedToken.getKind()) {
   default:
-    return AsmToken(lexedToken);
+    return lexedToken;
   case AsmToken::Error:
     SetError(Lexer->getErrLoc(), Lexer->getErr());
-    return AsmToken(lexedToken);
-  case AsmToken::Percent:
-  {
-    const AsmToken &nextToken = lexTentative();
-    if (nextToken.getKind() == AsmToken::Identifier) {
-      unsigned regID = MatchRegisterName(nextToken.getString());
+    return lexedToken;
       
-      if (regID) {
-        lexDefinite();
+  case AsmToken::Percent: {
+    const AsmToken &nextToken = lexTentative();
+    if (nextToken.getKind() != AsmToken::Identifier)
+      return lexedToken;
+
+      
+    if (unsigned regID = MatchRegisterName(nextToken.getString())) {
+      lexDefinite();
         
+      // FIXME: This is completely wrong when there is a space or other
+      // punctuation between the % and the register name.
+      StringRef regStr(lexedToken.getString().data(),
+                       lexedToken.getString().size() + 
+                       nextToken.getString().size());
+      
+      return AsmToken(AsmToken::Register, regStr, 
+                      static_cast<int64_t>(regID));
+    }
+    
+    // Match register name failed.  If this is "db[0-7]", match it as an alias
+    // for dr[0-7].
+    if (nextToken.getString().size() == 3 &&
+        nextToken.getString().startswith("db")) {
+      int RegNo = -1;
+      switch (nextToken.getString()[2]) {
+      case '0': RegNo = X86::DR0; break;
+      case '1': RegNo = X86::DR1; break;
+      case '2': RegNo = X86::DR2; break;
+      case '3': RegNo = X86::DR3; break;
+      case '4': RegNo = X86::DR4; break;
+      case '5': RegNo = X86::DR5; break;
+      case '6': RegNo = X86::DR6; break;
+      case '7': RegNo = X86::DR7; break;
+      }
+      
+      if (RegNo != -1) {
+        lexDefinite();
+
+        // FIXME: This is completely wrong when there is a space or other
+        // punctuation between the % and the register name.
         StringRef regStr(lexedToken.getString().data(),
                          lexedToken.getString().size() + 
                          nextToken.getString().size());
-        
-        return AsmToken(AsmToken::Register, 
-                        regStr, 
-                        static_cast<int64_t>(regID));
-      }
-      else {
-        return AsmToken(lexedToken);
+        return AsmToken(AsmToken::Register, regStr, 
+                        static_cast<int64_t>(RegNo));
       }
     }
-    else {
-      return AsmToken(lexedToken);
-    }
+      
+   
+    return lexedToken;
   }    
   }
 }
@@ -113,35 +138,23 @@ AsmToken X86AsmLexer::LexTokenIntel() {
   
   switch(lexedToken.getKind()) {
   default:
-    return AsmToken(lexedToken);
+    return lexedToken;
   case AsmToken::Error:
     SetError(Lexer->getErrLoc(), Lexer->getErr());
-    return AsmToken(lexedToken);
-  case AsmToken::Identifier:
-  {
-    std::string upperCase = lexedToken.getString().str();
-    std::string lowerCase = LowercaseString(upperCase);
-    StringRef lowerRef(lowerCase);
+    return lexedToken;
+  case AsmToken::Identifier: {
+    unsigned regID = MatchRegisterName(lexedToken.getString().lower());
     
-    unsigned regID = MatchRegisterName(lowerRef);
-    
-    if (regID) {
+    if (regID)
       return AsmToken(AsmToken::Register,
                       lexedToken.getString(),
                       static_cast<int64_t>(regID));
-    }
-    else {
-      return AsmToken(lexedToken);
-    }
+    return lexedToken;
   }
   }
 }
 
 extern "C" void LLVMInitializeX86AsmLexer() {
-  RegisterAsmLexer<X86AsmLexer> X(TheX86_32Target);
-  RegisterAsmLexer<X86AsmLexer> Y(TheX86_64Target);
+  RegisterMCAsmLexer<X86AsmLexer> X(TheX86_32Target);
+  RegisterMCAsmLexer<X86AsmLexer> Y(TheX86_64Target);
 }
-
-#define REGISTERS_ONLY
-#include "X86GenAsmMatcher.inc"
-#undef REGISTERS_ONLY

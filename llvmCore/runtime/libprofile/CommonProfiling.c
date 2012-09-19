@@ -2,23 +2,28 @@
 |*
 |*                     The LLVM Compiler Infrastructure
 |*
-|* This file is distributed under the University of Illinois Open Source      
-|* License. See LICENSE.TXT for details.                                      
-|* 
+|* This file is distributed under the University of Illinois Open Source
+|* License. See LICENSE.TXT for details.
+|*
 |*===----------------------------------------------------------------------===*|
-|* 
+|*
 |* This file implements functions used by the various different types of
 |* profiling implementations.
 |*
 \*===----------------------------------------------------------------------===*/
 
 #include "Profiling.h"
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
 #include <unistd.h>
+#else
+#include <io.h>
+#endif
 #include <stdlib.h>
 
 static char *SavedArgs = 0;
@@ -74,6 +79,47 @@ int save_arguments(int argc, const char **argv) {
 }
 
 
+/*
+ * Retrieves the file descriptor for the profile file.
+ */
+int getOutFile() {
+  static int OutFile = -1;
+
+  /* If this is the first time this function is called, open the output file
+   * for appending, creating it if it does not already exist.
+   */
+  if (OutFile == -1) {
+    OutFile = open(OutputFilename, O_CREAT | O_WRONLY, 0666);
+    lseek(OutFile, 0, SEEK_END); /* O_APPEND prevents seeking */
+    if (OutFile == -1) {
+      fprintf(stderr, "LLVM profiling runtime: while opening '%s': ",
+              OutputFilename);
+      perror("");
+      return(OutFile);
+    }
+
+    /* Output the command line arguments to the file. */
+    {
+      int PTy = ArgumentInfo;
+      int Zeros = 0;
+      if (write(OutFile, &PTy, sizeof(int)) < 0 ||
+          write(OutFile, &SavedArgsLength, sizeof(unsigned)) < 0 ||
+          write(OutFile, SavedArgs, SavedArgsLength) < 0 ) {
+        fprintf(stderr,"error: unable to write to output file.");
+        exit(0);
+      }
+      /* Pad out to a multiple of four bytes */
+      if (SavedArgsLength & 3) {
+        if (write(OutFile, &Zeros, 4-(SavedArgsLength&3)) < 0) {
+          fprintf(stderr,"error: unable to write to output file.");
+          exit(0);
+        }
+      }
+    }
+  }
+  return(OutFile);
+}
+
 /* write_profiling_data - Write a raw block of profiling counters out to the
  * llvmprof.out file.  Note that we allow programs to be instrumented with
  * multiple different kinds of instrumentation.  For this reason, this function
@@ -81,37 +127,15 @@ int save_arguments(int argc, const char **argv) {
  */
 void write_profiling_data(enum ProfilingType PT, unsigned *Start,
                           unsigned NumElements) {
-  static int OutFile = -1;
   int PTy;
-  
-  /* If this is the first time this function is called, open the output file for
-   * appending, creating it if it does not already exist.
-   */
-  if (OutFile == -1) {
-    OutFile = open(OutputFilename, O_CREAT | O_WRONLY | O_APPEND, 0666);
-    if (OutFile == -1) {
-      fprintf(stderr, "LLVM profiling runtime: while opening '%s': ",
-              OutputFilename);
-      perror("");
-      return;
-    }
+  int outFile = getOutFile();
 
-    /* Output the command line arguments to the file. */
-    {
-      int PTy = ArgumentInfo;
-      int Zeros = 0;
-      write(OutFile, &PTy, sizeof(int));
-      write(OutFile, &SavedArgsLength, sizeof(unsigned));
-      write(OutFile, SavedArgs, SavedArgsLength);
-      /* Pad out to a multiple of four bytes */
-      if (SavedArgsLength & 3)
-        write(OutFile, &Zeros, 4-(SavedArgsLength&3));
-    }
-  }
- 
   /* Write out this record! */
   PTy = PT;
-  write(OutFile, &PTy, sizeof(int));
-  write(OutFile, &NumElements, sizeof(unsigned));
-  write(OutFile, Start, NumElements*sizeof(unsigned));
+  if( write(outFile, &PTy, sizeof(int)) < 0 ||
+      write(outFile, &NumElements, sizeof(unsigned)) < 0 ||
+      write(outFile, Start, NumElements*sizeof(unsigned)) < 0 ) {
+    fprintf(stderr,"error: unable to write to output file.");
+    exit(0);
+  }
 }

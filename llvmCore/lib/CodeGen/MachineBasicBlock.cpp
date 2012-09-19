@@ -13,12 +13,15 @@
 
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/BasicBlock.h"
+#include "llvm/CodeGen/LiveVariables.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetInstrDesc.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Assembly/Writer.h"
@@ -57,7 +60,7 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, const MachineBasicBlock &MBB) {
   return OS;
 }
 
-/// addNodeToList (MBB) - When an MBB is added to an MF, we need to update the 
+/// addNodeToList (MBB) - When an MBB is added to an MF, we need to update the
 /// parent pointer of the MBB, the MBB numbering, and any instructions in the
 /// MBB to be on the right operand list for registers.
 ///
@@ -89,7 +92,7 @@ void ilist_traits<MachineBasicBlock>::removeNodeFromList(MachineBasicBlock *N) {
 void ilist_traits<MachineInstr>::addNodeToList(MachineInstr *N) {
   assert(N->getParent() == 0 && "machine instruction already in a basic block");
   N->setParent(Parent);
-  
+
   // Add the instruction's register operands to their corresponding
   // use/def lists.
   MachineFunction *MF = Parent->getParent();
@@ -106,7 +109,7 @@ void ilist_traits<MachineInstr>::removeNodeFromList(MachineInstr *N) {
 
   // Remove from the use/def lists.
   N->RemoveRegOperandsFromUseLists();
-  
+
   N->setParent(0);
 
   LeakDetector::addGarbageObject(N);
@@ -136,27 +139,53 @@ void ilist_traits<MachineInstr>::deleteNode(MachineInstr* MI) {
   Parent->getParent()->DeleteMachineInstr(MI);
 }
 
+MachineBasicBlock::iterator MachineBasicBlock::getFirstNonPHI() {
+  iterator I = begin();
+  while (I != end() && I->isPHI())
+    ++I;
+  return I;
+}
+
+MachineBasicBlock::iterator
+MachineBasicBlock::SkipPHIsAndLabels(MachineBasicBlock::iterator I) {
+  while (I != end() && (I->isPHI() || I->isLabel() || I->isDebugValue()))
+    ++I;
+  return I;
+}
+
 MachineBasicBlock::iterator MachineBasicBlock::getFirstTerminator() {
   iterator I = end();
-  while (I != begin() && (--I)->getDesc().isTerminator())
+  while (I != begin() && ((--I)->getDesc().isTerminator() || I->isDebugValue()))
     ; /*noop */
-  if (I != end() && !I->getDesc().isTerminator()) ++I;
+  while (I != end() && !I->getDesc().isTerminator())
+    ++I;
   return I;
+}
+
+MachineBasicBlock::iterator MachineBasicBlock::getLastNonDebugInstr() {
+  iterator B = begin(), I = end();
+  while (I != B) {
+    --I;
+    if (I->isDebugValue())
+      continue;
+    return I;
+  }
+  // The block is all debug values.
+  return end();
+}
+
+const MachineBasicBlock *MachineBasicBlock::getLandingPadSuccessor() const {
+  // A block with a landing pad successor only has one other successor.
+  if (succ_size() > 2)
+    return 0;
+  for (const_succ_iterator I = succ_begin(), E = succ_end(); I != E; ++I)
+    if ((*I)->isLandingPad())
+      return *I;
+  return 0;
 }
 
 void MachineBasicBlock::dump() const {
   print(dbgs());
-}
-
-static inline void OutputReg(raw_ostream &os, unsigned RegNo,
-                             const TargetRegisterInfo *TRI = 0) {
-  if (RegNo != 0 && TargetRegisterInfo::isPhysicalRegister(RegNo)) {
-    if (TRI)
-      os << " %" << TRI->get(RegNo).Name;
-    else
-      os << " %physreg" << RegNo;
-  } else
-    os << " %reg" << RegNo;
 }
 
 StringRef MachineBasicBlock::getName() const {
@@ -166,7 +195,7 @@ StringRef MachineBasicBlock::getName() const {
     return "(null)";
 }
 
-void MachineBasicBlock::print(raw_ostream &OS) const {
+void MachineBasicBlock::print(raw_ostream &OS, SlotIndexes *Indexes) const {
   const MachineFunction *MF = getParent();
   if (!MF) {
     OS << "Can't print out MachineBasicBlock because parent MachineFunction"
@@ -175,6 +204,9 @@ void MachineBasicBlock::print(raw_ostream &OS) const {
   }
 
   if (Alignment) { OS << "Alignment " << Alignment << "\n"; }
+
+  if (Indexes)
+    OS << Indexes->getMBBStartIdx(this) << '\t';
 
   OS << "BB#" << getNumber() << ": ";
 
@@ -188,28 +220,36 @@ void MachineBasicBlock::print(raw_ostream &OS) const {
   if (hasAddressTaken()) { OS << Comma << "ADDRESS TAKEN"; Comma = ", "; }
   OS << '\n';
 
-  const TargetRegisterInfo *TRI = MF->getTarget().getRegisterInfo();  
+  const TargetRegisterInfo *TRI = MF->getTarget().getRegisterInfo();
   if (!livein_empty()) {
+    if (Indexes) OS << '\t';
     OS << "    Live Ins:";
     for (livein_iterator I = livein_begin(),E = livein_end(); I != E; ++I)
-      OutputReg(OS, *I, TRI);
+      OS << ' ' << PrintReg(*I, TRI);
     OS << '\n';
   }
   // Print the preds of this block according to the CFG.
   if (!pred_empty()) {
+    if (Indexes) OS << '\t';
     OS << "    Predecessors according to CFG:";
     for (const_pred_iterator PI = pred_begin(), E = pred_end(); PI != E; ++PI)
       OS << " BB#" << (*PI)->getNumber();
     OS << '\n';
   }
-  
+
   for (const_iterator I = begin(); I != end(); ++I) {
+    if (Indexes) {
+      if (Indexes->hasIndex(I))
+        OS << Indexes->getInstructionIndex(I);
+      OS << '\t';
+    }
     OS << '\t';
     I->print(OS, &getParent()->getTarget());
   }
 
   // Print the successors of this block according to the CFG.
   if (!succ_empty()) {
+    if (Indexes) OS << '\t';
     OS << "    Successors according to CFG:";
     for (const_succ_iterator SI = succ_begin(), E = succ_end(); SI != E; ++SI)
       OS << " BB#" << (*SI)->getNumber();
@@ -245,6 +285,7 @@ void MachineBasicBlock::updateTerminator() {
 
   MachineBasicBlock *TBB = 0, *FBB = 0;
   SmallVector<MachineOperand, 4> Cond;
+  DebugLoc dl;  // FIXME: this is nowhere
   bool B = TII->AnalyzeBranch(*this, TBB, FBB, Cond);
   (void) B;
   assert(!B && "UpdateTerminators requires analyzable predecessors!");
@@ -259,7 +300,7 @@ void MachineBasicBlock::updateTerminator() {
       // its layout successor, insert a branch.
       TBB = *succ_begin();
       if (!isLayoutSuccessor(TBB))
-        TII->InsertBranch(*this, TBB, 0, Cond);
+        TII->InsertBranch(*this, TBB, 0, Cond, dl);
     }
   } else {
     if (FBB) {
@@ -270,10 +311,10 @@ void MachineBasicBlock::updateTerminator() {
         if (TII->ReverseBranchCondition(Cond))
           return;
         TII->RemoveBranch(*this);
-        TII->InsertBranch(*this, FBB, 0, Cond);
+        TII->InsertBranch(*this, FBB, 0, Cond, dl);
       } else if (isLayoutSuccessor(FBB)) {
         TII->RemoveBranch(*this);
-        TII->InsertBranch(*this, TBB, 0, Cond);
+        TII->InsertBranch(*this, TBB, 0, Cond, dl);
       }
     } else {
       // The block has a fallthrough conditional branch.
@@ -284,36 +325,75 @@ void MachineBasicBlock::updateTerminator() {
         if (TII->ReverseBranchCondition(Cond)) {
           // We can't reverse the condition, add an unconditional branch.
           Cond.clear();
-          TII->InsertBranch(*this, MBBA, 0, Cond);
+          TII->InsertBranch(*this, MBBA, 0, Cond, dl);
           return;
         }
         TII->RemoveBranch(*this);
-        TII->InsertBranch(*this, MBBA, 0, Cond);
+        TII->InsertBranch(*this, MBBA, 0, Cond, dl);
       } else if (!isLayoutSuccessor(MBBA)) {
         TII->RemoveBranch(*this);
-        TII->InsertBranch(*this, TBB, MBBA, Cond);
+        TII->InsertBranch(*this, TBB, MBBA, Cond, dl);
       }
     }
   }
 }
 
-void MachineBasicBlock::addSuccessor(MachineBasicBlock *succ) {
-  Successors.push_back(succ);
-  succ->addPredecessor(this);
-}
+void MachineBasicBlock::addSuccessor(MachineBasicBlock *succ, uint32_t weight) {
+
+  // If we see non-zero value for the first time it means we actually use Weight
+  // list, so we fill all Weights with 0's.
+  if (weight != 0 && Weights.empty())
+    Weights.resize(Successors.size());
+
+  if (weight != 0 || !Weights.empty())
+    Weights.push_back(weight);
+
+   Successors.push_back(succ);
+   succ->addPredecessor(this);
+ }
 
 void MachineBasicBlock::removeSuccessor(MachineBasicBlock *succ) {
   succ->removePredecessor(this);
   succ_iterator I = std::find(Successors.begin(), Successors.end(), succ);
   assert(I != Successors.end() && "Not a current successor!");
+
+  // If Weight list is empty it means we don't use it (disabled optimization).
+  if (!Weights.empty()) {
+    weight_iterator WI = getWeightIterator(I);
+    Weights.erase(WI);
+  }
+
   Successors.erase(I);
 }
 
-MachineBasicBlock::succ_iterator 
+MachineBasicBlock::succ_iterator
 MachineBasicBlock::removeSuccessor(succ_iterator I) {
   assert(I != Successors.end() && "Not a current successor!");
+
+  // If Weight list is empty it means we don't use it (disabled optimization).
+  if (!Weights.empty()) {
+    weight_iterator WI = getWeightIterator(I);
+    Weights.erase(WI);
+  }
+
   (*I)->removePredecessor(this);
   return Successors.erase(I);
+}
+
+void MachineBasicBlock::replaceSuccessor(MachineBasicBlock *Old,
+                                         MachineBasicBlock *New) {
+  uint32_t weight = 0;
+  succ_iterator SI = std::find(Successors.begin(), Successors.end(), Old);
+
+  // If Weight list is empty it means we don't use it (disabled optimization).
+  if (!Weights.empty()) {
+    weight_iterator WI = getWeightIterator(SI);
+    weight = *WI;
+  }
+
+  // Update the successor information.
+  removeSuccessor(SI);
+  addSuccessor(New, weight);
 }
 
 void MachineBasicBlock::addPredecessor(MachineBasicBlock *pred) {
@@ -321,8 +401,7 @@ void MachineBasicBlock::addPredecessor(MachineBasicBlock *pred) {
 }
 
 void MachineBasicBlock::removePredecessor(MachineBasicBlock *pred) {
-  std::vector<MachineBasicBlock *>::iterator I =
-    std::find(Predecessors.begin(), Predecessors.end(), pred);
+  pred_iterator I = std::find(Predecessors.begin(), Predecessors.end(), pred);
   assert(I != Predecessors.end() && "Pred is not a predecessor of this block!");
   Predecessors.erase(I);
 }
@@ -330,18 +409,44 @@ void MachineBasicBlock::removePredecessor(MachineBasicBlock *pred) {
 void MachineBasicBlock::transferSuccessors(MachineBasicBlock *fromMBB) {
   if (this == fromMBB)
     return;
-  
-  for (MachineBasicBlock::succ_iterator I = fromMBB->succ_begin(), 
-       E = fromMBB->succ_end(); I != E; ++I)
-    addSuccessor(*I);
-  
-  while (!fromMBB->succ_empty())
-    fromMBB->removeSuccessor(fromMBB->succ_begin());
+
+  while (!fromMBB->succ_empty()) {
+    MachineBasicBlock *Succ = *fromMBB->succ_begin();
+    uint32_t weight = 0;
+
+
+    // If Weight list is empty it means we don't use it (disabled optimization).
+    if (!fromMBB->Weights.empty())
+      weight = *fromMBB->Weights.begin();
+
+    addSuccessor(Succ, weight);
+    fromMBB->removeSuccessor(Succ);
+  }
+}
+
+void
+MachineBasicBlock::transferSuccessorsAndUpdatePHIs(MachineBasicBlock *fromMBB) {
+  if (this == fromMBB)
+    return;
+
+  while (!fromMBB->succ_empty()) {
+    MachineBasicBlock *Succ = *fromMBB->succ_begin();
+    addSuccessor(Succ);
+    fromMBB->removeSuccessor(Succ);
+
+    // Fix up any PHI nodes in the successor.
+    for (MachineBasicBlock::iterator MI = Succ->begin(), ME = Succ->end();
+         MI != ME && MI->isPHI(); ++MI)
+      for (unsigned i = 2, e = MI->getNumOperands()+1; i != e; i += 2) {
+        MachineOperand &MO = MI->getOperand(i);
+        if (MO.getMBB() == fromMBB)
+          MO.setMBB(this);
+      }
+  }
 }
 
 bool MachineBasicBlock::isSuccessor(const MachineBasicBlock *MBB) const {
-  std::vector<MachineBasicBlock *>::const_iterator I =
-    std::find(Successors.begin(), Successors.end(), MBB);
+  const_succ_iterator I = std::find(Successors.begin(), Successors.end(), MBB);
   return I != Successors.end();
 }
 
@@ -395,6 +500,156 @@ bool MachineBasicBlock::canFallThrough() {
   return FBB == 0;
 }
 
+MachineBasicBlock *
+MachineBasicBlock::SplitCriticalEdge(MachineBasicBlock *Succ, Pass *P) {
+  MachineFunction *MF = getParent();
+  DebugLoc dl;  // FIXME: this is nowhere
+
+  // We may need to update this's terminator, but we can't do that if
+  // AnalyzeBranch fails. If this uses a jump table, we won't touch it.
+  const TargetInstrInfo *TII = MF->getTarget().getInstrInfo();
+  MachineBasicBlock *TBB = 0, *FBB = 0;
+  SmallVector<MachineOperand, 4> Cond;
+  if (TII->AnalyzeBranch(*this, TBB, FBB, Cond))
+    return NULL;
+
+  // Avoid bugpoint weirdness: A block may end with a conditional branch but
+  // jumps to the same MBB is either case. We have duplicate CFG edges in that
+  // case that we can't handle. Since this never happens in properly optimized
+  // code, just skip those edges.
+  if (TBB && TBB == FBB) {
+    DEBUG(dbgs() << "Won't split critical edge after degenerate BB#"
+                 << getNumber() << '\n');
+    return NULL;
+  }
+
+  MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock();
+  MF->insert(llvm::next(MachineFunction::iterator(this)), NMBB);
+  DEBUG(dbgs() << "Splitting critical edge:"
+        " BB#" << getNumber()
+        << " -- BB#" << NMBB->getNumber()
+        << " -- BB#" << Succ->getNumber() << '\n');
+
+  // On some targets like Mips, branches may kill virtual registers. Make sure
+  // that LiveVariables is properly updated after updateTerminator replaces the
+  // terminators.
+  LiveVariables *LV = P->getAnalysisIfAvailable<LiveVariables>();
+
+  // Collect a list of virtual registers killed by the terminators.
+  SmallVector<unsigned, 4> KilledRegs;
+  if (LV)
+    for (iterator I = getFirstTerminator(), E = end(); I != E; ++I) {
+      MachineInstr *MI = I;
+      for (MachineInstr::mop_iterator OI = MI->operands_begin(),
+           OE = MI->operands_end(); OI != OE; ++OI) {
+        if (!OI->isReg() || !OI->isUse() || !OI->isKill() || OI->isUndef())
+          continue;
+        unsigned Reg = OI->getReg();
+        if (TargetRegisterInfo::isVirtualRegister(Reg) &&
+            LV->getVarInfo(Reg).removeKill(MI)) {
+          KilledRegs.push_back(Reg);
+          DEBUG(dbgs() << "Removing terminator kill: " << *MI);
+          OI->setIsKill(false);
+        }
+      }
+    }
+
+  ReplaceUsesOfBlockWith(Succ, NMBB);
+  updateTerminator();
+
+  // Insert unconditional "jump Succ" instruction in NMBB if necessary.
+  NMBB->addSuccessor(Succ);
+  if (!NMBB->isLayoutSuccessor(Succ)) {
+    Cond.clear();
+    MF->getTarget().getInstrInfo()->InsertBranch(*NMBB, Succ, NULL, Cond, dl);
+  }
+
+  // Fix PHI nodes in Succ so they refer to NMBB instead of this
+  for (MachineBasicBlock::iterator i = Succ->begin(), e = Succ->end();
+       i != e && i->isPHI(); ++i)
+    for (unsigned ni = 1, ne = i->getNumOperands(); ni != ne; ni += 2)
+      if (i->getOperand(ni+1).getMBB() == this)
+        i->getOperand(ni+1).setMBB(NMBB);
+
+  // Inherit live-ins from the successor
+  for (MachineBasicBlock::livein_iterator I = Succ->livein_begin(),
+	 E = Succ->livein_end(); I != E; ++I)
+    NMBB->addLiveIn(*I);
+
+  // Update LiveVariables.
+  if (LV) {
+    // Restore kills of virtual registers that were killed by the terminators.
+    while (!KilledRegs.empty()) {
+      unsigned Reg = KilledRegs.pop_back_val();
+      for (iterator I = end(), E = begin(); I != E;) {
+        if (!(--I)->addRegisterKilled(Reg, NULL, /* addIfNotFound= */ false))
+          continue;
+        LV->getVarInfo(Reg).Kills.push_back(I);
+        DEBUG(dbgs() << "Restored terminator kill: " << *I);
+        break;
+      }
+    }
+    // Update relevant live-through information.
+    LV->addNewBlock(NMBB, this, Succ);
+  }
+
+  if (MachineDominatorTree *MDT =
+      P->getAnalysisIfAvailable<MachineDominatorTree>()) {
+    // Update dominator information.
+    MachineDomTreeNode *SucccDTNode = MDT->getNode(Succ);
+
+    bool IsNewIDom = true;
+    for (const_pred_iterator PI = Succ->pred_begin(), E = Succ->pred_end();
+         PI != E; ++PI) {
+      MachineBasicBlock *PredBB = *PI;
+      if (PredBB == NMBB)
+        continue;
+      if (!MDT->dominates(SucccDTNode, MDT->getNode(PredBB))) {
+        IsNewIDom = false;
+        break;
+      }
+    }
+
+    // We know "this" dominates the newly created basic block.
+    MachineDomTreeNode *NewDTNode = MDT->addNewBlock(NMBB, this);
+
+    // If all the other predecessors of "Succ" are dominated by "Succ" itself
+    // then the new block is the new immediate dominator of "Succ". Otherwise,
+    // the new block doesn't dominate anything.
+    if (IsNewIDom)
+      MDT->changeImmediateDominator(SucccDTNode, NewDTNode);
+  }
+
+  if (MachineLoopInfo *MLI = P->getAnalysisIfAvailable<MachineLoopInfo>())
+    if (MachineLoop *TIL = MLI->getLoopFor(this)) {
+      // If one or the other blocks were not in a loop, the new block is not
+      // either, and thus LI doesn't need to be updated.
+      if (MachineLoop *DestLoop = MLI->getLoopFor(Succ)) {
+        if (TIL == DestLoop) {
+          // Both in the same loop, the NMBB joins loop.
+          DestLoop->addBasicBlockToLoop(NMBB, MLI->getBase());
+        } else if (TIL->contains(DestLoop)) {
+          // Edge from an outer loop to an inner loop.  Add to the outer loop.
+          TIL->addBasicBlockToLoop(NMBB, MLI->getBase());
+        } else if (DestLoop->contains(TIL)) {
+          // Edge from an inner loop to an outer loop.  Add to the outer loop.
+          DestLoop->addBasicBlockToLoop(NMBB, MLI->getBase());
+        } else {
+          // Edge from two loops with no containment relation.  Because these
+          // are natural loops, we know that the destination block must be the
+          // header of its loop (adding a branch into a loop elsewhere would
+          // create an irreducible loop).
+          assert(DestLoop->getHeader() == Succ &&
+                 "Should not create irreducible loops!");
+          if (MachineLoop *P = DestLoop->getParentLoop())
+            P->addBasicBlockToLoop(NMBB, MLI->getBase());
+        }
+      }
+    }
+
+  return NMBB;
+}
+
 /// removeFromParent - This method unlinks 'this' from the containing function,
 /// and returns it, but does not delete it.
 MachineBasicBlock *MachineBasicBlock::removeFromParent() {
@@ -432,15 +687,14 @@ void MachineBasicBlock::ReplaceUsesOfBlockWith(MachineBasicBlock *Old,
   }
 
   // Update the successor information.
-  removeSuccessor(Old);
-  addSuccessor(New);
+  replaceSuccessor(Old, New);
 }
 
 /// CorrectExtraCFGEdges - Various pieces of code can cause excess edges in the
 /// CFG to be inserted.  If we have proven that MBB can only branch to DestA and
 /// DestB, remove any other MBB successors from the CFG.  DestA and DestB can be
 /// null.
-/// 
+///
 /// Besides DestA and DestB, retain other edges leading to LandingPads
 /// (currently there can be only one; we don't check or require that here).
 /// Note it is possible that DestA and/or DestB are LandingPads.
@@ -513,6 +767,26 @@ MachineBasicBlock::findDebugLoc(MachineBasicBlock::iterator &MBBI) {
       DL = MBBI2->getDebugLoc();
   }
   return DL;
+}
+
+/// getSuccWeight - Return weight of the edge from this block to MBB.
+///
+uint32_t MachineBasicBlock::getSuccWeight(MachineBasicBlock *succ) {
+  if (Weights.empty())
+    return 0;
+
+  succ_iterator I = std::find(Successors.begin(), Successors.end(), succ);
+  return *getWeightIterator(I);
+}
+
+/// getWeightIterator - Return wight iterator corresonding to the I successor
+/// iterator
+MachineBasicBlock::weight_iterator MachineBasicBlock::
+getWeightIterator(MachineBasicBlock::succ_iterator I) {
+  assert(Weights.size() == Successors.size() && "Async weight list!");
+  size_t index = std::distance(Successors.begin(), I);
+  assert(index < Weights.size() && "Not a current successor!");
+  return Weights.begin() + index;
 }
 
 void llvm::WriteAsOperand(raw_ostream &OS, const MachineBasicBlock *MBB,

@@ -48,13 +48,14 @@ public:
 	void open(const char *path);
 	
 	operator bool() const { return mXar != 0; }
-	bool isSigned() const { return mSig != 0; }
+	bool isSigned() const { return mSigClassic != 0 || mSigCMS != 0; }
 	
 	CFArrayRef copyCertChain();
 
 private:
 	xar_t mXar;
-	xar_signature_t mSig;
+	xar_signature_t mSigClassic;
+	xar_signature_t mSigCMS;
 };
 
 

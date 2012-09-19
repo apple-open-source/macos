@@ -96,7 +96,8 @@ private:
 
 	/* everything this module does is protected by this global lock */
 	Mutex					mLock;
-	
+	Mutex                   mRefreshLock;
+    
 	/* 
 	 * We maintain open handles to these two modules, but we do NOT maintain
 	 * a handle to an open DB - we open and close that as needed for robustness.
@@ -475,23 +476,30 @@ void CrlDatabase::refresh(
 	bool				fullCryptoVerify,
 	bool				doRefresh)
 {
-	StLock<Mutex> _(mLock);
+    // hold a lock to serialize refresh operations.  This allows ocsp to
+    // continue to function while a refresh operation continues.
+    StLock<Mutex> _rl(mRefreshLock);
+    
+    bool didCreate;
+    CSSM_DB_HANDLE dbHand;
 
-	bool didCreate;
-	CSSM_DB_HANDLE dbHand;
+    {
+        // hold the database lock only when actual work is being done with the database
+        StLock<Mutex> _(mLock);
 
-	if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
-		/* error: no DB, we're done */
-		ocspdErrorLog("CrlDatabase::refresh: no cache DB\n");
-		return;
+        if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
+            /* error: no DB, we're done */
+            ocspdErrorLog("CrlDatabase::refresh: no cache DB\n");
+            return;
+        }
+        if(didCreate) {
+            /* we just created empty DB, we're done */
+            ocspdCrlDebug("CrlDatabase::refresh: empty cache DB");
+            closeDatabase(dbHand);
+            return;
+        }
 	}
-	if(didCreate) {
-		/* we just created empty DB, we're done */
-		ocspdCrlDebug("CrlDatabase::refresh: empty cache DB");
-		closeDatabase(dbHand);
-		return;
-	}
-	
+    
 	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, dbHand};
 	ocspdCrlRefresh(dlDbHand, mClHand, staleDays, expireOverlapSeconds,
 		purgeAll, fullCryptoVerify, doRefresh);

@@ -41,7 +41,8 @@
 class IOUSBInterface : public IOUSBNub
 {
     friend class IOUSBInterfaceUserClientV2;
-    
+    friend class IOUSBDevice;
+	
     OSDeclareDefaultStructors(IOUSBInterface)
 
 protected:
@@ -65,6 +66,9 @@ protected:
 		bool				_needToClose;
 		IOLock *			_pipeObjLock;				// Deprecated
 		OSSet *				_openClients;
+#ifdef SUPPORTS_SS_USB
+        UInt32              _RememberedStreams[kUSBMaxPipes];
+#endif
     };
     ExpansionData * _expansionData;
 
@@ -75,9 +79,14 @@ protected:
 
     IOReturn 			ResetPipes(void);				// reset all pipes (except pipe zero) (not virtual)
     IOReturn 			AbortPipesGated(void);			// abort all pipes (except pipe zero) (not virtual)
-    IOReturn 			ClosePipesGated(void);			// Abort and close all pipes (except pipe zero) (not virtual)
+    IOReturn 			ClosePipesGated(bool close);	// Abort and close or unlink all pipes (except pipe zero) (not virtual)
 	IOUSBPipe*			FindNextPipeGated(IOUSBPipe *current, IOUSBFindEndpointRequest *request, bool withRetain);
 	IOUSBPipe*			GetPipeObjGated(UInt8 index);
+#ifdef SUPPORTS_SS_USB
+    IOReturn 			ReopenPipesGated();             // relink all pipes (except pipe zero) (not virtual)
+	void	 			RememberStreamsGated(void);
+	IOReturn	 		RecreateStreamsGated(void);
+#endif
 	
 public:
 	// static methods
@@ -89,6 +98,12 @@ public:
 	static IOReturn 			_ClosePipes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 	static IOReturn 			_FindNextPipe(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 	static IOReturn 			_GetPipeObj(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+#ifdef SUPPORTS_SS_USB
+	static IOReturn 			_ReopenPipes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_RememberStreams(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_RecreateStreams(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+#endif
+
 	static UInt8 				hex2char( UInt8 digit );
     
 	// IOService methods
@@ -268,10 +283,35 @@ public:
 	 */
 	virtual	IOUSBPipe* FindNextPipe(IOUSBPipe *current, IOUSBFindEndpointRequest *request, bool withRetain);
 
+#ifdef SUPPORTS_SS_USB
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  2);
+    /*!
+	 @function RememberStreams.
+	 Make a note of which pipes have streams, so they can be recreated later.
+	 @result returns kIOReturnSuccess if sucessful.
+	 */
+	virtual	IOReturn RememberStreams(void);
+
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  3);
+    /*!
+	 @function RecreateStreams
+	 Recreate the remembered streams after a device has been reset.
+	 @result returns kIOReturnSuccess if sucessful.
+	 */
+	virtual	IOReturn RecreateStreams(void);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  4);
+    virtual void		UnlinkPipes(void);				// delete the UIM endpoint from the pipe
+
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  5);
+    virtual void	ReopenPipes(void);				// open all pipes in the current interface/alt interface
+
+#else
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  2);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  3);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  4);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  5);
+#endif
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  6);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  7);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  8);
@@ -292,4 +332,4 @@ protected:
     
 };
 
-#endif /* _IOKIT_IOUSBINTERFACE_H */
+#endif

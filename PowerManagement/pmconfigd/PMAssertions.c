@@ -2397,6 +2397,14 @@ static void logASLAssertionSummary(void)
 #define kIOPMRootDomainWakeTypeSleepService         CFSTR("SleepService")
 #endif
 
+#ifndef kIOPMRootDomainWakeReasonKey
+#define kIOPMRootDomainWakeReasonKey                    CFSTR("Wake Reason")
+#endif
+
+#ifndef kIORootDomainWakeReasonDarkPME
+#define kIORootDomainWakeReasonDarkPME          CFSTR("EC.DarkPME")
+#endif
+
 #define     kDarkWakeNetworkHoldForSeconds          30
 #define     kDeviceEnumerationHoldForSeconds        (45LL)
 
@@ -2785,15 +2793,17 @@ void ioKitStateCallback (
     devEnumInfo_st *deInfo = (devEnumInfo_st *)refcon;
     long state = (long)messageArgument;
     dispatch_source_t dispSrc;
+    static bool suspended = true;
 
     if (messageType != kIOMessageServiceBusyStateChange)
         return;
 
-
     if (state) {
         /* IOKit is busy. Suspend the timer until the Iokit is free */
-        if (deInfo->dispSrc)
+        if (deInfo->dispSrc) {
             dispatch_suspend(deInfo->dispSrc);
+            suspended = true;
+        }
     }
     else {
         /* 
@@ -2813,10 +2823,14 @@ void ioKitStateCallback (
             });
 
             deInfo->dispSrc = dispSrc;
+            suspended = true;
         }
-        dispatch_source_set_timer(deInfo->dispSrc, dispatch_time(DISPATCH_TIME_NOW, 5LL * NSEC_PER_SEC), 
-                                                DISPATCH_TIME_FOREVER, 0);
-        dispatch_resume(deInfo->dispSrc);
+        if (suspended) {
+           dispatch_source_set_timer(deInfo->dispSrc, dispatch_time(DISPATCH_TIME_NOW, 10LL * NSEC_PER_SEC), 
+                                                   DISPATCH_TIME_FOREVER, 0);
+           dispatch_resume(deInfo->dispSrc);
+        }
+        suspended = false;
     }
 
 
@@ -2908,6 +2922,7 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
 {
 
     CFStringRef         wakeType = NULL;
+    CFStringRef         wakeReason = NULL;
     IOPMAssertionID     pushSvcAssert = kIOPMNullAssertionID;
 
     if ( !(kIOPMSystemCapabilityDidChange & capArgs->changeFlags) )
@@ -2918,7 +2933,13 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
           IS_OFF_STATE(capArgs->fromCapabilities) )
     {
         wakeType = _copyRootDomainProperty(kIOPMRootDomainWakeTypeKey);
-        if (isA_CFString(wakeType))
+        wakeReason = _copyRootDomainProperty(kIOPMRootDomainWakeReasonKey);
+
+        if (isA_CFString(wakeReason) && CFEqual(wakeReason, kIORootDomainWakeReasonDarkPME))
+        {
+             _AssertForDeviceEnumeration( );
+        }
+        else if (isA_CFString(wakeType))
         {
             if (CFEqual(wakeType, kIOPMRootDomainWakeTypeNetwork))
                 _DarkWakeHandleNetworkWake( );

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*!
+/*
  * @header IOCDPartitionScheme
  * @abstract
  * This header contains the IOCDPartitionScheme class definition.
@@ -32,7 +32,7 @@
 
 #include <IOKit/storage/IOCDTypes.h>
 
-/*!
+/*
  * @defined kIOCDPartitionSchemeClass
  * @abstract
  * kIOCDPartitionSchemeClass is the name of the IOCDPartitionScheme class.
@@ -42,7 +42,7 @@
 
 #define kIOCDPartitionSchemeClass "IOCDPartitionScheme"
 
-/*!
+/*
  * @defined kIOMediaSessionIDKey
  * @abstract
  * kIOMediaSessionIDKey is property of IOMedia objects.  It has an OSNumber

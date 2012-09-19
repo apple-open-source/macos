@@ -27,6 +27,7 @@
 #import "BusProber.h"
 #import "OutlineViewNode.h"
 #import "OutlineViewAdditions.h"
+#import "ExtensionSelector.h"
 
 @interface BusProbeController : NSObject <BusProberListener>
 {
@@ -45,6 +46,7 @@
 - (IBAction)ToggleProbeSuspended:(id)sender;
 
 - (void)applyFilter:(BusProbeDevice*)filterDevice:(NSMutableString *)finalString;
+- (NSMutableArray *)strippedDownListFromFilter:(BusProbeDevice *)filterDevice;
 - (void)dumpToTerminal:(NSArray*)args:(bool)showHelp;
 - (void)busProberInformationDidChange:(BusProber *)aProber;
 - (void)expandOutlineViewItems;

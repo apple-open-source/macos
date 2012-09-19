@@ -29,7 +29,7 @@
 
 
 struct IOGraphicsEngineContext {
-    IOSharedLockData    contextLock;
+    OSSpinLock          contextLock;
     IOOptionBits        state;
     void *              owner;
     UInt32              version;

@@ -91,6 +91,27 @@ lto_module_t lto_module_create(const char* path)
      return LTOModule::makeLTOModule(path, sLastErrorString);
 }
 
+//
+// loads an object file from disk
+// returns NULL on error (check lto_get_error_message() for details)
+//
+lto_module_t lto_module_create_from_fd(int fd, const char *path, size_t size)
+{
+     return LTOModule::makeLTOModule(fd, path, size, sLastErrorString);
+}
+
+//
+// loads an object file from disk
+// returns NULL on error (check lto_get_error_message() for details)
+//
+lto_module_t lto_module_create_from_fd_at_offset(int fd, const char *path,
+                                                 size_t file_size,
+                                                 size_t map_size,
+                                                 off_t offset)
+{
+     return LTOModule::makeLTOModule(fd, path, file_size, map_size,
+                                     offset, sLastErrorString);
+}
 
 //
 // loads an object file from memory 
@@ -120,11 +141,19 @@ const char* lto_module_get_target_triple(lto_module_t mod)
     return mod->getTargetTriple();
 }
 
+//
+// sets triple string with which the object will be codegened.
+//
+void lto_module_set_target_triple(lto_module_t mod, const char *triple)
+{
+    return mod->setTargetTriple(triple);
+}
+
 
 //
 // returns the number of symbols in the object module
 //
-uint32_t lto_module_get_num_symbols(lto_module_t mod)
+unsigned int lto_module_get_num_symbols(lto_module_t mod)
 {
     return mod->getSymbolCount();
 }
@@ -132,7 +161,7 @@ uint32_t lto_module_get_num_symbols(lto_module_t mod)
 //
 // returns the name of the ith symbol in the object module
 //
-const char* lto_module_get_symbol_name(lto_module_t mod, uint32_t index)
+const char* lto_module_get_symbol_name(lto_module_t mod, unsigned int index)
 {
     return mod->getSymbolName(index);
 }
@@ -142,7 +171,7 @@ const char* lto_module_get_symbol_name(lto_module_t mod, uint32_t index)
 // returns the attributes of the ith symbol in the object module
 //
 lto_symbol_attributes lto_module_get_symbol_attribute(lto_module_t mod, 
-                                                            uint32_t index)
+                                                      unsigned int index)
 {
     return mod->getSymbolAttributes(index);
 }
@@ -203,11 +232,29 @@ bool lto_codegen_set_pic_model(lto_code_gen_t cg, lto_codegen_model model)
 }
 
 //
+// sets the cpu to generate code for
+//
+void lto_codegen_set_cpu(lto_code_gen_t cg, const char* cpu)
+{
+  return cg->setCpu(cpu);
+}
+
+//
 // sets the path to the assembler tool
 //
 void lto_codegen_set_assembler_path(lto_code_gen_t cg, const char* path)
 {
-    cg->setAssemblerPath(path);
+  // In here only for backwards compatibility. We use MC now.
+}
+
+
+//
+// sets extra arguments that libLTO should pass to the assembler
+//
+void lto_codegen_set_assembler_args(lto_code_gen_t cg, const char** args,
+                                    int nargs)
+{
+  // In here only for backwards compatibility. We use MC now.
 }
 
 //
@@ -234,7 +281,7 @@ bool lto_codegen_write_merged_modules(lto_code_gen_t cg, const char* path)
 
 //
 // Generates code for all added modules into one native object file.
-// On sucess returns a pointer to a generated mach-o/ELF buffer and
+// On success returns a pointer to a generated mach-o/ELF buffer and
 // length set to the buffer size.  The buffer is owned by the 
 // lto_code_gen_t and will be freed when lto_codegen_dispose()
 // is called, or lto_codegen_compile() is called again.
@@ -244,6 +291,12 @@ extern const void*
 lto_codegen_compile(lto_code_gen_t cg, size_t* length)
 {
   return cg->compile(length, sLastErrorString);
+}
+
+extern bool
+lto_codegen_compile_to_file(lto_code_gen_t cg, const char **name)
+{
+  return cg->compile_to_file(name, sLastErrorString);
 }
 
 

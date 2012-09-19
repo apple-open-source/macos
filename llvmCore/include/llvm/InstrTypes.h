@@ -18,7 +18,6 @@
 
 #include "llvm/Instruction.h"
 #include "llvm/OperandTraits.h"
-#include "llvm/Operator.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/ADT/Twine.h"
 
@@ -35,12 +34,12 @@ class LLVMContext;
 ///
 class TerminatorInst : public Instruction {
 protected:
-  TerminatorInst(const Type *Ty, Instruction::TermOps iType,
+  TerminatorInst(Type *Ty, Instruction::TermOps iType,
                  Use *Ops, unsigned NumOps,
                  Instruction *InsertBefore = 0)
     : Instruction(Ty, iType, Ops, NumOps, InsertBefore) {}
 
-  TerminatorInst(const Type *Ty, Instruction::TermOps iType,
+  TerminatorInst(Type *Ty, Instruction::TermOps iType,
                  Use *Ops, unsigned NumOps, BasicBlock *InsertAtEnd)
     : Instruction(Ty, iType, Ops, NumOps, InsertAtEnd) {}
 
@@ -92,12 +91,12 @@ class UnaryInstruction : public Instruction {
   void *operator new(size_t, unsigned);      // Do not implement
 
 protected:
-  UnaryInstruction(const Type *Ty, unsigned iType, Value *V,
+  UnaryInstruction(Type *Ty, unsigned iType, Value *V,
                    Instruction *IB = 0)
     : Instruction(Ty, iType, &Op<0>(), 1, IB) {
     Op<0>() = V;
   }
-  UnaryInstruction(const Type *Ty, unsigned iType, Value *V, BasicBlock *IAE)
+  UnaryInstruction(Type *Ty, unsigned iType, Value *V, BasicBlock *IAE)
     : Instruction(Ty, iType, &Op<0>(), 1, IAE) {
     Op<0>() = V;
   }
@@ -128,7 +127,8 @@ public:
 };
 
 template <>
-struct OperandTraits<UnaryInstruction> : public FixedNumOperandTraits<1> {
+struct OperandTraits<UnaryInstruction> :
+  public FixedNumOperandTraits<UnaryInstruction, 1> {
 };
 
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(UnaryInstruction, Value)
@@ -141,9 +141,9 @@ class BinaryOperator : public Instruction {
   void *operator new(size_t, unsigned); // Do not implement
 protected:
   void init(BinaryOps iType);
-  BinaryOperator(BinaryOps iType, Value *S1, Value *S2, const Type *Ty,
+  BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
                  const Twine &Name, Instruction *InsertBefore);
-  BinaryOperator(BinaryOps iType, Value *S1, Value *S2, const Type *Ty,
+  BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
                  const Twine &Name, BasicBlock *InsertAtEnd);
   virtual BinaryOperator *clone_impl() const;
 public:
@@ -193,154 +193,93 @@ public:
   }
 #include "llvm/Instruction.def"
 
-
-  /// CreateNSWAdd - Create an Add operator with the NSW flag set.
-  ///
-  static BinaryOperator *CreateNSWAdd(Value *V1, Value *V2,
-                                      const Twine &Name = "") {
-    BinaryOperator *BO = CreateAdd(V1, V2, Name);
+  static BinaryOperator *CreateNSW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name = "") {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name);
     BO->setHasNoSignedWrap(true);
     return BO;
   }
-  static BinaryOperator *CreateNSWAdd(Value *V1, Value *V2,
-                                      const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateAdd(V1, V2, Name, BB);
+  static BinaryOperator *CreateNSW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name, BasicBlock *BB) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, BB);
     BO->setHasNoSignedWrap(true);
     return BO;
   }
-  static BinaryOperator *CreateNSWAdd(Value *V1, Value *V2,
-                                      const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateAdd(V1, V2, Name, I);
+  static BinaryOperator *CreateNSW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name, Instruction *I) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, I);
     BO->setHasNoSignedWrap(true);
     return BO;
   }
-
-  /// CreateNUWAdd - Create an Add operator with the NUW flag set.
-  ///
-  static BinaryOperator *CreateNUWAdd(Value *V1, Value *V2,
-                                      const Twine &Name = "") {
-    BinaryOperator *BO = CreateAdd(V1, V2, Name);
+  
+  static BinaryOperator *CreateNUW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name = "") {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name);
     BO->setHasNoUnsignedWrap(true);
     return BO;
   }
-  static BinaryOperator *CreateNUWAdd(Value *V1, Value *V2,
-                                      const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateAdd(V1, V2, Name, BB);
+  static BinaryOperator *CreateNUW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name, BasicBlock *BB) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, BB);
     BO->setHasNoUnsignedWrap(true);
     return BO;
   }
-  static BinaryOperator *CreateNUWAdd(Value *V1, Value *V2,
-                                      const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateAdd(V1, V2, Name, I);
+  static BinaryOperator *CreateNUW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name, Instruction *I) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, I);
     BO->setHasNoUnsignedWrap(true);
     return BO;
   }
-
-  /// CreateNSWSub - Create an Sub operator with the NSW flag set.
-  ///
-  static BinaryOperator *CreateNSWSub(Value *V1, Value *V2,
-                                      const Twine &Name = "") {
-    BinaryOperator *BO = CreateSub(V1, V2, Name);
-    BO->setHasNoSignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNSWSub(Value *V1, Value *V2,
-                                      const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateSub(V1, V2, Name, BB);
-    BO->setHasNoSignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNSWSub(Value *V1, Value *V2,
-                                      const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateSub(V1, V2, Name, I);
-    BO->setHasNoSignedWrap(true);
-    return BO;
-  }
-
-  /// CreateNUWSub - Create an Sub operator with the NUW flag set.
-  ///
-  static BinaryOperator *CreateNUWSub(Value *V1, Value *V2,
-                                      const Twine &Name = "") {
-    BinaryOperator *BO = CreateSub(V1, V2, Name);
-    BO->setHasNoUnsignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNUWSub(Value *V1, Value *V2,
-                                      const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateSub(V1, V2, Name, BB);
-    BO->setHasNoUnsignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNUWSub(Value *V1, Value *V2,
-                                      const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateSub(V1, V2, Name, I);
-    BO->setHasNoUnsignedWrap(true);
-    return BO;
-  }
-
-  /// CreateNSWMul - Create a Mul operator with the NSW flag set.
-  ///
-  static BinaryOperator *CreateNSWMul(Value *V1, Value *V2,
-                                      const Twine &Name = "") {
-    BinaryOperator *BO = CreateMul(V1, V2, Name);
-    BO->setHasNoSignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNSWMul(Value *V1, Value *V2,
-                                      const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateMul(V1, V2, Name, BB);
-    BO->setHasNoSignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNSWMul(Value *V1, Value *V2,
-                                      const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateMul(V1, V2, Name, I);
-    BO->setHasNoSignedWrap(true);
-    return BO;
-  }
-
-  /// CreateNUWMul - Create a Mul operator with the NUW flag set.
-  ///
-  static BinaryOperator *CreateNUWMul(Value *V1, Value *V2,
-                                      const Twine &Name = "") {
-    BinaryOperator *BO = CreateMul(V1, V2, Name);
-    BO->setHasNoUnsignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNUWMul(Value *V1, Value *V2,
-                                      const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateMul(V1, V2, Name, BB);
-    BO->setHasNoUnsignedWrap(true);
-    return BO;
-  }
-  static BinaryOperator *CreateNUWMul(Value *V1, Value *V2,
-                                      const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateMul(V1, V2, Name, I);
-    BO->setHasNoUnsignedWrap(true);
-    return BO;
-  }
-
-  /// CreateExactSDiv - Create an SDiv operator with the exact flag set.
-  ///
-  static BinaryOperator *CreateExactSDiv(Value *V1, Value *V2,
-                                         const Twine &Name = "") {
-    BinaryOperator *BO = CreateSDiv(V1, V2, Name);
+  
+  static BinaryOperator *CreateExact(BinaryOps Opc, Value *V1, Value *V2,
+                                     const Twine &Name = "") {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name);
     BO->setIsExact(true);
     return BO;
   }
-  static BinaryOperator *CreateExactSDiv(Value *V1, Value *V2,
-                                         const Twine &Name, BasicBlock *BB) {
-    BinaryOperator *BO = CreateSDiv(V1, V2, Name, BB);
+  static BinaryOperator *CreateExact(BinaryOps Opc, Value *V1, Value *V2,
+                                     const Twine &Name, BasicBlock *BB) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, BB);
     BO->setIsExact(true);
     return BO;
   }
-  static BinaryOperator *CreateExactSDiv(Value *V1, Value *V2,
-                                         const Twine &Name, Instruction *I) {
-    BinaryOperator *BO = CreateSDiv(V1, V2, Name, I);
+  static BinaryOperator *CreateExact(BinaryOps Opc, Value *V1, Value *V2,
+                                     const Twine &Name, Instruction *I) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, I);
     BO->setIsExact(true);
     return BO;
   }
+  
+#define DEFINE_HELPERS(OPC, NUWNSWEXACT)                                     \
+  static BinaryOperator *Create ## NUWNSWEXACT ## OPC                        \
+           (Value *V1, Value *V2, const Twine &Name = "") {                  \
+    return Create ## NUWNSWEXACT(Instruction::OPC, V1, V2, Name);            \
+  }                                                                          \
+  static BinaryOperator *Create ## NUWNSWEXACT ## OPC                        \
+           (Value *V1, Value *V2, const Twine &Name, BasicBlock *BB) {       \
+    return Create ## NUWNSWEXACT(Instruction::OPC, V1, V2, Name, BB);        \
+  }                                                                          \
+  static BinaryOperator *Create ## NUWNSWEXACT ## OPC                        \
+           (Value *V1, Value *V2, const Twine &Name, Instruction *I) {       \
+    return Create ## NUWNSWEXACT(Instruction::OPC, V1, V2, Name, I);         \
+  }
+  
+  DEFINE_HELPERS(Add, NSW)  // CreateNSWAdd
+  DEFINE_HELPERS(Add, NUW)  // CreateNUWAdd
+  DEFINE_HELPERS(Sub, NSW)  // CreateNSWSub
+  DEFINE_HELPERS(Sub, NUW)  // CreateNUWSub
+  DEFINE_HELPERS(Mul, NSW)  // CreateNSWMul
+  DEFINE_HELPERS(Mul, NUW)  // CreateNUWMul
+  DEFINE_HELPERS(Shl, NSW)  // CreateNSWShl
+  DEFINE_HELPERS(Shl, NUW)  // CreateNUWShl
 
+  DEFINE_HELPERS(SDiv, Exact)  // CreateExactSDiv
+  DEFINE_HELPERS(UDiv, Exact)  // CreateExactUDiv
+  DEFINE_HELPERS(AShr, Exact)  // CreateExactAShr
+  DEFINE_HELPERS(LShr, Exact)  // CreateExactLShr
+
+#undef DEFINE_HELPERS
+  
   /// Helper functions to construct and inspect unary operations (NEG and NOT)
   /// via binary operators SUB and XOR:
   ///
@@ -432,7 +371,8 @@ public:
 };
 
 template <>
-struct OperandTraits<BinaryOperator> : public FixedNumOperandTraits<2> {
+struct OperandTraits<BinaryOperator> :
+  public FixedNumOperandTraits<BinaryOperator, 2> {
 };
 
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(BinaryOperator, Value)
@@ -450,13 +390,13 @@ DEFINE_TRANSPARENT_OPERAND_ACCESSORS(BinaryOperator, Value)
 class CastInst : public UnaryInstruction {
 protected:
   /// @brief Constructor with insert-before-instruction semantics for subclasses
-  CastInst(const Type *Ty, unsigned iType, Value *S,
+  CastInst(Type *Ty, unsigned iType, Value *S,
            const Twine &NameStr = "", Instruction *InsertBefore = 0)
     : UnaryInstruction(Ty, iType, S, InsertBefore) {
     setName(NameStr);
   }
   /// @brief Constructor with insert-at-end-of-block semantics for subclasses
-  CastInst(const Type *Ty, unsigned iType, Value *S,
+  CastInst(Type *Ty, unsigned iType, Value *S,
            const Twine &NameStr, BasicBlock *InsertAtEnd)
     : UnaryInstruction(Ty, iType, S, InsertAtEnd) {
     setName(NameStr);
@@ -471,7 +411,7 @@ public:
   static CastInst *Create(
     Instruction::CastOps,    ///< The opcode of the cast instruction
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which cast should be made
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
   );
@@ -484,7 +424,7 @@ public:
   static CastInst *Create(
     Instruction::CastOps,    ///< The opcode for the cast instruction
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which operand is casted
+    Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
   );
@@ -492,7 +432,7 @@ public:
   /// @brief Create a ZExt or BitCast cast instruction
   static CastInst *CreateZExtOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which cast should be made
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
   );
@@ -500,7 +440,7 @@ public:
   /// @brief Create a ZExt or BitCast cast instruction
   static CastInst *CreateZExtOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which operand is casted
+    Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
   );
@@ -508,7 +448,7 @@ public:
   /// @brief Create a SExt or BitCast cast instruction
   static CastInst *CreateSExtOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which cast should be made
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
   );
@@ -516,7 +456,7 @@ public:
   /// @brief Create a SExt or BitCast cast instruction
   static CastInst *CreateSExtOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which operand is casted
+    Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
   );
@@ -524,7 +464,7 @@ public:
   /// @brief Create a BitCast or a PtrToInt cast instruction
   static CastInst *CreatePointerCast(
     Value *S,                ///< The pointer value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which operand is casted
+    Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
   );
@@ -532,7 +472,7 @@ public:
   /// @brief Create a BitCast or a PtrToInt cast instruction
   static CastInst *CreatePointerCast(
     Value *S,                ///< The pointer value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which cast should be made
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
   );
@@ -540,7 +480,7 @@ public:
   /// @brief Create a ZExt, BitCast, or Trunc for int -> int casts.
   static CastInst *CreateIntegerCast(
     Value *S,                ///< The pointer value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which cast should be made
+    Type *Ty,          ///< The type to which cast should be made
     bool isSigned,           ///< Whether to regard S as signed or not
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
@@ -549,7 +489,7 @@ public:
   /// @brief Create a ZExt, BitCast, or Trunc for int -> int casts.
   static CastInst *CreateIntegerCast(
     Value *S,                ///< The integer value to be casted (operand 0)
-    const Type *Ty,          ///< The integer type to which operand is casted
+    Type *Ty,          ///< The integer type to which operand is casted
     bool isSigned,           ///< Whether to regard S as signed or not
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
@@ -558,7 +498,7 @@ public:
   /// @brief Create an FPExt, BitCast, or FPTrunc for fp -> fp casts
   static CastInst *CreateFPCast(
     Value *S,                ///< The floating point value to be casted
-    const Type *Ty,          ///< The floating point type to cast to
+    Type *Ty,          ///< The floating point type to cast to
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
   );
@@ -566,7 +506,7 @@ public:
   /// @brief Create an FPExt, BitCast, or FPTrunc for fp -> fp casts
   static CastInst *CreateFPCast(
     Value *S,                ///< The floating point value to be casted
-    const Type *Ty,          ///< The floating point type to cast to
+    Type *Ty,          ///< The floating point type to cast to
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
   );
@@ -574,7 +514,7 @@ public:
   /// @brief Create a Trunc or BitCast cast instruction
   static CastInst *CreateTruncOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which cast should be made
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = 0 ///< Place to insert the instruction
   );
@@ -582,15 +522,15 @@ public:
   /// @brief Create a Trunc or BitCast cast instruction
   static CastInst *CreateTruncOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
-    const Type *Ty,          ///< The type to which operand is casted
+    Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
   );
 
   /// @brief Check whether it is valid to call getCastOpcode for these types.
   static bool isCastable(
-    const Type *SrcTy, ///< The Type from which the value should be cast.
-    const Type *DestTy ///< The Type to which the value should be cast.
+    Type *SrcTy, ///< The Type from which the value should be cast.
+    Type *DestTy ///< The Type to which the value should be cast.
   );
 
   /// Returns the opcode necessary to cast Val into Ty using usual casting
@@ -599,7 +539,7 @@ public:
   static Instruction::CastOps getCastOpcode(
     const Value *Val, ///< The value to cast
     bool SrcIsSigned, ///< Whether to treat the source as signed
-    const Type *Ty,   ///< The Type to which the value should be casted
+    Type *Ty,   ///< The Type to which the value should be casted
     bool DstIsSigned  ///< Whether to treate the dest. as signed
   );
 
@@ -612,7 +552,7 @@ public:
 
   /// A lossless cast is one that does not alter the basic value. It implies
   /// a no-op cast but is more stringent, preventing things like int->float,
-  /// long->double, int->ptr, or vector->anything.
+  /// long->double, or int->ptr.
   /// @returns true iff the cast is lossless.
   /// @brief Determine if this is a lossless cast.
   bool isLosslessCast() const;
@@ -625,9 +565,17 @@ public:
   /// platform. Generally, the result of TargetData::getIntPtrType() should be
   /// passed in. If that's not available, use Type::Int64Ty, which will make
   /// the isNoopCast call conservative.
+  /// @brief Determine if the described cast is a no-op cast.
+  static bool isNoopCast(
+    Instruction::CastOps Opcode,  ///< Opcode of cast
+    Type *SrcTy,   ///< SrcTy of cast
+    Type *DstTy,   ///< DstTy of cast
+    Type *IntPtrTy ///< Integer type corresponding to Ptr types, or null
+  );
+
   /// @brief Determine if this cast is a no-op cast.
   bool isNoopCast(
-    const Type *IntPtrTy ///< Integer type corresponding to pointer
+    Type *IntPtrTy ///< Integer type corresponding to pointer
   ) const;
 
   /// Determine how a pair of casts can be eliminated, if they can be at all.
@@ -639,10 +587,10 @@ public:
   static unsigned isEliminableCastPair(
     Instruction::CastOps firstOpcode,  ///< Opcode of first cast
     Instruction::CastOps secondOpcode, ///< Opcode of second cast
-    const Type *SrcTy, ///< SrcTy of 1st cast
-    const Type *MidTy, ///< DstTy of 1st cast & SrcTy of 2nd cast
-    const Type *DstTy, ///< DstTy of 2nd cast
-    const Type *IntPtrTy ///< Integer type corresponding to Ptr types, or null
+    Type *SrcTy, ///< SrcTy of 1st cast
+    Type *MidTy, ///< DstTy of 1st cast & SrcTy of 2nd cast
+    Type *DstTy, ///< DstTy of 2nd cast
+    Type *IntPtrTy ///< Integer type corresponding to Ptr types, or null
   );
 
   /// @brief Return the opcode of this CastInst
@@ -651,15 +599,15 @@ public:
   }
 
   /// @brief Return the source type, as a convenience
-  const Type* getSrcTy() const { return getOperand(0)->getType(); }
+  Type* getSrcTy() const { return getOperand(0)->getType(); }
   /// @brief Return the destination type, as a convenience
-  const Type* getDestTy() const { return getType(); }
+  Type* getDestTy() const { return getType(); }
 
   /// This method can be used to determine if a cast from S to DstTy using
   /// Opcode op is valid or not.
   /// @returns true iff the proposed cast is valid.
   /// @brief Determine if a cast is valid without creating one.
-  static bool castIsValid(Instruction::CastOps op, Value *S, const Type *DstTy);
+  static bool castIsValid(Instruction::CastOps op, Value *S, Type *DstTy);
 
   /// @brief Methods for support type inquiry through isa, cast, and dyn_cast:
   static inline bool classof(const CastInst *) { return true; }
@@ -681,11 +629,11 @@ class CmpInst : public Instruction {
   void *operator new(size_t, unsigned);  // DO NOT IMPLEMENT
   CmpInst(); // do not implement
 protected:
-  CmpInst(const Type *ty, Instruction::OtherOps op, unsigned short pred,
+  CmpInst(Type *ty, Instruction::OtherOps op, unsigned short pred,
           Value *LHS, Value *RHS, const Twine &Name = "",
           Instruction *InsertBefore = 0);
 
-  CmpInst(const Type *ty, Instruction::OtherOps op, unsigned short pred,
+  CmpInst(Type *ty, Instruction::OtherOps op, unsigned short pred,
           Value *LHS, Value *RHS, const Twine &Name,
           BasicBlock *InsertAtEnd);
 
@@ -816,11 +764,11 @@ public:
 
   /// This is just a convenience that dispatches to the subclasses.
   /// @brief Determine if this CmpInst is commutative.
-  bool isCommutative();
+  bool isCommutative() const;
 
   /// This is just a convenience that dispatches to the subclasses.
   /// @brief Determine if this is an equals/not equals predicate.
-  bool isEquality();
+  bool isEquality() const;
 
   /// @returns true if the comparison is signed, false otherwise.
   /// @brief Determine if this instruction is using a signed comparison.
@@ -877,8 +825,8 @@ public:
   }
   
   /// @brief Create a result type for fcmp/icmp
-  static const Type* makeCmpResultType(const Type* opnd_type) {
-    if (const VectorType* vt = dyn_cast<const VectorType>(opnd_type)) {
+  static Type* makeCmpResultType(Type* opnd_type) {
+    if (VectorType* vt = dyn_cast<VectorType>(opnd_type)) {
       return VectorType::get(Type::getInt1Ty(opnd_type->getContext()),
                              vt->getNumElements());
     }
@@ -895,7 +843,7 @@ private:
 
 // FIXME: these are redundant if CmpInst < BinaryOperator
 template <>
-struct OperandTraits<CmpInst> : public FixedNumOperandTraits<2> {
+struct OperandTraits<CmpInst> : public FixedNumOperandTraits<CmpInst, 2> {
 };
 
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(CmpInst, Value)

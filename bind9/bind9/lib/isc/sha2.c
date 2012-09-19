@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2007, 2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2005-2007, 2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sha2.c,v 1.18 2009-10-22 02:21:31 each Exp $ */
+/* $Id$ */
 
 /*	$FreeBSD: src/sys/crypto/sha2/sha2.c,v 1.2.2.2 2002/03/05 08:36:47 ume Exp $	*/
 /*	$KAME: sha2.c,v 1.8 2001/11/08 01:07:52 itojun Exp $	*/
@@ -692,6 +692,9 @@ void isc_sha256_transform(isc_sha256_t *context, const isc_uint32_t* data) {
 
 	/* Clean up */
 	a = b = c = d = e = f = g = h = T1 = 0;
+	/* Avoid compiler warnings */
+	POST(a); POST(b); POST(c); POST(d); POST(e); POST(f);
+	POST(g); POST(h); POST(T1);
 }
 
 #else /* ISC_SHA2_UNROLL_TRANSFORM */
@@ -773,6 +776,9 @@ isc_sha256_transform(isc_sha256_t *context, const isc_uint32_t* data) {
 
 	/* Clean up */
 	a = b = c = d = e = f = g = h = T1 = T2 = 0;
+	/* Avoid compiler warnings */
+	POST(a); POST(b); POST(c); POST(d); POST(e); POST(f);
+	POST(g); POST(h); POST(T1); POST(T2);
 }
 
 #endif /* ISC_SHA2_UNROLL_TRANSFORM */
@@ -809,6 +815,8 @@ isc_sha256_update(isc_sha256_t *context, const isc_uint8_t *data, size_t len) {
 			context->bitcount += len << 3;
 			/* Clean up: */
 			usedspace = freespace = 0;
+			/* Avoid compiler warnings: */
+			POST(usedspace); POST(freespace);
 			return;
 		}
 	}
@@ -827,6 +835,8 @@ isc_sha256_update(isc_sha256_t *context, const isc_uint8_t *data, size_t len) {
 	}
 	/* Clean up: */
 	usedspace = freespace = 0;
+	/* Avoid compiler warnings: */
+	POST(usedspace); POST(freespace);
 }
 
 void
@@ -895,8 +905,9 @@ isc_sha256_final(isc_uint8_t digest[], isc_sha256_t *context) {
 	}
 
 	/* Clean up state data: */
-	memset(context, 0, sizeof(context));
+	memset(context, 0, sizeof(*context));
 	usedspace = 0;
+	POST(usedspace);
 }
 
 /*** SHA-512: *********************************************************/
@@ -1003,6 +1014,9 @@ void isc_sha512_transform(isc_sha512_t *context, const isc_uint64_t* data) {
 
 	/* Clean up */
 	a = b = c = d = e = f = g = h = T1 = 0;
+	/* Avoid compiler warnings */
+	POST(a); POST(b); POST(c); POST(d); POST(e); POST(f);
+	POST(g); POST(h); POST(T1);
 }
 
 #else /* ISC_SHA2_UNROLL_TRANSFORM */
@@ -1082,6 +1096,9 @@ isc_sha512_transform(isc_sha512_t *context, const isc_uint64_t* data) {
 
 	/* Clean up */
 	a = b = c = d = e = f = g = h = T1 = T2 = 0;
+	/* Avoid compiler warnings */
+	POST(a); POST(b); POST(c); POST(d); POST(e); POST(f);
+	POST(g); POST(h); POST(T1); POST(T2);
 }
 
 #endif /* ISC_SHA2_UNROLL_TRANSFORM */
@@ -1117,6 +1134,8 @@ void isc_sha512_update(isc_sha512_t *context, const isc_uint8_t *data, size_t le
 			ADDINC128(context->bitcount, len << 3);
 			/* Clean up: */
 			usedspace = freespace = 0;
+			/* Avoid compiler warnings: */
+			POST(usedspace); POST(freespace);
 			return;
 		}
 	}
@@ -1135,6 +1154,8 @@ void isc_sha512_update(isc_sha512_t *context, const isc_uint8_t *data, size_t le
 	}
 	/* Clean up: */
 	usedspace = freespace = 0;
+	/* Avoid compiler warnings: */
+	POST(usedspace); POST(freespace);
 }
 
 void isc_sha512_last(isc_sha512_t *context) {
@@ -1208,7 +1229,7 @@ void isc_sha512_final(isc_uint8_t digest[], isc_sha512_t *context) {
 	}
 
 	/* Zero out state data */
-	memset(context, 0, sizeof(context));
+	memset(context, 0, sizeof(*context));
 }
 
 
@@ -1261,7 +1282,7 @@ isc_sha384_final(isc_uint8_t digest[], isc_sha384_t *context) {
 	}
 
 	/* Zero out state data */
-	memset(context, 0, sizeof(context));
+	memset(context, 0, sizeof(*context));
 }
 #endif /* !ISC_PLATFORM_OPENSSLHASH */
 
@@ -1292,7 +1313,7 @@ isc_sha224_end(isc_sha224_t *context, char buffer[]) {
 #ifdef ISC_PLATFORM_OPENSSLHASH
 		EVP_MD_CTX_cleanup(context);
 #else
-		memset(context, 0, sizeof(context));
+		memset(context, 0, sizeof(*context));
 #endif
 	}
 	memset(digest, 0, ISC_SHA224_DIGESTLENGTH);
@@ -1331,7 +1352,7 @@ isc_sha256_end(isc_sha256_t *context, char buffer[]) {
 #ifdef ISC_PLATFORM_OPENSSLHASH
 		EVP_MD_CTX_cleanup(context);
 #else
-		memset(context, 0, sizeof(context));
+		memset(context, 0, sizeof(*context));
 #endif
 	}
 	memset(digest, 0, ISC_SHA256_DIGESTLENGTH);
@@ -1370,7 +1391,7 @@ isc_sha512_end(isc_sha512_t *context, char buffer[]) {
 #ifdef ISC_PLATFORM_OPENSSLHASH
 		EVP_MD_CTX_cleanup(context);
 #else
-		memset(context, 0, sizeof(context));
+		memset(context, 0, sizeof(*context));
 #endif
 	}
 	memset(digest, 0, ISC_SHA512_DIGESTLENGTH);
@@ -1409,7 +1430,7 @@ isc_sha384_end(isc_sha384_t *context, char buffer[]) {
 #ifdef ISC_PLATFORM_OPENSSLHASH
 		EVP_MD_CTX_cleanup(context);
 #else
-		memset(context, 0, sizeof(context));
+		memset(context, 0, sizeof(*context));
 #endif
 	}
 	memset(digest, 0, ISC_SHA384_DIGESTLENGTH);

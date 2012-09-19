@@ -26,6 +26,7 @@
 //
 #include "codesign.h"
 #include <Security/CodeSigning.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/CSCommonPriv.h>
 #include <Security/SecIdentitySearchPriv.h>
 #include <Security/SecPolicyPriv.h>
@@ -69,7 +70,7 @@ static const HashType hashTypes[] = {
 
 const HashType *findHashType(const char *hashName)
 {
-	int length = strlen(hashName);
+	size_t length = strlen(hashName);
 	const HashType *match = NULL;
 	for (const HashType *h = hashTypes; h->name; h++)
 		if (!strncmp(hashName, h->name, length))	// prefix match

@@ -488,123 +488,130 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
     return sizeof( Pixel_Type )*wrtCnt;
 }
 
-static int CompressData(uint8_t *srcbase, bool vram,
+static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
                  uint32_t depth, uint32_t width, uint32_t height,
                  uint32_t rowbytes, uint8_t *dstbase, uint32_t dlen,
                  uint32_t gammaChannelCount, uint32_t gammaDataCount, 
                  uint32_t gammaDataWidth, uint8_t * gammaData)
 {
+	hibernate_preview_t * hdr;
     uint32_t * dst;
     uint32_t * cScan,*pScan;
     UInt8 *    lineBuffer;
     int32_t    cSize, pSize;
-    uint32_t   y, lineLen;
+    uint32_t   image, y, lineLen;
 
-    if(dlen <= (3+height)*sizeof(uint32_t))
+    if (dlen <= sizeof(hibernate_preview_t) + imageCount*height*sizeof(uint32_t))
     {
         DEBG("", "compressData: destination buffer size %d too small for y index (%ld)\n",
-                dlen, (3+height)*sizeof(uint32_t));
+                dlen, (kCompressCount+height)*sizeof(uint32_t));
         return 0;
     }
 
-    dst      = (uint32_t *)dstbase;
+    hdr = (typeof(hdr)) dstbase;
+	dst = (typeof(dst)) (hdr + 1);
 
     lineLen = width * depth;
-    lineBuffer = dstbase + dlen - lineLen;
     dlen -= lineLen;
 
-    dst[0] = depth;
-    dst[1] = width;
-    dst[2] = height;
-    dst    = dst + 3;
+	bzero(hdr, sizeof(*hdr));
+#if !IOHIB_PREVIEW_V0
+    hdr->imageCount = imageCount;
+#endif
+    hdr->depth      = depth;
+    hdr->width      = width;
+    hdr->height     = height;
 
-    uint8_t *  gammaOut = (uint8_t *) &dst[height];
-    uint32_t   idx, idxIn, channel;
+    uint8_t * gammaOut = (uint8_t *) &dst[imageCount * height];
+    uint32_t  idx, idxIn, channel;
     for (channel = 0; channel < 3; channel++)
     {
         for (idx = 0; idx < 256; idx++)
         {
-	    if (!gammaData)
-	    {
-	    	*gammaOut++ = idx;
-		continue;
-	    }
+			if (!gammaData)
+			{
+				*gammaOut++ = idx;
+				continue;
+			}
             idxIn = (idx * (gammaDataCount - 1)) / 255;
             if (gammaDataWidth <= 8)
                 *gammaOut++ = gammaData[idxIn] << (8 - gammaDataWidth);
             else
                 *gammaOut++ = ((uint16_t *) gammaData)[idxIn] >> (gammaDataWidth - 8);
         }
-	if (gammaData)
-	{
-	    gammaData += gammaDataCount * ((gammaDataWidth + 7) / 8);
-	}
+		if (gammaData)
+		{
+			gammaData += gammaDataCount * ((gammaDataWidth + 7) / 8);
+		}
     }
 
     cScan = (uint32_t *) gammaOut;
     pScan = cScan;
     pSize = -1;
 
-    for(y=0 ; y<height ; y++)
-    {
-        if(((((uint8_t *)cScan)-dstbase) + 8*(width+1)) > dlen)
-        {
-            DEBG("", "compressData: overflow: %ld bytes in %d byte buffer at scanline %d (of %d).\n",
-                (size_t)(((uint8_t *)cScan)-dstbase), dlen, y, height);
-
-            return 0;
-        }
-
-        if (!vram)
-            lineBuffer = srcbase + y*rowbytes;
-        else
-        {
-            bcopy_nc(srcbase + y*rowbytes, lineBuffer, lineLen);
-            if (0 == (y & 7))
-            {
-                AbsoluteTime deadline;
-                clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
-                assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
-                thread_block(NULL);
-            }
-        }
-
-        cSize = (depth <= 1 ? compress_line_8 :
-                (depth <= 2 ? compress_line_16 :
-                 compress_line_32))(lineBuffer, width, (uint8_t *)cScan);
-
-        if(cSize != pSize  ||  bcmp(pScan, cScan, cSize))
-        {
-            pScan  = cScan;
-            cScan  = (uint32_t *)((uint8_t *)cScan + cSize);
-            pSize  = cSize;
-        }
-
-        dst[y] = (uint8_t *)pScan - dstbase;
-    }
+	for (image = 0; image < imageCount; image++)
+	{
+		if (!srcbase[image])
+		{
+			lineBuffer = dstbase + dlen - lineLen;
+			bzero(lineBuffer, lineLen);
+		}
+		for(y=0 ; y<height ; y++)
+		{
+			if(((((uint8_t *)cScan)-dstbase) + 8*(width+1)) > dlen)
+			{
+				DEBG("", "compressData: overflow: %ld bytes in %d byte buffer at scanline %d (of %d).\n",
+					(size_t)(((uint8_t *)cScan)-dstbase), dlen, y, height);
+	
+				return 0;
+			}
+	
+			if (srcbase[image])	lineBuffer = srcbase[image] + y*rowbytes;
+	
+			cSize = (depth <= 1 ? compress_line_8 :
+					(depth <= 2 ? compress_line_16 :
+					 compress_line_32))(lineBuffer, width, (uint8_t *)cScan);
+	
+			if(cSize != pSize  ||  bcmp(pScan, cScan, cSize))
+			{
+				pScan  = cScan;
+				cScan  = (uint32_t *)((uint8_t *)cScan + cSize);
+				pSize  = cSize;
+			}
+	
+			dst[image * height + y] = (uint8_t *)pScan - dstbase;
+		}
+		DEBG1("", " image %d ends 0x%lx\n", image, (uintptr_t)(((uint8_t *)cScan) - dstbase));
+	}
 
     return (uint8_t *)cScan - dstbase;
 }
 
-static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
-                    int dw, int dh, int rowbytes)
+static void DecompressData(uint8_t *srcbase, uint32_t image, UInt8 *dstbase, uint32_t dx, uint32_t dy,
+                    uint32_t dw, uint32_t dh, uint32_t rowbytes)
 {
+	hibernate_preview_t * hdr;
     uint32_t  *src;
     uint8_t   *dst;
-    int        xMin,xMax;
-    int        y, depth;
+    uint32_t   xMin,xMax;
+    uint32_t   y, depth;
 
-    src     = (uint32_t *)srcbase;
-    dst     = (uint8_t *)dstbase;
+    hdr = (typeof(hdr)) srcbase;
+    dst = (typeof(dst)) dstbase;
 
-    if ((dw != (int) src[1]) || (dh != (int) src[2]))
+    if ((dw != hdr->width)
+#if !IOHIB_PREVIEW_V0
+    	|| (image >= hdr->imageCount) 
+#endif
+    	|| (dh != hdr->height))
     {
-        DEBG("", " DecompressData mismatch %dx%d, %dx%d\n", dw, dh, src[1], src[2]);
+        DEBG1("", " DecompressData mismatch\n");
         return;
     }
 
-    depth   = src[0];
-    src     = src + 3 + dy;
+    depth = hdr->depth;
+    src   = (typeof(src)) (hdr + 1); 
+    src   += dy + image * dh;
 
     xMin    = dx;
     xMax    = dx + dw;
@@ -613,7 +620,7 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
     {
         UInt8 *scan;
 
-        scan = (UInt8 *)srcbase + *src;
+        scan = srcbase + *src;
 
         if (0 == (y & 7))
         {
@@ -633,7 +640,7 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
 }
 
 static void 
-PreviewDecompress16(uint32_t * compressBuffer, 
+PreviewDecompress16(const hibernate_preview_t * src, uint32_t image,
                         uint32_t width, uint32_t height, uint32_t row, 
                         uint16_t * output)
 {
@@ -654,12 +661,13 @@ PreviewDecompress16(uint32_t * compressBuffer,
     uint32_t tmp1, tmp2, out;
     for (j = 0; j < (height + 2); j++)
     {
-        input = compressBuffer;
+    	input = (typeof(input)) (src + 1);
+    	input += image * height;
         if (j < height)
             input += j;
         else
             input += height - 1;
-        input = (uint32_t *)(input[3] + ((uint8_t *)compressBuffer));
+        input = (uint32_t *)(input[0] + ((uint8_t *)src));
 
         uint32_t data = 0, repeat = 0, fetch, count = 0;
         sr0 = sr1 = sr2 = sr3 = 0;
@@ -734,7 +742,7 @@ PreviewDecompress16(uint32_t * compressBuffer,
 }
 
 static void 
-PreviewDecompress32(uint32_t * compressBuffer, 
+PreviewDecompress32(const hibernate_preview_t * src, uint32_t image,
                         uint32_t width, uint32_t height, uint32_t row, 
                         uint32_t * output)
 {
@@ -755,12 +763,13 @@ PreviewDecompress32(uint32_t * compressBuffer,
     uint32_t tmp1, tmp2, out;
     for (j = 0; j < (height + 2); j++)
     {
-        input = compressBuffer;
+    	input = (typeof(input)) (src + 1);
+    	input += image * height;
         if (j < height)
             input += j;
         else
             input += height - 1;
-        input = (uint32_t *)(input[3] + ((uint8_t *)compressBuffer));
+        input = (uint32_t *)(input[0] + ((uint8_t *)src));
 
         uint32_t data = 0, repeat = 0, fetch, count = 0;
         sr0 = sr1 = sr2 = sr3 = 0;
@@ -835,21 +844,25 @@ PreviewDecompress32(uint32_t * compressBuffer,
 }
 
 bool
-PreviewDecompressData(void *srcbase, void *dstbase,
-                      int dw, int dh, int bytesPerPixel, int rowbytes)
+PreviewDecompressData(void *srcbase, uint32_t image, void *dstbase, 
+                      uint32_t dw, uint32_t dh, uint32_t bytesPerPixel, uint32_t rowbytes)
 {
-    uint32_t * src = (uint32_t *) srcbase;
+	const hibernate_preview_t * src = (typeof(src)) srcbase;
 
-    if ((bytesPerPixel != (int) src[0]) || (dw != (int) src[1]) || (dh != (int) src[2]))
+    if ((bytesPerPixel != src->depth)
+#if !IOHIB_PREVIEW_V0
+    	|| (image >= src->imageCount) 
+#endif
+    	|| (dw != src->width) || (dh != src->height))
       return (false);
 
     switch(bytesPerPixel)
     {
       case 4:
-        PreviewDecompress32((uint32_t *)srcbase, dw, dh, rowbytes >> 2, (uint32_t *) dstbase);
+        PreviewDecompress32(src, image, dw, dh, rowbytes >> 2, (uint32_t *) dstbase);
         return (true);
       case 2:
-        PreviewDecompress16((uint32_t *)srcbase, dw, dh, rowbytes >> 1, (uint16_t *) dstbase);
+        PreviewDecompress16(src, image, dw, dh, rowbytes >> 1, (uint16_t *) dstbase);
         return (true);
       default:
         return (false);

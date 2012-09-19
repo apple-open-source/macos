@@ -19,7 +19,7 @@
 #include "llvm/Value.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Dominators.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
 using namespace llvm;
 
 template<typename GraphType>
@@ -28,13 +28,19 @@ static void WriteGraphToFile(raw_ostream &O, const std::string &GraphName,
   std::string Filename = GraphName + ".dot";
   O << "Writing '" << Filename << "'...";
   std::string ErrInfo;
-  raw_fd_ostream F(Filename.c_str(), ErrInfo);
+  tool_output_file F(Filename.c_str(), ErrInfo);
 
-  if (ErrInfo.empty())
-    WriteGraph(F, GT);
-  else
-    O << "  error opening file for writing!";
-  O << "\n";
+  if (ErrInfo.empty()) {
+    WriteGraph(F.os(), GT);
+    F.os().close();
+    if (!F.os().has_error()) {
+      O << "\n";
+      F.keep();
+      return;
+    }
+  }
+  O << "  error opening file for writing!\n";
+  F.os().clear_error();
 }
 
 
@@ -55,8 +61,7 @@ namespace llvm {
     static std::string getNodeLabel(CallGraphNode *Node, CallGraph *Graph) {
       if (Node->getFunction())
         return ((Value*)Node->getFunction())->getName();
-      else
-        return "Indirect call node";
+      return "external node";
     }
   };
 }
@@ -65,7 +70,7 @@ namespace llvm {
 namespace {
   struct CallGraphPrinter : public ModulePass {
     static char ID; // Pass ID, replacement for typeid
-    CallGraphPrinter() : ModulePass(&ID) {}
+    CallGraphPrinter() : ModulePass(ID) {}
 
     virtual bool runOnModule(Module &M) {
       WriteGraphToFile(llvm::errs(), "callgraph", &getAnalysis<CallGraph>());
@@ -79,11 +84,11 @@ namespace {
       AU.setPreservesAll();
     }
   };
-
-  char CallGraphPrinter::ID = 0;
-  RegisterPass<CallGraphPrinter> P2("dot-callgraph",
-                                    "Print Call Graph to 'dot' file");
 }
+
+char CallGraphPrinter::ID = 0;
+static RegisterPass<CallGraphPrinter> P2("dot-callgraph",
+                                         "Print Call Graph to 'dot' file");
 
 //===----------------------------------------------------------------------===//
 //                            DomInfoPrinter Pass
@@ -93,25 +98,21 @@ namespace {
   class DomInfoPrinter : public FunctionPass {
   public:
     static char ID; // Pass identification, replacement for typeid
-    DomInfoPrinter() : FunctionPass(&ID) {}
+    DomInfoPrinter() : FunctionPass(ID) {}
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesAll();
       AU.addRequired<DominatorTree>();
-      AU.addRequired<DominanceFrontier>();
 
     }
 
     virtual bool runOnFunction(Function &F) {
-      DominatorTree &DT = getAnalysis<DominatorTree>();
-      DT.dump();
-      DominanceFrontier &DF = getAnalysis<DominanceFrontier>();
-      DF.dump();
+      getAnalysis<DominatorTree>().dump();
       return false;
     }
   };
-
-  char DomInfoPrinter::ID = 0;
-  static RegisterPass<DomInfoPrinter>
-  DIP("print-dom-info", "Dominator Info Printer", true, true);
 }
+
+char DomInfoPrinter::ID = 0;
+static RegisterPass<DomInfoPrinter>
+DIP("print-dom-info", "Dominator Info Printer", true, true);

@@ -31,6 +31,7 @@
 #include <Security/CMSEncoder.h>
 #include "renum.h"
 #include "csutilities.h"
+#include "drmaker.h"
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
 #include <vector>
@@ -303,6 +304,58 @@ void MachOEditor::commit()
 		UnixError::check(::rename(tempPath.c_str(), sourcePath.c_str()));
 		mTempMayExist = false;		// we renamed it away
 	}
+}
+
+
+//
+// InternalRequirements
+//
+void InternalRequirements::operator () (const Requirements *given, const Requirements *defaulted, const Requirement::Context &context)
+{
+	// first add the default internal requirements
+	if (defaulted) {
+		this->add(defaulted);
+		::free((void *)defaulted);		// was malloc(3)ed by DiskRep
+	}
+	
+	// now override them with any requirements explicitly given by the signer
+	if (given)
+		this->add(given);
+
+	// now add the Designated Requirement, if we can make it and it's not been provided
+	if (!this->contains(kSecDesignatedRequirementType)) {
+		DRMaker maker(context);
+		if (Requirement *dr = maker.make()) {
+			this->add(kSecDesignatedRequirementType, dr);		// takes ownership of dr
+		}
+	}
+	
+	// return the result
+	mReqs = this->make();
+}
+
+
+//
+// Pre-Signing contexts
+//
+PreSigningContext::PreSigningContext(const SecCodeSigner::Signer &signer)
+{
+	// construct a cert chain
+	if (signer.signingIdentity() != SecIdentityRef(kCFNull)) {
+		CFRef<SecCertificateRef> signingCert;
+		MacOSError::check(SecIdentityCopyCertificate(signer.signingIdentity(), &signingCert.aref()));
+		CFRef<SecPolicyRef> policy = SecPolicyCreateWithOID(kSecPolicyAppleCodeSigning);
+		CFRef<SecTrustRef> trust;
+		MacOSError::check(SecTrustCreateWithCertificates(CFArrayRef(signingCert.get()), policy, &trust.aref()));
+		SecTrustResultType result;
+		MacOSError::check(SecTrustEvaluate(trust, &result));
+		CSSM_TP_APPLE_EVIDENCE_INFO *info;
+		MacOSError::check(SecTrustGetResult(trust, &result, &mCerts.aref(), &info));
+		this->certs = mCerts;
+	}
+	
+	// other stuff
+	this->identifier = signer.signingIdentifier();
 }
 
 

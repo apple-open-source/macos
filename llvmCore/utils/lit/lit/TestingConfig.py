@@ -1,4 +1,5 @@
 import os
+import sys
 
 class TestingConfig:
     """"
@@ -10,13 +11,21 @@ class TestingConfig:
         if config is None:
             # Set the environment based on the command line arguments.
             environment = {
+                'LIBRARY_PATH' : os.environ.get('LIBRARY_PATH',''),
                 'LD_LIBRARY_PATH' : os.environ.get('LD_LIBRARY_PATH',''),
                 'PATH' : os.pathsep.join(litConfig.path +
                                          [os.environ.get('PATH','')]),
-                'PATHEXT' : os.environ.get('PATHEXT',''),
                 'SYSTEMROOT' : os.environ.get('SYSTEMROOT',''),
-                'LLVM_DISABLE_CRT_DEBUG' : '1',
                 }
+
+            if sys.platform == 'win32':
+                environment.update({
+                        'LLVM_DISABLE_CRT_DEBUG' : '1',
+                        'PATHEXT' : os.environ.get('PATHEXT',''),
+                        'PYTHONUNBUFFERED' : '1',
+                        'TEMP' : os.environ.get('TEMP',''),
+                        'TMP' : os.environ.get('TMP',''),
+                        })
 
             config = TestingConfig(parent,
                                    name = '<unnamed>',
@@ -28,7 +37,8 @@ class TestingConfig:
                                    on_clone = None,
                                    test_exec_root = None,
                                    test_source_root = None,
-                                   excludes = [])
+                                   excludes = [],
+                                   available_features = [])
 
         if os.path.exists(path):
             # FIXME: Improve detection and error reporting of errors in the
@@ -54,7 +64,8 @@ class TestingConfig:
 
     def __init__(self, parent, name, suffixes, test_format,
                  environment, substitutions, unsupported, on_clone,
-                 test_exec_root, test_source_root, excludes):
+                 test_exec_root, test_source_root, excludes,
+                 available_features):
         self.parent = parent
         self.name = str(name)
         self.suffixes = set(suffixes)
@@ -66,6 +77,7 @@ class TestingConfig:
         self.test_exec_root = test_exec_root
         self.test_source_root = test_source_root
         self.excludes = set(excludes)
+        self.available_features = set(available_features)
 
     def clone(self, path):
         # FIXME: Chain implementations?
@@ -75,7 +87,7 @@ class TestingConfig:
                             self.environment, self.substitutions,
                             self.unsupported, self.on_clone,
                             self.test_exec_root, self.test_source_root,
-                            self.excludes)
+                            self.excludes, self.available_features)
         if cfg.on_clone:
             cfg.on_clone(self, cfg, path)
         return cfg

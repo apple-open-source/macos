@@ -856,8 +856,9 @@ bool AppleUSBCDCECMData::start(IOService *provider)
     
         // Ready to service interface requests
     
-	if (fNetworkInterface)
-		fNetworkInterface->registerService();
+//rcs radar://10369195 We now registerService in createNetworkInterface 
+//	if (fNetworkInterface)
+//		fNetworkInterface->registerService();
         
     XTRACE(this, 0, 0, "start - successful");
 	Log(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
@@ -1055,8 +1056,10 @@ bool AppleUSBCDCECMData::createNetworkInterface()
         // Attach an IOEthernetInterface client
         
     XTRACE(this, 0, 0, "createNetworkInterface - attaching and registering interface");
-    
-    if (!attachInterface((IONetworkInterface **)&fNetworkInterface, false))
+
+//rcs radar://10369195 attach interface and register at the same time..    
+//    if (!attachInterface((IONetworkInterface **)&fNetworkInterface, false))
+    if (!attachInterface((IONetworkInterface **)&fNetworkInterface))
     {	
         ALERT(0, 0, "createNetworkInterface - attachInterface failed");      
         return false;
@@ -2471,21 +2474,17 @@ void AppleUSBCDCECMData::setLinkStatusUp()
     
     XTRACE(this, fUpSpeed, fDownSpeed, "setLinkStatusUp");
     
-    if (fUpSpeed == fDownSpeed)
-    {
-        mediumType = kIOMediumOptionFullDuplex;
-        speed = fDownSpeed;
-        fullduplex = true;
-    } else {
-        mediumType = kIOMediumOptionHalfDuplex;
-        if (fUpSpeed > fDownSpeed)
-        {
-            speed = fUpSpeed;
-        } else {
-            speed = fDownSpeed;
-        }
-        fullduplex = false;
-    }
+		// We'll default to FDX and use the higher speed
+		
+	mediumType = kIOMediumOptionFullDuplex;
+	fullduplex = true;
+	if (fUpSpeed > fDownSpeed)
+	{
+		speed = fUpSpeed;
+	} else {
+		speed = fDownSpeed;
+	}
+
     if (speed > 10000000)
     {
         mediumType |= kIOMediumEthernet100BaseTX;

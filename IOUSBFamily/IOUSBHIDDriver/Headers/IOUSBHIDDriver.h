@@ -289,4 +289,4 @@ public:
     OSMetaClassDeclareReservedUnused(IOUSBHIDDriver, 19);
 };
 
-#endif	// IOUSBHIDDRIVER_H
+#endif

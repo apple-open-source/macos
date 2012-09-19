@@ -32,7 +32,7 @@ static void DeviceAdded(void *refCon, io_iterator_t iterator)
 {
     io_service_t ioDeviceObj = IO_OBJECT_NULL;
     
-    while( ioDeviceObj = IOIteratorNext( iterator) )
+    while( (ioDeviceObj = IOIteratorNext( iterator)) )
     {
         IOObjectRelease( ioDeviceObj );
     }
@@ -155,7 +155,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
         return;
     }
     
-    while (ioDeviceObj = IOIteratorNext(devIter)) {
+    while ((ioDeviceObj = IOIteratorNext(devIter))) {
         IOCFPlugInInterface 	**ioPlugin;
         IOUSBDeviceRef			deviceIntf = NULL;
         SInt32                  score;
@@ -240,7 +240,11 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     // Set the name of the device (this is what will be shown in the UI)
     [thisDevice setDeviceName:
 	 [NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",
+#ifdef SUPPORTS_SS_USB
+	  (speed == kUSBDeviceSpeedSuper ? "Super" : (speed == kUSBDeviceSpeedHigh ? "High" :(speed == kUSBDeviceSpeedFull ? "Full" : "Low"))), 
+#else
 	  (speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), 
+#endif
 	  address, 
 	  locationID]];    
 	
@@ -257,7 +261,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		sprintf((char *)buf, "%s (0x%x)", USBErrorToString(error), error );
 		[thisDevice addProperty:"Port Information:" withValue:buf  atDepth:ROOT_LEVEL];
 		//[thisDevice addProperty:"Port Information:" withValue:(char *)[NSString stringWithFormat:@"Error %s", USBErrorToString(error)]  atDepth:ROOT_LEVEL];
-		NSLog(@"USB Prober: GetUSBDeviceInformation() for device @%8x failed with %s", [thisDevice locationID], USBErrorToString(error));
+		NSLog(@"USB Prober: GetUSBDeviceInformation() for device @%8x failed with %s", (uint32_t)[thisDevice locationID], USBErrorToString(error));
 		error = kIOReturnSuccess;
 	}
 	
@@ -284,12 +288,29 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	
 	// OK, go get the descriptors and run with it
 	
-	if ( error == kIOReturnSuccess ) {
+	if ( error == kIOReturnSuccess ) 
+	{
         int iconfig;
         [DecodeDeviceDescriptor decodeBytes:&dev forDevice:thisDevice deviceInterface:deviceIntf wasSuspended:needToSuspend];
 		if (actErr != kIOReturnSuccess) {
 			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ - Gave an error getting descriptor - %s (0x%x)", usbName, USBErrorToString(actErr), actErr]];
 		}
+		
+#ifdef SUPPORTS_SS_USB
+		IOUSBBOSDescriptor	bosDescriptor;
+		
+		// If we have a SuperSpeed device, then go get and decode the BOS descriptors.  We first read the root BOS descriptor, which tells us the length, and then we read
+		// the full descriptor, just like we do for config descriptors
+		if ( speed == kUSBDeviceSpeedSuper )
+		{
+			error = GetDescriptor(deviceIntf, kUSBBOSDescriptor, 0, &bosDescriptor, sizeof(bosDescriptor), &actErr);
+			if ( error == kIOReturnSuccess)
+			{
+				[DecodeBOSDescriptor decodeBytes:(IOUSBBOSDescriptor *)&bosDescriptor forDevice:thisDevice deviceInterface:deviceIntf];
+			}
+		}
+#endif
+		
 		// Check the current configuration
 		currConfig = GetCurrentConfiguration(deviceIntf);
 		if(currConfig < 1)	// Almost everything has a current config of 1
@@ -344,17 +365,31 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		// If the device is a hub, then dump the Hub descriptor
 		//
 		if ( dev.bDeviceClass == kUSBHubClass ) {
-			IOUSBHubDescriptor	cfg;
 			
+#ifdef SUPPORTS_SS_USB
+			if(dev.bDeviceProtocol == 3)
+			{
+				IOUSB3HubDescriptor	cfg;
+				len = GetClassDescriptor(deviceIntf, kUSB3HUBDesc, 0, &cfg, sizeof(cfg));
+				if (len > 0) {
+					[DescriptorDecoder decodeBytes:(Byte *)&cfg forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false isinCurrentConfig:false];
+				}
+			}
+			else
+#endif
+			{
+				IOUSBHubDescriptor	cfg;
 			len = GetClassDescriptor(deviceIntf, kUSBHUBDesc, 0, &cfg, sizeof(cfg));
 			if (len > 0) {
 				[DescriptorDecoder decodeBytes:(Byte *)&cfg forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false isinCurrentConfig:false];
 			}
 		}
 		
+		}
+		
 		// Check to see if the device has the "Device Qualifier" descriptor
 		//
-		if ( dev.bcdUSB >= 0x0200 && speed == kUSBDeviceSpeedHigh) {
+		if ( dev.bcdUSB >= kUSBRel20 && speed == kUSBDeviceSpeedHigh) {
 			IOUSBDeviceQualifierDescriptor	desc;
 			
 			error = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc), nil);
@@ -472,6 +507,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	
 	if (portInfo & (1<<kUSBInformationDeviceIsRemote))
 		[thisDevice addProperty:"" withValue:"Remote" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsAttachedToEnclosure))
+		[thisDevice addProperty:"" withValue:"Connected to External Port" atDepth:ROOT_LEVEL+1];
 	
 }
 

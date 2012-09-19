@@ -27,6 +27,7 @@
 #include "codesign.h"
 #include <libproc.h>
 #include <sys/codesign.h>
+#include <security_utilities/blob.h>
 #include <sys/param.h>		// MAXPATHLEN
 
 using namespace UnixPlusPlus;
@@ -74,6 +75,35 @@ void procinfo(const char *target)
 			printf(" cdhash=%s", hashString(hash).c_str());
 
 		printf("\n");
+
+		if (verbose > 0) {
+		
+			BlobCore header;
+			int rcent = ::csops(pid, CS_OPS_ENTITLEMENTS_BLOB, &header, sizeof(header)); // size request
+			if (rcent == 0)
+				printf("[no entitlement]\n");
+			else if (errno == ERANGE) {
+				// kernel returns a blob header with magic == 0, length == needed size
+				assert(header.magic() == 0);
+				uint32_t bufferLen = header.length();
+				if (bufferLen > 1024 * 1024)
+					fail("insane entitlement length from kernel");
+				uint8_t buffer[bufferLen];
+
+				rcent = ::csops(pid, CS_OPS_ENTITLEMENTS_BLOB, buffer, bufferLen);
+				if (rcent == 0) {	// kernel says it's good
+					const BlobCore *blob = (const BlobCore *)buffer;
+					if (blob->length() < sizeof(*blob))
+						fail("runt entitlement blob returned from kernel");
+					if (blob->magic() == kSecCodeMagicEntitlement)
+						fwrite(blob+1, blob->length() - sizeof(*blob), 1, stdout);
+					else
+						printf("Entitlement blob type 0x%x not understood\n", blob->magic());
+				} else
+					printf("[entitlements:%s]\n", strerror(errno));
+			} else
+				printf("[entitlements:%s]\n", strerror(errno));
+		}
 	} else {
 		fail("%s: not a numeric process id", target);
 	}

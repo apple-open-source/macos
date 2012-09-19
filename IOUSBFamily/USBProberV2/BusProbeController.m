@@ -77,28 +77,74 @@
 	NSEnumerator *devicesEnumerator = [_devicesArray objectEnumerator];
 	BusProbeDevice *thisDevice;
 	
-	while (thisDevice = [devicesEnumerator nextObject]) {
+	while (thisDevice = [devicesEnumerator nextObject]) 
+    {
 		[finalString appendFormat:@"%@",thisDevice];
 	}
+}
+
+- (NSMutableArray *)generateArrayOfDictionariesFromDevices
+{
+    NSMutableArray *returnArray = [NSMutableArray array];
+    NSEnumerator *devicesEnumerator = [_devicesArray objectEnumerator];
+	BusProbeDevice *thisDevice;
+	
+	while (thisDevice = [devicesEnumerator nextObject]) 
+    {
+        [returnArray addObject:[thisDevice dictionaryVersionOfMe]];
+    }
+    return returnArray;
 }
 
 - (IBAction)SaveOutput:(id)sender
 {
     NSSavePanel *sp = [NSSavePanel savePanel];
-    int result;
+    [sp setAllowedFileTypes:[NSArray arrayWithObjects:@"txt", @"plist", nil]];
+    [sp setDirectoryURL:[NSURL URLWithString:NSHomeDirectory()]];
+    [sp setNameFieldStringValue:@"USB Bus Probe"];
+    [sp setExtensionHidden:NO];
     
-    [sp setRequiredFileType:@"txt"];
-    result = [sp runModalForDirectory:NSHomeDirectory() file:@"USB Bus Probe"];
-    if (result == NSOKButton) {
-        NSMutableString *finalString = [[NSMutableString alloc] init];
+    
+    NSRect exFrame;
+    exFrame.origin.x=0;
+    exFrame.origin.y=0;
+    exFrame.size.width=200;
+    exFrame.size.height=100;
+    ExtensionSelector *newExSel = [[ExtensionSelector alloc] initWithFrame:exFrame];
+    NSMutableDictionary *allowedTypesDictionary = [NSMutableDictionary dictionary];
+    [allowedTypesDictionary setValue:@"txt" forKey:@"Text"];
+    [allowedTypesDictionary setValue:@"plist" forKey:@"XML"];
+    [newExSel populatePopuButtonWithArray:allowedTypesDictionary];
+    [newExSel setCurrentSelection:@"Text"];
+    [sp setAccessoryView:newExSel];
+    newExSel.theSavePanel = sp;
+
+    [sp beginSheetModalForWindow:[NSApp mainWindow] completionHandler:^(NSInteger returnCode){
 		
-		[self generateStringFromDevices:finalString];
-        
-        if (![finalString writeToFile:[sp filename] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
-            NSBeep();
-        
-        [finalString release];
-    }
+        if (returnCode==NSOKButton)
+        {
+            NSString *selectedFileExtension = [[sp nameFieldStringValue] pathExtension];
+            NSMutableString *finalString = [NSMutableString string];
+            if (NSOrderedSame != [selectedFileExtension caseInsensitiveCompare:@"plist"])
+            {
+				[self generateStringFromDevices:finalString];
+				
+                if (![finalString writeToURL:[sp URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
+                {
+					NSBeep();
+                }
+            }
+            else
+            {
+				
+                if (![[self generateArrayOfDictionariesFromDevices] writeToURL:[sp URL] atomically:YES])
+                {
+                    NSBeep();
+				}
+			}
+        }
+    }];
+	[newExSel release];
 }
 
 - (IBAction)ToggleAutoRefresh:(id)sender
@@ -130,7 +176,12 @@
 - (void)dumpToTerminal:(NSArray*)args:(bool)showHelp
 {
 	NSMutableString *finalString = [[NSMutableString alloc] init];
+    bool xmlOutput = NO;
+    id word;	bool unKnownFilter = false; bool busProbe = false;
+    BusProbeDevice *filterDevice = [[BusProbeDevice alloc] init];
+    BusProbeClass  *filterDeviceClassInfo = [[BusProbeClass alloc] init];
 		
+    [filterDevice setDeviceClassInfo:filterDeviceClassInfo];
 	if ( [args count] == 2 && !showHelp )
 	{
 		[self generateStringFromDevices:finalString];
@@ -138,16 +189,10 @@
 	else
 	{
 		NSEnumerator *enm = [args objectEnumerator];
-		BusProbeDevice *filterDevice = [[BusProbeDevice alloc] init];
-		BusProbeClass  *filterDeviceClassInfo = [[BusProbeClass alloc] init];
 
-		[filterDevice setDeviceClassInfo:filterDeviceClassInfo];
-
-		id word;	bool unKnownFilter = false; bool busProbe = false;
-		
         NSMutableString *usage = [[NSMutableString alloc] init];
 
-		[usage appendFormat:@"Usage: USB Prober --busprobe [--vendorID --productID --deviceClass --deviceSubClass --deviceProtocol]"];
+		[usage appendFormat:@"Usage: USB Prober --busprobe [--vendorID --productID --deviceClass --deviceSubClass --deviceProtocol --XML]"];
 		
 		while (word = [enm nextObject]) 
 		{
@@ -179,6 +224,10 @@
 			{
 				// do nothing here
 			}
+            else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--XML"]] == NSOrderedSame )
+            {
+                xmlOutput = YES;
+            }
 			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--help"]] == NSOrderedSame )
 			{
 				showHelp = true;
@@ -207,12 +256,17 @@
 			[finalString appendFormat:@"%@\n", usage];
 		}
 		[usage release];
-		[filterDevice release];
-		[filterDeviceClassInfo release];
 	}
-
+    if (!xmlOutput || unKnownFilter || showHelp)
+    {
 	fprintf(stdout, "%s", [finalString cStringUsingEncoding:NSUTF8StringEncoding]);
-	
+	}
+    else
+    {
+        fprintf(stdout, "%s", [[[self strippedDownListFromFilter:filterDevice] description] UTF8String]);
+    }
+    [filterDevice release];
+    [filterDeviceClassInfo release];
 	[finalString release];
 }
 
@@ -245,6 +299,54 @@
 			[finalString appendFormat:@"%@",[thisDevice descriptionForName:@"Device Protocol:"]];
 		}
 	}
+}
+
+-(NSMutableArray *)strippedDownListFromFilter:(BusProbeDevice *)filterDevice
+{
+    NSMutableArray *returnArray = [NSMutableArray array];
+    NSMutableArray *fullList = [self generateArrayOfDictionariesFromDevices];
+    NSEnumerator *fullEnum = [fullList objectEnumerator];
+    NSMutableDictionary* eachObject;
+    BOOL doIFilter = NO;
+    //NSLog(@"%i %i")
+    if ([filterDevice productID]==true||[filterDevice vendorID]==true||[[filterDevice deviceClassInfo] classNum]==true||[[filterDevice deviceClassInfo] subclassNum]==true||[[filterDevice deviceClassInfo] protocolNum]==true)
+    {
+        doIFilter = YES;
+    }
+    while ((eachObject = [fullEnum nextObject]))
+    {
+        if (doIFilter)
+        {
+            NSMutableDictionary *newDict = [NSMutableDictionary dictionary];
+            [newDict setValue:[[eachObject valueForKey:@"nodeData"] valueForKey:@"nodeValue"] forKey:@"Device"];
+            if ([filterDevice productID] == true)
+            {
+                [newDict setObject:[eachObject valueForKey:@"productID"] forKey:@"productID"];
+            }
+            if ([filterDevice vendorID] == true)
+            {
+                [newDict setObject:[eachObject valueForKey:@"vendorID"] forKey:@"vendorID"];
+            }
+            if ([[filterDevice deviceClassInfo] classNum] == true)
+            {
+                [newDict setObject:[[eachObject valueForKey:@"deviceClassInfo"] valueForKey:@"classNum"] forKey:@"deviceClass"];
+            }
+            if ([[filterDevice deviceClassInfo] subclassNum] == true)
+            {
+                [newDict setObject:[[eachObject valueForKey:@"deviceClassInfo"] valueForKey:@"subclassNum"] forKey:@"deviceSubClass"];
+            }
+            if ([[filterDevice deviceClassInfo] protocolNum] == true)
+            {
+                [newDict setObject:[[eachObject valueForKey:@"deviceClassInfo"] valueForKey:@"protocolNum"] forKey:@"deviceProtocol"];
+            }
+            [returnArray addObject:newDict];
+        }
+        else
+        {
+            [returnArray addObject:eachObject];
+        }
+    }
+    return returnArray;
 }
 
 - (void)busProberInformationDidChange:(BusProber *)aProber {

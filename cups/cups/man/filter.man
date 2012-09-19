@@ -3,7 +3,7 @@
 .\"
 .\"   filter man page for CUPS.
 .\"
-.\"   Copyright 2007-2011 by Apple Inc.
+.\"   Copyright 2007-2012 by Apple Inc.
 .\"   Copyright 1997-2007 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH filter 7 "CUPS" "13 May 2009" "Apple Inc."
+.TH filter 7 "CUPS" "18 May 2012" "Apple Inc."
 .SH NAME
 filter \- cups file conversion filter interface
 .SH SYNOPSIS
@@ -181,6 +181,11 @@ The type of file being printed: "job-sheet" for a banner page and "document"
 for a regular print file.
 
 .TP 5
+CUPS_MAX_MESSAGE
+.br
+The maximum size of a message sent to stderr, including any leading prefix and
+the trailing newline.
+.TP 5
 CUPS_SERVERROOT
 .br
 The root directory of the server.
@@ -250,7 +255,7 @@ only filter.  Typically the interface script will be provided via the
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007-2011 by Apple Inc.
+Copyright 2007-2012 by Apple Inc.
 .\"
 .\" End of "$Id: filter.man 9771 2011-05-12 05:21:56Z mike $".
 .\"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

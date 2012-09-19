@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,6 +102,8 @@ SecCertificateRef Requirement::Context::cert(int ix) const
 	if (certs) {
 		if (ix < 0)
 			ix += certCount();
+		if (ix >= CFArrayGetCount(certs))
+		    return NULL;
 		if (CFTypeRef element = CFArrayGetValueAtIndex(certs, ix))
 			return SecCertificateRef(element);
 	}
@@ -152,21 +154,6 @@ const SHA1::Digest &Requirement::testAppleAnchorHash()
 }
 
 #endif //TEST_APPLE_ANCHOR
-
-
-//
-// InternalRequirements
-//
-void InternalRequirements::operator () (const Requirements *given, const Requirements *defaulted)
-{
-	if (defaulted) {
-		this->add(defaulted);
-		::free((void *)defaulted);		// was malloc(3)ed by DiskRep
-	}
-	if (given)
-		this->add(given);
-	mReqs = make();
-}
 
 
 //

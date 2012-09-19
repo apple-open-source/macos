@@ -22,8 +22,8 @@
 
 namespace llvm {
 
-/// ARMFunctionInfo - This class is derived from MachineFunction private
-/// ARM target-specific information for each MachineFunction.
+/// ARMFunctionInfo - This class is derived from MachineFunctionInfo and
+/// contains private ARM-specific information for each MachineFunction.
 class ARMFunctionInfo : public MachineFunctionInfo {
 
   /// isThumb - True if this function is compiled under Thumb mode.
@@ -42,6 +42,10 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   /// HasStackFrame - True if this function has a stack frame. Set by
   /// processFunctionBeforeCalleeSavedScan().
   bool HasStackFrame;
+
+  /// RestoreSPFromFP - True if epilogue should restore SP from FP. Set by
+  /// emitPrologue.
+  bool RestoreSPFromFP;
 
   /// LRSpilledForFarJump - True if the LR register has been for spilled to
   /// enable far jump.
@@ -75,40 +79,44 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   BitVector GPRCS2Frames;
   BitVector DPRCSFrames;
 
-  /// SpilledCSRegs - A BitVector mask of all spilled callee-saved registers.
-  ///
-  BitVector SpilledCSRegs;
-
   /// JumpTableUId - Unique id for jumptables.
   ///
   unsigned JumpTableUId;
 
-  unsigned ConstPoolEntryUId;
+  unsigned PICLabelUId;
 
   /// VarArgsFrameIndex - FrameIndex for start of varargs area.
   int VarArgsFrameIndex;
+
+  /// HasITBlocks - True if IT blocks have been inserted.
+  bool HasITBlocks;
+
+  /// CPEClones - Track constant pool entries clones created by Constant Island
+  /// pass.
+  DenseMap<unsigned, unsigned> CPEClones;
 
 public:
   ARMFunctionInfo() :
     isThumb(false),
     hasThumb2(false),
-    VarArgsRegSaveSize(0), HasStackFrame(false),
+    VarArgsRegSaveSize(0), HasStackFrame(false), RestoreSPFromFP(false),
     LRSpilledForFarJump(false),
     FramePtrSpillOffset(0), GPRCS1Offset(0), GPRCS2Offset(0), DPRCSOffset(0),
     GPRCS1Size(0), GPRCS2Size(0), DPRCSSize(0),
     GPRCS1Frames(0), GPRCS2Frames(0), DPRCSFrames(0),
-    JumpTableUId(0), ConstPoolEntryUId(0), VarArgsFrameIndex(0) {}
+    JumpTableUId(0), PICLabelUId(0),
+    VarArgsFrameIndex(0), HasITBlocks(false) {}
 
   explicit ARMFunctionInfo(MachineFunction &MF) :
     isThumb(MF.getTarget().getSubtarget<ARMSubtarget>().isThumb()),
     hasThumb2(MF.getTarget().getSubtarget<ARMSubtarget>().hasThumb2()),
-    VarArgsRegSaveSize(0), HasStackFrame(false),
+    VarArgsRegSaveSize(0), HasStackFrame(false), RestoreSPFromFP(false),
     LRSpilledForFarJump(false),
     FramePtrSpillOffset(0), GPRCS1Offset(0), GPRCS2Offset(0), DPRCSOffset(0),
     GPRCS1Size(0), GPRCS2Size(0), DPRCSSize(0),
     GPRCS1Frames(32), GPRCS2Frames(32), DPRCSFrames(32),
-    SpilledCSRegs(MF.getTarget().getRegisterInfo()->getNumRegs()),
-    JumpTableUId(0), ConstPoolEntryUId(0), VarArgsFrameIndex(0) {}
+    JumpTableUId(0), PICLabelUId(0),
+    VarArgsFrameIndex(0), HasITBlocks(false) {}
 
   bool isThumbFunction() const { return isThumb; }
   bool isThumb1OnlyFunction() const { return isThumb && !hasThumb2; }
@@ -119,6 +127,9 @@ public:
 
   bool hasStackFrame() const { return HasStackFrame; }
   void setHasStackFrame(bool s) { HasStackFrame = s; }
+
+  bool shouldRestoreSPFromFP() const { return RestoreSPFromFP; }
+  void setShouldRestoreSPFromFP(bool s) { RestoreSPFromFP = s; }
 
   bool isLRSpilledForFarJump() const { return LRSpilledForFarJump; }
   void setLRIsSpilledForFarJump(bool s) { LRSpilledForFarJump = s; }
@@ -195,18 +206,6 @@ public:
     }
   }
 
-  void setCSRegisterIsSpilled(unsigned Reg) {
-    SpilledCSRegs.set(Reg);
-  }
-
-  bool isCSRegisterSpilled(unsigned Reg) const {
-    return SpilledCSRegs[Reg];
-  }
-
-  const BitVector &getSpilledCSRegisters() const {
-    return SpilledCSRegs;
-  }
-
   unsigned createJumpTableUId() {
     return JumpTableUId++;
   }
@@ -215,20 +214,36 @@ public:
     return JumpTableUId;
   }
 
-  void initConstPoolEntryUId(unsigned UId) {
-    ConstPoolEntryUId = UId;
+  void initPICLabelUId(unsigned UId) {
+    PICLabelUId = UId;
   }
 
-  unsigned getNumConstPoolEntries() const {
-    return ConstPoolEntryUId;
+  unsigned getNumPICLabels() const {
+    return PICLabelUId;
   }
 
-  unsigned createConstPoolEntryUId() {
-    return ConstPoolEntryUId++;
+  unsigned createPICLabelUId() {
+    return PICLabelUId++;
   }
 
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
+
+  bool hasITBlocks() const { return HasITBlocks; }
+  void setHasITBlocks(bool h) { HasITBlocks = h; }
+
+  void recordCPEClone(unsigned CPIdx, unsigned CPCloneIdx) {
+    if (!CPEClones.insert(std::make_pair(CPCloneIdx, CPIdx)).second)
+      assert(0 && "Duplicate entries!");
+  }
+
+  unsigned getOriginalCPIdx(unsigned CloneIdx) const {
+    DenseMap<unsigned, unsigned>::const_iterator I = CPEClones.find(CloneIdx);
+    if (I != CPEClones.end())
+      return I->second;
+    else
+      return -1U;
+  }
 };
 } // End llvm namespace
 

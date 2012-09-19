@@ -3,7 +3,7 @@ dnl "$Id: cups-ssl.m4 9837 2011-06-16 20:12:16Z mike $"
 dnl
 dnl   OpenSSL/GNUTLS stuff for CUPS.
 dnl
-dnl   Copyright 2007-2011 by Apple Inc.
+dnl   Copyright 2007-2012 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -124,7 +124,7 @@ if test x$enable_ssl != xno; then
 
     dnl Check for the OpenSSL library last...
     if test $have_ssl = 0 -a "x$enable_openssl" != "xno"; then
-	AC_CHECK_HEADER(openssl/ssl.h,
+	AC_CHECK_HEADER(openssl/ssl.h,[
 	    dnl Save the current libraries so the crypto stuff isn't always
 	    dnl included...
 	    SAVELIBS="$LIBS"
@@ -136,9 +136,9 @@ if test x$enable_ssl != xno; then
 	    dnl case the RSAREF libraries are needed.
 
 	    for libcrypto in \
-	        "-lcrypto" \
-	        "-lcrypto -lrsaref" \
-	        "-lcrypto -lRSAglue -lrsaref"
+		"-lcrypto" \
+		"-lcrypto -lrsaref" \
+		"-lcrypto -lRSAglue -lrsaref"
 	    do
 		AC_CHECK_LIB(ssl,SSL_new,
 		    [have_ssl=1
@@ -153,7 +153,12 @@ if test x$enable_ssl != xno; then
 		fi
 	    done
 
-	    LIBS="$SAVELIBS")
+	    if test "x${SSLLIBS}" != "x"; then
+		LIBS="$SAVELIBS $SSLLIBS"
+		AC_CHECK_FUNCS(SSL_set_tlsext_host_name)
+	    fi
+
+	    LIBS="$SAVELIBS"])
     fi
 fi
 
@@ -172,7 +177,6 @@ AC_SUBST(SSLLIBS)
 
 EXPORT_SSLLIBS="$SSLLIBS"
 AC_SUBST(EXPORT_SSLLIBS)
-
 
 dnl
 dnl End of "$Id: cups-ssl.m4 9837 2011-06-16 20:12:16Z mike $".

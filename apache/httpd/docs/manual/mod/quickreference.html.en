@@ -456,7 +456,7 @@ simultaneously</td></tr>
 connection</td></tr>
 <tr class="odd"><td><a href="mpm_common.html#maxmemfree">MaxMemFree <var>KBytes</var></a></td><td> 0 </td><td>s</td><td>M</td></tr><tr class="odd"><td class="descr" colspan="4">Maximum amount of memory that the main allocator is allowed
 to hold without calling <code>free()</code></td></tr>
-<tr><td><a href="core.html#maxranges">MaxRanges <var>number</var> (0 = no limit)</a></td><td> 200 </td><td>svd</td><td>C</td></tr><tr><td class="descr" colspan="4">Number of ranges allowed before returning the complete
+<tr><td><a href="core.html#maxranges">MaxRanges default | unlimited | none | <var>number-of-ranges</var></a></td><td> 200 </td><td>svd</td><td>C</td></tr><tr><td class="descr" colspan="4">Number of ranges allowed before returning the complete
 resource </td></tr>
 <tr class="odd"><td><a href="mpm_common.html#maxrequestsperchild">MaxRequestsPerChild <var>number</var></a></td><td> 10000 </td><td>s</td><td>M</td></tr><tr class="odd"><td class="descr" colspan="4">Limit on the number of requests that an individual child server
 will handle during its life</td></tr>
@@ -806,6 +806,6 @@ set</td></tr>
 <a href="../tr/mod/quickreference.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/mod/quickreference.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

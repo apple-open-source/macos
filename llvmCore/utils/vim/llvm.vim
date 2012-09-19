@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:   llvm
 " Maintainer: The LLVM team, http://llvm.org/
-" Version:      $Revision: 97271 $
+" Version:      $Revision$
 
 if version < 600
   syntax clear
@@ -49,22 +49,21 @@ syn keyword llvmKeyword hidden protected default
 syn keyword llvmKeyword except deplibs
 syn keyword llvmKeyword volatile fastcc coldcc cc ccc
 syn keyword llvmKeyword x86_stdcallcc x86_fastcallcc
+syn keyword llvmKeyword ptx_kernel ptx_device
 syn keyword llvmKeyword signext zeroext inreg sret nounwind noreturn
-syn keyword llvmKeyword nocapture byval nest readnone readonly noalias
+syn keyword llvmKeyword nocapture byval nest readnone readonly noalias uwtable
 syn keyword llvmKeyword inlinehint noinline alwaysinline optsize ssp sspreq
 syn keyword llvmKeyword noredzone noimplicitfloat naked alignstack
 syn keyword llvmKeyword module asm align tail to
 syn keyword llvmKeyword addrspace section alias sideeffect c gc
 syn keyword llvmKeyword target datalayout triple
 syn keyword llvmKeyword blockaddress
-syn keyword llvmKeyword union
 
 " Obsolete keywords.
-syn keyword llvmError  uninitialized implementation
-syn keyword llvmError  getresult big little endian begin end
+syn keyword llvmError  getresult begin end
 
 " Misc syntax.
-syn match   llvmIgnore /[%@]\d\+\>/
+syn match   llvmNoName /[%@]\d\+\>/
 syn match   llvmNumber /-\?\<\d\+\>/
 syn match   llvmFloat  /-\?\<\d\+\.\d*\(e[+-]\d\+\)\?\>/
 syn match   llvmFloat  /\<0x\x\+\>/
@@ -99,7 +98,7 @@ if version >= 508 || !exists("did_c_syn_inits")
   HiLink llvmKeyword Keyword
   HiLink llvmBoolean Boolean
   HiLink llvmFloat Float
-  HiLink llvmIgnore Ignore
+  HiLink llvmNoName Identifier
   HiLink llvmConstant Constant
   HiLink llvmSpecialComment SpecialComment
   HiLink llvmError Error

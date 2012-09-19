@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2004,2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,7 @@ static const CssmOid *theOidList[] = {
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_OCSP),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT),    
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_APPLEID_SHARING),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_TIMESTAMPING),
 	NULL	// sentinel
 };
 

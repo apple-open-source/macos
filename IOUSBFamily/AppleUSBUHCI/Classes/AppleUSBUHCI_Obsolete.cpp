@@ -37,6 +37,7 @@ AppleUSBUHCI::UIMCreateInterruptTransfer(
                                          UInt32				bufferSize,
                                          short				direction)
 {
+#pragma unused (functionNumber, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // deprecated
 	USBLog(1, "AppleUSBUHCI::UIMCreateInterruptTransfer - deprecated");
     return kIOReturnBadArgument;
@@ -53,6 +54,7 @@ AppleUSBUHCI::UIMCreateBulkTransfer(
                                     UInt32				bufferSize,
                                     short				direction)
 {
+#pragma unused (functionNumber, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // deprecated
 	USBLog(1, "AppleUSBUHCI::UIMCreateBulkTransfer - deprecated");
     return kIOReturnBadArgument;
@@ -68,6 +70,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
                                        UInt32				bufferSize,
                                        short				direction)
 {
+#pragma unused (functionNumber, endpointNumber, command, CBP, bufferRounding, bufferSize, direction)
     // deprecated
 	USBLog(1, "AppleUSBUHCI::UIMCreateControlTransfer - deprecated");
     return kIOReturnBadArgument;
@@ -84,6 +87,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
                                        UInt32				bufferSize,
                                        short				direction)
 {
+#pragma unused (functionNumber, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // deprecated
 	USBLog(1, "AppleUSBUHCI::UIMCreateControlTransfer - deprecated");
     return kIOReturnBadArgument;
@@ -100,6 +104,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
                                        UInt32				bufferSize,
                                        short				direction)
 {
+#pragma unused (functionNumber, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // deprecated
     return kIOReturnIPCError;
 }

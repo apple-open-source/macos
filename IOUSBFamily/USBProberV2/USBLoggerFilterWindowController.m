@@ -24,7 +24,7 @@
 
 #import "USBLoggerFilterWindowController.h"
 
-float timeStampFromLogLine(NSString * line);
+double timeStampFromLogLine(NSString * line);
 
 @implementation USBLoggerFilterWindowController
 
@@ -128,7 +128,7 @@ float timeStampFromLogLine(NSString * line);
 - (void)itemDoubleClicked:(NSTableView *)sender {
     NSString *lineText = [[sender dataSource] tableView:sender objectValueForTableColumn:[[sender tableColumns] objectAtIndex:0] row:[sender selectedRow]];
     NSString *clickedLogString = [lineText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]; // strip the trailing newlines and spaces
-    float clickedTimeStamp = timeStampFromLogLine( clickedLogString );
+    double clickedTimeStamp = timeStampFromLogLine( clickedLogString );
 
     if (clickedTimeStamp == -1) {
         return;
@@ -137,7 +137,7 @@ float timeStampFromLogLine(NSString * line);
     NSArray *displayedLines = [LoggerController displayedLogLines];
     int numberOfLines = [displayedLines count];
     int first = 0, middle = 0, last = numberOfLines-1;
-    float midTimeStamp = 0;
+    double midTimeStamp = 0;
     
     while (first <= last) {
         middle = (first + last) / 2;
@@ -207,11 +207,31 @@ float timeStampFromLogLine(NSString * line);
     }
 }
 
-float timeStampFromLogLine(NSString * line) {
-    float timeStamp = -1;
+double timeStampFromLogLine(NSString * line) {
+    double timeStamp = -1;
     int level = -1;
+
+#if 1
+    struct tm timePtr;
+    time_t  theTime;
+    char month[4];
+    int day, hour, min, sec, micro;
     
+    sscanf((char *)[line cStringUsingEncoding:NSUTF8StringEncoding],"%s %d %d:%d:%d.%d  [%d]", month, &day, &hour, &min, &sec, &micro, &level);
+    
+    timePtr.tm_sec = sec;
+    timePtr.tm_min = min;
+    timePtr.tm_hour = hour;
+    timePtr.tm_mday = day;
+    timePtr.tm_mon = 8;         // Hard coding the month and the years since 1900, as it really does not matter in this case
+    timePtr.tm_year = 111;
+    
+    theTime = mktime(&timePtr);
+    
+    timeStamp = theTime + micro/1000.0;
+#else
     sscanf((char *)[line cStringUsingEncoding:NSUTF8StringEncoding],"\t%f [%d]", &timeStamp, &level);
+#endif
     
     return timeStamp;
 }

@@ -229,16 +229,19 @@ void Thread::run()
 
 void *Thread::runner(void *arg)
 {
+    try // the top level of any running thread of execution must have a try/catch around it,
+        // otherwise it will crash if something underneath throws.
+    {
     Thread *me = static_cast<Thread *>(arg);
-#if 0       // for WWDC 2007 seed @@@ ??? still there? what Radar?
-    if (int err = pthread_detach(me->self.mIdent))
-        UnixError::throwMe(err);
-#endif
 	secdebug("thread", "%p starting", me->self.mIdent);
     me->action();
 	secdebug("thread", "%p terminating", me->self.mIdent);
     delete me;
     return NULL;
+}
+    catch (...)
+    {
+    }
 }
 
 void Thread::yield()

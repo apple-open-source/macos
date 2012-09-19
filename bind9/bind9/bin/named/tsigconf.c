@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: tsigconf.c,v 1.33 2009-09-01 00:22:25 jinmei Exp $ */
+/* $Id: tsigconf.c,v 1.33 2009/09/01 00:22:25 jinmei Exp $ */
 
 /*! \file */
 

@@ -252,7 +252,7 @@ AppleUSBEHCI::start( IOService * provider )
 	
     if ( !super::start(provider))
         return (false);
-	
+		
     USBLog(7, "AppleUSBEHCI[%p]::start",  this);
     return true;
 }
@@ -321,6 +321,17 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
          * Initialize my data and the hardware
          */
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+		
+		if (_v3ExpansionData->_onThunderbolt && !((_v3ExpansionData->_thunderboltModelID == kAppleThunderboltDisplay2011MID) && (_v3ExpansionData->_thunderboltVendorID == kAppleThunderboltVID)))
+		{
+			// if we are tunnelled, but not on an Apple Thunderbolt Display, then we disallow all controllers, including EHCI
+			{
+				USBLog(3, "AppleUSBEHCI[%p]::UIMInitialize - Thunderbolt EHCI controllers not allowed. Not initializing", this);
+				err =  kIOReturnUnsupported;
+				break;
+			}
+		}
+		
 		setProperty("Errata", _errataBits, 32);
 		
 		// I could do this with an errata bit, but since it is something which will only get done at UIMInitialize time, and
@@ -357,6 +368,9 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
             break;
         }
 		
+#ifdef SUPPORTS_SS_USB
+        CheckForSharedXHCIController();
+#endif		
 		// determine whether this is a 32 bit or 64 bit machine
 		hccparams = USBToHostLong(_pEHCICapRegisters->HCCParams);
 		if (!(_errataBits & kErrataUse32bitEHCI) && (hccparams & kEHCI64Bit))
@@ -509,6 +523,122 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 
 
 
+#ifdef SUPPORTS_SS_USB
+void
+AppleUSBEHCI::CheckForSharedXHCIController(void)
+{
+	uint64_t                seconds = 10;
+	const IORegistryPlane*	acpiPlane;
+	IORegistryIterator*		iter;
+	IORegistryEntry*		entry;
+	UInt32					portnum = 0;
+	IOACPIPlatformDevice*	acpiDevice;
+    IOService *             xhciCandidate = NULL;
+    IORegistryEntry *       xhciProvider = NULL;
+    const char *            xhciProviderName = NULL;
+    OSDictionary *          matchingDictionary = NULL;
+    OSIterator *            xhciList = NULL;
+	
+	UInt32					assertVal	= 0;                    // this value is returned from the ACPI tables
+    UInt32                  xhciBitmap = 0;                     // this value is a compilation of all of the matching XHCI we have found
+    
+	if ( !isInactive() )
+	{	
+        _xhciController = NULL;                 // just to make sure
+        
+        acpiDevice = CopyACPIDevice( _device );
+        if (acpiDevice == NULL)
+        {
+            USBLog(3, "IOUSBController[%p]::CheckForSharedXHCIController acpiDevice not found", this);
+            return;
+        }
+        
+        IOReturn status = acpiDevice->evaluateInteger ( "XHCN", &assertVal );
+        
+        acpiDevice->release();
+        acpiDevice = NULL;
+        
+        if (status != kIOReturnSuccess)
+        {
+            USBLog(3, "IOUSBController[%p]::CheckForSharedXHCIController XHCN method not found", this);
+            return;
+        }
+        
+
+        // since we have an XHCN method in our ACPI table, we know that we are MUXed with an XHCI controller
+        // we will now wait for an AppleUSBXHCI driver to show up and verify that it's provider
+        // matches the one to which we are MUXed
+        matchingDictionary = serviceMatching("AppleUSBXHCI");                   // waitForMatchingServices does not consume this
+        if (!matchingDictionary)
+        {
+            USBLog(3, "IOUSBController[%p]::CheckForSharedXHCIController could not get matching dictionary (very unusual)", this);
+            return;
+        }
+        
+        xhciCandidate = waitForMatchingService( matchingDictionary,  kSecondScale * seconds);           // we have a reference to this candidate
+
+        if( !xhciCandidate )
+        {
+            USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController could not discover AppleUSBXHCI in %lld secs", this, seconds);
+            matchingDictionary->release();
+            return;
+        }
+        
+        USBLog(6, "AppleUSBEHCI[%p]::CheckForSharedXHCIController found AppleUSBXHCI %p", this, xhciCandidate);
+
+        
+        xhciProvider = xhciCandidate->getParentEntry(gIOServicePlane);
+        xhciProviderName = xhciProvider->getName();
+        
+        // The name is a cstring which should be of the form "XHCn" where "n" is a digit from 1 to ??
+        // The n is a bit position (1 is bit 0, 2 is bit 1) in the assertVal retrieved above
+        
+        if (strncmp(xhciProviderName, "XHC", 3) == 0)
+        {
+            char    myNum = xhciProviderName[3];
+            int     val = myNum - '1';
+            if ((val >=0) && (val < 10))
+            {
+                xhciBitmap |= (1 << val);
+            }
+        }
+        
+        // in the simple case, there is only one XHCn in the system, and we will match to it
+        if ((xhciBitmap & assertVal) == assertVal)
+        {
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+            uint64_t	ourObject = (uint64_t) xhciCandidate;
+            setProperty("xhci", ourObject, 64);
+#endif
+            _xhciController = xhciCandidate;						// we still have the reference given to us
+            _xhciController->retain();								// 10397671: retain this copy since we will need to release the other reference if this is not the correct one                
+        }
+        else
+        {
+            if ((xhciBitmap != 0) && (assertVal != 0))
+            {
+                USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController - unable to find the correct XHCI xhciBitmap(0x%08x) assertVal(0x%08x)", this, (unsigned int)xhciBitmap, (unsigned int)assertVal);
+            }
+        }
+        
+	}
+	
+	if (xhciCandidate)								// Note, this is not our iVar, but is a local copy with its own reference
+	{
+		xhciCandidate->release();
+		xhciCandidate = NULL;
+	}
+    
+    if (matchingDictionary)
+    {
+        matchingDictionary->release();
+        matchingDictionary = NULL;
+    }
+}
+#endif
+
+
+
 IOReturn
 AppleUSBEHCI::AcquireOSOwnership(void)
 {
@@ -638,6 +768,7 @@ AppleUSBEHCI::InterruptInitialize (void)
 	USBLog(7, "AppleUSBEHCI[%p]::InterruptInitialize - frame list pPhysical[%p] frames[%p]", this, (void*)physPtr, _periodicList);
 
     _physPeriodicListBase = HostToUSBLong(physPtr);
+    IOSync();
 	dmaCommand->clearMemoryDescriptor();
 	dmaCommand->release();
 	
@@ -675,6 +806,7 @@ AppleUSBEHCI::InterruptInitialize (void)
 			{
 				// squash the nextQTDPtr, since this QH will never have a TD
 				pQH->GetSharedLogical()->NextqTDPtr = HostToUSBLong(kEHCITermFlag);
+                // don't need an IOSync here because this QH is not linked in yet
 				DeallocateTD(pQH->_qTD);
 				pQH->_qTD = NULL;
 				pQH->_TailTD =  NULL;
@@ -792,8 +924,15 @@ AppleUSBEHCI::UIMFinalize(void)
         _pEHCIRegisters->PeriodicListBase = 0;		// no periodic list as yet
 		_pEHCIRegisters->AsyncListAddr = 0;			// no async list as yet
 		IOSync();
-			
     }
+
+#ifdef SUPPORTS_SS_USB
+	if( _xhciController )
+	{
+		_xhciController->release();
+        _xhciController = NULL;
+	}
+#endif
 
 	// Free the TD memory blocks
     if (_tdMBHead)
@@ -947,7 +1086,7 @@ AppleUSBEHCI::GetFrameNumber32()
     do
     {
 		temp1 = (UInt32)_frameNumber;
-		frindex = HostToUSBLong(_pEHCIRegisters->FRIndex);
+		frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
         IOSync();
 		temp2 = (UInt32)_frameNumber;
     } while ((temp1 != temp2) || (frindex ==  0) );
@@ -995,7 +1134,6 @@ AppleUSBEHCI::GetFrameNumber()
     {
 		temp1 = _frameNumber;
 		frindex = HostToUSBLong(_pEHCIRegisters->FRIndex);
-        // IOSync();
 		temp2 = _frameNumber;
     } while ( (temp1 != temp2) || (frindex == 0) );
 	
@@ -1003,7 +1141,7 @@ AppleUSBEHCI::GetFrameNumber()
     //
     frindex = frindex >> 3;		
     
-    // USBLog(7, "AppleUSBEHCI[%p]::GetFrameNumber -- returning %Ld (0x%Lx)",  this, temp1+frindex, temp1+frindex);
+    // USBLog(7, "AppleUSBEHCI[%p]::GetFrameNumber -- returning %Ld (0x%qx)",  this, temp1+frindex, temp1+frindex);
 	
     return (temp1 + frindex);
 }
@@ -1023,7 +1161,6 @@ AppleUSBEHCI::GetMicroFrameNumber()
     {
 		temp1 = _frameNumber;
 		frindex = HostToUSBLong(_pEHCIRegisters->FRIndex);
-        IOSync();
 		temp2 = _frameNumber;
     } while ( (temp1 != temp2) || (frindex == 0) );
 	
@@ -1031,7 +1168,7 @@ AppleUSBEHCI::GetMicroFrameNumber()
     // by shifting them up
     temp1 = temp1 << 3;
     
-    USBLog(7, "AppleUSBEHCI[%p]::GetMicroFrameNumber -- returning %Ld (0x%Lx)",  this, temp1+frindex, temp1+frindex);
+    USBLog(7, "AppleUSBEHCI[%p]::GetMicroFrameNumber -- returning %qd (0x%qx)",  this, temp1+frindex, temp1+frindex);
 	
     return (temp1 + frindex);
 }
@@ -1368,7 +1505,7 @@ AppleUSBEHCI::DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD)
 	{
 		// the UIM has completed its work with this SITD, but it could still be accessed by the hardware, so we need to delay
 		// putting it on the free list until we know that the hardware is no longer accessing it (based on the frame number)
-		USBLog(7, "AppleUSBEHCI::DeallocateSITD - pTD(%p) is for the current frame (%Ld) - delaying", pTD, pTD->_frameNumber);
+		USBLog(7, "AppleUSBEHCI::DeallocateSITD - pTD(%p) is for the current frame (%qd) - delaying", pTD, pTD->_frameNumber);
 		if (_pLastDelayedSITD)
 		{
 			_pLastDelayedSITD->_logicalNext = pTD;
@@ -1406,7 +1543,7 @@ AppleUSBEHCI::DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD)
 	{
 		AppleEHCISplitIsochTransferDescriptor *nextSITD = (AppleEHCISplitIsochTransferDescriptor *)pTD->_logicalNext;
 		
-		USBLog(7, "AppleUSBEHCI::DeallocateSITD - pTD(%p) was delayed (frame %Ld) and I am now freeing it", pTD, pTD->_frameNumber);
+		USBLog(7, "AppleUSBEHCI::DeallocateSITD - pTD(%p) was delayed (frame %qd) and I am now freeing it", pTD, pTD->_frameNumber);
 		pTD->_logicalNext = NULL;
 		if (_pLastFreeSITD)
 		{
@@ -1439,6 +1576,7 @@ AppleUSBEHCI::doCallback(EHCIGeneralTransferDescriptorPtr nextTD,
 						 UInt32			    transferStatus,
 						 UInt32			    bufferSizeRemaining)
 {
+#pragma unused (nextTD, transferStatus, bufferSizeRemaining)
     USBError(1, "AppleUSBEHCI[%p]::doCallback unimemented *************",  this);
 }
 
@@ -1452,9 +1590,9 @@ AppleUSBEHCI::EnableAsyncSchedule(bool waitForON)
 	
 	if (!_pEHCIRegisters->AsyncListAddr)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::EnableAsyncSchedule.. AsyncListAddr is NULL!! We shouldn't be doing this", this);
+		USBLog(1, "AppleUSBEHCI[%p]::EnableAsyncSchedule.. AsyncListAddr is NULL!! We shouldn't be doing this. USBCMD(0x%08x) USBSTS(0x%08x) PCIStatus(0x%04x)", this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS), _device->configRead16(kIOPCIConfigStatus));
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-		panic("AppleUSBEHCI::EnableAsyncSchedule.. AsyncListAddr is NULL!!\n");
+		panic("AppleUSBEHCI::EnableAsyncSchedule.. AsyncListAddr is NULL!! USBCMD(0x%08x) USBSTS(0x%08x) PCIStatus(0x%04x)\n", USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS), _device->configRead16(kIOPCIConfigStatus));
 #endif
 		return kIOReturnInternalError;
 	}
@@ -1477,6 +1615,8 @@ AppleUSBEHCI::EnableAsyncSchedule(bool waitForON)
 		
 		if (waitForON)			// 4627732 - only wait if we explicitly say to
 		{
+            IOSync();
+            
 			for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
 				IOSleep(1);
 			if (i)
@@ -1534,6 +1674,8 @@ AppleUSBEHCI::DisableAsyncSchedule(bool waitForOFF)
 			
 		if (waitForOFF)					// 4627732 - only wait if we explicitly say to
 		{
+            IOSync();
+            
 			for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
 				IOSleep(1);
 			if (i)
@@ -1592,6 +1734,8 @@ AppleUSBEHCI::EnablePeriodicSchedule(bool waitForON)
 			
 		if (waitForON)					// 4627732 - only wait if we explicitly say to
 		{
+            IOSync();
+            
 			for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
 				IOSleep(1);
 			if (i)
@@ -1644,6 +1788,8 @@ AppleUSBEHCI::DisablePeriodicSchedule(bool waitForOFF)
 			
 		if (waitForOFF)					// 4627732 - only wait if we explicitly say to
 		{
+            IOSync();
+            
 			for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
 				IOSleep(1);
 
@@ -1710,6 +1856,7 @@ AppleUSBEHCI::SetPeriodicListEntry(int offset, IOUSBControllerListElement *pList
 	{
 		_periodicList[offset] = HostToUSBLong(kEHCITermFlag);
 	}
+    IOSync();
 	// WE CAN'T LOG HERE SINCE THIS IS USED BY FilterInterrupt
 	//USBLog(5, "AppleUSBEHCI[%p]::SetPeriodicListEntry - offset(%d) _logicalPeriodicList[%p] _periodicList[%p]", this, offset, _logicalPeriodicList[offset], (void*)_periodicList[offset]);
 }
@@ -1733,6 +1880,11 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 	
 	switch (type)
 	{
+#ifdef SUPPORTS_SS_USB
+        case kIOUSBMessageHubPortDeviceDisconnected:
+            EHCIMuxedPortDeviceDisconnected((char*)argument);
+            break;
+#endif            
 		case kIOUSBMessageExpressCardCantWake:
 			nub = (IOService*)argument;
 			usbPlane = getPlane(kIOUSBPlane);

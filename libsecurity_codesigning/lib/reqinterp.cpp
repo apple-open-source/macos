@@ -239,7 +239,7 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 		if (cf->name == key) {
 			CFRef<CFStringRef> value;
 			if (OSStatus rc = SecCertificateCopySubjectComponent(cert, cf->oid, &value.aref())) {
-				secdebug("csinterp", "cert %p lookup for DN.%s failed rc=%d", cert, key.c_str(), rc);
+				secdebug("csinterp", "cert %p lookup for DN.%s failed rc=%d", cert, key.c_str(), (int)rc);
 				return false;
 			}
 			return match(value);
@@ -249,7 +249,7 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 	if (key == "email") {
 		CFRef<CFArrayRef> value;
 		if (OSStatus rc = SecCertificateCopyEmailAddresses(cert, &value.aref())) {
-			secdebug("csinterp", "cert %p lookup for email failed rc=%d", cert, rc);
+			secdebug("csinterp", "cert %p lookup for email failed rc=%d", cert, (int)rc);
 			return false;
 		}
 		return match(value);

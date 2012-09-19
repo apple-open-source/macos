@@ -19,11 +19,12 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IntrinsicInst.h"
 #include "llvm/Module.h"
+#include "llvm/Analysis/Dominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/Target/TargetFrameInfo.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
@@ -123,6 +124,11 @@ GCFunctionInfo *GCStrategy::insertFunctionInfo(const Function &F) {
 
 // -----------------------------------------------------------------------------
 
+INITIALIZE_PASS_BEGIN(LowerIntrinsics, "gc-lowering", "GC Lowering",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(GCModuleInfo)
+INITIALIZE_PASS_END(LowerIntrinsics, "gc-lowering", "GC Lowering", false, false)
+
 FunctionPass *llvm::createGCLoweringPass() {
   return new LowerIntrinsics();
 }
@@ -130,7 +136,9 @@ FunctionPass *llvm::createGCLoweringPass() {
 char LowerIntrinsics::ID = 0;
 
 LowerIntrinsics::LowerIntrinsics()
-  : FunctionPass(&ID) {}
+  : FunctionPass(ID) {
+    initializeLowerIntrinsicsPass(*PassRegistry::getPassRegistry());
+  }
 
 const char *LowerIntrinsics::getPassName() const {
   return "Lower Garbage Collection Instructions";
@@ -139,6 +147,7 @@ const char *LowerIntrinsics::getPassName() const {
 void LowerIntrinsics::getAnalysisUsage(AnalysisUsage &AU) const {
   FunctionPass::getAnalysisUsage(AU);
   AU.addRequired<GCModuleInfo>();
+  AU.addPreserved<DominatorTree>();
 }
 
 /// doInitialization - If this module uses the GC intrinsics, find them now.
@@ -249,9 +258,16 @@ bool LowerIntrinsics::runOnFunction(Function &F) {
   if (NeedsDefaultLoweringPass(S))
     MadeChange |= PerformDefaultLowering(F, S);
   
-  if (NeedsCustomLoweringPass(S))
+  bool UseCustomLoweringPass = NeedsCustomLoweringPass(S);
+  if (UseCustomLoweringPass)
     MadeChange |= S.performCustomLowering(F);
-  
+
+  // Custom lowering may modify the CFG, so dominators must be recomputed.
+  if (UseCustomLoweringPass) {
+    if (DominatorTree *DT = getAnalysisIfAvailable<DominatorTree>())
+      DT->DT->recalculate(F);
+  }
+
   return MadeChange;
 }
 
@@ -260,7 +276,7 @@ bool LowerIntrinsics::PerformDefaultLowering(Function &F, GCStrategy &S) {
   bool LowerRd = !S.customReadBarrier();
   bool InitRoots = S.initializeRoots();
   
-  SmallVector<AllocaInst*,32> Roots;
+  SmallVector<AllocaInst*, 32> Roots;
   
   bool MadeChange = false;
   for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
@@ -271,7 +287,8 @@ bool LowerIntrinsics::PerformDefaultLowering(Function &F, GCStrategy &S) {
         case Intrinsic::gcwrite:
           if (LowerWr) {
             // Replace a write barrier with a simple store.
-            Value *St = new StoreInst(CI->getOperand(1), CI->getOperand(3), CI);
+            Value *St = new StoreInst(CI->getArgOperand(0),
+                                      CI->getArgOperand(2), CI);
             CI->replaceAllUsesWith(St);
             CI->eraseFromParent();
           }
@@ -279,7 +296,7 @@ bool LowerIntrinsics::PerformDefaultLowering(Function &F, GCStrategy &S) {
         case Intrinsic::gcread:
           if (LowerRd) {
             // Replace a read barrier with a simple load.
-            Value *Ld = new LoadInst(CI->getOperand(2), "", CI);
+            Value *Ld = new LoadInst(CI->getArgOperand(1), "", CI);
             Ld->takeName(CI);
             CI->replaceAllUsesWith(Ld);
             CI->eraseFromParent();
@@ -290,7 +307,7 @@ bool LowerIntrinsics::PerformDefaultLowering(Function &F, GCStrategy &S) {
             // Initialize the GC root, but do not delete the intrinsic. The
             // backend needs the intrinsic to flag the stack slot.
             Roots.push_back(cast<AllocaInst>(
-                              CI->getOperand(1)->stripPointerCasts()));
+                              CI->getArgOperand(0)->stripPointerCasts()));
           }
           break;
         default:
@@ -317,7 +334,7 @@ FunctionPass *llvm::createGCMachineCodeAnalysisPass() {
 char MachineCodeAnalysis::ID = 0;
 
 MachineCodeAnalysis::MachineCodeAnalysis()
-  : MachineFunctionPass(&ID) {}
+  : MachineFunctionPass(ID) {}
 
 const char *MachineCodeAnalysis::getPassName() const {
   return "Analyze Machine Code For Garbage Collection";
@@ -344,13 +361,15 @@ void MachineCodeAnalysis::VisitCallPoint(MachineBasicBlock::iterator CI) {
   MachineBasicBlock::iterator RAI = CI; 
   ++RAI;                                
   
-  if (FI->getStrategy().needsSafePoint(GC::PreCall))
-    FI->addSafePoint(GC::PreCall, InsertLabel(*CI->getParent(), CI,
-                                              CI->getDebugLoc()));
+  if (FI->getStrategy().needsSafePoint(GC::PreCall)) {
+    MCSymbol* Label = InsertLabel(*CI->getParent(), CI, CI->getDebugLoc());
+    FI->addSafePoint(GC::PreCall, Label, CI->getDebugLoc());
+  }
   
-  if (FI->getStrategy().needsSafePoint(GC::PostCall))
-    FI->addSafePoint(GC::PostCall, InsertLabel(*CI->getParent(), RAI,
-                                               CI->getDebugLoc()));
+  if (FI->getStrategy().needsSafePoint(GC::PostCall)) {
+    MCSymbol* Label = InsertLabel(*CI->getParent(), RAI, CI->getDebugLoc());
+    FI->addSafePoint(GC::PostCall, Label, CI->getDebugLoc());
+  }
 }
 
 void MachineCodeAnalysis::FindSafePoints(MachineFunction &MF) {
@@ -363,12 +382,12 @@ void MachineCodeAnalysis::FindSafePoints(MachineFunction &MF) {
 }
 
 void MachineCodeAnalysis::FindStackOffsets(MachineFunction &MF) {
-  const TargetRegisterInfo *TRI = TM->getRegisterInfo();
-  assert(TRI && "TargetRegisterInfo not available!");
+  const TargetFrameLowering *TFI = TM->getFrameLowering();
+  assert(TFI && "TargetRegisterInfo not available!");
   
   for (GCFunctionInfo::roots_iterator RI = FI->roots_begin(),
                                       RE = FI->roots_end(); RI != RE; ++RI)
-    RI->StackOffset = TRI->getFrameIndexOffset(MF, RI->Num);
+    RI->StackOffset = TFI->getFrameIndexOffset(MF, RI->Num);
 }
 
 bool MachineCodeAnalysis::runOnMachineFunction(MachineFunction &MF) {

@@ -2121,14 +2121,10 @@ httpRead2(http_t *http,			/* I - Connection to server */
   {
     if (http->data_encoding == HTTP_ENCODE_CHUNKED)
       httpGets(len, sizeof(len), http);
-
-    if (http->data_encoding != HTTP_ENCODE_CHUNKED)
-    {
-      if (http->state == HTTP_POST_RECV)
-	http->state ++;
-      else
-	http->state = HTTP_WAITING;
-    }
+    else if (http->state == HTTP_POST_RECV)
+      http->state ++;
+    else
+      http->state = HTTP_WAITING;
   }
 
 #ifdef DEBUG
@@ -2292,6 +2288,23 @@ httpReconnect(http_t *http)		/* I - Connection to server */
   }
 
  /*
+  * Reset all state (except fields, which may be reused)...
+  */
+
+  http->state           = HTTP_WAITING;
+  http->status          = HTTP_CONTINUE;
+  http->version         = HTTP_1_1;
+  http->keep_alive      = HTTP_KEEPALIVE_OFF;
+  memset(&http->_hostaddr, 0, sizeof(http->_hostaddr));
+  http->data_encoding   = HTTP_ENCODE_LENGTH;
+  http->_data_remaining = 0;
+  http->used            = 0;
+  http->expect          = 0;
+  http->data_remaining  = 0;
+  http->hostaddr        = NULL;
+  http->wused           = 0;
+
+ /*
   * Connect to the server...
   */
 
@@ -2328,8 +2341,6 @@ httpReconnect(http_t *http)		/* I - Connection to server */
 
   http->hostaddr = &(addr->addr);
   http->error    = 0;
-  http->status   = HTTP_CONTINUE;
-  http->state    = HTTP_WAITING;
 
 #ifdef HAVE_SSL
   if (http->encryption == HTTP_ENCRYPT_ALWAYS)
@@ -3902,7 +3913,9 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
   http->tls = SSL_new(context);
   SSL_set_bio(http->tls, bio, bio);
 
+#   ifdef HAVE_SSL_SET_TLSEXT_HOST_NAME
   SSL_set_tlsext_host_name(http->tls, hostname);
+#   endif /* HAVE_SSL_SET_TLSEXT_HOST_NAME */
 
   if (SSL_connect(http->tls) != 1)
   {
@@ -4134,7 +4147,7 @@ http_setup_ssl(http_t *http)		/* I - Connection to server */
 		  {
 		    data = (CFDataRef)CFArrayGetValueAtIndex(dn_array, i);
 
-		    if ((credential = malloc(sizeof(*credential))))
+		    if ((credential = malloc(sizeof(*credential))) != NULL)
 		    {
 		      credential->datalen = CFDataGetLength(data);
 		      if ((credential->data = malloc(credential->datalen)))
@@ -4453,7 +4466,8 @@ http_write(http_t     *http,		/* I - Connection to server */
 	pfd.events = POLLOUT;
 
 	while ((nfds = poll(&pfd, 1, http->wait_value)) < 0 &&
-	       (errno == EINTR || errno == EAGAIN));
+	       (errno == EINTR || errno == EAGAIN))
+	  /* do nothing */;
 
 #else
 	do

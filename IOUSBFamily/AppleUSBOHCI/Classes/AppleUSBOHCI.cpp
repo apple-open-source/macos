@@ -277,9 +277,9 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 			 */
 			_errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
 
-			if (_errataBits & kErrataDontUseCompanionController)
+			if (_v3ExpansionData->_onThunderbolt || (_errataBits & kErrataDontUseCompanionController))
 			{
-				USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
+				USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize - Thunderbolt and companion controllers disallowed. Not initializing", this);
 				err =  kIOReturnUnsupported;
 				break;
 			}
@@ -1918,6 +1918,7 @@ AppleUSBOHCI::message( UInt32 type, IOService * provider,  void * argument )
 			returnValue = kIOReturnSuccess;  // this message was handled
 			break;
 			
+	}
 	return returnValue;
     
 }

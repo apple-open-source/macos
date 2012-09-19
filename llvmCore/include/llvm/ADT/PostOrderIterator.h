@@ -19,7 +19,6 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include <set>
-#include <stack>
 #include <vector>
 
 namespace llvm {
@@ -28,6 +27,14 @@ template<class SetType, bool External>   // Non-external set
 class po_iterator_storage {
 public:
   SetType Visited;
+};
+
+/// DFSetTraits - Allow the SetType used to record depth-first search results to
+/// optionally record node postorder.
+template<class SetType>
+struct DFSetTraits {
+  static void finishPostorder(
+    typename SetType::iterator::value_type, SetType &) {}
 };
 
 template<class SetType>
@@ -52,30 +59,28 @@ class po_iterator : public std::iterator<std::forward_iterator_tag,
 
   // VisitStack - Used to maintain the ordering.  Top = current block
   // First element is basic block pointer, second is the 'next child' to visit
-  std::stack<std::pair<NodeType *, ChildItTy> > VisitStack;
+  std::vector<std::pair<NodeType *, ChildItTy> > VisitStack;
 
   void traverseChild() {
-    while (VisitStack.top().second != GT::child_end(VisitStack.top().first)) {
-      NodeType *BB = *VisitStack.top().second++;
-      if (!this->Visited.count(BB)) {  // If the block is not visited...
-        this->Visited.insert(BB);
-        VisitStack.push(std::make_pair(BB, GT::child_begin(BB)));
+    while (VisitStack.back().second != GT::child_end(VisitStack.back().first)) {
+      NodeType *BB = *VisitStack.back().second++;
+      if (this->Visited.insert(BB)) {  // If the block is not visited...
+        VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
       }
     }
   }
 
   inline po_iterator(NodeType *BB) {
     this->Visited.insert(BB);
-    VisitStack.push(std::make_pair(BB, GT::child_begin(BB)));
+    VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
     traverseChild();
   }
   inline po_iterator() {} // End is when stack is empty.
 
   inline po_iterator(NodeType *BB, SetType &S) :
     po_iterator_storage<SetType, ExtStorage>(S) {
-    if(!S.count(BB)) {
-      this->Visited.insert(BB);
-      VisitStack.push(std::make_pair(BB, GT::child_begin(BB)));
+    if (this->Visited.insert(BB)) {
+      VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
       traverseChild();
     }
   }
@@ -102,7 +107,7 @@ public:
   inline bool operator!=(const _Self& x) const { return !operator==(x); }
 
   inline pointer operator*() const {
-    return VisitStack.top().first;
+    return VisitStack.back().first;
   }
 
   // This is a nonstandard operator-> that dereferences the pointer an extra
@@ -112,7 +117,9 @@ public:
   inline NodeType *operator->() const { return operator*(); }
 
   inline _Self& operator++() {   // Preincrement
-    VisitStack.pop();
+    DFSetTraits<SetType>::finishPostorder(VisitStack.back().first,
+                                          this->Visited);
+    VisitStack.pop_back();
     if (!VisitStack.empty())
       traverseChild();
     return *this;

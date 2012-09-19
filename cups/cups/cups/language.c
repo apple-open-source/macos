@@ -980,7 +980,7 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
 
       if (m)
       {
-        if (m->str[0])
+        if (m->str && m->str[0])
         {
           cupsArrayAdd(a, m);
         }
@@ -991,7 +991,8 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
           */
 
           free(m->id);
-          free(m->str);
+          if (m->str)
+            free(m->str);
           free(m);
         }
       }
@@ -1024,6 +1025,11 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
       if ((temp = realloc(m->str ? m->str : m->id,
                           length + strlen(ptr) + 1)) == NULL)
       {
+        if (m->str)
+	  free(m->str);
+	free(m->id);
+        free(m);
+
 	cupsFileClose(fp);
 	return (a);
       }
@@ -1061,6 +1067,9 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
 
       if ((m->str = strdup(ptr)) == NULL)
       {
+	free(m->id);
+        free(m);
+
         cupsFileClose(fp);
 	return (a);
       }
@@ -1073,7 +1082,7 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
 
   if (m)
   {
-    if (m->str[0])
+    if (m->str && m->str[0])
     {
       cupsArrayAdd(a, m);
     }
@@ -1084,7 +1093,8 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
       */
 
       free(m->id);
-      free(m->str);
+      if (m->str)
+	free(m->str);
       free(m);
     }
   }

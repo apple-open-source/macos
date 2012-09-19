@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: master.c,v 1.178 2009-09-01 00:22:26 jinmei Exp $ */
+/* $Id$ */
 
 /*! \file */
 
@@ -1205,9 +1205,10 @@ load_text(dns_loadctx_t *lctx) {
 						goto insist_and_cleanup;
 					}
 					ictx = lctx->inc;
-					line = isc_lex_getsourceline(lctx->lex);
 					source =
 					       isc_lex_getsourcename(lctx->lex);
+					line = isc_lex_getsourceline(lctx->lex);
+					POST(line);
 					continue;
 				}
 				/*
@@ -1417,8 +1418,9 @@ load_text(dns_loadctx_t *lctx) {
 					goto insist_and_cleanup;
 				}
 				ictx = lctx->inc;
-				line = isc_lex_getsourceline(lctx->lex);
 				source = isc_lex_getsourcename(lctx->lex);
+				line = isc_lex_getsourceline(lctx->lex);
+				POST(line);
 				continue;
 			}
 
@@ -2123,6 +2125,7 @@ load_raw(dns_loadctx_t *lctx) {
 
 		/* Empty read: currently, we do not use dumptime */
 		dumptime = isc_buffer_getuint32(&target);
+		POST(dumptime);
 
 		lctx->first = ISC_FALSE;
 	}
@@ -2254,14 +2257,14 @@ load_raw(dns_loadctx_t *lctx) {
 		if (rdcount > rdata_size) {
 			dns_rdata_t *new_rdata = NULL;
 
-			new_rdata = grow_rdata(rdata_size + RDSZ, rdata,
+			new_rdata = grow_rdata(rdcount + RDSZ, rdata,
 					       rdata_size, &head,
 					       &dummy, mctx);
 			if (new_rdata == NULL) {
 				result = ISC_R_NOMEMORY;
 				goto cleanup;
 			}
-			rdata_size += RDSZ;
+			rdata_size = rdcount + RDSZ;
 			rdata = new_rdata;
 		}
 
@@ -2295,7 +2298,6 @@ load_raw(dns_loadctx_t *lctx) {
 				isc_buffer_forward(&target, consumed_name);
 
 				rdcount -= i;
-				i = 0;
 
 				goto continue_read;
 			}
@@ -2679,26 +2681,26 @@ grow_rdatalist(int new_len, dns_rdatalist_t *old, int old_len,
 		return (NULL);
 
 	ISC_LIST_INIT(save);
-	this = ISC_LIST_HEAD(*current);
 	while ((this = ISC_LIST_HEAD(*current)) != NULL) {
 		ISC_LIST_UNLINK(*current, this, link);
 		ISC_LIST_APPEND(save, this, link);
 	}
 	while ((this = ISC_LIST_HEAD(save)) != NULL) {
 		ISC_LIST_UNLINK(save, this, link);
+		INSIST(rdlcount < new_len);
 		new[rdlcount] = *this;
 		ISC_LIST_APPEND(*current, &new[rdlcount], link);
 		rdlcount++;
 	}
 
 	ISC_LIST_INIT(save);
-	this = ISC_LIST_HEAD(*glue);
 	while ((this = ISC_LIST_HEAD(*glue)) != NULL) {
 		ISC_LIST_UNLINK(*glue, this, link);
 		ISC_LIST_APPEND(save, this, link);
 	}
 	while ((this = ISC_LIST_HEAD(save)) != NULL) {
 		ISC_LIST_UNLINK(save, this, link);
+		INSIST(rdlcount < new_len);
 		new[rdlcount] = *this;
 		ISC_LIST_APPEND(*glue, &new[rdlcount], link);
 		rdlcount++;
@@ -2742,6 +2744,7 @@ grow_rdata(int new_len, dns_rdata_t *old, int old_len,
 		}
 		while ((rdata = ISC_LIST_HEAD(save)) != NULL) {
 			ISC_LIST_UNLINK(save, rdata, link);
+			INSIST(rdcount < new_len);
 			new[rdcount] = *rdata;
 			ISC_LIST_APPEND(this->rdata, &new[rdcount], link);
 			rdcount++;
@@ -2761,13 +2764,14 @@ grow_rdata(int new_len, dns_rdata_t *old, int old_len,
 		}
 		while ((rdata = ISC_LIST_HEAD(save)) != NULL) {
 			ISC_LIST_UNLINK(save, rdata, link);
+			INSIST(rdcount < new_len);
 			new[rdcount] = *rdata;
 			ISC_LIST_APPEND(this->rdata, &new[rdcount], link);
 			rdcount++;
 		}
 		this = ISC_LIST_NEXT(this, link);
 	}
-	INSIST(rdcount == old_len);
+	INSIST(rdcount == old_len || rdcount == 0);
 	if (old != NULL)
 		isc_mem_put(mctx, old, old_len * sizeof(*old));
 	return (new);

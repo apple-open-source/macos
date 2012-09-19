@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: driver.c,v 1.11 2007-06-19 23:47:00 tbox Exp $ */
+/* $Id: driver.c,v 1.11 2007/06/19 23:47:00 tbox Exp $ */
 
 #include <config.h>
 

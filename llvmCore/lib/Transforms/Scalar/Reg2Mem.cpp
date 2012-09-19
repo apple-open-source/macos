@@ -9,7 +9,7 @@
 //
 // This file demotes all registers to memory references.  It is intented to be
 // the inverse of PromoteMemoryToRegister.  By converting to loads, the only
-// values live accross basic blocks are allocas and loads before phi nodes.
+// values live across basic blocks are allocas and loads before phi nodes.
 // It is intended that this should make CFG hacking much easier.
 // To make later hacking easier, the entry block is split into two, such that
 // all introduced allocas and nothing else are in the entry block.
@@ -36,7 +36,9 @@ STATISTIC(NumPhisDemoted, "Number of phi-nodes demoted");
 namespace {
   struct RegToMem : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
-    RegToMem() : FunctionPass(&ID) {}
+    RegToMem() : FunctionPass(ID) {
+      initializeRegToMemPass(*PassRegistry::getPassRegistry());
+    }
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequiredID(BreakCriticalEdgesID);
@@ -59,9 +61,11 @@ namespace {
 }
   
 char RegToMem::ID = 0;
-static RegisterPass<RegToMem>
-X("reg2mem", "Demote all values to stack slots");
-
+INITIALIZE_PASS_BEGIN(RegToMem, "reg2mem", "Demote all values to stack slots",
+                false, false)
+INITIALIZE_PASS_DEPENDENCY(BreakCriticalEdges)
+INITIALIZE_PASS_END(RegToMem, "reg2mem", "Demote all values to stack slots",
+                false, false)
 
 bool RegToMem::runOnFunction(Function &F) {
   if (F.isDeclaration()) 
@@ -124,7 +128,7 @@ bool RegToMem::runOnFunction(Function &F) {
 
 // createDemoteRegisterToMemory - Provide an entry point to create this pass.
 //
-const PassInfo *const llvm::DemoteRegisterToMemoryID = &X;
+char &llvm::DemoteRegisterToMemoryID = RegToMem::ID;
 FunctionPass *llvm::createDemoteRegisterToMemoryPass() {
   return new RegToMem();
 }

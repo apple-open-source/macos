@@ -30,6 +30,19 @@
 
 #include <IOKit/usb/USB.h>
 
+extern const OSSymbol *gUSBVendorID;
+extern const OSSymbol *gUSBProductID;
+extern const OSSymbol *gUSBInterfaceNumber;
+extern const OSSymbol *gUSBConfigurationValue;
+extern const OSSymbol *gUSBDeviceReleaseNumber;
+extern const OSSymbol *gUSBInterfaceClass;
+extern const OSSymbol *gUSBInterfaceSubClass;
+extern const OSSymbol *gUSBInterfaceProtocol;
+extern const OSSymbol *gUSBProductIDMask;
+extern const OSSymbol *gUSBDeviceClass;
+extern const OSSymbol *gUSBDeviceSubClass;
+extern const OSSymbol *gUSBDeviceProtocol;
+
 class IOUSBController;
 class IOUSBPipe;
 
@@ -42,11 +55,12 @@ class IOUSBNub : public IOService
     OSDeclareDefaultStructors(IOUSBNub)
 
 public:
-	
+    static void initialize();
+
 	// IOKit method
 	virtual void					joinPMtree ( IOService * driver );
 
-    virtual bool					USBCompareProperty(OSDictionary   * matching, const char     * key );
+    virtual bool					USBCompareProperty(OSDictionary   * matching, const OSSymbol     * key );
     
     bool							IsWildCardMatch( OSDictionary   * matching, const char     * key );
     bool							USBComparePropertyWithMask( OSDictionary *matching, const char *key, const char * maskKey );
@@ -69,4 +83,4 @@ void printInterfaceDescriptor(const IOUSBInterfaceDescriptor *id);
 }
 #endif
 
-#endif /* _IOKIT_IOUSBNUB_H */
+#endif

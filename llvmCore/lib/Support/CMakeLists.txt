@@ -1,19 +1,32 @@
+## FIXME: This only requires RTTI because tblgen uses it.  Fix that.
+set(LLVM_REQUIRES_RTTI 1)
+if( MINGW )
+  set(LLVM_REQUIRES_EH 1)
+endif()
+
 add_llvm_library(LLVMSupport
   APFloat.cpp
   APInt.cpp
   APSInt.cpp
   Allocator.cpp
+  BlockFrequency.cpp
+  BranchProbability.cpp
   circular_raw_ostream.cpp
   CommandLine.cpp
   ConstantRange.cpp
+  CrashRecoveryContext.cpp
+  DataExtractor.cpp
   Debug.cpp
   DeltaAlgorithm.cpp
+  DAGDeltaAlgorithm.cpp
   Dwarf.cpp
   ErrorHandling.cpp
   FileUtilities.cpp
   FoldingSet.cpp
   FormattedStream.cpp
   GraphWriter.cpp
+  IntEqClasses.cpp
+  IntervalMap.cpp
   IsInf.cpp
   IsNAN.cpp
   ManagedStatic.cpp
@@ -22,7 +35,6 @@ add_llvm_library(LLVMSupport
   PluginLoader.cpp
   PrettyStackTrace.cpp
   Regex.cpp
-  SlowOperationInformer.cpp
   SmallPtrSet.cpp
   SmallVector.cpp
   SourceMgr.cpp
@@ -32,8 +44,8 @@ add_llvm_library(LLVMSupport
   StringPool.cpp
   StringRef.cpp
   SystemUtils.cpp
-  TargetRegistry.cpp
   Timer.cpp
+  ToolOutputFile.cpp
   Triple.cpp
   Twine.cpp
   raw_os_ostream.cpp
@@ -43,6 +55,52 @@ add_llvm_library(LLVMSupport
   regexec.c
   regfree.c
   regstrlcpy.c
-  )
 
-target_link_libraries (LLVMSupport LLVMSystem)
+# System
+  Atomic.cpp
+  Disassembler.cpp
+  DynamicLibrary.cpp
+  Errno.cpp
+  Host.cpp
+  IncludeFile.cpp
+  Memory.cpp
+  Mutex.cpp
+  Path.cpp
+  PathV2.cpp
+  Process.cpp
+  Program.cpp
+  RWMutex.cpp
+  SearchForAddressOfSpecialSymbol.cpp
+  Signals.cpp
+  system_error.cpp
+  TargetRegistry.cpp
+  ThreadLocal.cpp
+  Threading.cpp
+  TimeValue.cpp
+  Valgrind.cpp
+  Unix/Host.inc
+  Unix/Memory.inc
+  Unix/Mutex.inc
+  Unix/Path.inc
+  Unix/PathV2.inc
+  Unix/Process.inc
+  Unix/Program.inc
+  Unix/RWMutex.inc
+  Unix/Signals.inc
+  Unix/system_error.inc
+  Unix/ThreadLocal.inc
+  Unix/TimeValue.inc
+  Windows/DynamicLibrary.inc
+  Windows/Host.inc
+  Windows/Memory.inc
+  Windows/Mutex.inc
+  Windows/Path.inc
+  Windows/PathV2.inc
+  Windows/Process.inc
+  Windows/Program.inc
+  Windows/RWMutex.inc
+  Windows/Signals.inc
+  Windows/system_error.inc
+  Windows/ThreadLocal.inc
+  Windows/TimeValue.inc
+  )

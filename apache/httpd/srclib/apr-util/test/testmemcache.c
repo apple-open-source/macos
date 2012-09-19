@@ -433,7 +433,6 @@ static void test_memcache_multiget(abts_case * tc, void *data)
   rv = apr_memcache_add_server(memcache, server);
   ABTS_ASSERT(tc, "server add failed", rv == APR_SUCCESS);
   
-  values = apr_hash_make(p);
   tdata = apr_hash_make(p);
   
   create_test_hash(pool, tdata);
@@ -487,7 +486,7 @@ static void test_memcache_setget(abts_case * tc, void *data)
     apr_status_t rv;
     apr_memcache_t *memcache;
     apr_memcache_server_t *server;
-    apr_hash_t *tdata, *values;
+    apr_hash_t *tdata;
     apr_hash_index_t *hi;
     char *result;
     apr_size_t len;
@@ -502,7 +501,6 @@ static void test_memcache_setget(abts_case * tc, void *data)
     ABTS_ASSERT(tc, "server add failed", rv == APR_SUCCESS);
 
     tdata = apr_hash_make(pool);
-    values = apr_hash_make(pool);
 
     create_test_hash(pool, tdata);
 

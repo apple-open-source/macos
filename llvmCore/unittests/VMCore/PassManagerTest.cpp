@@ -32,7 +32,15 @@
 #include "llvm/Assembly/PrintModulePass.h"
 #include "gtest/gtest.h"
 
+using namespace llvm;
+
 namespace llvm {
+  void initializeModuleNDMPass(PassRegistry&);
+  void initializeFPassPass(PassRegistry&);
+  void initializeCGPassPass(PassRegistry&);
+  void initializeLPassPass(PassRegistry&);
+  void initializeBPassPass(PassRegistry&);
+
   namespace {
     // ND = no deps
     // NM = no modifications
@@ -40,7 +48,7 @@ namespace llvm {
     public:
       static char run;
       static char ID;
-      ModuleNDNM() : ModulePass(&ID) {}
+      ModuleNDNM() : ModulePass(ID) { }
       virtual bool runOnModule(Module &M) {
         run++;
         return false;
@@ -56,7 +64,7 @@ namespace llvm {
     public:
       static char run;
       static char ID;
-      ModuleNDM() : ModulePass(&ID) {}
+      ModuleNDM() : ModulePass(ID) {}
       virtual bool runOnModule(Module &M) {
         run++;
         return true;
@@ -64,13 +72,12 @@ namespace llvm {
     };
     char ModuleNDM::ID=0;
     char ModuleNDM::run=0;
-    RegisterPass<ModuleNDM> X("mndm","mndm",false,false);
 
     struct ModuleNDM2 : public ModulePass {
     public:
       static char run;
       static char ID;
-      ModuleNDM2() : ModulePass(&ID) {}
+      ModuleNDM2() : ModulePass(ID) {}
       virtual bool runOnModule(Module &M) {
         run++;
         return true;
@@ -83,7 +90,9 @@ namespace llvm {
     public:
       static char run;
       static char ID;
-      ModuleDNM() : ModulePass(&ID) {}
+      ModuleDNM() : ModulePass(ID) {
+        initializeModuleNDMPass(*PassRegistry::getPassRegistry());
+      }
       virtual bool runOnModule(Module &M) {
         EXPECT_TRUE(getAnalysisIfAvailable<TargetData>());
         run++;
@@ -105,8 +114,8 @@ namespace llvm {
       static bool finalized;
       int allocated;
       void run() {
-        EXPECT_EQ(true, initialized);
-        EXPECT_EQ(false, finalized);
+        EXPECT_TRUE(initialized);
+        EXPECT_FALSE(finalized);
         EXPECT_EQ(0, allocated);
         allocated++;
         runc++;
@@ -115,11 +124,11 @@ namespace llvm {
       static char ID;
       static void finishedOK(int run) {
         EXPECT_GT(runc, 0);
-        EXPECT_EQ(true, initialized);
-        EXPECT_EQ(true, finalized);
+        EXPECT_TRUE(initialized);
+        EXPECT_TRUE(finalized);
         EXPECT_EQ(run, runc);
       }
-      PassTestBase() : P(&ID), allocated(0) {
+      PassTestBase() : P(ID), allocated(0) {
         initialized = false;
         finalized = false;
         runc = 0;
@@ -140,12 +149,12 @@ namespace llvm {
     struct PassTest : public PassTestBase<P> {
     public:
       virtual bool doInitialization(T &t) {
-        EXPECT_EQ(false, PassTestBase<P>::initialized);
+        EXPECT_FALSE(PassTestBase<P>::initialized);
         PassTestBase<P>::initialized = true;
         return false;
       }
       virtual bool doFinalization(T &t) {
-        EXPECT_EQ(false, PassTestBase<P>::finalized);
+        EXPECT_FALSE(PassTestBase<P>::finalized);
         PassTestBase<P>::finalized = true;
         EXPECT_EQ(0, PassTestBase<P>::allocated);
         return false;
@@ -154,13 +163,15 @@ namespace llvm {
 
     struct CGPass : public PassTest<CallGraph, CallGraphSCCPass> {
     public:
+      CGPass() {
+        initializeCGPassPass(*PassRegistry::getPassRegistry());
+      }
       virtual bool runOnSCC(CallGraphSCC &SCMM) {
         EXPECT_TRUE(getAnalysisIfAvailable<TargetData>());
         run();
         return false;
       }
     };
-    RegisterPass<CGPass> X1("cgp","cgp");
 
     struct FPass : public PassTest<Module, FunctionPass> {
     public:
@@ -171,7 +182,6 @@ namespace llvm {
         return false;
       }
     };
-    RegisterPass<FPass> X2("fp","fp");
 
     struct LPass : public PassTestBase<LoopPass> {
     private:
@@ -179,8 +189,9 @@ namespace llvm {
       static int fincount;
     public:
       LPass() {
+        initializeLPassPass(*PassRegistry::getPassRegistry());
         initcount = 0; fincount=0;
-        EXPECT_EQ(false, initialized);
+        EXPECT_FALSE(initialized);
       }
       static void finishedOK(int run, int finalized) {
         PassTestBase<LoopPass>::finishedOK(run);
@@ -205,7 +216,6 @@ namespace llvm {
     };
     int LPass::initcount=0;
     int LPass::fincount=0;
-    RegisterPass<LPass> X3("lp","lp");
 
     struct BPass : public PassTestBase<BasicBlockPass> {
     private:
@@ -222,7 +232,7 @@ namespace llvm {
         fin = 0;
       }
       virtual bool doInitialization(Module &M) {
-        EXPECT_EQ(false, initialized);
+        EXPECT_FALSE(initialized);
         initialized = true;
         return false;
       }
@@ -240,7 +250,7 @@ namespace llvm {
         return false;
       }
       virtual bool doFinalization(Module &M) {
-        EXPECT_EQ(false, finalized);
+        EXPECT_FALSE(finalized);
         finalized = true;
         EXPECT_EQ(0, allocated);
         return false;
@@ -248,12 +258,13 @@ namespace llvm {
     };
     int BPass::inited=0;
     int BPass::fin=0;
-    RegisterPass<BPass> X4("bp","bp");
 
     struct OnTheFlyTest: public ModulePass {
     public:
       static char ID;
-      OnTheFlyTest() : ModulePass(&ID) {}
+      OnTheFlyTest() : ModulePass(ID) {
+        initializeFPassPass(*PassRegistry::getPassRegistry());
+      }
       virtual bool runOnModule(Module &M) {
         EXPECT_TRUE(getAnalysisIfAvailable<TargetData>());
         for (Module::iterator I=M.begin(),E=M.end(); I != E; ++I) {
@@ -394,13 +405,13 @@ namespace llvm {
       mod->setTargetTriple("x86_64-unknown-linux-gnu");
 
       // Type Definitions
-      std::vector<const Type*>FuncTy_0_args;
+      std::vector<Type*>FuncTy_0_args;
       FunctionType* FuncTy_0 = FunctionType::get(
         /*Result=*/IntegerType::get(getGlobalContext(), 32),
         /*Params=*/FuncTy_0_args,
         /*isVarArg=*/false);
 
-      std::vector<const Type*>FuncTy_2_args;
+      std::vector<Type*>FuncTy_2_args;
       FuncTy_2_args.push_back(IntegerType::get(getGlobalContext(), 1));
       FunctionType* FuncTy_2 = FunctionType::get(
         /*Result=*/Type::getVoidTy(getGlobalContext()),
@@ -525,3 +536,13 @@ namespace llvm {
 
   }
 }
+
+INITIALIZE_PASS(ModuleNDM, "mndm", "mndm", false, false)
+INITIALIZE_PASS_BEGIN(CGPass, "cgp","cgp", false, false)
+INITIALIZE_AG_DEPENDENCY(CallGraph)
+INITIALIZE_PASS_END(CGPass, "cgp","cgp", false, false)
+INITIALIZE_PASS(FPass, "fp","fp", false, false)
+INITIALIZE_PASS_BEGIN(LPass, "lp","lp", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_END(LPass, "lp","lp", false, false)
+INITIALIZE_PASS(BPass, "bp","bp", false, false)

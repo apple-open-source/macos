@@ -12,60 +12,24 @@
 //===----------------------------------------------------------------------===//
 
 #include "SparcInstrInfo.h"
-#include "SparcSubtarget.h"
 #include "Sparc.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
+#include "SparcMachineFunctionInfo.h"
+#include "SparcSubtarget.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+
+#define GET_INSTRINFO_CTOR
 #include "SparcGenInstrInfo.inc"
-#include "SparcMachineFunctionInfo.h"
+
 using namespace llvm;
 
 SparcInstrInfo::SparcInstrInfo(SparcSubtarget &ST)
-  : TargetInstrInfoImpl(SparcInsts, array_lengthof(SparcInsts)),
+  : SparcGenInstrInfo(SP::ADJCALLSTACKDOWN, SP::ADJCALLSTACKUP),
     RI(ST, *this), Subtarget(ST) {
-}
-
-static bool isZeroImm(const MachineOperand &op) {
-  return op.isImm() && op.getImm() == 0;
-}
-
-/// Return true if the instruction is a register to register move and
-/// leave the source and dest operands in the passed parameters.
-///
-bool SparcInstrInfo::isMoveInstr(const MachineInstr &MI,
-                                 unsigned &SrcReg, unsigned &DstReg,
-                                 unsigned &SrcSR, unsigned &DstSR) const {
-  SrcSR = DstSR = 0; // No sub-registers.
-
-  // We look for 3 kinds of patterns here:
-  // or with G0 or 0
-  // add with G0 or 0
-  // fmovs or FpMOVD (pseudo double move).
-  if (MI.getOpcode() == SP::ORrr || MI.getOpcode() == SP::ADDrr) {
-    if (MI.getOperand(1).getReg() == SP::G0) {
-      DstReg = MI.getOperand(0).getReg();
-      SrcReg = MI.getOperand(2).getReg();
-      return true;
-    } else if (MI.getOperand(2).getReg() == SP::G0) {
-      DstReg = MI.getOperand(0).getReg();
-      SrcReg = MI.getOperand(1).getReg();
-      return true;
-    }
-  } else if ((MI.getOpcode() == SP::ORri || MI.getOpcode() == SP::ADDri) &&
-             isZeroImm(MI.getOperand(2)) && MI.getOperand(1).isReg()) {
-    DstReg = MI.getOperand(0).getReg();
-    SrcReg = MI.getOperand(1).getReg();
-    return true;
-  } else if (MI.getOpcode() == SP::FMOVS || MI.getOpcode() == SP::FpMOVD ||
-             MI.getOpcode() == SP::FMOVD) {
-    SrcReg = MI.getOperand(1).getReg();
-    DstReg = MI.getOperand(0).getReg();
-    return true;
-  }
-  return false;
 }
 
 /// isLoadFromStackSlot - If the specified machine instruction is a direct
@@ -106,41 +70,217 @@ unsigned SparcInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
   return 0;
 }
 
+static bool IsIntegerCC(unsigned CC)
+{
+  return  (CC <= SPCC::ICC_VC);
+}
+
+
+static SPCC::CondCodes GetOppositeBranchCondition(SPCC::CondCodes CC)
+{
+  switch(CC) {
+  default: llvm_unreachable("Unknown condition code");
+  case SPCC::ICC_NE:   return SPCC::ICC_E;
+  case SPCC::ICC_E:    return SPCC::ICC_NE;
+  case SPCC::ICC_G:    return SPCC::ICC_LE;
+  case SPCC::ICC_LE:   return SPCC::ICC_G;
+  case SPCC::ICC_GE:   return SPCC::ICC_L;
+  case SPCC::ICC_L:    return SPCC::ICC_GE;
+  case SPCC::ICC_GU:   return SPCC::ICC_LEU;
+  case SPCC::ICC_LEU:  return SPCC::ICC_GU;
+  case SPCC::ICC_CC:   return SPCC::ICC_CS;
+  case SPCC::ICC_CS:   return SPCC::ICC_CC;
+  case SPCC::ICC_POS:  return SPCC::ICC_NEG;
+  case SPCC::ICC_NEG:  return SPCC::ICC_POS;
+  case SPCC::ICC_VC:   return SPCC::ICC_VS;
+  case SPCC::ICC_VS:   return SPCC::ICC_VC;
+
+  case SPCC::FCC_U:    return SPCC::FCC_O;
+  case SPCC::FCC_O:    return SPCC::FCC_U;
+  case SPCC::FCC_G:    return SPCC::FCC_LE;
+  case SPCC::FCC_LE:   return SPCC::FCC_G;
+  case SPCC::FCC_UG:   return SPCC::FCC_ULE;
+  case SPCC::FCC_ULE:  return SPCC::FCC_UG;
+  case SPCC::FCC_L:    return SPCC::FCC_GE;
+  case SPCC::FCC_GE:   return SPCC::FCC_L;
+  case SPCC::FCC_UL:   return SPCC::FCC_UGE;
+  case SPCC::FCC_UGE:  return SPCC::FCC_UL;
+  case SPCC::FCC_LG:   return SPCC::FCC_UE;
+  case SPCC::FCC_UE:   return SPCC::FCC_LG;
+  case SPCC::FCC_NE:   return SPCC::FCC_E;
+  case SPCC::FCC_E:    return SPCC::FCC_NE;
+  }
+}
+
+
+bool SparcInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
+                                   MachineBasicBlock *&TBB,
+                                   MachineBasicBlock *&FBB,
+                                   SmallVectorImpl<MachineOperand> &Cond,
+                                   bool AllowModify) const
+{
+
+  MachineBasicBlock::iterator I = MBB.end();
+  MachineBasicBlock::iterator UnCondBrIter = MBB.end();
+  while (I != MBB.begin()) {
+    --I;
+
+    if (I->isDebugValue())
+      continue;
+
+    //When we see a non-terminator, we are done
+    if (!isUnpredicatedTerminator(I))
+      break;
+
+    //Terminator is not a branch
+    if (!I->getDesc().isBranch())
+      return true;
+
+    //Handle Unconditional branches
+    if (I->getOpcode() == SP::BA) {
+      UnCondBrIter = I;
+
+      if (!AllowModify) {
+        TBB = I->getOperand(0).getMBB();
+        continue;
+      }
+
+      while (llvm::next(I) != MBB.end())
+        llvm::next(I)->eraseFromParent();
+
+      Cond.clear();
+      FBB = 0;
+
+      if (MBB.isLayoutSuccessor(I->getOperand(0).getMBB())) {
+        TBB = 0;
+        I->eraseFromParent();
+        I = MBB.end();
+        UnCondBrIter = MBB.end();
+        continue;
+      }
+
+      TBB = I->getOperand(0).getMBB();
+      continue;
+    }
+
+    unsigned Opcode = I->getOpcode();
+    if (Opcode != SP::BCOND && Opcode != SP::FBCOND)
+      return true; //Unknown Opcode
+
+    SPCC::CondCodes BranchCode = (SPCC::CondCodes)I->getOperand(1).getImm();
+
+    if (Cond.empty()) {
+      MachineBasicBlock *TargetBB = I->getOperand(0).getMBB();
+      if (AllowModify && UnCondBrIter != MBB.end() &&
+          MBB.isLayoutSuccessor(TargetBB)) {
+
+        //Transform the code
+        //
+        //    brCC L1
+        //    ba L2
+        // L1:
+        //    ..
+        // L2:
+        //
+        // into
+        //
+        //   brnCC L2
+        // L1:
+        //   ...
+        // L2:
+        //
+        BranchCode = GetOppositeBranchCondition(BranchCode);
+        MachineBasicBlock::iterator OldInst = I;
+        BuildMI(MBB, UnCondBrIter, MBB.findDebugLoc(I), get(Opcode))
+          .addMBB(UnCondBrIter->getOperand(0).getMBB()).addImm(BranchCode);
+        BuildMI(MBB, UnCondBrIter, MBB.findDebugLoc(I), get(SP::BA))
+          .addMBB(TargetBB);
+        MBB.addSuccessor(TargetBB);
+        OldInst->eraseFromParent();
+        UnCondBrIter->eraseFromParent();
+
+        UnCondBrIter = MBB.end();
+        I = MBB.end();
+        continue;
+      }
+      FBB = TBB;
+      TBB = I->getOperand(0).getMBB();
+      Cond.push_back(MachineOperand::CreateImm(BranchCode));
+      continue;
+    }
+    //FIXME: Handle subsequent conditional branches
+    //For now, we can't handle multiple conditional branches
+    return true;
+  }
+  return false;
+}
+
 unsigned
 SparcInstrInfo::InsertBranch(MachineBasicBlock &MBB,MachineBasicBlock *TBB,
                              MachineBasicBlock *FBB,
-                             const SmallVectorImpl<MachineOperand> &Cond)const{
-  // FIXME this should probably take a DebugLoc argument
-  DebugLoc dl;
-  // Can only insert uncond branches so far.
-  assert(Cond.empty() && !FBB && TBB && "Can only handle uncond branches!");
-  BuildMI(&MBB, dl, get(SP::BA)).addMBB(TBB);
-  return 1;
-}
+                             const SmallVectorImpl<MachineOperand> &Cond,
+                             DebugLoc DL) const {
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
+  assert((Cond.size() == 1 || Cond.size() == 0) &&
+         "Sparc branch conditions should have one component!");
 
-bool SparcInstrInfo::copyRegToReg(MachineBasicBlock &MBB,
-                                  MachineBasicBlock::iterator I,
-                                  unsigned DestReg, unsigned SrcReg,
-                                  const TargetRegisterClass *DestRC,
-                                  const TargetRegisterClass *SrcRC,
-                                  DebugLoc DL) const {
-  if (DestRC != SrcRC) {
-    // Not yet supported!
-    return false;
+  if (Cond.empty()) {
+    assert(!FBB && "Unconditional branch with multiple successors!");
+    BuildMI(&MBB, DL, get(SP::BA)).addMBB(TBB);
+    return 1;
   }
 
-  if (DestRC == SP::IntRegsRegisterClass)
-    BuildMI(MBB, I, DL, get(SP::ORrr), DestReg).addReg(SP::G0).addReg(SrcReg);
-  else if (DestRC == SP::FPRegsRegisterClass)
-    BuildMI(MBB, I, DL, get(SP::FMOVS), DestReg).addReg(SrcReg);
-  else if (DestRC == SP::DFPRegsRegisterClass)
-    BuildMI(MBB, I, DL, get(Subtarget.isV9() ? SP::FMOVD : SP::FpMOVD),DestReg)
-      .addReg(SrcReg);
-  else
-    // Can't copy this register
-    return false;
+  //Conditional branch
+  unsigned CC = Cond[0].getImm();
 
-  return true;
+  if (IsIntegerCC(CC))
+    BuildMI(&MBB, DL, get(SP::BCOND)).addMBB(TBB).addImm(CC);
+  else
+    BuildMI(&MBB, DL, get(SP::FBCOND)).addMBB(TBB).addImm(CC);
+  if (!FBB)
+    return 1;
+
+  BuildMI(&MBB, DL, get(SP::BA)).addMBB(FBB);
+  return 2;
+}
+
+unsigned SparcInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const
+{
+  MachineBasicBlock::iterator I = MBB.end();
+  unsigned Count = 0;
+  while (I != MBB.begin()) {
+    --I;
+
+    if (I->isDebugValue())
+      continue;
+
+    if (I->getOpcode() != SP::BA
+        && I->getOpcode() != SP::BCOND
+        && I->getOpcode() != SP::FBCOND)
+      break; // Not a branch
+
+    I->eraseFromParent();
+    I = MBB.end();
+    ++Count;
+  }
+  return Count;
+}
+
+void SparcInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                 MachineBasicBlock::iterator I, DebugLoc DL,
+                                 unsigned DestReg, unsigned SrcReg,
+                                 bool KillSrc) const {
+  if (SP::IntRegsRegClass.contains(DestReg, SrcReg))
+    BuildMI(MBB, I, DL, get(SP::ORrr), DestReg).addReg(SP::G0)
+      .addReg(SrcReg, getKillRegState(KillSrc));
+  else if (SP::FPRegsRegClass.contains(DestReg, SrcReg))
+    BuildMI(MBB, I, DL, get(SP::FMOVS), DestReg)
+      .addReg(SrcReg, getKillRegState(KillSrc));
+  else if (SP::DFPRegsRegClass.contains(DestReg, SrcReg))
+    BuildMI(MBB, I, DL, get(Subtarget.isV9() ? SP::FMOVD : SP::FpMOVD), DestReg)
+      .addReg(SrcReg, getKillRegState(KillSrc));
+  else
+    llvm_unreachable("Impossible reg-to-reg copy");
 }
 
 void SparcInstrInfo::
@@ -181,61 +321,6 @@ loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
     BuildMI(MBB, I, DL, get(SP::LDDFri), DestReg).addFrameIndex(FI).addImm(0);
   else
     llvm_unreachable("Can't load this register from stack slot");
-}
-
-MachineInstr *SparcInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
-                                                    MachineInstr* MI,
-                                          const SmallVectorImpl<unsigned> &Ops,
-                                                    int FI) const {
-  if (Ops.size() != 1) return NULL;
-
-  unsigned OpNum = Ops[0];
-  bool isFloat = false;
-  MachineInstr *NewMI = NULL;
-  switch (MI->getOpcode()) {
-  case SP::ORrr:
-    if (MI->getOperand(1).isReg() && MI->getOperand(1).getReg() == SP::G0&&
-        MI->getOperand(0).isReg() && MI->getOperand(2).isReg()) {
-      if (OpNum == 0)    // COPY -> STORE
-        NewMI = BuildMI(MF, MI->getDebugLoc(), get(SP::STri))
-          .addFrameIndex(FI)
-          .addImm(0)
-          .addReg(MI->getOperand(2).getReg());
-      else               // COPY -> LOAD
-        NewMI = BuildMI(MF, MI->getDebugLoc(), get(SP::LDri),
-                        MI->getOperand(0).getReg())
-          .addFrameIndex(FI)
-          .addImm(0);
-    }
-    break;
-  case SP::FMOVS:
-    isFloat = true;
-    // FALLTHROUGH
-  case SP::FMOVD:
-    if (OpNum == 0) { // COPY -> STORE
-      unsigned SrcReg = MI->getOperand(1).getReg();
-      bool isKill = MI->getOperand(1).isKill();
-      bool isUndef = MI->getOperand(1).isUndef();
-      NewMI = BuildMI(MF, MI->getDebugLoc(),
-                      get(isFloat ? SP::STFri : SP::STDFri))
-        .addFrameIndex(FI)
-        .addImm(0)
-        .addReg(SrcReg, getKillRegState(isKill) | getUndefRegState(isUndef));
-    } else {             // COPY -> LOAD
-      unsigned DstReg = MI->getOperand(0).getReg();
-      bool isDead = MI->getOperand(0).isDead();
-      bool isUndef = MI->getOperand(0).isUndef();
-      NewMI = BuildMI(MF, MI->getDebugLoc(),
-                      get(isFloat ? SP::LDFri : SP::LDDFri))
-        .addReg(DstReg, RegState::Define |
-                getDeadRegState(isDead) | getUndefRegState(isUndef))
-        .addFrameIndex(FI)
-        .addImm(0);
-    }
-    break;
-  }
-
-  return NewMI;
 }
 
 unsigned SparcInstrInfo::getGlobalBaseReg(MachineFunction *MF) const

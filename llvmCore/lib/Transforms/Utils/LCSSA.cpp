@@ -47,7 +47,9 @@ STATISTIC(NumLCSSA, "Number of live out of a loop variables");
 namespace {
   struct LCSSA : public LoopPass {
     static char ID; // Pass identification, replacement for typeid
-    LCSSA() : LoopPass(&ID) {}
+    LCSSA() : LoopPass(ID) {
+      initializeLCSSAPass(*PassRegistry::getPassRegistry());
+    }
 
     // Cached analysis information for the current function.
     DominatorTree *DT;
@@ -64,22 +66,10 @@ namespace {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesCFG();
 
-      // LCSSA doesn't actually require LoopSimplify, but the PassManager
-      // doesn't know how to schedule LoopSimplify by itself.
-      AU.addRequiredID(LoopSimplifyID);
+      AU.addRequired<DominatorTree>();
+      AU.addRequired<LoopInfo>();
       AU.addPreservedID(LoopSimplifyID);
-      AU.addRequiredTransitive<LoopInfo>();
-      AU.addPreserved<LoopInfo>();
-      AU.addRequiredTransitive<DominatorTree>();
       AU.addPreserved<ScalarEvolution>();
-      AU.addPreserved<DominatorTree>();
-
-      // Request DominanceFrontier now, even though LCSSA does
-      // not use it. This allows Pass Manager to schedule Dominance
-      // Frontier early enough such that one LPPassManager can handle
-      // multiple loop transformation passes.
-      AU.addRequired<DominanceFrontier>(); 
-      AU.addPreserved<DominanceFrontier>();
     }
   private:
     bool ProcessInstruction(Instruction *Inst,
@@ -99,10 +89,13 @@ namespace {
 }
   
 char LCSSA::ID = 0;
-static RegisterPass<LCSSA> X("lcssa", "Loop-Closed SSA Form Pass");
+INITIALIZE_PASS_BEGIN(LCSSA, "lcssa", "Loop-Closed SSA Form Pass", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_END(LCSSA, "lcssa", "Loop-Closed SSA Form Pass", false, false)
 
 Pass *llvm::createLCSSAPass() { return new LCSSA(); }
-const PassInfo *const llvm::LCSSAID = &X;
+char &llvm::LCSSAID = LCSSA::ID;
 
 
 /// BlockDominatesAnExit - Return true if the specified block dominates at least
@@ -190,14 +183,15 @@ bool LCSSA::ProcessInstruction(Instruction *Inst,
   
   for (Value::use_iterator UI = Inst->use_begin(), E = Inst->use_end();
        UI != E; ++UI) {
-    BasicBlock *UserBB = cast<Instruction>(*UI)->getParent();
-    if (PHINode *PN = dyn_cast<PHINode>(*UI))
+    User *U = *UI;
+    BasicBlock *UserBB = cast<Instruction>(U)->getParent();
+    if (PHINode *PN = dyn_cast<PHINode>(U))
       UserBB = PN->getIncomingBlock(UI);
     
     if (InstBB != UserBB && !inLoop(UserBB))
       UsesToRewrite.push_back(&UI.getUse());
   }
-  
+
   // If there are no uses outside the loop, exit with no change.
   if (UsesToRewrite.empty()) return false;
   
@@ -213,8 +207,10 @@ bool LCSSA::ProcessInstruction(Instruction *Inst,
 
   DomTreeNode *DomNode = DT->getNode(DomBB);
 
+  SmallVector<PHINode*, 16> AddedPHIs;
+
   SSAUpdater SSAUpdate;
-  SSAUpdate.Initialize(Inst);
+  SSAUpdate.Initialize(Inst->getType(), Inst->getName());
   
   // Insert the LCSSA phi's into all of the exit blocks dominated by the
   // value, and add them to the Phi's map.
@@ -226,9 +222,10 @@ bool LCSSA::ProcessInstruction(Instruction *Inst,
     // If we already inserted something for this BB, don't reprocess it.
     if (SSAUpdate.HasValueForBlock(ExitBB)) continue;
     
-    PHINode *PN = PHINode::Create(Inst->getType(), Inst->getName()+".lcssa",
+    PHINode *PN = PHINode::Create(Inst->getType(),
+                                  PredCache.GetNumPreds(ExitBB),
+                                  Inst->getName()+".lcssa",
                                   ExitBB->begin());
-    PN->reserveOperandSpace(PredCache.GetNumPreds(ExitBB));
 
     // Add inputs from inside the loop for this PHI.
     for (BasicBlock **PI = PredCache.GetPreds(ExitBB); *PI; ++PI) {
@@ -242,6 +239,8 @@ bool LCSSA::ProcessInstruction(Instruction *Inst,
           &PN->getOperandUse(
             PN->getOperandNumForIncomingValue(PN->getNumIncomingValues()-1)));
     }
+
+    AddedPHIs.push_back(PN);
     
     // Remember that this phi makes the value alive in this block.
     SSAUpdate.AddAvailableValue(ExitBB, PN);
@@ -267,6 +266,12 @@ bool LCSSA::ProcessInstruction(Instruction *Inst,
     
     // Otherwise, do full PHI insertion.
     SSAUpdate.RewriteUse(*UsesToRewrite[i]);
+  }
+
+  // Remove PHI nodes that did not have any uses rewritten.
+  for (unsigned i = 0, e = AddedPHIs.size(); i != e; ++i) {
+    if (AddedPHIs[i]->use_empty())
+      AddedPHIs[i]->eraseFromParent();
   }
   
   return true;

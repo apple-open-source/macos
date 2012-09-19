@@ -23,13 +23,15 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/Target/TargetSubtarget.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include <map>
 
 namespace llvm {
+class RegisterClassInfo;
+
   /// Class AggressiveAntiDepState
   /// Contains all the state necessary for anti-dep breaking.
   class AggressiveAntiDepState {
@@ -59,27 +61,27 @@ namespace llvm {
     /// currently representing the group that the register belongs to.
     /// Register 0 is always represented by the 0 group, a group
     /// composed of registers that are not eligible for anti-aliasing.
-    unsigned GroupNodeIndices[TargetRegisterInfo::FirstVirtualRegister];
+    std::vector<unsigned> GroupNodeIndices;
 
     /// RegRefs - Map registers to all their references within a live range.
     std::multimap<unsigned, RegisterReference> RegRefs;
 
     /// KillIndices - The index of the most recent kill (proceding bottom-up),
     /// or ~0u if the register is not live.
-    unsigned KillIndices[TargetRegisterInfo::FirstVirtualRegister];
+    std::vector<unsigned> KillIndices;
 
     /// DefIndices - The index of the most recent complete def (proceding bottom
     /// up), or ~0u if the register is live.
-    unsigned DefIndices[TargetRegisterInfo::FirstVirtualRegister];
+    std::vector<unsigned> DefIndices;
 
   public:
     AggressiveAntiDepState(const unsigned TargetRegs, MachineBasicBlock *BB);
 
     /// GetKillIndices - Return the kill indices.
-    unsigned *GetKillIndices() { return KillIndices; }
+    std::vector<unsigned> &GetKillIndices() { return KillIndices; }
 
     /// GetDefIndices - Return the define indices.
-    unsigned *GetDefIndices() { return DefIndices; }
+    std::vector<unsigned> &GetDefIndices() { return DefIndices; }
 
     /// GetRegRefs - Return the RegRefs map.
     std::multimap<unsigned, RegisterReference>& GetRegRefs() { return RegRefs; }
@@ -115,12 +117,9 @@ namespace llvm {
   class AggressiveAntiDepBreaker : public AntiDepBreaker {
     MachineFunction& MF;
     MachineRegisterInfo &MRI;
+    const TargetInstrInfo *TII;
     const TargetRegisterInfo *TRI;
-
-    /// AllocatableSet - The set of allocatable registers.
-    /// We'll be ignoring anti-dependencies on non-allocatable registers,
-    /// because they may not be safe to break.
-    const BitVector AllocatableSet;
+    const RegisterClassInfo &RegClassInfo;
 
     /// CriticalPathSet - The set of registers that should only be
     /// renamed if they are on the critical path.
@@ -132,7 +131,8 @@ namespace llvm {
 
   public:
     AggressiveAntiDepBreaker(MachineFunction& MFi,
-                             TargetSubtarget::RegClassVector& CriticalPathRCs);
+                          const RegisterClassInfo &RCI,
+                          TargetSubtargetInfo::RegClassVector& CriticalPathRCs);
     ~AggressiveAntiDepBreaker();
 
     /// Start - Initialize anti-dep breaking for a new basic block.
@@ -145,7 +145,8 @@ namespace llvm {
     unsigned BreakAntiDependencies(const std::vector<SUnit>& SUnits,
                                    MachineBasicBlock::iterator Begin,
                                    MachineBasicBlock::iterator End,
-                                   unsigned InsertPosIndex);
+                                   unsigned InsertPosIndex,
+                                   DbgValueVector &DbgValues);
 
     /// Observe - Update liveness information to account for the current
     /// instruction, which will not be scheduled.
@@ -156,8 +157,8 @@ namespace llvm {
     void FinishBlock();
 
   private:
-    typedef std::map<const TargetRegisterClass *,
-                     TargetRegisterClass::const_iterator> RenameOrderType;
+    /// Keep track of a position in the allocation order for each regclass.
+    typedef std::map<const TargetRegisterClass *, unsigned> RenameOrderType;
 
     /// IsImplicitDefUse - Return true if MO represents a register
     /// that is both implicitly used and defined in MI

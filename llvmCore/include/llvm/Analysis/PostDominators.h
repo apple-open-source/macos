@@ -25,7 +25,8 @@ struct PostDominatorTree : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
   DominatorTreeBase<BasicBlock>* DT;
 
-  PostDominatorTree() : FunctionPass(&ID) {
+  PostDominatorTree() : FunctionPass(ID) {
+    initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
     DT = new DominatorTreeBase<BasicBlock>(true);
   }
 
@@ -99,35 +100,6 @@ template <> struct GraphTraits<PostDominatorTree*>
     return df_end(getEntryNode(N));
   }
 };
-
-/// PostDominanceFrontier Class - Concrete subclass of DominanceFrontier that is
-/// used to compute the a post-dominance frontier.
-///
-struct PostDominanceFrontier : public DominanceFrontierBase {
-  static char ID;
-  PostDominanceFrontier()
-    : DominanceFrontierBase(&ID, true) {}
-
-  virtual bool runOnFunction(Function &) {
-    Frontiers.clear();
-    PostDominatorTree &DT = getAnalysis<PostDominatorTree>();
-    Roots = DT.getRoots();
-    if (const DomTreeNode *Root = DT.getRootNode())
-      calculate(DT, Root);
-    return false;
-  }
-
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequired<PostDominatorTree>();
-  }
-
-private:
-  const DomSetType &calculate(const PostDominatorTree &DT,
-                              const DomTreeNode *Node);
-};
-
-FunctionPass* createPostDomFrontier();
 
 } // End llvm namespace
 

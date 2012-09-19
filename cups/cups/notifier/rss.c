@@ -251,7 +251,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     {
      /*
       * Save the messages to the file again, uploading as needed...
-      */ 
+      */
 
       if (save_rss(rss, newname, baseurl))
       {
@@ -552,6 +552,15 @@ load_rss(cups_array_t *rss,		/* I - RSS messages */
     else if ((start = strstr(line, "<guid>")) != NULL)
       sequence_number = atoi(start + 6);
   }
+
+  if (subject)
+    free(subject);
+
+  if (text)
+    free(text);
+
+  if (link_url)
+    free(link_url);
 
   fclose(fp);
 }

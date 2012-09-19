@@ -38,7 +38,7 @@
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/usb/IOUSBUserClient.h>
-#include <IOKit/usb/IOUSBControllerV2.h>
+#include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBPipe.h>
@@ -178,6 +178,10 @@ public:
 	static	IOReturn					_GetExtraPowerAllocated(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
     virtual IOReturn					GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllocated);
 	
+#ifdef SUPPORTS_SS_USB
+	static	IOReturn					_GetBandwidthAvailableForDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+#endif
+	
     // bookkeeping methods
     virtual void                        DecrementOutstandingIO(void);
     virtual void                        IncrementOutstandingIO(void);
@@ -211,7 +215,12 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2,  1);
 	virtual IOReturn					ClientCloseGated( void );
 
+#ifdef SUPPORTS_SS_USB
+	OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2, 2);
+	virtual IOReturn					GetBandwidthAvailableForDevice(uint64_t *pBandwidth);
+#else
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  2);
+#endif
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  3);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  4);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  5);
@@ -232,5 +241,5 @@ public:
 };
 
 
-#endif /* ! _IOKIT_IOUSBDEVICEUSERCLIENT_H */
+#endif
 

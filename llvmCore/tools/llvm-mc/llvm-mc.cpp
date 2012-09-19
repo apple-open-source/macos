@@ -12,29 +12,34 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/MC/MCParser/AsmLexer.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
+#include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCInstPrinter.h"
+#include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCParser/AsmParser.h"
-#include "llvm/Target/TargetAsmBackend.h"
-#include "llvm/Target/TargetAsmParser.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetMachine.h"  // FIXME.
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/MCTargetAsmParser.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Host.h"
-#include "llvm/System/Signals.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/system_error.h"
 #include "Disassembler.h"
 using namespace llvm;
 
@@ -51,12 +56,22 @@ ShowEncoding("show-encoding", cl::desc("Show instruction encodings"));
 static cl::opt<bool>
 ShowInst("show-inst", cl::desc("Show internal instruction representation"));
 
+static cl::opt<bool>
+ShowInstOperands("show-inst-operands",
+                 cl::desc("Show instructions operands as parsed"));
+
 static cl::opt<unsigned>
 OutputAsmVariant("output-asm-variant",
                  cl::desc("Syntax variant to use for output printing"));
 
 static cl::opt<bool>
 RelaxAll("mc-relax-all", cl::desc("Relax all fixups"));
+
+static cl::opt<bool>
+NoExecStack("mc-no-exec-stack", cl::desc("File doesn't need an exec stack"));
+
+static cl::opt<bool>
+EnableLogging("enable-api-logging", cl::desc("Enable MC API logging"));
 
 enum OutputFileType {
   OFT_Null,
@@ -75,24 +90,71 @@ FileType("filetype", cl::init(OFT_AssemblyFile),
                   "Emit a native object ('.o') file"),
        clEnumValEnd));
 
-static cl::opt<bool>
-Force("f", cl::desc("Enable binary output on terminals"));
-
 static cl::list<std::string>
 IncludeDirs("I", cl::desc("Directory of include files"),
             cl::value_desc("directory"), cl::Prefix);
 
 static cl::opt<std::string>
 ArchName("arch", cl::desc("Target arch to assemble for, "
-                            "see -version for available targets"));
+                          "see -version for available targets"));
 
 static cl::opt<std::string>
 TripleName("triple", cl::desc("Target triple to assemble for, "
                               "see -version for available targets"));
 
+static cl::opt<std::string>
+MCPU("mcpu",
+     cl::desc("Target a specific cpu type (-mcpu=help for details)"),
+     cl::value_desc("cpu-name"),
+     cl::init(""));
+
+static cl::list<std::string>
+MAttrs("mattr",
+  cl::CommaSeparated,
+  cl::desc("Target specific attributes (-mattr=help for details)"),
+  cl::value_desc("a1,+a2,-a3,..."));
+
+static cl::opt<Reloc::Model>
+RelocModel("relocation-model",
+             cl::desc("Choose relocation model"),
+             cl::init(Reloc::Default),
+             cl::values(
+            clEnumValN(Reloc::Default, "default",
+                       "Target default relocation model"),
+            clEnumValN(Reloc::Static, "static",
+                       "Non-relocatable code"),
+            clEnumValN(Reloc::PIC_, "pic",
+                       "Fully relocatable, position independent code"),
+            clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
+                       "Relocatable external references, non-relocatable code"),
+            clEnumValEnd));
+
+static cl::opt<llvm::CodeModel::Model>
+CMModel("code-model",
+        cl::desc("Choose code model"),
+        cl::init(CodeModel::Default),
+        cl::values(clEnumValN(CodeModel::Default, "default",
+                              "Target default code model"),
+                   clEnumValN(CodeModel::Small, "small",
+                              "Small code model"),
+                   clEnumValN(CodeModel::Kernel, "kernel",
+                              "Kernel code model"),
+                   clEnumValN(CodeModel::Medium, "medium",
+                              "Medium code model"),
+                   clEnumValN(CodeModel::Large, "large",
+                              "Large code model"),
+                   clEnumValEnd));
+
 static cl::opt<bool>
-NoInitialTextSection("n", cl::desc(
-                   "Don't assume assembly file starts in the text section"));
+NoInitialTextSection("n", cl::desc("Don't assume assembly file starts "
+                                   "in the text section"));
+
+static cl::opt<bool>
+SaveTempLabels("L", cl::desc("Don't discard temporary labels"));
+
+static cl::opt<bool>
+GenDwarfForAssembly("g", cl::desc("Generate dwarf debugging info for assembly "
+                                  "source files"));
 
 enum ActionType {
   AC_AsLex,
@@ -117,42 +179,74 @@ Action(cl::desc("Action to perform:"),
 static const Target *GetTarget(const char *ProgName) {
   // Figure out the target triple.
   if (TripleName.empty())
-    TripleName = sys::getHostTriple();
+    TripleName = sys::getDefaultTargetTriple();
+  Triple TheTriple(Triple::normalize(TripleName));
+
+  const Target *TheTarget = 0;
   if (!ArchName.empty()) {
-    llvm::Triple TT(TripleName);
-    TT.setArchName(ArchName);
-    TripleName = TT.str();
+    for (TargetRegistry::iterator it = TargetRegistry::begin(),
+           ie = TargetRegistry::end(); it != ie; ++it) {
+      if (ArchName == it->getName()) {
+        TheTarget = &*it;
+        break;
+      }
+    }
+
+    if (!TheTarget) {
+      errs() << ProgName << ": error: invalid target '" << ArchName << "'.\n";
+      return 0;
+    }
+
+    // Adjust the triple to match (if known), otherwise stick with the
+    // module/host triple.
+    Triple::ArchType Type = Triple::getArchTypeForLLVMName(ArchName);
+    if (Type != Triple::UnknownArch)
+      TheTriple.setArch(Type);
+  } else {
+    // Get the target specific parser.
+    std::string Error;
+    TheTarget = TargetRegistry::lookupTarget(TheTriple.getTriple(), Error);
+    if (TheTarget == 0) {
+      errs() << ProgName << ": error: unable to get target for '"
+             << TheTriple.getTriple()
+             << "', see --version and --triple.\n";
+      return 0;
+    }
   }
 
-  // Get the target specific parser.
-  std::string Error;
-  const Target *TheTarget = TargetRegistry::lookupTarget(TripleName, Error);
-  if (TheTarget)
-    return TheTarget;
+  TripleName = TheTriple.getTriple();
+  return TheTarget;
+}
 
-  errs() << ProgName << ": error: unable to get target for '" << TripleName
-         << "', see --version and --triple.\n";
-  return 0;
+static tool_output_file *GetOutputStream() {
+  if (OutputFilename == "")
+    OutputFilename = "-";
+
+  std::string Err;
+  tool_output_file *Out = new tool_output_file(OutputFilename.c_str(), Err,
+                                               raw_fd_ostream::F_Binary);
+  if (!Err.empty()) {
+    errs() << Err << '\n';
+    delete Out;
+    return 0;
+  }
+
+  return Out;
 }
 
 static int AsLexInput(const char *ProgName) {
-  std::string ErrorMessage;
-  MemoryBuffer *Buffer = MemoryBuffer::getFileOrSTDIN(InputFilename,
-                                                      &ErrorMessage);
-  if (Buffer == 0) {
-    errs() << ProgName << ": ";
-    if (ErrorMessage.size())
-      errs() << ErrorMessage << "\n";
-    else
-      errs() << "input file didn't read correctly.\n";
+  OwningPtr<MemoryBuffer> BufferPtr;
+  if (error_code ec = MemoryBuffer::getFileOrSTDIN(InputFilename, BufferPtr)) {
+    errs() << ProgName << ": " << ec.message() << '\n';
     return 1;
   }
+  MemoryBuffer *Buffer = BufferPtr.take();
 
   SourceMgr SrcMgr;
-  
+
   // Tell SrcMgr about this buffer, which is what TGParser will pick up.
   SrcMgr.AddNewSourceBuffer(Buffer, SMLoc());
-  
+
   // Record the location of the include directories so that the lexer can find
   // it later.
   SrcMgr.setIncludeDirs(IncludeDirs);
@@ -161,86 +255,93 @@ static int AsLexInput(const char *ProgName) {
   if (!TheTarget)
     return 1;
 
-  llvm::OwningPtr<MCAsmInfo> MAI(TheTarget->createAsmInfo(TripleName));
+  llvm::OwningPtr<MCAsmInfo> MAI(TheTarget->createMCAsmInfo(TripleName));
   assert(MAI && "Unable to create target asm info!");
 
   AsmLexer Lexer(*MAI);
-  
+  Lexer.setBuffer(SrcMgr.getMemoryBuffer(0));
+
+  OwningPtr<tool_output_file> Out(GetOutputStream());
+  if (!Out)
+    return 1;
+
   bool Error = false;
-  
   while (Lexer.Lex().isNot(AsmToken::Eof)) {
-    switch (Lexer.getKind()) {
+    AsmToken Tok = Lexer.getTok();
+
+    switch (Tok.getKind()) {
     default:
-      SrcMgr.PrintMessage(Lexer.getLoc(), "unknown token", "warning");
+      SrcMgr.PrintMessage(Lexer.getLoc(), SourceMgr::DK_Warning,
+                          "unknown token");
       Error = true;
       break;
     case AsmToken::Error:
       Error = true; // error already printed.
       break;
     case AsmToken::Identifier:
-      outs() << "identifier: " << Lexer.getTok().getString() << '\n';
-      break;
-    case AsmToken::String:
-      outs() << "string: " << Lexer.getTok().getString() << '\n';
+      Out->os() << "identifier: " << Lexer.getTok().getString();
       break;
     case AsmToken::Integer:
-      outs() << "int: " << Lexer.getTok().getString() << '\n';
+      Out->os() << "int: " << Lexer.getTok().getString();
+      break;
+    case AsmToken::Real:
+      Out->os() << "real: " << Lexer.getTok().getString();
+      break;
+    case AsmToken::Register:
+      Out->os() << "register: " << Lexer.getTok().getRegVal();
+      break;
+    case AsmToken::String:
+      Out->os() << "string: " << Lexer.getTok().getString();
       break;
 
-    case AsmToken::Amp:            outs() << "Amp\n"; break;
-    case AsmToken::AmpAmp:         outs() << "AmpAmp\n"; break;
-    case AsmToken::Caret:          outs() << "Caret\n"; break;
-    case AsmToken::Colon:          outs() << "Colon\n"; break;
-    case AsmToken::Comma:          outs() << "Comma\n"; break;
-    case AsmToken::Dollar:         outs() << "Dollar\n"; break;
-    case AsmToken::EndOfStatement: outs() << "EndOfStatement\n"; break;
-    case AsmToken::Eof:            outs() << "Eof\n"; break;
-    case AsmToken::Equal:          outs() << "Equal\n"; break;
-    case AsmToken::EqualEqual:     outs() << "EqualEqual\n"; break;
-    case AsmToken::Exclaim:        outs() << "Exclaim\n"; break;
-    case AsmToken::ExclaimEqual:   outs() << "ExclaimEqual\n"; break;
-    case AsmToken::Greater:        outs() << "Greater\n"; break;
-    case AsmToken::GreaterEqual:   outs() << "GreaterEqual\n"; break;
-    case AsmToken::GreaterGreater: outs() << "GreaterGreater\n"; break;
-    case AsmToken::LParen:         outs() << "LParen\n"; break;
-    case AsmToken::Less:           outs() << "Less\n"; break;
-    case AsmToken::LessEqual:      outs() << "LessEqual\n"; break;
-    case AsmToken::LessGreater:    outs() << "LessGreater\n"; break;
-    case AsmToken::LessLess:       outs() << "LessLess\n"; break;
-    case AsmToken::Minus:          outs() << "Minus\n"; break;
-    case AsmToken::Percent:        outs() << "Percent\n"; break;
-    case AsmToken::Pipe:           outs() << "Pipe\n"; break;
-    case AsmToken::PipePipe:       outs() << "PipePipe\n"; break;
-    case AsmToken::Plus:           outs() << "Plus\n"; break;
-    case AsmToken::RParen:         outs() << "RParen\n"; break;
-    case AsmToken::Slash:          outs() << "Slash\n"; break;
-    case AsmToken::Star:           outs() << "Star\n"; break;
-    case AsmToken::Tilde:          outs() << "Tilde\n"; break;
+    case AsmToken::Amp:            Out->os() << "Amp"; break;
+    case AsmToken::AmpAmp:         Out->os() << "AmpAmp"; break;
+    case AsmToken::At:             Out->os() << "At"; break;
+    case AsmToken::Caret:          Out->os() << "Caret"; break;
+    case AsmToken::Colon:          Out->os() << "Colon"; break;
+    case AsmToken::Comma:          Out->os() << "Comma"; break;
+    case AsmToken::Dollar:         Out->os() << "Dollar"; break;
+    case AsmToken::Dot:            Out->os() << "Dot"; break;
+    case AsmToken::EndOfStatement: Out->os() << "EndOfStatement"; break;
+    case AsmToken::Eof:            Out->os() << "Eof"; break;
+    case AsmToken::Equal:          Out->os() << "Equal"; break;
+    case AsmToken::EqualEqual:     Out->os() << "EqualEqual"; break;
+    case AsmToken::Exclaim:        Out->os() << "Exclaim"; break;
+    case AsmToken::ExclaimEqual:   Out->os() << "ExclaimEqual"; break;
+    case AsmToken::Greater:        Out->os() << "Greater"; break;
+    case AsmToken::GreaterEqual:   Out->os() << "GreaterEqual"; break;
+    case AsmToken::GreaterGreater: Out->os() << "GreaterGreater"; break;
+    case AsmToken::Hash:           Out->os() << "Hash"; break;
+    case AsmToken::LBrac:          Out->os() << "LBrac"; break;
+    case AsmToken::LCurly:         Out->os() << "LCurly"; break;
+    case AsmToken::LParen:         Out->os() << "LParen"; break;
+    case AsmToken::Less:           Out->os() << "Less"; break;
+    case AsmToken::LessEqual:      Out->os() << "LessEqual"; break;
+    case AsmToken::LessGreater:    Out->os() << "LessGreater"; break;
+    case AsmToken::LessLess:       Out->os() << "LessLess"; break;
+    case AsmToken::Minus:          Out->os() << "Minus"; break;
+    case AsmToken::Percent:        Out->os() << "Percent"; break;
+    case AsmToken::Pipe:           Out->os() << "Pipe"; break;
+    case AsmToken::PipePipe:       Out->os() << "PipePipe"; break;
+    case AsmToken::Plus:           Out->os() << "Plus"; break;
+    case AsmToken::RBrac:          Out->os() << "RBrac"; break;
+    case AsmToken::RCurly:         Out->os() << "RCurly"; break;
+    case AsmToken::RParen:         Out->os() << "RParen"; break;
+    case AsmToken::Slash:          Out->os() << "Slash"; break;
+    case AsmToken::Star:           Out->os() << "Star"; break;
+    case AsmToken::Tilde:          Out->os() << "Tilde"; break;
     }
+
+    // Print the token string.
+    Out->os() << " (\"";
+    Out->os().write_escaped(Tok.getString());
+    Out->os() << "\")\n";
   }
-  
+
+  // Keep output if no errors.
+  if (Error == 0) Out->keep();
+
   return Error;
-}
-
-static formatted_raw_ostream *GetOutputStream() {
-  if (OutputFilename == "")
-    OutputFilename = "-";
-
-  // Make sure that the Out file gets unlinked from the disk if we get a
-  // SIGINT.
-  if (OutputFilename != "-")
-    sys::RemoveFileOnSignal(sys::Path(OutputFilename));
-
-  std::string Err;
-  raw_fd_ostream *Out = new raw_fd_ostream(OutputFilename.c_str(), Err,
-                                           raw_fd_ostream::F_Binary);
-  if (!Err.empty()) {
-    errs() << Err << '\n';
-    delete Out;
-    return 0;
-  }
-  
-  return new formatted_raw_ostream(*Out, formatted_raw_ostream::DELETE_STREAM);
 }
 
 static int AssembleInput(const char *ProgName) {
@@ -248,82 +349,107 @@ static int AssembleInput(const char *ProgName) {
   if (!TheTarget)
     return 1;
 
-  std::string Error;
-  MemoryBuffer *Buffer = MemoryBuffer::getFileOrSTDIN(InputFilename, &Error);
-  if (Buffer == 0) {
-    errs() << ProgName << ": ";
-    if (Error.size())
-      errs() << Error << "\n";
-    else
-      errs() << "input file didn't read correctly.\n";
+  OwningPtr<MemoryBuffer> BufferPtr;
+  if (error_code ec = MemoryBuffer::getFileOrSTDIN(InputFilename, BufferPtr)) {
+    errs() << ProgName << ": " << ec.message() << '\n';
     return 1;
   }
-  
+  MemoryBuffer *Buffer = BufferPtr.take();
+
   SourceMgr SrcMgr;
-  
+
   // Tell SrcMgr about this buffer, which is what the parser will pick up.
   SrcMgr.AddNewSourceBuffer(Buffer, SMLoc());
-  
+
   // Record the location of the include directories so that the lexer can find
   // it later.
   SrcMgr.setIncludeDirs(IncludeDirs);
-  
-  
-  llvm::OwningPtr<MCAsmInfo> MAI(TheTarget->createAsmInfo(TripleName));
+
+
+  llvm::OwningPtr<MCAsmInfo> MAI(TheTarget->createMCAsmInfo(TripleName));
   assert(MAI && "Unable to create target asm info!");
-  
-  MCContext Ctx(*MAI);
-  formatted_raw_ostream *Out = GetOutputStream();
+
+  llvm::OwningPtr<MCRegisterInfo> MRI(TheTarget->createMCRegInfo(TripleName));
+  assert(MRI && "Unable to create target register info!");
+
+  // FIXME: This is not pretty. MCContext has a ptr to MCObjectFileInfo and
+  // MCObjectFileInfo needs a MCContext reference in order to initialize itself.
+  OwningPtr<MCObjectFileInfo> MOFI(new MCObjectFileInfo());
+  MCContext Ctx(*MAI, *MRI, MOFI.get());
+  MOFI->InitMCObjectFileInfo(TripleName, RelocModel, CMModel, Ctx);
+
+  if (SaveTempLabels)
+    Ctx.setAllowTemporaryLabels(false);
+
+  Ctx.setGenDwarfForAssembly(GenDwarfForAssembly);
+
+  // Package up features to be passed to target/subtarget
+  std::string FeaturesStr;
+  if (MAttrs.size()) {
+    SubtargetFeatures Features;
+    for (unsigned i = 0; i != MAttrs.size(); ++i)
+      Features.AddFeature(MAttrs[i]);
+    FeaturesStr = Features.getString();
+  }
+
+  OwningPtr<tool_output_file> Out(GetOutputStream());
   if (!Out)
     return 1;
 
-
-  // FIXME: We shouldn't need to do this (and link in codegen).
-  OwningPtr<TargetMachine> TM(TheTarget->createTargetMachine(TripleName, ""));
-
-  if (!TM) {
-    errs() << ProgName << ": error: could not create target for triple '"
-           << TripleName << "'.\n";
-    return 1;
-  }
-
-  OwningPtr<MCCodeEmitter> CE;
+  formatted_raw_ostream FOS(Out->os());
   OwningPtr<MCStreamer> Str;
-  OwningPtr<TargetAsmBackend> TAB;
 
+  OwningPtr<MCInstrInfo> MCII(TheTarget->createMCInstrInfo());
+  OwningPtr<MCSubtargetInfo>
+    STI(TheTarget->createMCSubtargetInfo(TripleName, MCPU, FeaturesStr));
+
+  // FIXME: There is a bit of code duplication with addPassesToEmitFile.
   if (FileType == OFT_AssemblyFile) {
     MCInstPrinter *IP =
-      TheTarget->createMCInstPrinter(OutputAsmVariant, *MAI);
-    if (ShowEncoding)
-      CE.reset(TheTarget->createCodeEmitter(*TM, Ctx));
-    Str.reset(createAsmStreamer(Ctx, *Out,TM->getTargetData()->isLittleEndian(),
-                                /*asmverbose*/true, IP, CE.get(), ShowInst));
+      TheTarget->createMCInstPrinter(OutputAsmVariant, *MAI, *STI);
+    MCCodeEmitter *CE = 0;
+    MCAsmBackend *MAB = 0;
+    if (ShowEncoding) {
+      CE = TheTarget->createMCCodeEmitter(*MCII, *STI, Ctx);
+      MAB = TheTarget->createMCAsmBackend(TripleName);
+    }
+    Str.reset(TheTarget->createAsmStreamer(Ctx, FOS, /*asmverbose*/true,
+                                           /*useLoc*/ true,
+                                           /*useCFI*/ true,
+                                           /*useDwarfDirectory*/ true,
+                                           IP, CE, MAB, ShowInst));
+                                           
   } else if (FileType == OFT_Null) {
     Str.reset(createNullStreamer(Ctx));
   } else {
     assert(FileType == OFT_ObjectFile && "Invalid file type!");
-    CE.reset(TheTarget->createCodeEmitter(*TM, Ctx));
-    TAB.reset(TheTarget->createAsmBackend(TripleName));
-    Str.reset(createMachOStreamer(Ctx, *TAB, *Out, CE.get(), RelaxAll));
+    MCCodeEmitter *CE = TheTarget->createMCCodeEmitter(*MCII, *STI, Ctx);
+    MCAsmBackend *MAB = TheTarget->createMCAsmBackend(TripleName);
+    Str.reset(TheTarget->createMCObjectStreamer(TripleName, Ctx, *MAB,
+                                                FOS, CE, RelaxAll,
+                                                NoExecStack));
   }
 
-  AsmParser Parser(SrcMgr, Ctx, *Str.get(), *MAI);
-  OwningPtr<TargetAsmParser> TAP(TheTarget->createAsmParser(Parser));
+  if (EnableLogging) {
+    Str.reset(createLoggingStreamer(Str.take(), errs()));
+  }
+
+  OwningPtr<MCAsmParser> Parser(createMCAsmParser(SrcMgr, Ctx,
+                                                  *Str.get(), *MAI));
+  OwningPtr<MCTargetAsmParser> TAP(TheTarget->createMCAsmParser(*STI, *Parser));
   if (!TAP) {
-    errs() << ProgName 
+    errs() << ProgName
            << ": error: this target does not support assembly parsing.\n";
     return 1;
   }
 
-  Parser.setTargetParser(*TAP.get());
+  Parser->setShowParsedOperands(ShowInstOperands);
+  Parser->setTargetParser(*TAP.get());
 
-  int Res = Parser.Run(NoInitialTextSection);
-  if (Out != &fouts())
-    delete Out;
+  int Res = Parser->Run(NoInitialTextSection);
 
-  // Delete output on errors.
-  if (Res && OutputFilename != "-")
-    sys::Path(OutputFilename).eraseFromDisk();
+  // Keep output if no errors.
+  if (Res == 0) Out->keep();
 
   return Res;
 }
@@ -332,25 +458,39 @@ static int DisassembleInput(const char *ProgName, bool Enhanced) {
   const Target *TheTarget = GetTarget(ProgName);
   if (!TheTarget)
     return 0;
-  
-  std::string ErrorMessage;
-  
-  MemoryBuffer *Buffer = MemoryBuffer::getFileOrSTDIN(InputFilename,
-                                                      &ErrorMessage);
 
-  if (Buffer == 0) {
-    errs() << ProgName << ": ";
-    if (ErrorMessage.size())
-      errs() << ErrorMessage << "\n";
-    else
-      errs() << "input file didn't read correctly.\n";
+  OwningPtr<MemoryBuffer> Buffer;
+  if (error_code ec = MemoryBuffer::getFileOrSTDIN(InputFilename, Buffer)) {
+    errs() << ProgName << ": " << ec.message() << '\n';
     return 1;
   }
-  
-  if (Enhanced)
-    return Disassembler::disassembleEnhanced(TripleName, *Buffer);
-  else
-    return Disassembler::disassemble(*TheTarget, TripleName, *Buffer);
+
+  OwningPtr<tool_output_file> Out(GetOutputStream());
+  if (!Out)
+    return 1;
+
+  int Res;
+  if (Enhanced) {
+    Res =
+      Disassembler::disassembleEnhanced(TripleName, *Buffer.take(), Out->os());
+  } else {
+    // Package up features to be passed to target/subtarget
+    std::string FeaturesStr;
+    if (MAttrs.size()) {
+      SubtargetFeatures Features;
+      for (unsigned i = 0; i != MAttrs.size(); ++i)
+        Features.AddFeature(MAttrs[i]);
+      FeaturesStr = Features.getString();
+    }
+
+    Res = Disassembler::disassemble(*TheTarget, TripleName, MCPU, FeaturesStr,
+                                    *Buffer.take(), Out->os());
+  }
+
+  // Keep output if no errors.
+  if (Res == 0) Out->keep();
+
+  return Res;
 }
 
 
@@ -362,13 +502,12 @@ int main(int argc, char **argv) {
 
   // Initialize targets and assembly printers/parsers.
   llvm::InitializeAllTargetInfos();
-  // FIXME: We shouldn't need to initialize the Target(Machine)s.
-  llvm::InitializeAllTargets();
-  llvm::InitializeAllAsmPrinters();
+  llvm::InitializeAllTargetMCs();
   llvm::InitializeAllAsmParsers();
   llvm::InitializeAllDisassemblers();
-  
+
   cl::ParseCommandLineOptions(argc, argv, "llvm machine code playground\n");
+  TripleName = Triple::normalize(TripleName);
 
   switch (Action) {
   default:
@@ -381,7 +520,6 @@ int main(int argc, char **argv) {
   case AC_EDisassemble:
     return DisassembleInput(argv[0], true);
   }
-  
+
   return 0;
 }
-

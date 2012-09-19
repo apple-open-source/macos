@@ -156,13 +156,29 @@ APU_DECLARE_LDAP(int) apr_ldap_init(apr_pool_t *pool,
     *result_err = result;
 
 #if APR_HAS_LDAPSSL_INIT
+#if APR_HAS_SOLARIS_LDAPSDK
+    /*
+     * Using the secure argument should aways be possible.  But as LDAP SDKs
+     * tend to have different quirks and bugs, this needs to be tested for
+     * for each of them, first. For Solaris LDAP it works, and the method
+     * with ldap_set_option doesn't.
+     */
+    *ldap = ldapssl_init(hostname, portno, secure == APR_LDAP_SSL);
+#else
     *ldap = ldapssl_init(hostname, portno, 0);
+#endif
 #elif APR_HAS_LDAP_SSLINIT
     *ldap = ldap_sslinit((char *)hostname, portno, 0);
 #else
     *ldap = ldap_init((char *)hostname, portno);
 #endif
+
     if (*ldap != NULL) {
+#if APR_HAS_SOLARIS_LDAPSDK
+        if (secure == APR_LDAP_SSL)
+            return APR_SUCCESS;
+        else
+#endif
         return apr_ldap_set_option(pool, *ldap, APR_LDAP_OPT_TLS, &secure, result_err);
     }
     else {

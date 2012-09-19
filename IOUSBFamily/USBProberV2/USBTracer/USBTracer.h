@@ -51,7 +51,7 @@
 
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/usb/USB.h>
-#include <IOKit/usb/USBTracepoints.h>
+#include "USBTracepoints.h"
 	
 #ifndef KERNEL_PRIVATE
 #define KERNEL_PRIVATE
@@ -61,6 +61,11 @@
 #include <sys/kdebug.h>
 #endif // KERNEL_PRIVATE
 
+#include <AvailabilityMacros.h>
+
+#define SUPPORTS_SS_USB 1
+
+#include "USBTracepoints.h"
 #include "IOUSBFamilyInfoPlist.pch"
 
 #define DEBUG 			0
@@ -105,18 +110,6 @@ typedef struct {
 	uint32_t	debugid;
 	uint32_t	cpuid;
 } trace_info;
-
-typedef struct {
-	uint64_t timestamp;
-	uintptr_t arg1;
-	uintptr_t arg2;
-	uintptr_t arg3;
-	uintptr_t arg4;
-	uintptr_t arg5;
-	uint32_t debugid;
-	uint64_t delta;	// time delta between START and END
-	uint32_t cpuid;
-} raw_data_t;
 
 
 //—————————————————————————————————————————————————————————————————————————————
@@ -364,6 +357,194 @@ enum{
 	
 };
 
+#ifdef SUPPORTS_SS_USB
+enum
+{
+	kXHCIBit0					= (1 << 0),
+	kXHCIBit1					= (1 << 1),
+	kXHCIBit2					= (1 << 2),
+	kXHCIBit3					= (1 << 3),
+	kXHCIBit4					= (1 << 4),
+	kXHCIBit5					= (1 << 5),
+	kXHCIBit6					= (1 << 6),
+	kXHCIBit7					= (1 << 7),
+	kXHCIBit8					= (1 << 8),
+	kXHCIBit9					= (1 << 9),
+	kXHCIBit10					= (1 << 10),
+	kXHCIBit11					= (1 << 11),
+	kXHCIBit12					= (1 << 12),
+	kXHCIBit13					= (1 << 13),
+	kXHCIBit14					= (1 << 14),
+	kXHCIBit15					= (1 << 15),
+	kXHCIBit16					= (1 << 16),
+	kXHCIBit17					= (1 << 17),
+	kXHCIBit18					= (1 << 18),
+	kXHCIBit19					= (1 << 19),
+	kXHCIBit20					= (1 << 20),
+	kXHCIBit21					= (1 << 21),
+	kXHCIBit22					= (1 << 22),
+	kXHCIBit23					= (1 << 23),
+	kXHCIBit24					= (1 << 24),
+	kXHCIBit25					= (1 << 25),
+	kXHCIBit26					= (1 << 26),
+	kXHCIBit27					= (1 << 27),
+	kXHCIBit28					= (1 << 28),
+	kXHCIBit29					= (1 << 29),
+	kXHCIBit30					= (1 << 30),
+	kXHCIBit31					= (1 << 31)
+};
+
+
+#define XHCIBitRange(start, end)				\
+(								\
+((((UInt32) 0xFFFFFFFF) << (31 - (end))) >>		\
+((31 - (end)) + (start))) <<				\
+(start)							\
+)
+
+#define XHCIBitRangePhase(start, end)				\
+(start)
+
+
+enum 
+{
+	kXHCITRB_Normal = 1,
+	kXHCITRB_Setup,
+	kXHCITRB_Data,
+	kXHCITRB_Status,
+	kXHCITRB_Isoc,
+	kXHCITRB_Link,
+	kXHCITRB_EventData,
+	kXHCITRB_TrNoOp,
+	
+	kXHCITRB_EnableSlot = 9,
+	kXHCITRB_DisableSlot = 10,
+	kXHCITRB_AddressDevice = 11,
+	kXHCITRB_ConfigureEndpoint = 12,
+	kXHCITRB_EvaluateContext = 13,
+	kXHCITRB_ResetEndpoint = 14,
+	kXHCITRB_StopEndpoint = 15,
+	kXHCITRB_SetTRDqPtr = 16,
+	kXHCITRB_ResetDevice = 17,
+	
+    kXHCITRB_GetPortBandwidth = 21,
+	kXHCITRB_CMDNoOp = 23,
+    
+	kXHCITRB_CMDNEC = 49,   // NEC vendor specific command to get firmware version
+	
+	kXHCITRB_TE = 32,
+	kXHCITRB_CCE = 33,
+	kXHCITRB_PSCE = 34,
+	kXHCITRB_DevNot = 38,   // Device notification event.
+	kXHCITRB_MFWE = 39,
+    kXHCITRB_NECCCE = 48,
+	
+    // TRT- Transfer type in a Control request TRB.
+    kXHCI_TRT_NoData = 0,
+    kXHCI_TRT_OutData = 2,
+    kXHCI_TRT_InData = 3,
+    
+    
+	kXHCIFrameNumberIncrement = kXHCIBit11,
+    
+    // Note XHCI spec sec 4.11.2.5 says an Isoc transaction shouldn't be more than 895ms in future.
+    kXHCIFutureIsocLimit = 895,
+	
+	kXHCITRB_C = kXHCIBit0,
+	kXHCITRB_DCS = kXHCIBit0,
+	kXHCITRB_TC = kXHCIBit1,
+	kXHCITRB_ENT = kXHCIBit1,
+	kXHCITRB_ISP = kXHCIBit2,
+	kXHCITRB_ED = kXHCIBit2,
+	kXHCITRB_CH = kXHCIBit4,
+	kXHCITRB_IOC = kXHCIBit5,
+	kXHCITRB_IDT = kXHCIBit6,
+	kXHCITRB_BSR = kXHCIBit9,
+	kXHCITRB_BEI = kXHCIBit9,
+	kXHCITRB_DIR = kXHCIBit16,
+	
+	kXHCITRB_Normal_Len_Mask = XHCIBitRange(0, 16),
+	kXHCITRB_TDSize_Mask = XHCIBitRange(17, 21),
+	kXHCITRB_TDSize_Shift = XHCIBitRangePhase(17, 21),
+	kXHCITRB_InterrupterTarget_Mask = XHCIBitRange(22, 31),
+	kXHCITRB_InterrupterTarget_Shift = XHCIBitRangePhase(22, 31),
+	kXHCITRB_TBC_Mask = XHCIBitRange(7,8),
+	kXHCITRB_TBC_Shift = XHCIBitRangePhase(7,8),
+	kXHCITRB_TLBPC_Mask = XHCIBitRange(16, 19),
+	kXHCITRB_TLBPC_Shift = XHCIBitRangePhase(16, 19),
+	kXHCITRB_Type_Mask = XHCIBitRange(10, 15),
+	kXHCITRB_Type_Shift = XHCIBitRangePhase(10, 15),
+	kXHCITRB_TRT_Mask = XHCIBitRange(16, 17),
+	kXHCITRB_TRT_Shift = XHCIBitRangePhase(16, 17),
+	kXHCITRB_SlotID_Mask = XHCIBitRange(24, 31),
+	kXHCITRB_SlotID_Shift = XHCIBitRangePhase(24, 31),
+	kXHCITRB_TR_Len_Mask = XHCIBitRange(0, 23),
+	kXHCITRB_CC_Mask = XHCIBitRange(24, 31),
+	kXHCITRB_CC_Shift = XHCIBitRangePhase(24, 31),
+	kXHCITRB_Ep_Mask = XHCIBitRange(16, 20),
+	kXHCITRB_Ep_Shift = XHCIBitRangePhase(16, 20),
+	kXHCITRB_Stream_Mask = XHCIBitRange(16, 31),
+	kXHCITRB_Stream_Shift = XHCIBitRangePhase(16, 31),
+	kXHCITRB_Port_Mask = XHCIBitRange(24, 31),
+	kXHCITRB_Port_Shift = XHCIBitRangePhase(24, 31),
+	
+    // Section 6.4.5 TRB Completion Codes
+	kXHCITRB_CC_Invalid = 0,
+	kXHCITRB_CC_Success = 1,
+	kXHCITRB_CC_Data_Buffer = 2,
+	kXHCITRB_CC_Babble_Detected = 3,
+	kXHCITRB_CC_XActErr = 4,
+	kXHCITRB_CC_TRBErr = 5,
+	kXHCITRB_CC_STALL = 6,
+	kXHCITRB_CC_ResourceErr = 7,
+	kXHCITRB_CC_Bandwidth = 8,
+	kXHCITRB_CC_NoSlots = 9,
+	kXHCITRB_CC_Invalid_Stream_Type = 10,
+	kXHCITRB_CC_Slot_Not_Enabled = 11,
+	kXHCITRB_CC_Endpoint_Not_Enabled = 12,
+	kXHCITRB_CC_ShortPacket = 13,
+	kXHCITRB_CC_RingUnderrun = 14,
+	kXHCITRB_CC_RingOverrun = 15,
+	kXHCITRB_CC_VF_Event_Ring_Full = 16,
+	kXHCITRB_CC_CtxParamErr = 17,
+	kXHCITRB_CC_Bandwidth_Overrun = 18,
+	kXHCITRB_CC_CtxStateErr = 19,
+	kXHCITRB_CC_No_Ping_Response = 20,
+	kXHCITRB_CC_Event_Ring_Full = 21,
+	kXHCITRB_CC_Incompatible_Device = 22,
+	kXHCITRB_CC_Missed_Service = 23,
+	kXHCITRB_CC_CMDRingStopped = 24,
+	kXHCITRB_CC_Command_Aborted = 25,
+	kXHCITRB_CC_Stopped = 26,
+	kXHCITRB_CC_Stopped_Length_Invalid = 27,
+	kXHCITRB_CC_Max_Exit_Latency_Too_Large = 29,
+	kXHCITRB_CC_Isoch_Buffer_Overrun = 31,
+	kXHCITRB_CC_Event_Lost = 32,
+	kXHCITRB_CC_Undefined = 33,
+	kXHCITRB_CC_Invalid_Stream_ID = 34,
+	kXHCITRB_CC_Secondary_Bandwidth = 35,
+	kXHCITRB_CC_Split_Transaction = 36,
+    
+    // Intel specifc errors
+	kXHCITRB_CC_CNTX_ENTRIES_GTR_MAXEP = 192,
+	kXHCITRB_CC_FORCE_HDR_USB2_NO_SUPPORT = 193,
+	kXHCITRB_CC_UNDEFINED_BEHAVIOR = 194,
+	kXHCITRB_CC_CMPL_VEN_DEF_ERR_195 = 195,
+	kXHCITRB_CC_NOSTOP = 196,
+	kXHCITRB_CC_HALT_STOP = 197,
+	kXHCITRB_CC_DL_ERR = 198,
+	kXHCITRB_CC_CMPL_WITH_EMPTY_CONTEXT = 199,
+	kXHCITRB_CC_VENDOR_CMD_FAILED = 200,
+	
+    kXHCITRB_CC_NULLRing = 256, // Fake error to return if you find ring is NULL
+    
+	kXHCITRB_FrameID_Mask = XHCIBitRange(20, 30),
+	kXHCITRB_FrameID_Shift = XHCIBitRangePhase(20, 30),
+	kXHCIFrameMask = XHCIBitRange(0,10)	
+};
+
+#endif
+
 
 //—————————————————————————————————————————————————————————————————————————————
 //	Codes
@@ -421,7 +602,13 @@ static void CollectTraceEHCIUIM	( kd_buf tracepoint ); //21,
 static void CollectTraceEHCIHubInfo	( kd_buf tracepoint ); //22,
 static void CollectTraceEHCIInterrupts	( kd_buf tracepoint ); //23,
 static void CollectTraceEHCIDumpQs ( kd_buf tracepoint ); //24,
-// 21-25 reserved
+#ifdef SUPPORTS_SS_USB
+static void CollectTraceXHCI ( kd_buf tracepoint );				//20,
+static void CollectTraceXHCIInterrupts	( kd_buf tracepoint ); //23,
+static void CollectTraceXHCIRootHubs	( kd_buf tracepoint ); //24,
+static void CollectTraceXHCIPrintTRB	( kd_buf tracepoint ); //25,
+#endif
+
 static void CollectTraceHubPolicyMaker	( kd_buf tracepoint ); //35,
 static void CollectTraceCompositeDriver ( kd_buf tracepoint ); //36,
 // Actions

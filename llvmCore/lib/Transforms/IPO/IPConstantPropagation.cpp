@@ -35,7 +35,9 @@ namespace {
   ///
   struct IPCP : public ModulePass {
     static char ID; // Pass identification, replacement for typeid
-    IPCP() : ModulePass(&ID) {}
+    IPCP() : ModulePass(ID) {
+      initializeIPCPPass(*PassRegistry::getPassRegistry());
+    }
 
     bool runOnModule(Module &M);
   private:
@@ -45,8 +47,8 @@ namespace {
 }
 
 char IPCP::ID = 0;
-static RegisterPass<IPCP>
-X("ipconstprop", "Interprocedural constant propagation");
+INITIALIZE_PASS(IPCP, "ipconstprop",
+                "Interprocedural constant propagation", false, false)
 
 ModulePass *llvm::createIPConstantPropagationPass() { return new IPCP(); }
 
@@ -85,15 +87,16 @@ bool IPCP::PropagateConstantsIntoArguments(Function &F) {
 
   unsigned NumNonconstant = 0;
   for (Value::use_iterator UI = F.use_begin(), E = F.use_end(); UI != E; ++UI) {
+    User *U = *UI;
     // Ignore blockaddress uses.
-    if (isa<BlockAddress>(*UI)) continue;
+    if (isa<BlockAddress>(U)) continue;
     
     // Used by a non-instruction, or not the callee of a function, do not
     // transform.
-    if (!isa<CallInst>(*UI) && !isa<InvokeInst>(*UI))
+    if (!isa<CallInst>(U) && !isa<InvokeInst>(U))
       return false;
     
-    CallSite CS = CallSite::get(cast<Instruction>(*UI));
+    CallSite CS(cast<Instruction>(U));
     if (!CS.isCallee(UI))
       return false;
 
@@ -164,7 +167,7 @@ bool IPCP::PropagateConstantReturn(Function &F) {
     
   // Check to see if this function returns a constant.
   SmallVector<Value *,4> RetVals;
-  const StructType *STy = dyn_cast<StructType>(F.getReturnType());
+  StructType *STy = dyn_cast<StructType>(F.getReturnType());
   if (STy)
     for (unsigned i = 0, e = STy->getNumElements(); i < e; ++i) 
       RetVals.push_back(UndefValue::get(STy->getElementType(i)));
@@ -183,7 +186,7 @@ bool IPCP::PropagateConstantReturn(Function &F) {
         // Find the returned value
         Value *V;
         if (!STy)
-          V = RI->getOperand(i);
+          V = RI->getOperand(0);
         else
           V = FindInsertedValue(RI->getOperand(0), i);
 
@@ -218,7 +221,7 @@ bool IPCP::PropagateConstantReturn(Function &F) {
   // constant.
   bool MadeChange = false;
   for (Value::use_iterator UI = F.use_begin(), E = F.use_end(); UI != E; ++UI) {
-    CallSite CS = CallSite::get(*UI);
+    CallSite CS(*UI);
     Instruction* Call = CS.getInstruction();
 
     // Not a call instruction or a call instruction that's not calling F

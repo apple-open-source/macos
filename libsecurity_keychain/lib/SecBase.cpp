@@ -293,9 +293,6 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 			return errSecNoSuchKeychain;
 		case CSSMERR_DL_DATASTORE_ALREADY_EXISTS:
 			return errSecDuplicateKeychain;
-		//	
-		// 525 CSSM errors mapped to OSStatus-type for Lion: 294 new OSStatus error codes for these. The rest were recycled.
-		//
 		case CSSMERR_APPLEDL_DISK_FULL:
 			return dskFulErr;
 		case CSSMERR_DL_INVALID_OPEN_PARAMETERS: 
@@ -713,6 +710,10 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 			return errSecInvalidSubjectName;
 		case CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT:
 			return errSecUnknownQualifiedCertStatement;
+		case CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION:
+			return errSecMissingRequiredExtension;
+		case CSSMERR_APPLETP_EXT_KEYUSAGE_NOT_CRITICAL:
+			return errSecExtendedKeyUsageNotCritical;
 		case CSSMERR_APPLE_DOTMAC_REQ_QUEUED:
 			return errSecMobileMeRequestQueued;
 		case CSSMERR_APPLE_DOTMAC_REQ_REDIRECT:

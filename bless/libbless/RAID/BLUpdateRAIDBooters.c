@@ -301,6 +301,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
 	pspec->version = 0;
 	pspec->reqType = 0; // no type
 	pspec->reqCreator = 0; // no type
+	pspec->reqParentDir = 0;
 	pspec->reqFilename = kBootPlistName;
 	pspec->payloadData = opaqueData;
 	pspec->postType = 0; // no type
@@ -317,6 +318,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
 		lspec1->version = 0;
 		lspec1->reqType = kBL_OSTYPE_PPC_TYPE_OFLABEL;
 		lspec1->reqCreator = kBL_OSTYPE_PPC_CREATOR_CHRP;
+		lspec1->reqParentDir = 0;
 		lspec1->reqFilename = NULL;
 		lspec1->payloadData = labelData;
 		lspec1->postType = 0; // no type
@@ -327,6 +329,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
 		lspec2->version = 0;
 		lspec2->reqType = kBL_OSTYPE_PPC_TYPE_OFLABEL_PLACEHOLDER;
 		lspec2->reqCreator = kBL_OSTYPE_PPC_CREATOR_CHRP;
+		lspec2->reqParentDir = 0;
 		lspec2->reqFilename = NULL;
 		lspec2->payloadData = labelData;
 		lspec2->postType = kBL_OSTYPE_PPC_TYPE_OFLABEL;
@@ -344,6 +347,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
 		xspec->version = 0;
 		xspec->reqType = kBL_OSTYPE_PPC_TYPE_BOOTX;
 		xspec->reqCreator = kBL_OSTYPE_PPC_CREATOR_CHRP;
+		xspec->reqParentDir = 0;
 		xspec->reqFilename = NULL;
 		xspec->payloadData = bootxData;
 		xspec->postType = 0; // no type
@@ -415,7 +419,7 @@ CFDataRef _createLabel(BLContextPtr context, CFStringRef name, int index)
 	
 	CFRelease(nameWithNum);
 
-	ret = BLGenerateOFLabel(context, label, &newLabel);
+	ret = BLGenerateLabelData(context, label, kBitmapScale_1x, &newLabel);
 	
 	if(ret) {
 		return NULL;

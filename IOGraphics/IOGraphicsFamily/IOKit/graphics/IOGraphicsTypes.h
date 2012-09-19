@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     29
+#define IOGRAPHICSTYPES_REV     34
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -173,7 +173,9 @@ enum {
     kDisplayModeNotGraphicsQualityFlag  = 0x00001000,
     kDisplayModeValidateAgainstDisplay  = 0x00002000,
     kDisplayModeTelevisionFlag          = 0x00100000,
-    kDisplayModeValidForMirroringFlag   = 0x00200000
+    kDisplayModeValidForMirroringFlag   = 0x00200000,
+    kDisplayModeAcceleratorBackedFlag   = 0x00400000,
+    kDisplayModeValidForHiResFlag       = 0x00800000
 };
 enum {
     kDisplayModeValidFlag               = 0x00000001,
@@ -260,13 +262,16 @@ enum {
     kIOVRAMSaveAttribute                = 'vrsv',
     kIODeferCLUTSetAttribute            = 'vclt',
 
-    kIOClamshellStateAttribute          = 'clam'
+    kIOClamshellStateAttribute          = 'clam',
+
+	kIOFBDisplayPortTrainingAttribute   = 'dpta',
 };
 
 // values for kIOMirrorAttribute
 enum {
     kIOMirrorIsPrimary                  = 0x80000000,
-    kIOMirrorHWClipped                  = 0x40000000
+    kIOMirrorHWClipped                  = 0x40000000,
+    kIOMirrorIsMirrored                 = 0x20000000
 };
 
 // values for kIOMirrorDefaultAttribute
@@ -1118,6 +1123,63 @@ enum {
     kIOFBAVSignalTypeDVI     = 0x00000002,
     kIOFBAVSignalTypeHDMI    = 0x00000008,
     kIOFBAVSignalTypeDP      = 0x00000010,
+};
+
+// kIOFBDisplayPortTrainingAttribute data
+
+struct IOFBDPLinkConfig
+{
+    uint16_t version;		 // 8 bit high (major); 8 bit low (minor)
+    uint8_t  bitRate;		 // same encoding as the spec
+    uint8_t  __reservedA[1]; // reserved set to zero
+	uint16_t t1Time;		 // minimum duration of the t1 pattern (microseconds)
+	uint16_t t2Time;		 // minimum duration of the t2 pattern
+	uint16_t t3Time;		 // minimum duration of the t3 pattern
+	uint8_t  idlePatterns;   // minimum number of idle patterns
+	uint8_t  laneCount;		 // number of lanes in the link
+	uint8_t  voltage;
+	uint8_t  preEmphasis;
+	uint8_t  downspread;
+	uint8_t  scrambler;
+	uint8_t  maxBitRate;	 // same encoding as the bitRate field
+	uint8_t  maxLaneCount;	 // an integer
+	uint8_t  maxDownspread;	 // 0 = Off. 1 = 0.5
+	uint8_t  __reservedB[9];	// reserved set to zero - fix align and provide 8 bytes of padding.
+};
+typedef struct IOFBDPLinkConfig IOFBDPLinkConfig;
+
+enum
+{
+    kIOFBBitRateRBR		= 0x06,		// 1.62 Gbps per lane
+    kIOFBBitRateHBR		= 0x0A,		// 2.70 Gbps per lane
+    kIOFBBitRateHBR2	= 0x14,		// 5.40 Gbps per lane
+};
+
+enum {
+    kIOFBLinkVoltageLevel0	= 0x00,
+    kIOFBLinkVoltageLevel1	= 0x01,
+    kIOFBLinkVoltageLevel2	= 0x02,
+    kIOFBLinkVoltageLevel3	= 0x03
+};
+
+enum
+{
+    kIOFBLinkPreEmphasisLevel0 = 0x00,
+    kIOFBLinkPreEmphasisLevel1 = 0x01,
+    kIOFBLinkPreEmphasisLevel2 = 0x02,
+    kIOFBLinkPreEmphasisLevel3 = 0x03
+};
+
+enum
+{
+    kIOFBLinkDownspreadNone  = 0x0,
+    kIOFBLinkDownspreadMax   = 0x1
+};
+
+enum
+{
+    kIOFBLinkScramblerNormal    = 0x0, // for external displays
+    kIOFBLinkScramblerAlternate = 0x1  // used for eDP
 };
 
 // diagnostic keys

@@ -26,6 +26,7 @@
 
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBPipe.h>
+#include <IOKit/usb/IOUSBPipeV2.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
@@ -62,7 +63,9 @@ class IOUSBDevice : public IOUSBNub
     friend class IOUSBControllerV2;
     friend class IOUSBInterface;
     friend class IOUSBPipe;
-   
+	friend class IOUSBInterfaceUserClientV2;
+	friend class IOUSBDeviceUserClientV2;
+
     OSDeclareDefaultStructors(IOUSBDevice)
 
 protected:
@@ -119,6 +122,12 @@ protected:
 		UInt32					_locationID;
 		IOLock*					_interfaceArrayLock;
 	    OSArray*				_interfaceArray;
+#ifdef SUPPORTS_SS_USB
+		UInt32					_standardUSBPortPower;				// Largest amount of current that this port can provide (e.g. 500mA for USB2.0, 900mA for USB3.0)
+		bool					_usingExtra400mAforUSB3;
+#else
+		UInt32					_standardUSBPortPower;				// Largest amount of current that this port can provide (e.g. 500mA)
+#endif		
     };	
     ExpansionData * _expansionData;
 
@@ -510,9 +519,43 @@ public:
 	 */
     virtual IOReturn SetConfiguration(IOService *forClient, UInt8 configValue, bool startInterfaceMatching, bool issueRemoteWakeup);
     
-	OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);
+#ifdef SUPPORTS_SS_USB
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  14);
+    /*!
+	 @function		OpenOrCloseAllInterfacePipes		
+	 @abstract		Iterates over all interfaces and either opens all the pipes, or closes them all		
+	 @param			open, if true pipes are opened, else closed
+	 */
+	virtual void OpenOrCloseAllInterfacePipes(bool open);
+	
+	
+	
+	
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  15);
+	/*!
+	 @function MakePipe
+	 @abstract build a pipe on a given endpoint
+	 @param ep A description of the endpoint
+	 @param sscd The SuperSpeed Companion Descriptor, if any (NULL if none)
+	 @param interface The IOUSBInterface object requesting the pipe
+	 returns the desired IOUSBPipe object
+	 */
+    virtual IOUSBPipeV2*	MakePipe(const IOUSBEndpointDescriptor *ep, IOUSBSuperSpeedEndpointCompanionDescriptor *sscd, IOUSBInterface *interface);
+
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  16);
+    /*!
+	 @function SetAddress
+	 @param 	Sets the bus address of the device
+	 */
+    virtual void 			SetAddress(USBDeviceAddress address);
+    
+
+#else
+    OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  15);
-	OSMetaClassDeclareReservedUnused(IOUSBDevice,  16);
+    OSMetaClassDeclareReservedUnused(IOUSBDevice,  16);
+#endif
+	
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  17);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  18);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  19);
@@ -553,4 +596,4 @@ private:
 
 };
 
-#endif /* _IOKIT_IOUSBDEVICE_H */
+#endif

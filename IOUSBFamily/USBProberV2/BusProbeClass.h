@@ -52,4 +52,6 @@
 - (NSString *)subclassDescription;
 - (NSString *)protocolDescription;
 
+-(NSMutableDictionary *)dictionaryVersionOfMe;
+
 @end

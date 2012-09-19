@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -16,7 +16,7 @@
  */
 
 /*
- * $Id: tkey.c,v 1.92.104.4 2010-12-09 01:05:28 marka Exp $
+ * $Id$
  */
 /*! \file */
 #include <config.h>
@@ -75,7 +75,9 @@ _dns_tkey_dumpmessage(dns_message_t *msg) {
 	isc_buffer_init(&outbuf, output, sizeof(output));
 	result = dns_message_totext(msg, &dns_master_style_debug, 0,
 				    &outbuf);
-	/* XXXMLG ignore result */
+	if (result != ISC_R_SUCCESS)
+		fprintf(stderr, "Warning: dns_message_totext returned: %s\n",
+			dns_result_totext(result));
 	fprintf(stderr, "%.*s\n", (int)isc_buffer_usedlength(&outbuf),
 		(char *)isc_buffer_base(&outbuf));
 }
@@ -175,8 +177,10 @@ add_rdata_to_list(dns_message_t *msg, dns_name_t *name, dns_rdata_t *rdata,
 
  failure:
 	if (newrdata != NULL) {
-		if (ISC_LINK_LINKED(newrdata, link))
+		if (ISC_LINK_LINKED(newrdata, link)) {
+			INSIST(newlist != NULL);
 			ISC_LIST_UNLINK(newlist->rdata, newrdata, link);
+		}
 		dns_message_puttemprdata(msg, &newrdata);
 	}
 	if (newname != NULL)
@@ -464,9 +468,9 @@ process_gsstkey(dns_name_t *name, dns_rdata_tkey_t *tkeyin,
 		tkeyout->error = dns_tsigerror_badkey;
 		tkey_log("process_gsstkey(): dns_tsigerror_badkey");    /* XXXSRA */
 		return (ISC_R_SUCCESS);
-	} else if (result == ISC_R_FAILURE)
+	}
+	if (result != DNS_R_CONTINUE && result != ISC_R_SUCCESS)
 		goto failure;
-	ENSURE(result == DNS_R_CONTINUE || result == ISC_R_SUCCESS);
 	/*
 	 * XXXDCL Section 4.1.3: Limit GSS_S_CONTINUE_NEEDED to 10 times.
 	 */
@@ -500,7 +504,7 @@ process_gsstkey(dns_name_t *name, dns_rdata_tkey_t *tkeyin,
 		tkeyout->expire = expire;
 	} else {
 		tkeyout->inception = tsigkey->inception;
-		tkeyout->expire = tkeyout->expire;
+		tkeyout->expire = tsigkey->expire;
 		dns_tsigkey_detach(&tsigkey);
 	}
 

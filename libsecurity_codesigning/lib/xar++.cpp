@@ -36,15 +36,28 @@ namespace CodeSigning {
 Xar::Xar(const char *path)
 {
 	mXar = 0;
-	mSig = 0;
+	mSigCMS = 0;
+	mSigClassic = 0;
 	if (path)
 		open(path);
 }
 
 void Xar::open(const char *path)
 {
-	if ((mXar = ::xar_open(path, READ)))
-		mSig = xar_signature_first(mXar);
+	if ((mXar = ::xar_open(path, READ)) == NULL)
+	    return;
+    
+	xar_signature_t sig = ::xar_signature_first(mXar);
+	// read signatures until we find a CMS signature
+	while (sig && mSigCMS == NULL) {
+		const char *type = ::xar_signature_type(sig);
+		if (strcmp(type, "CMS") == 0) {
+			mSigCMS = sig;
+		} else if (strcmp(type, "RSA") == 0) {
+			mSigClassic = sig;
+		}
+		sig = ::xar_signature_next(sig);
+	}
 }
 
 Xar::~Xar()
@@ -53,23 +66,29 @@ Xar::~Xar()
 		::xar_close(mXar);
 }
 
-
-CFArrayRef Xar::copyCertChain()
+static CFArrayRef copyCertChainFromSignature(xar_signature_t sig)
 {
-	if (!mSig)
-		return NULL;
-	unsigned count = xar_signature_get_x509certificate_count(mSig);
+	unsigned count = xar_signature_get_x509certificate_count(sig);
 	CFRef<CFMutableArrayRef> certs = makeCFMutableArray(0);
 	for (unsigned ix = 0; ix < count; ix++) {
 		const uint8_t *data;
 		uint32_t length;
-		if (xar_signature_get_x509certificate_data(mSig, ix, &data, &length) == 0) {
+		if (xar_signature_get_x509certificate_data(sig, ix, &data, &length) == 0) {
 			CFTempData cdata(data, length);
 			CFRef<SecCertificateRef> cert = SecCertificateCreateWithData(NULL, cdata);
 			CFArrayAppendValue(certs, cert.get());
 		}
 	}
 	return certs.yield();
+}
+
+CFArrayRef Xar::copyCertChain()
+{
+	if (mSigCMS)
+		return copyCertChainFromSignature(mSigCMS);
+	else if (mSigClassic)
+		return copyCertChainFromSignature(mSigClassic);
+	return NULL;
 }
 
 

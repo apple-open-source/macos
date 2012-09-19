@@ -56,6 +56,31 @@ struct X86AddressMode {
     : BaseType(RegBase), Scale(1), IndexReg(0), Disp(0), GV(0), GVOpFlags(0) {
     Base.Reg = 0;
   }
+  
+  
+  void getFullAddress(SmallVectorImpl<MachineOperand> &MO) {
+    assert(Scale == 1 || Scale == 2 || Scale == 4 || Scale == 8);
+    
+    if (BaseType == X86AddressMode::RegBase)
+      MO.push_back(MachineOperand::CreateReg(Base.Reg, false, false,
+                                             false, false, false, 0, false));
+    else {
+      assert(BaseType == X86AddressMode::FrameIndexBase);
+      MO.push_back(MachineOperand::CreateFI(Base.FrameIndex));
+    }
+    
+    MO.push_back(MachineOperand::CreateImm(Scale));
+    MO.push_back(MachineOperand::CreateReg(IndexReg, false, false,
+                                           false, false, false, 0, false));
+    
+    if (GV)
+      MO.push_back(MachineOperand::CreateGA(GV, Disp, GVOpFlags));
+    else
+      MO.push_back(MachineOperand::CreateImm(Disp));
+    
+    MO.push_back(MachineOperand::CreateReg(0, false, false,
+                                           false, false, false, 0, false));
+  }
 };
 
 /// addDirectMem - This function is used to add a direct memory reference to the
@@ -64,19 +89,15 @@ struct X86AddressMode {
 ///
 static inline const MachineInstrBuilder &
 addDirectMem(const MachineInstrBuilder &MIB, unsigned Reg) {
-  // Because memory references are always represented with four
-  // values, this adds: Reg, [1, NoReg, 0] to the instruction.
-  return MIB.addReg(Reg).addImm(1).addReg(0).addImm(0);
+  // Because memory references are always represented with five
+  // values, this adds: Reg, 1, NoReg, 0, NoReg to the instruction.
+  return MIB.addReg(Reg).addImm(1).addReg(0).addImm(0).addReg(0);
 }
 
-static inline const MachineInstrBuilder &
-addLeaOffset(const MachineInstrBuilder &MIB, int Offset) {
-  return MIB.addImm(1).addReg(0).addImm(Offset);
-}
 
 static inline const MachineInstrBuilder &
 addOffset(const MachineInstrBuilder &MIB, int Offset) {
-  return addLeaOffset(MIB, Offset).addReg(0);
+  return MIB.addImm(1).addReg(0).addImm(Offset).addReg(0);
 }
 
 /// addRegOffset - This function is used to add a memory reference of the form
@@ -89,42 +110,34 @@ addRegOffset(const MachineInstrBuilder &MIB,
   return addOffset(MIB.addReg(Reg, getKillRegState(isKill)), Offset);
 }
 
-static inline const MachineInstrBuilder &
-addLeaRegOffset(const MachineInstrBuilder &MIB,
-                unsigned Reg, bool isKill, int Offset) {
-  return addLeaOffset(MIB.addReg(Reg, getKillRegState(isKill)), Offset);
-}
-
 /// addRegReg - This function is used to add a memory reference of the form:
 /// [Reg + Reg].
 static inline const MachineInstrBuilder &addRegReg(const MachineInstrBuilder &MIB,
                                             unsigned Reg1, bool isKill1,
                                             unsigned Reg2, bool isKill2) {
   return MIB.addReg(Reg1, getKillRegState(isKill1)).addImm(1)
-    .addReg(Reg2, getKillRegState(isKill2)).addImm(0);
-}
-
-static inline const MachineInstrBuilder &
-addLeaAddress(const MachineInstrBuilder &MIB, const X86AddressMode &AM) {
-  assert (AM.Scale == 1 || AM.Scale == 2 || AM.Scale == 4 || AM.Scale == 8);
-
-  if (AM.BaseType == X86AddressMode::RegBase)
-    MIB.addReg(AM.Base.Reg);
-  else if (AM.BaseType == X86AddressMode::FrameIndexBase)
-    MIB.addFrameIndex(AM.Base.FrameIndex);
-  else
-    assert (0);
-  MIB.addImm(AM.Scale).addReg(AM.IndexReg);
-  if (AM.GV)
-    return MIB.addGlobalAddress(AM.GV, AM.Disp, AM.GVOpFlags);
-  else
-    return MIB.addImm(AM.Disp);
+    .addReg(Reg2, getKillRegState(isKill2)).addImm(0).addReg(0);
 }
 
 static inline const MachineInstrBuilder &
 addFullAddress(const MachineInstrBuilder &MIB,
                const X86AddressMode &AM) {
-  return addLeaAddress(MIB, AM).addReg(0);
+  assert(AM.Scale == 1 || AM.Scale == 2 || AM.Scale == 4 || AM.Scale == 8);
+  
+  if (AM.BaseType == X86AddressMode::RegBase)
+    MIB.addReg(AM.Base.Reg);
+  else {
+    assert(AM.BaseType == X86AddressMode::FrameIndexBase);
+    MIB.addFrameIndex(AM.Base.FrameIndex);
+  }
+
+  MIB.addImm(AM.Scale).addReg(AM.IndexReg);
+  if (AM.GV)
+    MIB.addGlobalAddress(AM.GV, AM.Disp, AM.GVOpFlags);
+  else
+    MIB.addImm(AM.Disp);
+    
+  return MIB.addReg(0);
 }
 
 /// addFrameReference - This function is used to add a reference to the base of
@@ -137,16 +150,15 @@ addFrameReference(const MachineInstrBuilder &MIB, int FI, int Offset = 0) {
   MachineInstr *MI = MIB;
   MachineFunction &MF = *MI->getParent()->getParent();
   MachineFrameInfo &MFI = *MF.getFrameInfo();
-  const TargetInstrDesc &TID = MI->getDesc();
+  const MCInstrDesc &MCID = MI->getDesc();
   unsigned Flags = 0;
-  if (TID.mayLoad())
+  if (MCID.mayLoad())
     Flags |= MachineMemOperand::MOLoad;
-  if (TID.mayStore())
+  if (MCID.mayStore())
     Flags |= MachineMemOperand::MOStore;
   MachineMemOperand *MMO =
-    MF.getMachineMemOperand(PseudoSourceValue::getFixedStack(FI),
-                            Flags, Offset,
-                            MFI.getObjectSize(FI),
+    MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(FI, Offset),
+                            Flags, MFI.getObjectSize(FI),
                             MFI.getObjectAlignment(FI));
   return addOffset(MIB.addFrameIndex(FI), Offset)
             .addMemOperand(MMO);

@@ -179,6 +179,7 @@ AppleUSBOHCI::callPlatformFunction(const OSSymbol *functionName,
 								   void *param1, void *param2,
 								   void *param3, void *param4)
 {  
+#pragma unused (waitForFunction, param2, param3, param4)
     if (functionName == _usb_remote_wakeup)
     {
 		bool	*wake;

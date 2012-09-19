@@ -19,6 +19,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/SourceMgr.h"
 #include "LLVMContextImpl.h"
+#include <cctype>
 using namespace llvm;
 
 static ManagedStatic<LLVMContext> GlobalContext;
@@ -28,25 +29,51 @@ LLVMContext& llvm::getGlobalContext() {
 }
 
 LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
-  // Create the first metadata kind, which is always 'dbg'.
+  // Create the fixed metadata kinds. This is done in the same order as the
+  // MD_* enum values so that they correspond.
+
+  // Create the 'dbg' metadata kind.
   unsigned DbgID = getMDKindID("dbg");
   assert(DbgID == MD_dbg && "dbg kind id drifted"); (void)DbgID;
+
+  // Create the 'tbaa' metadata kind.
+  unsigned TBAAID = getMDKindID("tbaa");
+  assert(TBAAID == MD_tbaa && "tbaa kind id drifted"); (void)TBAAID;
+
+  // Create the 'prof' metadata kind.
+  unsigned ProfID = getMDKindID("prof");
+  assert(ProfID == MD_prof && "prof kind id drifted"); (void)ProfID;
+
+  // Create the 'fpaccuracy' metadata kind.
+  unsigned FPAccuracyID = getMDKindID("fpaccuracy");
+  assert(FPAccuracyID == MD_fpaccuracy && "fpaccuracy kind id drifted");
+  (void)FPAccuracyID;
 }
 LLVMContext::~LLVMContext() { delete pImpl; }
+
+void LLVMContext::addModule(Module *M) {
+  pImpl->OwnedModules.insert(M);
+}
+
+void LLVMContext::removeModule(Module *M) {
+  pImpl->OwnedModules.erase(M);
+}
 
 //===----------------------------------------------------------------------===//
 // Recoverable Backend Errors
 //===----------------------------------------------------------------------===//
 
-void LLVMContext::setInlineAsmDiagnosticHandler(void *DiagHandler, 
-                                                void *DiagContext) {
+void LLVMContext::
+setInlineAsmDiagnosticHandler(InlineAsmDiagHandlerTy DiagHandler,
+                              void *DiagContext) {
   pImpl->InlineAsmDiagHandler = DiagHandler;
   pImpl->InlineAsmDiagContext = DiagContext;
 }
 
 /// getInlineAsmDiagnosticHandler - Return the diagnostic handler set by
 /// setInlineAsmDiagnosticHandler.
-void *LLVMContext::getInlineAsmDiagnosticHandler() const {
+LLVMContext::InlineAsmDiagHandlerTy
+LLVMContext::getInlineAsmDiagnosticHandler() const {
   return pImpl->InlineAsmDiagHandler;
 }
 
@@ -76,13 +103,11 @@ void LLVMContext::emitError(unsigned LocCookie, StringRef ErrorStr) {
     errs() << "error: " << ErrorStr << "\n";
     exit(1);
   }
-  
+
   // If we do have an error handler, we can report the error and keep going.
-  SMDiagnostic Diag("", "error: " + ErrorStr.str());
-  
-  ((SourceMgr::DiagHandlerTy)(intptr_t)pImpl->InlineAsmDiagHandler)
-      (Diag, pImpl->InlineAsmDiagContext, LocCookie);
-  
+  SMDiagnostic Diag("", SourceMgr::DK_Error, ErrorStr.str());
+
+  pImpl->InlineAsmDiagHandler(Diag, pImpl->InlineAsmDiagContext, LocCookie);
 }
 
 //===----------------------------------------------------------------------===//
@@ -94,13 +119,13 @@ void LLVMContext::emitError(unsigned LocCookie, StringRef ErrorStr) {
 static bool isValidName(StringRef MDName) {
   if (MDName.empty())
     return false;
-  
-  if (!isalpha(MDName[0]))
+
+  if (!std::isalpha(MDName[0]))
     return false;
-  
+
   for (StringRef::iterator I = MDName.begin() + 1, E = MDName.end(); I != E;
        ++I) {
-    if (!isalnum(*I) && *I != '_' && *I != '-' && *I != '.')
+    if (!std::isalnum(*I) && *I != '_' && *I != '-' && *I != '.')
       return false;
   }
   return true;
@@ -110,21 +135,18 @@ static bool isValidName(StringRef MDName) {
 /// getMDKindID - Return a unique non-zero ID for the specified metadata kind.
 unsigned LLVMContext::getMDKindID(StringRef Name) const {
   assert(isValidName(Name) && "Invalid MDNode name");
-  
-  unsigned &Entry = pImpl->CustomMDKindNames[Name];
-  
+
   // If this is new, assign it its ID.
-  if (Entry == 0) Entry = pImpl->CustomMDKindNames.size();
-  return Entry;
+  return
+    pImpl->CustomMDKindNames.GetOrCreateValue(
+      Name, pImpl->CustomMDKindNames.size()).second;
 }
 
 /// getHandlerNames - Populate client supplied smallvector using custome
 /// metadata name and ID.
 void LLVMContext::getMDKindNames(SmallVectorImpl<StringRef> &Names) const {
-  Names.resize(pImpl->CustomMDKindNames.size()+1);
-  Names[0] = "";
+  Names.resize(pImpl->CustomMDKindNames.size());
   for (StringMap<unsigned>::const_iterator I = pImpl->CustomMDKindNames.begin(),
        E = pImpl->CustomMDKindNames.end(); I != E; ++I)
-    // MD Handlers are numbered from 1.
     Names[I->second] = I->first();
 }

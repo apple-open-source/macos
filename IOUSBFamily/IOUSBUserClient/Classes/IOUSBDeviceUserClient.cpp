@@ -221,6 +221,13 @@ IOUSBDeviceUserClientV2::sMethods[kIOUSBLibDeviceUserClientNumCommands] = {
 		1, 0,
 		1, 0
     }
+#ifdef SUPPORTS_SS_USB
+    ,{	 //    kUSBDeviceUserClientGetBandwidthAvailableForDevice
+		(IOExternalMethodAction) &IOUSBDeviceUserClientV2::_GetBandwidthAvailableForDevice,
+		0, 0,
+		1, 0
+    },
+#endif
 };
 
 
@@ -259,11 +266,19 @@ IOUSBDeviceUserClientV2::_SetAsyncPort(IOUSBDeviceUserClientV2 * target, void * 
 IOReturn IOUSBDeviceUserClientV2::SetAsyncPort(mach_port_t port)
 {
 	USBLog(7,"+IOUSBDeviceUserClientV2::SetAsyncPort");
+	
+	if (fWakePort != MACH_PORT_NULL)
+	{
+		super::releaseNotificationPort(fWakePort);
+		fWakePort = MACH_PORT_NULL;
+	}
+
     if (!fOwner)
         return kIOReturnNotAttached;
 	
     fWakePort = port;
-    return kIOReturnSuccess;
+    
+	return kIOReturnSuccess;
 }
 
 
@@ -298,6 +313,7 @@ IOUSBDeviceUserClientV2::ReqComplete(void *obj, void *param, IOReturn res, UInt3
     if (!me->fDead)
 		sendAsyncResult64(pb->fAsyncRef, res, args, 1);
 	
+	releaseAsyncReference64(pb->fAsyncRef);
     IOFree(pb, sizeof(*pb));
     me->DecrementOutstandingIO();
 	me->release();
@@ -335,6 +351,7 @@ IOUSBDeviceUserClientV2::initWithTask(task_t owningTask, void *security_id , UIn
 	
     fTask = owningTask;
     fDead = false;
+	fWakePort = MACH_PORT_NULL;
 
 #if DEBUG_LEVEL != 0
 	char	nbuf[256];
@@ -652,7 +669,9 @@ IOReturn IOUSBDeviceUserClientV2::_DeviceRequestIn(IOUSBDeviceUserClientV2 * tar
         if ( ret ) 
 		{
             if ( pb )
+			{
 				IOFree(pb, sizeof(*pb));
+			}
 			
 			target->DecrementOutstandingIO();
 			target->release();
@@ -962,7 +981,9 @@ IOUSBDeviceUserClientV2::_DeviceRequestOut(IOUSBDeviceUserClientV2 * target, voi
         if ( ret ) 
 		{
             if ( pb )
+			{
 				IOFree(pb, sizeof(*pb));
+			}
 			
 			target->DecrementOutstandingIO();
 			target->release();
@@ -1021,7 +1042,7 @@ IOUSBDeviceUserClientV2::DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, 
 	
 	if (fOwner && !isInactive())
     {
-		if (( completion == NULL) )
+		if (completion == NULL)
 		{
 			USBLog(1,"IOUSBDeviceUserClientV2[%p]::DeviceRequestOut (async) no completion!",  this); 
 			USBTrace( kUSBTDeviceUserClient,  kTPDeviceUCDeviceRequestOut, bmRequestType, bRequest, wValue, kIOReturnBadArgument );
@@ -1594,11 +1615,16 @@ IOUSBDeviceUserClientV2::RequestExtraPower(UInt32 type, UInt32 requestedPower, u
 	
     if (fOwner && !isInactive())
 	{
+		// Make all power from user clients be revokable, for now
+//		if (type == kUSBPowerDuringWake)
+//			type = kUSBPowerDuringWakeRevokable;
+		
 		*powerAvailable = (uint64_t) fOwner->RequestExtraPower(type, requestedPower);
 		
 		if ( type == kUSBPowerDuringSleep )
 			FSLEEPPOWERALLOCATED += (UInt32) *powerAvailable;
 
+//		if ( type == kUSBPowerDuringWakeRevokable )
 		if ( type == kUSBPowerDuringWake )
 			FWAKEPOWERALLOCATED += (UInt32) *powerAvailable;
 
@@ -1637,6 +1663,10 @@ IOUSBDeviceUserClientV2::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
     USBLog(5, "+IOUSBDeviceUserClientV2[%p]::ReturnExtraPower returning type %d power = %d",  this, (uint32_t) type, (uint32_t) returnedPower);
     IncrementOutstandingIO();
     
+	// Make all power from user clients be revokable, for now
+//	if (type == kUSBPowerDuringWake)
+//		type = kUSBPowerDuringWakeRevokable;
+
     if (fOwner && !isInactive())
 		ret = fOwner->ReturnExtraPower(type, returnedPower);
     else
@@ -1647,6 +1677,7 @@ IOUSBDeviceUserClientV2::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 		if ( type == kUSBPowerDuringSleep )
 			FSLEEPPOWERALLOCATED -= returnedPower;
 		
+//		if ( type == kUSBPowerDuringWakeRevokable )
 		if ( type == kUSBPowerDuringWake )
 			FWAKEPOWERALLOCATED -= returnedPower;
 	}
@@ -1686,6 +1717,7 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 		*powerAllocated = (uint64_t) fOwner->GetExtraPowerAllocated(type);
 		
 		// Workaround for 8001347.  We know that the user client only asks for 500, so if we 400, set it to 0
+//		if ( *powerAllocated == 400 && type == kUSBPowerDuringWakeRevokable )
 		if ( *powerAllocated == 400 && type == kUSBPowerDuringWake )
 		{
 			USBLog(3, "IOUSBDeviceUserClientV2[%p]::GetExtraPowerAllocated - setting  *powerAllocated to 0 from 400 for bug workaround",  this);
@@ -1706,6 +1738,57 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 	return ret;
 }
 
+#ifdef SUPPORTS_SS_USB
+IOReturn IOUSBDeviceUserClientV2::_GetBandwidthAvailableForDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
+{
+#pragma unused (reference)
+    USBLog(5, "+IOUSBDeviceUserClientV2[%p]::_GetBandwidthAvailableForDevice", target);
+	
+	target->retain();
+    IOReturn kr = target->GetBandwidthAvailableForDevice(&(arguments->scalarOutput[0]));
+	target->release();
+	
+	return kr;
+}
+
+IOReturn
+IOUSBDeviceUserClientV2::GetBandwidthAvailableForDevice(uint64_t *pBandwidth)
+{
+    IOReturn		ret = kIOReturnUnsupported;
+	UInt32			bandwidth;
+	
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailableForDevice",  this);
+	
+    if (fOwner && !isInactive())
+    {
+
+		if (fOwner && fOwner->_expansionData)
+		{
+			IOUSBControllerV3	*myController = OSDynamicCast(IOUSBControllerV3, fOwner->GetBus());
+			IOUSBHubDevice *parent = OSDynamicCast(IOUSBHubDevice, fOwner->_expansionData->_usbPlaneParent);
+			
+			if (myController && parent)
+			{
+				ret = myController->GetBandwidthAvailableForDevice(fOwner, &bandwidth);
+				if ( ret == kIOReturnSuccess )
+				{
+					USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailableForDevice  got %d bytes",  this, (uint32_t)bandwidth);
+					*pBandwidth = bandwidth;
+				}
+			}
+		}
+    }
+    else
+        ret = kIOReturnNotAttached;
+	
+    if (ret)
+	{
+        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailableForDevice - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
+	}
+	
+    return ret;
+}
+#endif
 
 
 #pragma mark FrameNumber
@@ -2434,6 +2517,12 @@ IOUSBDeviceUserClientV2::ReleaseWorkLoopAndGate()
 			fWorkLoop = NULL;
 		}
 	}
+	
+	if (fWakePort != MACH_PORT_NULL)
+	{
+		super::releaseNotificationPort(fWakePort);
+		fWakePort = MACH_PORT_NULL;
+	}
 }
 
 	
@@ -2483,7 +2572,7 @@ IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqI
 //
 OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  0);
 OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  1);
-OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  2);
+OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  2);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  3);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  4);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  5);

@@ -172,7 +172,14 @@ void Session::kill()
 //
 void Session::updateAudit() const
 {
-	mAudit.get(mAudit.sessionId());
+    CommonCriteria::AuditInfo info;
+	StLock<Mutex> _(mSessionLock);
+    try {
+        info.get(mAudit.sessionId());
+    } catch (...) {
+        return;
+    }
+    mAudit = info;
 }
 
 

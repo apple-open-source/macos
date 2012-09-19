@@ -98,6 +98,12 @@ code and source code.
 The following provides more details on the included cryptographic
 software:
 
+  APR-Util provides an abstract interface for symmetrical cryptographic
+  functions that make use of a general-purpose encryption library,
+  such as OpenSSL, NSS, or the operating system's platform-specific
+  facilities. This interface is known as the apr_crypto interface,
+  with implementation beneath the /crypto directory.
+
   APR-Util provides an abstract interface for SSL encrypted LDAP (ldaps
   and STARTTLS style) connections, which can be powered by OpenLDAP, 
   Netscape LDAP SDK, Mozilla LDAP SDK, or other platform specific ldap

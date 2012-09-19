@@ -25,6 +25,7 @@
 // cs_sign - codesign signing operation
 //
 #include "codesign.h"
+#include "cs_utils.h"
 #include <Security/Security.h>
 #include <Security/SecCodeSigner.h>
 #include <Security/SecCodePriv.h>
@@ -82,6 +83,16 @@ void prepareToSign()
 	else if (detachedDb)
 		CFDictionaryAddValue(parameters, kSecCodeSignerDetached, kCFNull);
 	
+    if (timestampRequest) {
+		CFDictionaryAddValue(parameters, kSecCodeSignerRequireTimestamp, timestampRequest);
+		if (signingTime && signingTime != CFDateRef(kCFNull))
+			fail("explicit signing time not allowed with timestamp service");
+	}
+	if (tsaURL)
+		CFDictionaryAddValue(parameters, kSecCodeSignerTimestampServer, CFTempURL(tsaURL));
+    if (noTSAcerts)
+		CFDictionaryAddValue(parameters, kSecCodeSignerTimestampOmitCertificates, kCFBooleanTrue);
+
 	if (resourceRules) {
 		if (CFRef<CFDataRef> data = cfLoadFile(resourceRules)) {
 			CFDictionaryAddValue(parameters, kSecCodeSignerResourceRules,
@@ -184,7 +195,7 @@ void sign(const char *target)
 	check(SecCodeSignerAddSignatureWithErrors(currentSigner, code, kSecCSDefaultFlags, check));
 
 	// collect some resulting information and deliver it to the user
-	SecCSFlags flags = kSecCSDefaultFlags;
+	SecCSFlags flags = kSecCSSigningInformation;
 	if (modifiedFiles)
 		flags |= kSecCSContentInformation;
 	MacOSError::check(SecCodeCopySigningInformation(code, flags, &dict.aref()));
@@ -192,6 +203,24 @@ void sign(const char *target)
 		cfString(CFStringRef(CFDictionaryGetValue(dict, kSecCodeInfoFormat))).c_str(),
 		cfString(CFStringRef(CFDictionaryGetValue(dict, kSecCodeInfoIdentifier))).c_str()
 	);
+	
+	CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
+	CFRef<CFDateFormatterRef> format = CFDateFormatterCreate(NULL, userLocale,
+		kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+	CFDateRef softTime = CFDateRef(CFDictionaryGetValue(dict, kSecCodeInfoTime));
+	CFDateRef hardTime = CFDateRef(CFDictionaryGetValue(dict, kSecCodeInfoTimestamp));
+	if (hardTime) {
+		if (softTime) {
+			CFAbsoluteTime slop = abs(CFDateGetAbsoluteTime(softTime) - CFDateGetAbsoluteTime(hardTime));
+			if (slop > timestampSlop)
+				fail("%s: timestamps differ by %g seconds - check your system clock", target, slop);
+		} else {
+			CFAbsoluteTime slop = abs(CFAbsoluteTimeGetCurrent() - CFDateGetAbsoluteTime(hardTime));
+			if (slop > timestampSlop)
+				note(0, "%s: WARNING: local time diverges from timestamp by %g seconds - check your system clock", target, slop);
+		}
+	}
+	
 	if (modifiedFiles)
 		writeFileList(CFArrayRef(CFDictionaryGetValue(dict, kSecCodeInfoChangedFiles)), modifiedFiles, "a");
 }

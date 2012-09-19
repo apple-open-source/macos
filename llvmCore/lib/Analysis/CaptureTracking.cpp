@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/Value.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -69,7 +70,7 @@ bool llvm::PointerMayBeCaptured(const Value *V,
     switch (I->getOpcode()) {
     case Instruction::Call:
     case Instruction::Invoke: {
-      CallSite CS = CallSite::get(I);
+      CallSite CS(I);
       // Not captured if the callee is readonly, doesn't return a copy through
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
@@ -94,6 +95,9 @@ bool llvm::PointerMayBeCaptured(const Value *V,
     }
     case Instruction::Load:
       // Loading from a pointer does not cause it to be captured.
+      break;
+    case Instruction::VAArg:
+      // "va-arg" from a pointer does not cause it to be captured.
       break;
     case Instruction::Ret:
       if (ReturnCaptures)

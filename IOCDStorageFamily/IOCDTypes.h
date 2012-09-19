@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -240,7 +240,7 @@ typedef enum
  * Media Types
  */
 
-typedef enum
+enum
 {
     kCDMediaTypeUnknown      = 0x0100,
     kCDMediaTypeROM          = 0x0102, /* CD-ROM */

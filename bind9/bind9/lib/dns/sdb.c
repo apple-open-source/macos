@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sdb.c,v 1.71.54.3 2010-08-16 05:14:15 marka Exp $ */
+/* $Id$ */
 
 /*! \file */
 
@@ -841,10 +841,17 @@ find(dns_db_t *db, dns_name_t *name, dns_dbversion_t *version,
 		 */
 		dns_name_getlabelsequence(name, nlabels - i, i, xname);
 		result = findnode(db, xname, ISC_FALSE, &node);
-		if (result != ISC_R_SUCCESS) {
+		if (result == ISC_R_NOTFOUND) {
+			/*
+			 * No data at zone apex?
+			 */
+			if (i == olabels)
+				return (DNS_R_BADDB);
 			result = DNS_R_NXDOMAIN;
 			continue;
 		}
+		if (result != ISC_R_SUCCESS)
+			return (result);
 
 		/*
 		 * Look for a DNAME at the current label, unless this is
@@ -1332,7 +1339,7 @@ dns_sdb_create(isc_mem_t *mctx, dns_name_t *origin, dns_dbtype_t type,
  cleanup_origin:
 	dns_name_free(&sdb->common.origin, mctx);
  cleanup_lock:
-	isc_mutex_destroy(&sdb->lock);
+	(void)isc_mutex_destroy(&sdb->lock);
  cleanup_mctx:
 	isc_mem_put(mctx, sdb, sizeof(dns_sdb_t));
 	isc_mem_detach(&mctx);

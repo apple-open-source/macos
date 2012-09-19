@@ -36,21 +36,52 @@
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+#include <IOKit/usb/USBSpec.h>
+
+const OSSymbol *gUSBVendorID = NULL;
+const OSSymbol *gUSBProductID = NULL;
+const OSSymbol *gUSBInterfaceNumber = NULL;
+const OSSymbol *gUSBConfigurationValue = NULL;
+const OSSymbol *gUSBDeviceReleaseNumber = NULL;
+const OSSymbol *gUSBInterfaceClass = NULL;
+const OSSymbol *gUSBInterfaceSubClass = NULL;
+const OSSymbol *gUSBInterfaceProtocol = NULL;
+const OSSymbol *gUSBProductIDMask = NULL;
+const OSSymbol *gUSBDeviceClass = NULL;
+const OSSymbol *gUSBDeviceSubClass = NULL;
+const OSSymbol *gUSBDeviceProtocol = NULL;
+
 #define super	IOService
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-OSDefineMetaClass( IOUSBNub, IOService )
-OSDefineAbstractStructors(IOUSBNub, IOService)
+OSDefineMetaClassAndAbstractStructorsWithInit(IOUSBNub, IOService, IOUSBNub::initialize())
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+void IOUSBNub::initialize()
+{
+    gUSBVendorID = OSSymbol::withCString(kUSBVendorID);
+    gUSBProductID = OSSymbol::withCString(kUSBProductID);
+    gUSBInterfaceNumber = OSSymbol::withCString(kUSBInterfaceNumber);
+    gUSBConfigurationValue = OSSymbol::withCString(kUSBConfigurationValue);
+    gUSBDeviceReleaseNumber = OSSymbol::withCString(kUSBDeviceReleaseNumber);
+    gUSBInterfaceClass = OSSymbol::withCString(kUSBInterfaceClass);
+    gUSBInterfaceSubClass = OSSymbol::withCString(kUSBInterfaceSubClass);
+    gUSBInterfaceProtocol = OSSymbol::withCString(kUSBInterfaceProtocol);
+    gUSBProductIDMask = OSSymbol::withCString(kUSBProductIDMask);
+    gUSBDeviceClass = OSSymbol::withCString(kUSBDeviceClass);
+    gUSBDeviceSubClass = OSSymbol::withCString(kUSBDeviceSubClass);
+    gUSBDeviceProtocol = OSSymbol::withCString(kUSBDeviceProtocol);
+}
+
 
 /**
  ** Matching methods
  **/
 
 bool 
-IOUSBNub::USBCompareProperty( OSDictionary   * matching, const char     * key )
+IOUSBNub::USBCompareProperty( OSDictionary   * matching, const OSSymbol     * key )
 {
     // We return success iff we match the key in the dictionary with the key in
     // the property table.

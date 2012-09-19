@@ -23,6 +23,7 @@
  */
 
 #include <libkern/OSByteOrder.h>
+#include <libkern/OSAtomic.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/usb/IOUSBLog.h>
 
@@ -50,18 +51,22 @@ __attribute__((format(printf, 1, 2)));
 //
 #define super	IOUSBDevice
 
-#define _MAXPORTCURRENT				_expansionData->_maxPortCurrent
-#define _TOTALEXTRACURRENT			_expansionData->_totalExtraCurrent
-#define	_TOTALEXTRASLEEPCURRENT		_expansionData->_totalSleepCurrent
-#define	_CANREQUESTEXTRAPOWER		_expansionData->_canRequestExtraPower
-#define	_EXTRAPOWERFORPORTS			_expansionData->_extraPowerForPorts
-#define	_EXTRAPOWERALLOCATED		_expansionData->_extraPowerAllocated
-#define	_REQUESTFROMPARENT			_expansionData->_requestFromParent
+#define _MAXPORTCURRENT					_expansionData->_maxPortCurrent
+#define _TOTALEXTRACURRENT				_expansionData->_totalExtraCurrent
+#define	_TOTALEXTRASLEEPCURRENT			_expansionData->_totalSleepCurrent
+#define	_CANREQUESTEXTRAPOWER			_expansionData->_canRequestExtraPower
+#define	_EXTRAPOWERFORPORTS				_expansionData->_extraPowerForPorts
+#define	_EXTRAPOWERALLOCATED			_expansionData->_extraPowerAllocated
+#define	_REQUESTFROMPARENT				_expansionData->_requestFromParent
+#define _MAXPORTSLEEPCURRENT			_expansionData->_maxPortSleepCurrent
+#define	_EXTRASLEEPPOWERALLOCATED		_expansionData->_extraSleepPowerAllocated
+#define	_CANREQUESTEXTRASLEEPPOWER		_expansionData->_canRequestExtraSleepPower
+#define _STANDARD_PORT_POWER_IN_SLEEP	_expansionData->_standardPortSleepCurrent
+#define _UNCONNECTEDEXTERNALPORTS		_expansionData->_unconnectedExternalPorts
+
+// From our superclass
 #define _USBPLANE_PARENT			super::_expansionData->_usbPlaneParent
-#define _MAXPORTSLEEPCURRENT		_expansionData->_maxPortSleepCurrent
-#define	_EXTRASLEEPPOWERALLOCATED	_expansionData->_extraSleepPowerAllocated
-#define	_CANREQUESTEXTRASLEEPPOWER	_expansionData->_canRequestExtraSleepPower
-#define _STANDARD_PORT_POWER_IN_SLEEP			_expansionData->_standardPortSleepCurrent
+#define _STANDARD_PORT_POWER		super::_expansionData->_standardUSBPortPower
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -274,14 +279,14 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 		return kIOReturnSuccess;
 	}
 	
-	// The power requested is a delta above the USB Spec for the port.  That's why we need to subtract the 500mA from the maxPowerPerPort value
-	// Note:  should we see if this is a high power port or not?  It assumes it is
-	if (requestedPower > (_MAXPORTCURRENT-500))		// limit requests to the maximum the HW can support
+	// The power requested is a delta above the USB Spec for the port.  That's why we need to add the _STANDARD_PORT_POWER (500 or 900mA) to the requested value
+	if ( (requestedPower + _STANDARD_PORT_POWER) > _MAXPORTCURRENT)		// limit requests to the maximum the HW can support
 	{
-		USBLog(5, "IOUSBHubDevice[%p]:::RequestExtraPower(thru gate) - requestedPower of %d, was greater than %d, (the maximum power per port - 500mA).  Requesting %d instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500), (uint32_t) (_MAXPORTCURRENT-500));
-		requestedPower = _MAXPORTCURRENT-500;
+		USBLog(5, "IOUSBHubDevice[%p]:::RequestExtraPower(thru gate) - requestedPower of %d, was greater than the maximum this port can provide (including the standard port power): %d, Requesting %d instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500), (uint32_t) (_MAXPORTCURRENT-500));
+		requestedPower = _MAXPORTCURRENT - _STANDARD_PORT_POWER;
 	}
 	
+	// Check to see if we have enough current to allocate and if so, then allocate it.  This just involves doing the math.
 	if (requestedPower <= _TOTALEXTRACURRENT)
 	{		
 		// honor the request if possible
@@ -289,6 +294,9 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 		_TOTALEXTRACURRENT -= extraAllocated;
 		USBLog(5, "IOUSBHubDevice[%p]:::RequestExtraPower(thru gate) - Asked for %d,  _TOTALEXTRACURRENT is %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT );
 	}
+	
+	// Nano:  Should we only do the following if we were not able to allocate power in this device?  Sure seems like it
+	
 	
 	// At this point, we can have a hub that can request a set amount of power from its parent (e.g. a Keyboard Hub), or a hub that can pass thru the request to its parent (RMH).
 	
@@ -776,7 +784,7 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 	// that the new sleep extra current properties existed in EFI.  This is an indication that the machine has a verified ACPI table and we can trust the PortInfo
 	if ( useNewMethodToAddRequestFromParent && (deviceInfo & kUSBInformationDeviceIsInternalMask) && (deviceInfo & kUSBInformationDeviceIsAttachedToRootHubMask) && (deviceInfo & kUSBInformationDeviceIsCaptiveMask) )
 	{
-		USBLog(1, "IOUSBHubDevice[%p]::InitializeExtraPower  found hub (0x%x, 0x%x), that is internal, attached to root hub, captive, and on a recent machine", this, GetVendorID(), GetProductID());
+		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found hub (0x%x, 0x%x), that is internal, attached to root hub, captive, and on a recent machine", this, GetVendorID(), GetProductID());
 		_REQUESTFROMPARENT = true;
 		if (_USBPLANE_PARENT != NULL)
 		{
@@ -896,6 +904,21 @@ IOUSBHubDevice::SendExtraPowerMessage(UInt32 type, UInt32 returnedPower)
 	}
 
 }
+
+SInt32					
+IOUSBHubDevice::UpdateUnconnectedExternalPorts(SInt32 count)
+{
+	SInt32	ports = 0;
+	
+	OSAddAtomic(count, &_UNCONNECTEDEXTERNALPORTS);
+	ports = _UNCONNECTEDEXTERNALPORTS;
+	
+	USBLog(6, "%s[%p]::start  unconnected external ports now %d", getName(), this, (uint32_t)_UNCONNECTEDEXTERNALPORTS);
+	setProperty("Unconnected External Ports", _UNCONNECTEDEXTERNALPORTS, 32);
+
+	return ports;
+}
+
 
 OSMetaClassDefineReservedUsed(IOUSBHubDevice,  0);
 OSMetaClassDefineReservedUsed(IOUSBHubDevice,  1);

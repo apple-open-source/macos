@@ -1,8 +1,8 @@
-add_executable(not
+add_llvm_utility(not
   not.cpp
   )
 
-target_link_libraries(not LLVMSystem)
+target_link_libraries(not LLVMSupport)
 if( MINGW )
   target_link_libraries(not imagehlp psapi)
 endif( MINGW )

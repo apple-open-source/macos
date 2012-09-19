@@ -197,7 +197,7 @@ bool IOFireWireIP::start(IOService *provider)
 		}
 		transmitQueue->retain();
         
-		// Publish interface name if in J59
+		// Publish interface name if tunnelled Thunderbolt device
 		OSBoolean * tunnelled = OSDynamicCast( OSBoolean, getProperty("IOPCITunnelled", gIOServicePlane, kIORegistryIterateParents | kIORegistryIterateRecursively) );
 		if ( (tunnelled != NULL) )
 		{			
@@ -218,6 +218,45 @@ bool IOFireWireIP::start(IOService *provider)
 					if ( j59VendorID == *tbtVendorIDPtr && j59ModelID == *tbtModelIDPtr )
 					{
 						setProperty("Product Name", "Display FireWire");
+					}
+					else
+					{
+						OSData * tbtUID = (OSData *)getProperty("Tunnel Endpoint GUID", gIOServicePlane, kIORegistryIterateParents | kIORegistryIterateRecursively);
+						
+						if ( tbtUID )
+						{
+							OSDictionary * matchDict = serviceMatching( "IOThunderboltSwitch" );
+							const OSSymbol * uidSym = OSSymbol::withCString( "UID" );
+							OSNumber * tbtUIDNumber = OSNumber::withNumber( *((uint64_t *)(tbtUID->getBytesNoCopy(0, 8))), 64 );
+							
+							if ( matchDict && uidSym && tbtUIDNumber )
+							{
+								matchDict = propertyMatching( uidSym, tbtUIDNumber, matchDict );
+								
+								mach_timespec_t timeout = { 10, 0 };
+								IOService * tbtSwitch = waitForService( matchDict, &timeout );
+								
+								if ( tbtSwitch )
+								{
+									/*
+									OSString * modelName = (OSString *)(tbtSwitch->getProperty("Device Model Name", gIOServicePlane, 0));
+									
+									if ( modelName )
+									{
+										char propertyName[256];
+										bzero(propertyName, sizeof(propertyName));
+										
+										// could be ugly with devices with "FireWire" in the name
+										snprintf(propertyName, sizeof(propertyName)-1, "%s (FireWire)", modelName->getCStringNoCopy());
+										
+										setProperty("Product Name", propertyName);
+									}
+									 */
+									
+									setProperty("Product Name", "Thunderbolt FireWire");
+								}
+							}
+						}
 					}
 				}
 			}

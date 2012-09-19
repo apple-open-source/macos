@@ -49,6 +49,7 @@
 int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
     int ret = 0;
 	CFDataRef labeldata = NULL;
+	CFDataRef labeldata2 = NULL;
 	CFDataRef bootXdata = NULL;
 	
     BLPreBootEnvType	preboot;
@@ -75,9 +76,15 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 			return 2;
 		}
 	} else if(actargs[klabel].present) {
-		ret = BLGenerateOFLabel(context, actargs[klabel].argument, &labeldata);
+		ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_1x, &labeldata);
 		if(ret) {
-			blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
+			blesscontextprintf(context, kBLLogLevelError, "Can't render scale 1 label '%s'\n",
+							   actargs[klabel].argument);
+			return 3;
+		}
+		ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_2x, &labeldata2);
+		if(ret) {
+			blesscontextprintf(context, kBLLogLevelError, "Can't render scale 2 label '%s'\n",
 							   actargs[klabel].argument);
 			return 3;
 		}
@@ -114,16 +121,24 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 		if(ret) {
 			return 3;
 		}
-    } else if(labeldata) {
-		ret = BLSetOFLabelForDevice(context, actargs[kdevice].argument, labeldata);
+	} else if (labeldata) {
+		ret = BLSetDiskLabelForDevice(context, actargs[kdevice].argument, labeldata, 1);
 		if(ret) {
-			blesscontextprintf(context, kBLLogLevelError,  "Error while setting label for %s\n", actargs[kdevice].argument );
+			blesscontextprintf(context, kBLLogLevelError,  "Error while setting scale 1 label for %s\n", actargs[kdevice].argument );
 			return 3;
-		}		
+		}
+		if (labeldata2) {
+			ret = BLSetDiskLabelForDevice(context, actargs[kdevice].argument, labeldata2, 2);
+			if(ret) {
+				blesscontextprintf(context, kBLLogLevelError,  "Error while setting scale 2 label for %s\n", actargs[kdevice].argument );
+				return 3;
+			}
+		}
 	}
 
-	if(labeldata) CFRelease(labeldata);
-	if(bootXdata) CFRelease(bootXdata);
+	if (labeldata) CFRelease(labeldata);
+	if (labeldata2) CFRelease(labeldata2);
+	if (bootXdata) CFRelease(bootXdata);
 
     return 0;
 }

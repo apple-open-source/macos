@@ -43,7 +43,7 @@ DetachedRep::DetachedRep(CFDataRef sig, DiskRep *orig, const std::string &source
 {
 	const BlobCore *sigBlob = reinterpret_cast<const BlobCore *>(CFDataGetBytePtr(sig));
 	if (sigBlob->is<EmbeddedSignatureBlob>()) {		// architecture-less
-		if (mArch = EmbeddedSignatureBlob::specific(sigBlob)) {
+		if ((mArch = EmbeddedSignatureBlob::specific(sigBlob))) {
 			mGlobal = NULL;
 			CODESIGN_DISKREP_CREATE_DETACHED(this, orig, (char*)source.c_str(), NULL);
 			return;
@@ -52,8 +52,8 @@ DetachedRep::DetachedRep(CFDataRef sig, DiskRep *orig, const std::string &source
 		if (const DetachedSignatureBlob *dsblob = DetachedSignatureBlob::specific(sigBlob))
 			if (Universal *fat = orig->mainExecutableImage())
 				if (const BlobCore *blob = dsblob->find(fat->bestNativeArch().cpuType()))
-					if (mArch = EmbeddedSignatureBlob::specific(blob))
-						if (mGlobal = EmbeddedSignatureBlob::specific(dsblob->find(0))) {
+					if ((mArch = EmbeddedSignatureBlob::specific(blob)))
+						if ((mGlobal = EmbeddedSignatureBlob::specific(dsblob->find(0)))) {
 							CODESIGN_DISKREP_CREATE_DETACHED(this, orig, (char*)source.c_str(), (void*)mGlobal);
 							return;
 						}

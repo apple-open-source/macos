@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2011-2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,27 +53,30 @@ public:
 public:
 	void evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 
-	bool update(CFTypeRef target, SecAssessmentFlags flags, CFDictionaryRef context);
-	bool add(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
-	bool remove(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
-	bool enable(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
-	bool disable(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	CFDictionaryRef update(CFTypeRef target, SecAssessmentFlags flags, CFDictionaryRef context);
+	CFDictionaryRef add(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	CFDictionaryRef remove(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	CFDictionaryRef enable(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	CFDictionaryRef disable(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
+	CFDictionaryRef find(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
 
 public:
 	static void addAuthority(CFMutableDictionaryRef parent, const char *label, SQLite::int64 row = 0, CFTypeRef cacheInfo = NULL);
 	static void addToAuthority(CFMutableDictionaryRef parent, CFStringRef key, CFTypeRef value);
 
 private:
-	void evaluateCode(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
+	void evaluateCode(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 	void evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 	void evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 	
-	bool manipulateRules(const std::string &stanza,
+	void selectRules(SQLite::Statement &action, std::string stanza, std::string table,
+		CFTypeRef inTarget, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, std::string suffix = "");
+	CFDictionaryRef manipulateRules(const std::string &stanza,
 		CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context);
 
 	void setOrigin(CFArrayRef chain, CFMutableDictionaryRef result);
 
-	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, double expires, int authority);
+	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, double expires, SQLite::int64 authority);
 };
 
 

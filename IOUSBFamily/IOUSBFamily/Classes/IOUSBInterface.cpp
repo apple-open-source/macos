@@ -63,7 +63,9 @@ extern KernelDebugLevel	    gKernelDebugLevel;
 #define _WORKLOOP		_expansionData->_workLoop
 #define _NEED_TO_CLOSE	_expansionData->_needToClose
 #define _OPEN_CLIENTS	_expansionData->_openClients
-
+#ifdef SUPPORTS_SS_USB
+	#define _REMEBEREDSTREAMS	_expansionData->_RememberedStreams
+#endif
 
 /* Convert USBLog to use kprintf debugging */
 #define IOUSBINTERFACE_USE_KPRINTF 0
@@ -135,6 +137,31 @@ IOUSBInterface::start(IOService *provider)
         goto ErrorExit;
     }
 	
+#ifdef SUPPORTS_SS_USB
+	// If the bAlternateSetting is non-zero for a Mass Storage SCSI interface, then issue the SetInterface request:
+	if ( (_bInterfaceClass == kUSBMassStorageClass) && (_bInterfaceSubClass == kUSBMassStorageSCSISubClass) && (_bAlternateSetting != 0) )
+	{
+		IOUSBDevRequest			request;
+		IOReturn				kr = kIOReturnSuccess;
+		
+		USBLog(6, "%s[%p]::start - sending kUSBRqSetInterface to %d", getName(), this, _bAlternateSetting);
+		request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBInterface);
+		request.bRequest = kUSBRqSetInterface;
+		request.wValue = _bAlternateSetting;
+		request.wIndex = _bInterfaceNumber;
+		request.wLength = 0;
+		request.pData = NULL;
+		
+		kr = _device->DeviceRequest(&request);
+		
+		if (kr != kIOReturnSuccess) 
+		{
+			USBLog(1,"%s[%p]::start  SETINTERFACE, bInterfaceNumber = %d, bAlternateSetting = %d returned 0x%x",getName(), this, _bInterfaceNumber, _bAlternateSetting, kr);
+			goto ErrorExit;
+		}
+	}
+#endif
+	
     // now that I am attached to a device, I can fill in my property table for matching
     SetProperties();
 	
@@ -196,10 +223,10 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
 		retain();
 		workLoop->retain();
 		gate->retain();
+	
+        USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
 		
-		USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
-		
-		error = gate->runAction(CallSuperOpen, (void *)forClient, (void *)options, (void *)arg, (void *)NULL);
+        error = gate->runAction(CallSuperOpen, (void *)forClient, (void *)options, (void *)arg, (void *)NULL);
         if ( error != kIOReturnSuccess )
         {
             USBLog(2,"%s[%p]::open super::open failed (0x%x)", getName(), this, error);
@@ -353,7 +380,7 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 		workLoop->retain();
 		gate->retain();
 		
-		USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
+        USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
 
 		err = gate->runAction(CallSuperClose, (void *)forClient, (void *)options, (void *)NULL, (void *)NULL);
 		if ( err != kIOReturnSuccess )
@@ -475,16 +502,40 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 #pragma unused (provider)
 	IOReturn	err = kIOReturnSuccess;
 	
-    switch ( type )
+   	switch ( type )
     {
-	case kIOUSBMessagePortHasBeenSuspended:
-		// Forward the message to our clients
-		//
-		USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenSuspended", getName(), this);
-		messageClients( kIOUSBMessagePortHasBeenSuspended, argument, sizeof(IOReturn) );
-		break;
-		
-	case kIOUSBMessagePortHasBeenReset:
+		case kIOUSBMessagePortHasBeenSuspended:
+			// Forward the message to our clients
+			//
+			USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenSuspended", getName(), this);
+			messageClients( kIOUSBMessagePortHasBeenSuspended, argument, sizeof(IOReturn) );
+			break;
+			
+		case kIOUSBMessagePortHasBeenReset:
+			
+#ifdef SUPPORTS_SS_USB
+			// If the bAlternateSetting is non-zero, call into to set it
+			if ( _bAlternateSetting != 0 && _device )
+			{
+				IOUSBDevRequest			request;
+				IOReturn				kr = kIOReturnSuccess;
+				
+				USBLog(6, "%s[%p]::message(kIOUSBMessagePortHasBeenReset) - sending kUSBRqSetInterface to %d", getName(), this, _bAlternateSetting);
+				request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBInterface);
+				request.bRequest = kUSBRqSetInterface;
+				request.wValue = _bAlternateSetting;
+				request.wIndex = _bInterfaceNumber;
+				request.wLength = 0;
+				request.pData = NULL;
+				
+				kr = _device->DeviceRequest(&request);
+				
+				if (kr != kIOReturnSuccess) 
+				{
+					USBLog(1,"%s[%p]::message(kIOUSBMessagePortHasBeenReset)  SETINTERFACE, bInterfaceNumber = %d, bAlternateSetting = %d returned 0x%x",getName(), this, _bInterfaceNumber, _bAlternateSetting, kr);
+				}
+			}
+#endif
 		if (_expansionData && _GATE && _WORKLOOP)
 		{
 			IOCommandGate *	gate = _GATE;
@@ -512,40 +563,38 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 			workLoop->release();
 			release();
 		}
-		break;
-		
-	case kIOUSBMessagePortHasBeenResumed:
-		// Forward the message to our clients
-		//
-		USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenResumed", getName(), this);
-		messageClients( kIOUSBMessagePortHasBeenResumed, NULL, 0);
-		break;
-		
+			break;
+			
+		case kIOUSBMessagePortHasBeenResumed:
+			// Forward the message to our clients
+			//
+			USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenResumed", getName(), this);
+			messageClients( kIOUSBMessagePortHasBeenResumed, NULL, 0);
+			break;
+			
   		case kIOUSBMessageCompositeDriverReconfigured:
-		USBLog(5, "%s[%p]::message - received kIOUSBMessageCompositeDriverReconfigured",getName(), this);
-		messageClients( kIOUSBMessageCompositeDriverReconfigured, NULL, 0);
-		break;
-
-#if VERSION_MAJOR > 10
-    case kIOMessageDeviceSignaledWakeup:
-		// Forward the message to our clients
-		//
-        USBLog(6, "%s[%p]::message - received kIOMessageDeviceSignaledWakeup", getName(), this);
-        messageClients( kIOMessageDeviceSignaledWakeup, NULL, 0 );
-        break;
-#endif
-
-	case kIOMessageServiceIsTerminated: 
-		break;
-		
-	case kIOMessageServiceIsSuspended:
-	case kIOMessageServiceIsResumed:
-	case kIOMessageServiceIsRequestingClose:
-	case kIOMessageServiceWasClosed:
-	case kIOMessageServiceBusyStateChange:
-		err = kIOReturnUnsupported;
-	default:
-		break;
+			USBLog(5, "%s[%p]::message - received kIOUSBMessageCompositeDriverReconfigured",getName(), this);
+			messageClients( kIOUSBMessageCompositeDriverReconfigured, NULL, 0);
+			break;
+			
+		case kIOMessageDeviceSignaledWakeup:
+			// Forward the message to our clients
+			//
+			USBLog(6, "%s[%p]::message - received kIOMessageDeviceSignaledWakeup", getName(), this);
+			messageClients( kIOMessageDeviceSignaledWakeup, NULL, 0 );
+			break;
+			
+		case kIOMessageServiceIsTerminated: 
+			break;
+			
+		case kIOMessageServiceIsSuspended:
+		case kIOMessageServiceIsResumed:
+		case kIOMessageServiceIsRequestingClose:
+		case kIOMessageServiceWasClosed:
+		case kIOMessageServiceBusyStateChange:
+			err = kIOReturnUnsupported;
+		default:
+			break;
     }
     
     return err;
@@ -927,7 +976,7 @@ IOUSBInterface::ClosePipes(void)
 {
     IOReturn		err = kIOReturnSuccess;
 
-    USBLog(6,"+%s[%p]::ClosePipes", getName(), this);
+   USBLog(6,"+%s[%p]::ClosePipes", getName(), this);
 
     if (_expansionData && _GATE && _WORKLOOP)
 	{
@@ -939,20 +988,54 @@ IOUSBInterface::ClosePipes(void)
 		gate->retain();
 		
 		USBLog(6,"%s[%p]::ClosePipes calling _ClosePipes with gate", getName(), this);
-		
-		err = gate->runAction(_ClosePipes, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL);
+		err = gate->runAction(_ClosePipes, (void *)1, (void *)NULL, (void *)NULL, (void *)NULL);
+
 		if ( err != kIOReturnSuccess )
 		{
 			USBLog(2,"%s[%p]:ClosePipes _ClosePipes runAction failed (0x%x)", getName(), this, err);
 		}
-		
+
 		gate->release();
 		workLoop->release();
 		release();
 	}
-
+	
     USBLog(7,"-%s[%p]::ClosePipes", getName(), this);
 }
+
+
+#ifdef SUPPORTS_SS_USB
+OSMetaClassDefineReservedUsed(IOUSBInterface,  4);
+void 
+IOUSBInterface::UnlinkPipes(void)
+{
+    IOReturn		err = kIOReturnSuccess;
+    
+    USBLog(6,"+%s[%p]::UnlinkPipes", getName(), this);
+    
+    if (_expansionData && _GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		
+		USBLog(6,"%s[%p]::UnlinkPipes calling _ClosePipes with gate (no close)", getName(), this);
+		err = gate->runAction(_ClosePipes, (void *)0, (void *)NULL, (void *)NULL, (void *)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:UnlinkPipes _ClosePipes runAction failed (0x%x)", getName(), this, err);
+		}
+		gate->release();
+		workLoop->release();
+		release();
+	}
+    
+    USBLog(7,"-%s[%p]::UnlinkPipes", getName(), this);
+}
+#endif
 
 IOReturn
 IOUSBInterface::_ResetPipes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
@@ -1043,38 +1126,44 @@ IOUSBInterface::AbortPipesGated(void)
 IOReturn
 IOUSBInterface::_ClosePipes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
-#pragma unused (param1, param2, param3, param4)
+#pragma unused (param2, param3, param4)
 	
     IOUSBInterface*	me	= OSDynamicCast(IOUSBInterface, target);
     IOReturn		ret = kIOReturnSuccess;
-	
+	bool close = (param1 != NULL);
+    
     if (!me)
     {
         USBLog(1, "IOUSBInterface::_ClosePipes - invalid target");
         return kIOReturnBadArgument;
     }
 	
-    ret = me->ClosePipesGated();
+    ret = me->ClosePipesGated(close);
 	
     return ret;
 }
 
 IOReturn
-IOUSBInterface::ClosePipesGated(void)
+IOUSBInterface::ClosePipesGated(bool close)
 {
 	IOUSBPipe*	pipe;
     IOReturn	ret = kIOReturnSuccess;
 	
-	USBLog(6,"+%s[%p]::ClosePipesGated", getName(), this);
+	USBLog(6,"+%s[%p]::ClosePipesGated (close: %d)", getName(), this, close);
 	
     for( unsigned int i=0; i < kUSBMaxPipes; i++) 
     {
         if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
         {
+            USBLog(6,"+%s[%p]::ClosePipesGated, close pipe: %d (%p)", getName(), this, i, pipe);
             pipe->Abort(); 
             pipe->ClosePipe();
-            pipe->release();
-            _pipeList[i] = NULL;
+            if(close)
+            {
+                USBLog(6,"+%s[%p]::ClosePipesGated, release pipe: %d", getName(), this, i);
+                pipe->release();
+                _pipeList[i] = NULL;
+            }
         }
     }
 	
@@ -1083,12 +1172,94 @@ IOUSBInterface::ClosePipesGated(void)
 	return ret;
 }
 
+#ifdef SUPPORTS_SS_USB
+OSMetaClassDefineReservedUsed(IOUSBInterface,  5);
+IOReturn
+IOUSBInterface::_ReopenPipes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	
+    IOUSBInterface*	me	= OSDynamicCast(IOUSBInterface, target);
+    IOReturn		ret = kIOReturnSuccess;
+    
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_ReopenPipes - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+    ret = me->ReopenPipesGated();
+	
+    return ret;
+}
+
+IOReturn
+IOUSBInterface::ReopenPipesGated()
+{
+	IOUSBPipeV2*	pipe;
+    IOReturn	ret = kIOReturnSuccess;
+	
+	USBLog(6,"+%s[%p]::ReopenPipesGated", getName(), this);
+	
+    for( unsigned int i=0; i < kUSBMaxPipes; i++) 
+    {
+        if ( (pipe = OSDynamicCast(IOUSBPipeV2,_pipeList[i]))) 
+        {
+            USBLog(6,"+%s[%p]::ReopenPipesGated - reopen pipe: %d (%p)", getName(), this, i, pipe);
+            if ( !pipe->InitToEndpoint(pipe->_descriptor, pipe->_sscd, _device->GetSpeed(), _device->GetAddress(), _device->_controller, _device, this) ) 
+            {
+                pipe->release();
+                _pipeList[i] = NULL;
+            }
+        }
+    }
+	
+	USBLog(7,"-%s[%p]::ReopenPipesGated", getName(), this);
+	
+	return ret;
+}
+
+void
+IOUSBInterface::ReopenPipes(void)
+{
+    IOReturn		err = kIOReturnSuccess;
+    	
+    USBLog(6,"+%s[%p]::ReopenPipes", getName(), this);
+    
+    if (_expansionData && _GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+		USBLog(6,"%s[%p]::ReopenPipes calling _ReopenPipes with gate", getName(), this);
+		err = gate->runAction(_ReopenPipes, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:ReopenPipes _ReopenPipes runAction failed (0x%x)", getName(), this, err);
+		}
+		gate->release();
+		workLoop->release();
+		release();
+	}
+    
+    USBLog(7,"-%s[%p]::ReopenPipes", getName(), this);
+}
+#endif
+
+
+
 IOReturn
 IOUSBInterface::CreatePipes(void)
 {
     unsigned int					i = 0;
     const IOUSBDescriptorHeader		*pos = NULL;						// start with the interface descriptor
     const IOUSBEndpointDescriptor	*ep = NULL;
+#ifdef SUPPORTS_SS_USB
+	const IOUSBDescriptorHeader		*sscd = NULL;
+#endif
     bool							makePipeFailed = false;
     IOReturn						res = kIOReturnSuccess;
     
@@ -1098,9 +1269,28 @@ IOUSBInterface::CreatePipes(void)
         if (_pipeList[i] == NULL)
 		{
 			ep = (const IOUSBEndpointDescriptor *)pos;
+#ifdef SUPPORTS_SS_USB
+			// Find the SS companion desc if its next.
+			sscd = FindNextAssociatedDescriptor(pos, kUSBAnyDesc);
+			if(sscd)
+			{
+				if(sscd->bDescriptorType != kUSBSuperSpeedEndpointCompanion)
+				{
+					sscd = NULL;
+				}
+				else
+				{
+					USBLog(3, "%s[%p]::CreatePipes - found SSCD %02X %02X %02X %02X %02X %02X", getName(), this, ((UInt8 *)sscd)[0], ((UInt8 *)sscd)[1], ((UInt8 *)sscd)[2], ((UInt8 *)sscd)[3], ((UInt8 *)sscd)[4], ((UInt8 *)sscd)[5]);
+				}
+			}
+			// 4266888 - check to make sure that the ep number is non-zero so we don't screw up the control ep
+			if ((ep->bEndpointAddress & kUSBPipeIDMask) != 0)
+				_pipeList[i] = _device->MakePipe(ep, (IOUSBSuperSpeedEndpointCompanionDescriptor *)sscd, this);
+#else
 			// 4266888 - check to make sure that the ep number is non-zero so we don't screw up the control ep
 			if ((ep->bEndpointAddress & kUSBPipeIDMask) != 0)
 				_pipeList[i] = _device->MakePipe(ep, this);
+#endif
 			else
 			{
 				USBError(1, "USB Device (%s) interface (%d) has an invalid endpoint descriptor with zero endpoint number", _device->getName(), _bInterfaceNumber);
@@ -1201,13 +1391,13 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 		gate->retain();
 		
 		USBLog(7,"%s[%p]::FindNextPipe  calling _FindNextPipe (&returnPipe %p) with gate", getName(), this, &thePipeObj);
-		
+	
 		err = gate->runAction(_FindNextPipe, (void *)current, (void *)request, (void*)withRetain, (void*)&thePipeObj);
 		if ( err != kIOReturnSuccess )
 		{
 			USBLog(2,"%s[%p]:FindNextPipe  _FindNextPipe runAction failed (0x%x)", getName(), this, err);
 		}
- 		
+	
 		gate->release();
 		workLoop->release();
 		release();
@@ -1481,27 +1671,27 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
         return false;
     }
 	
-    bool	vendorPropertyExists = table->getObject(kUSBVendorID) ? true : false ;
-    bool	productPropertyExists = table->getObject(kUSBProductID) ? true : false ;
-    bool	interfaceNumberPropertyExists = table->getObject(kUSBInterfaceNumber) ? true : false ;
-    bool	configurationValuePropertyExists = table->getObject(kUSBConfigurationValue) ? true : false ;
-    bool	deviceReleasePropertyExists = table->getObject(kUSBDeviceReleaseNumber) ? true : false ;
-    bool	interfaceClassPropertyExists = table->getObject(kUSBInterfaceClass) ? true : false ;
-    bool	interfaceSubClassPropertyExists = table->getObject(kUSBInterfaceSubClass) ? true : false ;
-    bool	interfaceProtocolPropertyExists= table->getObject(kUSBInterfaceProtocol) ? true : false ;
-    bool    productIDMaskExists = table->getObject(kUSBProductIDMask) ? true : false;
+    bool	vendorPropertyExists = table->getObject(gUSBVendorID) ? true : false ;
+    bool	productPropertyExists = table->getObject(gUSBProductID) ? true : false ;
+    bool	interfaceNumberPropertyExists = table->getObject(gUSBInterfaceNumber) ? true : false ;
+    bool	configurationValuePropertyExists = table->getObject(gUSBConfigurationValue) ? true : false ;
+    bool	deviceReleasePropertyExists = table->getObject(gUSBDeviceReleaseNumber) ? true : false ;
+    bool	interfaceClassPropertyExists = table->getObject(gUSBInterfaceClass) ? true : false ;
+    bool	interfaceSubClassPropertyExists = table->getObject(gUSBInterfaceSubClass) ? true : false ;
+    bool	interfaceProtocolPropertyExists= table->getObject(gUSBInterfaceProtocol) ? true : false ;
+    bool    productIDMaskExists = table->getObject(gUSBProductIDMask) ? true : false;
 	bool	productIDArrayExists = OSDynamicCast(OSArray, table->getObject(kUSBProductIdsArrayName)) ? true : false;
 	
     // USBComparePropery() will return false if the property does NOT exist, or if it exists and it doesn't match
     //
-    bool	vendorPropertyMatches = USBCompareProperty(table, kUSBVendorID);
-    bool	productPropertyMatches = USBCompareProperty(table, kUSBProductID);
-    bool	interfaceNumberPropertyMatches = USBCompareProperty(table, kUSBInterfaceNumber);
-    bool	configurationValuePropertyMatches = USBCompareProperty(table, kUSBConfigurationValue);
-    bool	deviceReleasePropertyMatches = USBCompareProperty(table, kUSBDeviceReleaseNumber);
-    bool	interfaceClassPropertyMatches = USBCompareProperty(table, kUSBInterfaceClass);
-    bool	interfaceSubClassPropertyMatches = USBCompareProperty(table, kUSBInterfaceSubClass);
-    bool	interfaceProtocolPropertyMatches= USBCompareProperty(table, kUSBInterfaceProtocol);
+    bool	vendorPropertyMatches = USBCompareProperty(table, gUSBVendorID);
+    bool	productPropertyMatches = USBCompareProperty(table, gUSBProductID);
+    bool	interfaceNumberPropertyMatches = USBCompareProperty(table, gUSBInterfaceNumber);
+    bool	configurationValuePropertyMatches = USBCompareProperty(table, gUSBConfigurationValue);
+    bool	deviceReleasePropertyMatches = USBCompareProperty(table, gUSBDeviceReleaseNumber);
+    bool	interfaceClassPropertyMatches = USBCompareProperty(table, gUSBInterfaceClass);
+    bool	interfaceSubClassPropertyMatches = USBCompareProperty(table, gUSBInterfaceSubClass);
+    bool	interfaceProtocolPropertyMatches= USBCompareProperty(table, gUSBInterfaceProtocol);
     
 	// If there is an productIDArray, then see if any of the entries matches to our productID
 	
@@ -1606,7 +1796,7 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     
     // Get the class to see if it's vendor-specific later on.
     //
-	OSObject *interfaceClassProp = copyProperty(kUSBInterfaceClass);
+	OSObject *interfaceClassProp = copyProperty(gUSBInterfaceClass);
     OSNumber *interfaceClass = OSDynamicCast(OSNumber, interfaceClassProp);
 	
     if ( vendorPropertyMatches && productPropertyMatches && deviceReleasePropertyMatches &&
@@ -1691,22 +1881,22 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     if ( (*score > 0) && (gKernelDebugLevel > 4) )
     {
 		OSString * 	identifier = OSDynamicCast(OSString, table->getObject("CFBundleIdentifier"));
-		OSNumber *	vendor = (OSNumber *) getProperty(kUSBVendorID);
-		OSNumber *	product = (OSNumber *) getProperty(kUSBProductID);
-		OSNumber *	release = (OSNumber *) getProperty(kUSBDeviceReleaseNumber);
-		OSNumber *	configuration = (OSNumber *) getProperty(kUSBConfigurationValue);
-		OSNumber *	interfaceNumber = (OSNumber *) getProperty(kUSBInterfaceNumber);
-		OSNumber *	interfaceSubClass = (OSNumber *) getProperty(kUSBInterfaceSubClass);
-		OSNumber *	protocol = (OSNumber *) getProperty(kUSBInterfaceProtocol);
-		OSNumber *	dictVendor = (OSNumber *) table->getObject(kUSBVendorID);
-		OSNumber *	dictProduct = (OSNumber *) table->getObject(kUSBProductID);
-		OSNumber *	dictRelease = (OSNumber *) table->getObject(kUSBDeviceReleaseNumber);
-		OSNumber *	dictConfiguration = (OSNumber *) table->getObject(kUSBConfigurationValue);
-		OSNumber *	dictInterfaceNumber = (OSNumber *) table->getObject(kUSBInterfaceNumber);
-		OSNumber *	dictInterfaceClass = (OSNumber *) table->getObject(kUSBInterfaceClass);
-		OSNumber *	dictInterfaceSubClass = (OSNumber *) table->getObject(kUSBInterfaceSubClass);
-		OSNumber *	dictProtocol = (OSNumber *) table->getObject(kUSBInterfaceProtocol);
-		OSNumber *	dictMask = (OSNumber *) table->getObject(kUSBProductIDMask);
+		OSNumber *	vendor = (OSNumber *) getProperty(gUSBVendorID);
+		OSNumber *	product = (OSNumber *) getProperty(gUSBProductID);
+		OSNumber *	release = (OSNumber *) getProperty(gUSBDeviceReleaseNumber);
+		OSNumber *	configuration = (OSNumber *) getProperty(gUSBConfigurationValue);
+		OSNumber *	interfaceNumber = (OSNumber *) getProperty(gUSBInterfaceNumber);
+		OSNumber *	interfaceSubClass = (OSNumber *) getProperty(gUSBInterfaceSubClass);
+		OSNumber *	protocol = (OSNumber *) getProperty(gUSBInterfaceProtocol);
+		OSNumber *	dictVendor = (OSNumber *) table->getObject(gUSBVendorID);
+		OSNumber *	dictProduct = (OSNumber *) table->getObject(gUSBProductID);
+		OSNumber *	dictRelease = (OSNumber *) table->getObject(gUSBDeviceReleaseNumber);
+		OSNumber *	dictConfiguration = (OSNumber *) table->getObject(gUSBConfigurationValue);
+		OSNumber *	dictInterfaceNumber = (OSNumber *) table->getObject(gUSBInterfaceNumber);
+		OSNumber *	dictInterfaceClass = (OSNumber *) table->getObject(gUSBInterfaceClass);
+		OSNumber *	dictInterfaceSubClass = (OSNumber *) table->getObject(gUSBInterfaceSubClass);
+		OSNumber *	dictProtocol = (OSNumber *) table->getObject(gUSBInterfaceProtocol);
+		OSNumber *	dictMask = (OSNumber *) table->getObject(gUSBProductIDMask);
 		bool		match;
 		
 		if (identifier)
@@ -1822,13 +2012,13 @@ IOUSBInterface::GetPipeObj(UInt8 index)
 		retain();
 		workLoop->retain();
 		gate->retain();
-
+	
 		err = gate->runAction(_GetPipeObj, (void *)index, (void *)&thePipeObj, (void *)NULL, (void *)NULL);
 		if ( err != kIOReturnSuccess )
 		{
 			USBLog(2,"%s[%p]:GetPipeObj _GetPipeObj runAction failed (0x%x)", getName(), this, err);
 		}
-		
+	
 		gate->release();
 		workLoop->release();
 		release();
@@ -1868,7 +2058,6 @@ IOUSBInterface::GetPipeObjGated(UInt8 index)
 	
 	return thePipeObj;
 }
-
 
 
 UInt8  
@@ -1993,10 +2182,161 @@ IOUSBInterface::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumb
     return kIOUSBEndpointNotFound;
 }
 
+#ifdef SUPPORTS_SS_USB
+OSMetaClassDefineReservedUsed(IOUSBInterface,  2);
+IOReturn 
+IOUSBInterface::RememberStreams(void)
+{
+	IOReturn	err = kIOReturnSuccess;
+	
+    USBLog(6,"+%s[%p]::RememberStreams", getName(), this);
+    
+    if (_expansionData && _GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+
+		USBLog(6,"%s[%p]::RememberStreams  calling _RememberStreams with gate", getName(), this);
+		err = gate->runAction(_RememberStreams, (void *)NULL, (void *)NULL, (void*)NULL, (void*)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:RememberStreams  _RememberStreams runAction failed (0x%x)", getName(), this, err);
+		}
+ 		gate->release();
+		workLoop->release();
+		release();
+   }
+    
+    USBLog(7,"-%s[%p]::RememberStreams", getName(), this);
+    	
+	return err;
+}
+
+IOReturn
+IOUSBInterface::_RememberStreams(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	
+    IOUSBInterface*				me	= OSDynamicCast(IOUSBInterface, target);
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_RememberStreams - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+	me->RememberStreamsGated();
+	
+    return kIOReturnSuccess;
+}
+
+void 
+IOUSBInterface::RememberStreamsGated(void) 
+{ 
+    IOUSBPipeV2 * pipe = NULL;
+    
+    for( unsigned int i=0; i < kUSBMaxPipes; i++) 
+    {
+        if ( (pipe = OSDynamicCast(IOUSBPipeV2,_pipeList[i]))) 
+        {
+            _REMEBEREDSTREAMS[i] = pipe->GetConfiguredStreams(); 
+        }
+    }
+}
+
+
+OSMetaClassDefineReservedUsed(IOUSBInterface,  3);
+IOReturn 
+IOUSBInterface::RecreateStreams(void)
+{
+    IOReturn 	err = kIOReturnSuccess;
+    
+    USBLog(6,"+%s[%p]::RecreateStreams", getName(), this);
+    
+    if (_expansionData && _GATE && _WORKLOOP)
+	{
+		IOCommandGate *	gate = _GATE;
+		IOWorkLoop *	workLoop = _WORKLOOP;
+		
+		retain();
+		workLoop->retain();
+		gate->retain();
+	
+		
+		USBLog(6,"%s[%p]::RecreateStreams  calling _RecreateStreams with gate", getName(), this);
+		err = gate->runAction(_RecreateStreams, (void *)NULL, (void *)NULL, (void*)NULL, (void*)NULL);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(2,"%s[%p]:RecreateStreams  _RememberStreams runAction failed (0x%x)", getName(), this, err);
+		}
+ 		
+		gate->release();
+		workLoop->release();
+		release();
+   }
+    
+    USBLog(7,"-%s[%p]::RecreateStreams return 0x%x", getName(), this, (uint32_t) err);
+  
+	return err;
+}
+
+IOReturn
+IOUSBInterface::_RecreateStreams(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	
+    IOUSBInterface*		me	= OSDynamicCast(IOUSBInterface, target);
+	IOReturn			ret = kIOReturnSuccess;
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_RecreateStreams - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+	ret = me->RecreateStreamsGated();
+	
+    return ret;
+}
+
+
+IOReturn 
+IOUSBInterface::RecreateStreamsGated(void) 
+{ 
+    IOUSBPipeV2 * 	pipe = NULL;
+    IOReturn		err = kIOReturnSuccess;
+	
+    for( unsigned int i=0; i < kUSBMaxPipes; i++) 
+    {
+        if(_REMEBEREDSTREAMS[i] != 0)
+        {
+            if ( (pipe = OSDynamicCast(IOUSBPipeV2,_pipeList[i]))) 
+            {
+                err = pipe->CreateStreams(_REMEBEREDSTREAMS[i]);
+                if(err != kIOReturnSuccess)
+                {
+                    USBLog(2,"IOUSBInterface[%p]:RecreateStreams -- error %x from CreateStreams for pipe %d", this, err, (int)i);
+					goto Exit;
+                }
+            }
+            _REMEBEREDSTREAMS[i] = 0;
+        }
+    }
+	
+Exit:	
+	return err;
+}
+
+#else
 OSMetaClassDefineReservedUnused(IOUSBInterface,  2);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  3);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  4);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  5);
+#endif
 OSMetaClassDefineReservedUnused(IOUSBInterface,  6);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  7);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  8);

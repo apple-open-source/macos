@@ -19,6 +19,7 @@
 #include <vector>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ValueMap.h"
+#include "llvm/Analysis/CodeMetrics.h"
 
 namespace llvm {
 
@@ -28,51 +29,12 @@ namespace llvm {
   class CallSite;
   template<class PtrType, unsigned SmallSize>
   class SmallPtrSet;
-
-  // CodeMetrics - Calculate size and a few similar metrics for a set of
-  // basic blocks.
-  struct CodeMetrics {
-    /// NeverInline - True if this callee should never be inlined into a
-    /// caller.
-    bool NeverInline;
-
-    /// usesDynamicAlloca - True if this function calls alloca (in the C sense).
-    bool usesDynamicAlloca;
-
-    /// NumInsts, NumBlocks - Keep track of how large each function is, which
-    /// is used to estimate the code size cost of inlining it.
-    unsigned NumInsts, NumBlocks;
-
-    /// NumBBInsts - Keeps track of basic block code size estimates.
-    DenseMap<const BasicBlock *, unsigned> NumBBInsts;
-
-    /// NumCalls - Keep track of the number of calls to 'big' functions.
-    unsigned NumCalls;
-
-    /// NumVectorInsts - Keep track of how many instructions produce vector
-    /// values.  The inliner is being more aggressive with inlining vector
-    /// kernels.
-    unsigned NumVectorInsts;
-
-    /// NumRets - Keep track of how many Ret instructions the block contains.
-    unsigned NumRets;
-
-    CodeMetrics() : NeverInline(false), usesDynamicAlloca(false), NumInsts(0),
-                    NumBlocks(0), NumCalls(0), NumVectorInsts(0), NumRets(0) {}
-
-    /// analyzeBasicBlock - Add information about the specified basic block
-    /// to the current structure.
-    void analyzeBasicBlock(const BasicBlock *BB);
-
-    /// analyzeFunction - Add information about the specified function
-    /// to the current structure.
-    void analyzeFunction(Function *F);
-  };
+  class TargetData;
 
   namespace InlineConstants {
     // Various magic constants used to adjust heuristics.
     const int InstrCost = 5;
-    const int IndirectCallBonus = 500;
+    const int IndirectCallBonus = -100;
     const int CallPenalty = 25;
     const int LastCallToStaticBonus = -15000;
     const int ColdccPenalty = 2000;
@@ -82,7 +44,7 @@ namespace llvm {
   /// InlineCost - Represent the cost of inlining a function. This
   /// supports special values for functions which should "always" or
   /// "never" be inlined. Otherwise, the cost represents a unitless
-  /// amount; smaller values increase the likelyhood of the function
+  /// amount; smaller values increase the likelihood of the function
   /// being inlined.
   class InlineCost {
     enum Kind {
@@ -137,7 +99,8 @@ namespace llvm {
       unsigned AllocaWeight;
 
       ArgInfo(unsigned CWeight, unsigned AWeight)
-        : ConstantWeight(CWeight), AllocaWeight(AWeight) {}
+        : ConstantWeight(CWeight), AllocaWeight(AWeight)
+          {}
     };
 
     struct FunctionInfo {
@@ -149,27 +112,30 @@ namespace llvm {
       /// entry here.
       std::vector<ArgInfo> ArgumentWeights;
 
-      /// CountCodeReductionForConstant - Figure out an approximation for how
-      /// many instructions will be constant folded if the specified value is
-      /// constant.
-      unsigned CountCodeReductionForConstant(Value *V);
-
-      /// CountCodeReductionForAlloca - Figure out an approximation of how much
-      /// smaller the function will be if it is inlined into a context where an
-      /// argument becomes an alloca.
-      ///
-      unsigned CountCodeReductionForAlloca(Value *V);
-
       /// analyzeFunction - Add information about the specified function
       /// to the current structure.
-      void analyzeFunction(Function *F);
+      void analyzeFunction(Function *F, const TargetData *TD);
+
+      /// NeverInline - Returns true if the function should never be
+      /// inlined into any caller.
+      bool NeverInline();
     };
 
     // The Function* for a function can be changed (by ArgumentPromotion);
     // the ValueMap will update itself when this happens.
     ValueMap<const Function *, FunctionInfo> CachedFunctionInfo;
 
+    // TargetData if available, or null.
+    const TargetData *TD;
+
+    int CountBonusForConstant(Value *V, Constant *C = NULL);
+    int ConstantFunctionBonus(CallSite CS, Constant *C);
+    int getInlineSize(CallSite CS, Function *Callee);
+    int getInlineBonuses(CallSite CS, Function *Callee);
   public:
+    InlineCostAnalyzer(): TD(0) {}
+
+    void setTargetData(const TargetData *TData) { TD = TData; }
 
     /// getInlineCost - The heuristic used to determine if we should inline the
     /// function call or not.
@@ -184,6 +150,18 @@ namespace llvm {
     InlineCost getInlineCost(CallSite CS,
                              Function *Callee,
                              SmallPtrSet<const Function *, 16> &NeverInline);
+
+    /// getSpecializationBonus - The heuristic used to determine the per-call
+    /// performance boost for using a specialization of Callee with argument
+    /// SpecializedArgNos replaced by a constant.
+    int getSpecializationBonus(Function *Callee,
+             SmallVectorImpl<unsigned> &SpecializedArgNo);
+
+    /// getSpecializationCost - The heuristic used to determine the code-size
+    /// impact of creating a specialized version of Callee with argument
+    /// SpecializedArgNo replaced by a constant.
+    InlineCost getSpecializationCost(Function *Callee,
+               SmallVectorImpl<unsigned> &SpecializedArgNo);
 
     /// getInlineFudgeFactor - Return a > 1.0 factor if the inliner should use a
     /// higher threshold to determine if the function call should be inlined.

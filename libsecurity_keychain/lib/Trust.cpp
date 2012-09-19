@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -39,7 +39,7 @@
 using namespace Security;
 using namespace KeychainCore;
 
-//      
+//
 // Translate CFDataRef to CssmData. The output shares the input's buffer.
 //
 static inline CssmData cfData(CFDataRef data)
@@ -64,17 +64,19 @@ ModuleNexus<TrustStore> Trust::gStore;
 
 #pragma mark -- TrustKeychains --
 
+static const CSSM_DL_DB_HANDLE nullCSSMDLDBHandle = {0,};
+
 //
 // TrustKeychains maintains a global reference to standard system keychains,
-// to avoid having them be opened anew for each Trust instance. 
+// to avoid having them be opened anew for each Trust instance.
 //
-class TrustKeychains 
+class TrustKeychains
 {
 public:
 	TrustKeychains();
 	~TrustKeychains()	{}
-	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
-	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
+	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore ? mRootStore->database()->handle() : nullCSSMDLDBHandle; }
+	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem ? mSystem->database()->handle() : nullCSSMDLDBHandle; }
 	Keychain			&rootStore()		{ return mRootStore; }
 	Keychain			&systemKc()			{ return mSystem; }
 private:
@@ -84,7 +86,7 @@ private:
 
 //
 // Singleton maintaining open references to standard system keychains,
-// to avoid having them be opened anew every time SecTrust is used. 
+// to avoid having them be opened anew every time SecTrust is used.
 //
 
 static ModuleNexus<TrustKeychains> trustKeychains;
@@ -120,7 +122,7 @@ Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
 //
 // Clean up a Trust object
 //
-Trust::~Trust() 
+Trust::~Trust()
 {
 	clearResults();
 }
@@ -177,7 +179,7 @@ void Trust::evaluate(bool disableEV)
 	StLock<Mutex>_(mMutex);
 	// if we have evaluated before, release prior result
 	clearResults();
-	
+
 	// determine whether the leaf certificate is an EV candidate
 	CFArrayRef allowedAnchors = allowedEVRootsForLeafCertificate(mCerts);
 	CFArrayRef filteredCerts = NULL;
@@ -204,7 +206,7 @@ void Trust::evaluate(bool disableEV)
 		CFRelease(allowedAnchors);
 	if (filteredCerts)
 		CFRelease(filteredCerts);
-	
+
 	if (mAllowedAnchors)
 	{
 		secdebug("trusteval", "Trust::evaluate: anchors: %ld", CFArrayGetCount(mAllowedAnchors));
@@ -219,12 +221,12 @@ void Trust::evaluate(bool disableEV)
             CSSM_CERT_ENCODING_BER, CSSM_CERTGROUP_DATA);
     subjectCertGroup.count() = subjects;
     subjectCertGroup.blobCerts() = subjects;
-    
+
     // build a TP_VERIFY_CONTEXT, a veritable nightmare of a data structure
     TPBuildVerifyContext context(mAction);
 
-	/* 
-	 * Guarantee *some* action data... 
+	/*
+	 * Guarantee *some* action data...
 	 * NOTE this only works with the local X509 TP. When this module can deal
 	 * with other TPs, this must be revisited.
 	 */
@@ -239,7 +241,7 @@ void Trust::evaluate(bool disableEV)
 	else {
 		context.actionData() = localActionCData;
 	}
-	
+
 	if (!mAnchors) {
 		// always check trust settings if caller did not provide explicit trust anchors
 		actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
@@ -249,7 +251,7 @@ void Trust::evaluate(bool disableEV)
 		// enable network cert fetch for SSL only: <rdar://7422356>
 		actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
 	}
-	
+
     /*
 	 * Policies (one at least, please).
 	 * For revocation policies, see if any have been explicitly specified...
@@ -269,13 +271,13 @@ void Trust::evaluate(bool disableEV)
 		allPolicies = NULL; // use only mPolicies
 	}
 	else if(!(revocationPolicySpecified(mPolicies))) {
-		/* 
+		/*
 		 * None specified in mPolicies; see if any specified via SPI.
 		 */
 		allPolicies = addSpecifiedRevocationPolicies(numSpecAdded, context.allocator);
 		if(allPolicies == NULL) {
-			/* 
-			 * None there; try preferences. 
+			/*
+			 * None there; try preferences.
 			 */
 			allPolicies = Trust::addPreferenceRevocationPolicies(numPrefAdded,
 				context.allocator);
@@ -307,10 +309,10 @@ void Trust::evaluate(bool disableEV)
 		mUsingTrustSettings = (mAnchorPolicy == useAnchorsAndBuiltIns);
 		secdebug("userTrust", "Trust::evaluate() using %s %s anchors",
 				 (mUsingTrustSettings) ? "UserTrust AND" : "only",
-				 (isEVCandidate) ? "EV" : "caller");		
+				 (isEVCandidate) ? "EV" : "caller");
 		context.anchors(roots, roots);
 	}
-    
+
 	// dlDbList (keychain list)
 	vector<CSSM_DL_DB_HANDLE> dlDbList;
 	{
@@ -331,7 +333,7 @@ void Trust::evaluate(bool disableEV)
 					if (crtn == CSSM_OK) {
 						if ((memcmp(&guid, &gGuidAppleLDAPDL, sizeof(CSSM_GUID))==0) ||
 							(memcmp(&guid, &gGuidAppleDotMacDL, sizeof(CSSM_GUID))==0)) {
-							continue; // don't add to dlDbList					
+							continue; // don't add to dlDbList
 						}
 					}
 				}
@@ -345,7 +347,9 @@ void Trust::evaluate(bool disableEV)
 		if(mUsingTrustSettings) {
 			/* Append system anchors for use with Trust Settings */
 			try {
-				dlDbList.push_back(trustKeychains().rootStoreHandle());
+				CSSM_DL_DB_HANDLE rootStoreHandle = trustKeychains().rootStoreHandle();
+				if (rootStoreHandle.DBHandle)
+					dlDbList.push_back(rootStoreHandle);
 				actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
 			}
 			catch (...) {
@@ -353,7 +357,9 @@ void Trust::evaluate(bool disableEV)
 				mUsingTrustSettings = false;
 			}
 			try {
-				dlDbList.push_back(trustKeychains().systemKcHandle());		
+				CSSM_DL_DB_HANDLE systemKcHandle = trustKeychains().systemKcHandle();
+				if (systemKcHandle.DBHandle)
+					dlDbList.push_back(systemKcHandle);
 			}
 			catch(...) {
 				/* Oh well, at least we got the root store DB */
@@ -397,7 +403,7 @@ void Trust::evaluate(bool disableEV)
         // unexpected evidence information. Can't use it
         secdebug("trusteval", "unexpected evidence ignored");
     }
-	
+
 	/* do post-processing for the evaluated certificate chain */
 	CFArrayRef fullChain = makeCFArray(convert, mCertChain);
 	CFDictionaryRef etResult = extendedTrustResults(fullChain, mResult, mTpReturn, isEVCandidate);
@@ -417,7 +423,7 @@ void Trust::evaluate(bool disableEV)
 		Trust::freePreferenceRevocationPolicies(allPolicies, numPrefAdded, context.allocator);
 	}
 	} // end evaluation block with mutex; releases all temporary allocations in this scope
-	
+
 
 	if (isEVCandidate && mResult == kSecTrustResultRecoverableTrustFailure &&
 		isRevocationServerMetaError(mTpReturn)) {
@@ -427,7 +433,7 @@ void Trust::evaluate(bool disableEV)
 }
 
 // CSSM_RETURN values that map to kSecTrustResultRecoverableTrustFailure.
-static const CSSM_RETURN recoverableErrors[] = 
+static const CSSM_RETURN recoverableErrors[] =
 {
 	CSSMERR_TP_INVALID_ANCHOR_CERT,
 	CSSMERR_TP_NOT_TRUSTED,
@@ -506,7 +512,7 @@ SecTrustResultType Trust::diagnoseOutcome()
     default:
 		break;
     }
-	
+
 	// a known list of returns maps to kSecTrustResultRecoverableTrustFailure
 	const CSSM_RETURN *errp=recoverableErrors;
 	for(unsigned dex=0; dex<NUM_RECOVERABLE_ERRORS; dex++, errp++) {
@@ -562,7 +568,7 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
 					CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER);
         }
     }
-    
+
     // now walk the chain, leaf-to-root, checking for user settings
 	TrustStore &store = gStore();
 	SecPointer<Policy> policy =
@@ -619,7 +625,7 @@ void Trust::releaseTPEvidence(TPVerifyResult &result, Allocator &allocator)
 				allocator.free(result[n].data());
 			}
 		}
-		
+
 		allocator.free (result.Evidence);
 	}
 }
@@ -741,7 +747,7 @@ Keychain Trust::keychainByDLDb(const CSSM_DL_DB_HANDLE &handle)
 	}
 
 	// could not find in search list - internal error
-	
+
 	// we now throw an error here rather than assert and silently fail.  That way our application won't crash...
 	MacOSError::throwMe(errSecInternal);
 }

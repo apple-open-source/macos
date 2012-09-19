@@ -17,7 +17,7 @@ STDTEST_PORTABLE = dbd testall
 TESTS = teststrmatch.lo testuri.lo testuuid.lo testbuckets.lo testpass.lo \
 	testmd4.lo testmd5.lo testldap.lo testdate.lo testdbm.lo testdbd.lo \
 	testxml.lo testrmm.lo testreslist.lo testqueue.lo testxlate.lo \
-	testmemcache.lo 
+	testmemcache.lo testcrypto.lo
 
 PROGRAMS = $(STDTEST_PORTABLE)
 
@@ -63,7 +63,7 @@ check: $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)
 	        if test "$$prog" = 'dbd'; then \
 			for driver in none @apu_dbd_tests@; do \
 				if test "$$driver" != 'none'; then \
-					@apr_shlibpath_var@="`echo "../dbm/.libs:../dbd/.libs:../ldap/.libs:$$@apr_shlibpath_var@" | sed -e 's/::*$$//'`" \
+					@apr_shlibpath_var@="`echo "../crypto/.libs:../dbm/.libs:../dbd/.libs:../ldap/.libs:$$@apr_shlibpath_var@" | sed -e 's/::*$$//'`" \
 					./$$prog $$driver; \
 					status=$$?; \
 					if test $$status != 0; then \
@@ -73,7 +73,7 @@ check: $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)
 				fi; \
 			done; \
 	        else \
-			@apr_shlibpath_var@="`echo "../dbm/.libs:../dbd/.libs:../ldap/.libs:$$@apr_shlibpath_var@" | sed -e 's/::*$$//'`" \
+			@apr_shlibpath_var@="`echo "../crypto/.libs:../dbm/.libs:../dbd/.libs:../ldap/.libs:$$@apr_shlibpath_var@" | sed -e 's/::*$$//'`" \
 			./$$prog; \
 			status=$$?; \
 			if test $$status != 0; then \

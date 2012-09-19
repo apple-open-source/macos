@@ -23,7 +23,7 @@
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.6fc17</string>
+	<string>1.8.6fc18</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>

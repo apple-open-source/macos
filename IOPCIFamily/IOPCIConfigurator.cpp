@@ -192,6 +192,11 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 			ret = kIOReturnSuccess;
             break;
 
+        case kConfigOpKill:
+			entry->deviceState |= kPCIDeviceStateToKill;
+			ret = kIOReturnSuccess;
+            break;
+
         case kConfigOpTerminated:
 			DLOG("kConfigOpTerminated at %u:%u:%u vendor/product 0x%08x\n",
 				 PCI_ADDRESS_TUPLE(entry), entry->vendorProduct);
@@ -353,9 +358,10 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
         fHostBridge = hostBridge;
 		space.bits = 0;
         fRootVendorProduct = configRead32(space, kIOPCIConfigVendorID);
-		if((0x27A08086 == fRootVendorProduct)
+		if ( (0x27A08086 == fRootVendorProduct)
 		  || (0x27AC8086 == fRootVendorProduct)
-		  || (0x25C08086 == fRootVendorProduct))
+		  || (0x25C08086 == fRootVendorProduct)
+	      || (CPUID_FEATURE_VMM & cpuid_features()))
 			fFlags &= ~kIOPCIConfiguratorPFM64;
 		DLOG("root id 0x%x, flags 0x%x\n", fRootVendorProduct, (int) fFlags);
 	}
@@ -674,6 +680,16 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
         nameProp->release();
     }
 
+#ifdef kIOMemoryDescriptorOptionsKey
+    OSNumber * num;
+	if ((3 == (classCode >> 16)) && (0x8086 == vendor)
+	 && (num = OSNumber::withNumber(kIOMemoryMapperNone, 32)))
+	{
+		propTable->setObject(kIOMemoryDescriptorOptionsKey, num);
+		num->release();
+	}
+#endif
+
     if (kPCIHotPlugRoot == device->supportsHotPlug)
         propTable->setObject(kIOPCIHotPlugKey, kOSBooleanTrue);
     else if (kPCILinkChange == device->supportsHotPlug)
@@ -901,37 +917,47 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 	IOPCIRange *        childRange;
 	bool				oneChild;
 
-    context.me     = this;
-    context.bridge = bridge;
-    if (dtBridge)
-    {
-        dtBridge->applyToChildren(&matchDTEntry, &context, gIODTPlane);
-    }
+	if ((kPCIHotPlugTunnel != bridge->supportsHotPlug)
+	 || (kPCIHotPlugTunnelRoot == bridge->parent->supportsHotPlug))
+	{
+		context.me     = this;
+		context.bridge = bridge;
+		if (dtBridge)
+		{
+			dtBridge->applyToChildren(&matchDTEntry, &context, gIODTPlane);
+		}
 #if ACPI_SUPPORT
-    if (gIOPCIACPIPlane && bridge->acpiDevice)
-    {
-        bridge->acpiDevice->applyToChildren(&matchACPIEntry, &context, gIOPCIACPIPlane);
-    }
+		if (gIOPCIACPIPlane && bridge->acpiDevice)
+		{
+			bridge->acpiDevice->applyToChildren(&matchACPIEntry, &context, gIOPCIACPIPlane);
+		}
 #endif /* ACPI_SUPPORT */
+	}
 
 	oneChild = (bridge->child && !bridge->child->peer);
 
     FOREACH_CHILD(bridge, child)
     {
-		if (oneChild
-			&& ((child->classCode & 0xFFFFFF) == 0x088000)
-			&& (kPCIHotPlugTunnel == bridge->supportsHotPlug)
-			&& (0x60 == (0xf0 & bridge->expressCaps)))
-		{
-			// downstream port with one child 
-			bridge->supportsHotPlug = kPCIStatic;
-			DLOG("tunnel controller %u:%u:%u\n", PCI_ADDRESS_TUPLE(bridge));
-		}
-
         if (!child->isBridge)
             continue;
 		do
 		{
+			if ((kPCIHotPlugTunnelRoot == bridge->supportsHotPlug)
+			 && (child == bridge->child))
+			{
+				// assume the first DSB of the TB root is for NHI
+				bridge->child->supportsHotPlug = kPCIStatic;
+				bridge->child->linkInterrupts  = false;
+				DLOG("tunnel controller %u:%u:%u\n", PCI_ADDRESS_TUPLE(bridge->child));
+				continue;
+			}
+
+			if (kPCIHotPlugTunnelRootParent == bridge->supportsHotPlug)
+			{
+				child->supportsHotPlug = kPCIHotPlugTunnelRoot;
+				continue;
+			}
+
 			if ((kPCIHotPlugTunnelRoot == bridge->supportsHotPlug)
 			  || (kPCIHotPlugTunnel == bridge->supportsHotPlug))
 			{
@@ -946,12 +972,13 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				continue;
 			}
 
-			if (child->dtNub 
+			if ((kPCIStatic == bridge->supportsHotPlug)
+			    && child->dtNub 
 				&& ((obj = child->dtNub->copyProperty("PCI-Thunderbolt", gIODTPlane, 
 													   kIORegistryIterateRecursively))))
 			{
 				obj->release();
-				child->supportsHotPlug = kPCIHotPlugTunnelRoot;
+				child->supportsHotPlug = kPCIHotPlugTunnelRootParent;
 				continue;
 			}
 
@@ -965,6 +992,7 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				child->supportsHotPlug = kPCIStatic;
 		}
 		while (false);
+
 		DLOG("bridge %u:%u:%u supportsHotPlug %d, linkInterrupts %d\n",
 			  PCI_ADDRESS_TUPLE(child),
 			  child->supportsHotPlug, child->linkInterrupts);
@@ -976,12 +1004,12 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
                 continue;
 
 			if ((kPCIHotPlugTunnelRoot == child->supportsHotPlug)
-			|| ((kPCIHotPlugTunnelRoot == bridge->supportsHotPlug) && oneChild))
+			 || (kPCIHotPlugTunnelRootParent == child->supportsHotPlug))
 			{
 				childRange->flags |= kIOPCIRangeFlagMaximizeFlags;
 				childRange->proposedSize = maxiRangeSizes[childRange->type];
 				if ((kIOPCIRangeBridgeBusNumber == i) 
-					&& (kPCIHotPlugTunnelRoot != child->supportsHotPlug))
+					&& (kPCIHotPlugTunnelRootParent != child->supportsHotPlug))
 					childRange->proposedSize--;
 				child->rangeSizeChanges |= (1 << BRN(childRange->type));
 			}
@@ -1439,22 +1467,25 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
             continue;
         if (space.bits == child->space.bits)
         {
-            DLOG("bridge %p scan existing child at %u:%u:%u vendor/product 0x%08x\n",
-                 bridge, PCI_ADDRESS_TUPLE(child), child->vendorProduct);
+            DLOG("bridge %p scan existing child at %u:%u:%u vendor/product 0x%08x state 0x%x\n",
+                 bridge, PCI_ADDRESS_TUPLE(child), child->vendorProduct, child->deviceState);
 
             // check bars?
 
 			if (!(kIOPCIConfiguratorNoTerminate & fFlags))
 			{
 				if ((vendorProduct != child->vendorProduct)
-				|| (kPCIDeviceStateEjected & child->deviceState))
+				|| (kPCIDeviceStateEjected & child->deviceState)
+				|| (kPCIDeviceStateToKill  & child->deviceState))
 				{
-					bridgeDeadChild(bridge, child);
+					IOPCIConfigEntry * dead = child;
 					if (!(kPCIDeviceStateEjected & child->deviceState))
 					{
 						// create new if present
 						child = NULL;
 					}
+					// may free child
+					bridgeDeadChild(bridge, dead);
 				}
 			}
             break;

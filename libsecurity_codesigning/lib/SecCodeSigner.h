@@ -109,6 +109,32 @@ CFTypeID SecCodeSignerGetTypeID(void);
 		If not specified, the current date is chosen and sealed.
 		Since an ad-hoc signature has no CMS data, this argument is ineffective
 		for ad-hoc signing operations.
+	@constant kSecCodeSignerRequireTimestamp A CFBoolean indicating (if kCFBooleanTrue) that
+		the code signature should be certified by a timestamp authority service. This option
+		requires access to a timestamp server (usually over the Internet). If requested and
+		the timestamp server cannot be contacted or refuses service, the signing operation fails.
+		The timestamp value is not under the caller's control.
+		If the value is kCFBooleanFalse, no timestamp service is contacted and the resulting signature
+		has no certified timestamp.
+		If this key is omitted, a default is used that may vary from release to release.
+		Note that when signing multi-architectural ("fat") programs, each architecture will
+		be signed separately, and thus each architecture will have a slightly different timestamp.
+	@constant kSecCodeSignerTimestampServer A CFURL specifying which timestamp authority service
+		to contact for timestamping if requested by the kSecCodeSignerRequireTimestamp argument.
+		If omitted (and timestamping is performed), a system-defined default value is used, referring
+		to an Apple-operated timestamp service. Note that this service may not freely serve all requests.
+	@constant kSecCodeSignerTimestampAuthentication A SecIdentityRef describing the identity
+        used to authenticate to the timestamp authority server, if the server requires client-side
+		(SSL/TLS) authentication. This will not generally be the identity used to sign the actual
+		code, depending on the requirements of the timestamp authority service used.
+		If omitted, the timestamp server is contacted using unauthenticated HTTP requests.
+	@constant kSecCodeSignerTimestampOmitCertificates A CFBoolean indicating (if kCFBooleanTrue)
+		that the timestamp embedded in the signature, if requested, not contain the full certificate chain
+		of the timestamp service used. This will make for a marginally smaller signature, but may not
+		verify correctly unless all such certificates are available (through the keychain system)
+		on the verifying system.
+		The default is to embed enough certificates to ensure proper verification of Apple-generated
+		timestamp signatures.
  */
 extern const CFStringRef kSecCodeSignerApplicationData;
 extern const CFStringRef kSecCodeSignerDetached;
@@ -124,6 +150,16 @@ extern const CFStringRef kSecCodeSignerRequirements;
 extern const CFStringRef kSecCodeSignerResourceRules;
 extern const CFStringRef kSecCodeSignerSDKRoot;
 extern const CFStringRef kSecCodeSignerSigningTime;
+extern const CFStringRef kSecCodeSignerTimestampAuthentication;
+extern const CFStringRef kSecCodeSignerRequireTimestamp;
+extern const CFStringRef kSecCodeSignerTimestampServer;
+extern const CFStringRef kSecCodeSignerTimestampOmitCertificates;
+
+// temporary add-back to bridge B&I build dependencies -- remove soon
+extern const CFStringRef kSecCodeSignerTSAUse;
+extern const CFStringRef kSecCodeSignerTSAURL;
+extern const CFStringRef kSecCodeSignerTSAClientAuth;
+extern const CFStringRef kSecCodeSignerTSANoCerts;
 
 
 /*!

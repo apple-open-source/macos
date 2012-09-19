@@ -1225,7 +1225,7 @@ cupsSetDests2(http_t      *http,	/* I - Connection to server or @code CUPS_HTTP_
 #endif /* WIN32 */
   char		filename[1024];		/* lpoptions file */
   int		num_temps;		/* Number of temporary destinations */
-  cups_dest_t	*temps,			/* Temporary destinations */
+  cups_dest_t	*temps = NULL,		/* Temporary destinations */
 		*temp;			/* Current temporary dest */
   const char	*val;			/* Value of temporary option */
   _cups_globals_t *cg = _cupsGlobals();	/* Pointer to library globals */

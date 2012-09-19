@@ -48,6 +48,9 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <pthread.h>
 
+#include <Security/tsaSupport.h>
+#include <Security/cmspriv.h>
+
 #pragma mark --- Private types and definitions ---
 
 /*
@@ -108,6 +111,9 @@ static CFRuntimeClass cmsEncoderRuntimeClass =
 	NULL,		/* copyFormattingDesc */
 	NULL		/* copyDebugDesc */
 };
+
+void
+CmsMessageSetTSACallback(CMSEncoderRef cmsEncoder, SecCmsTSACallback tsaCallback);
 
 #pragma mark --- Private routines ---
 
@@ -1010,6 +1016,19 @@ OSStatus CMSEncoderGetCertificateChainMode(
 	return noErr;
 }
 
+void
+CmsMessageSetTSACallback(CMSEncoderRef cmsEncoder, SecCmsTSACallback tsaCallback)
+{
+    if (cmsEncoder->cmsMsg)
+        SecCmsMessageSetTSACallback(cmsEncoder->cmsMsg, tsaCallback);
+}
+
+void
+CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext)
+{
+    if (cmsEncoder->cmsMsg)
+        SecCmsMessageSetTSAContext(cmsEncoder->cmsMsg, tsaContext);
+}
 
 #pragma mark --- Action ---
 
@@ -1373,4 +1392,46 @@ OSStatus CMSEncoderGetEncoder(
 	/* any state, whether we have an encoder or not is OK */
 	*encoder = cmsEncoder->encoder;
 	return noErr;
+}
+
+#include <AssertMacros.h>
+
+/*
+ * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
+ * present. This timestamp is an authenticated timestamp provided by
+ * a timestamping authority.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. 
+ *
+ * This cannot be called until after CMSEncoderCopyEncodedContent() is called. 
+ */
+OSStatus CMSEncoderCopySignerTimestamp(
+	CMSEncoderRef		cmsEncoder,
+	size_t				signerIndex,        /* usually 0 */
+	CFAbsoluteTime      *timestamp)			/* RETURNED */
+{
+    OSStatus status = paramErr;
+	SecCmsMessageRef cmsg;
+	SecCmsSignedDataRef signedData = NULL;
+    int numContentInfos = 0;
+
+    require(cmsEncoder && timestamp, xit);
+	require_noerr(CMSEncoderGetCmsMessage(cmsEncoder, &cmsg), xit);
+    numContentInfos = SecCmsMessageContentLevelCount(cmsg);
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
+    {
+        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
+        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+        if (tag == SEC_OID_PKCS7_SIGNED_DATA)
+            if ((signedData = SecCmsSignedDataRef(SecCmsContentInfoGetContent(ci))))
+                if (SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex))
+                {
+                    status = SecCmsSignerInfoGetTimestampTime(signerInfo, timestamp);
+                    break;
+                }
+    }
+
+xit:
+    return status;
 }

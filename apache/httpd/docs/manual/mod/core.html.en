@@ -1919,7 +1919,7 @@ client</td></tr>
     that will be allowed in an HTTP request header.</p>
 
     <p>The <code class="directive">LimitRequestFieldSize</code> directive
-    allows the server administrator to reduce or increase the limit
+    allows the server administrator to set the limit
     on the allowed size of an HTTP request header field. A server
     needs this value to be large enough to hold any one header field
     from a normal client request. The size of a normal request header
@@ -1939,7 +1939,8 @@ client</td></tr>
     </code></p></div>
 
     <div class="note">Under normal conditions, the value should not be changed from
-    the default.</div>
+    the default. Also, you can't set this higher than 8190 without
+    modifying the source code and rebuilding.</div>
 
     <div class="warning"><h3>Warning</h3>
     <p> When name-based virtual hosting is used, the value for this
@@ -1964,7 +1965,7 @@ from the client</td></tr>
     allowed on the HTTP request-line.</p>
 
     <p>The <code class="directive">LimitRequestLine</code> directive allows
-    the server administrator to reduce or increase the limit on the allowed size
+    the server administrator to set the limit on the allowed size
     of a client's HTTP request-line. Since the request-line consists of the
     HTTP method, URI, and protocol version, the
     <code class="directive">LimitRequestLine</code> directive places a
@@ -1984,7 +1985,8 @@ from the client</td></tr>
     </code></p></div>
 
     <div class="note">Under normal conditions, the value should not be changed from
-    the default.</div>
+    the default. Also, you can't set this higher than 8190 without
+    modifying the source and rebuilding.</div>
 
     <div class="warning"><h3>Warning</h3>
     <p> When name-based virtual hosting is used, the value for this
@@ -3669,6 +3671,6 @@ hostname or IP address</td></tr>
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

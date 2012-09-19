@@ -30,10 +30,13 @@ TEMPLATE_INSTANTIATION(MLIB);
 }
 
 char MachineLoopInfo::ID = 0;
-static RegisterPass<MachineLoopInfo>
-X("machine-loops", "Machine Natural Loop Construction", true);
+INITIALIZE_PASS_BEGIN(MachineLoopInfo, "machine-loops",
+                "Machine Natural Loop Construction", true, true)
+INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
+INITIALIZE_PASS_END(MachineLoopInfo, "machine-loops",
+                "Machine Natural Loop Construction", true, true)
 
-const PassInfo *const llvm::MachineLoopInfoID = &X;
+char &llvm::MachineLoopInfoID = MachineLoopInfo::ID;
 
 bool MachineLoopInfo::runOnMachineFunction(MachineFunction &) {
   releaseMemory();

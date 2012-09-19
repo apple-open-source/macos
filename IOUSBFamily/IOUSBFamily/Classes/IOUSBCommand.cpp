@@ -22,7 +22,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #include <libkern/version.h>
 
 #include <libkern/OSDebug.h>
@@ -34,7 +33,8 @@ OSDefineMetaClassAndStructors(IOUSBCommand, IOCommand)
 
 OSDefineMetaClassAndStructors(IOUSBIsocCommand, IOCommand)
 
-#define super	IOCommand	// same for both
+#define super			IOCommand	// same for both
+#define POISONVALUE		0xDEADBEEF
 
 IOUSBCommand*
 IOUSBCommand::NewCommand()
@@ -204,11 +204,18 @@ IOUSBCommand::SetCompletionTimeout(UInt32 to)
 void 
 IOUSBCommand::SetUIMScratch(UInt32 index, UInt32 value) 
 { 
-    if (index < 10)
+    if (index < kUSBCommandScratchBuffers)
 		if (_expansionData->_masterUSBCommand)
 			_expansionData->_masterUSBCommand->_UIMScratch[index] = value;
 		else
 			_UIMScratch[index] = value;
+}
+
+void 
+IOUSBCommand::SetBT(UInt32 index, void * value) 
+{ 
+    if (index < kUSBCommandScratchBuffers)
+			_expansionData->_backTrace[index] = value;
 }
 
 void 
@@ -220,13 +227,13 @@ IOUSBCommand::SetReqCount(IOByteCount reqCount)
 void 
 IOUSBCommand::SetRequestMemoryDescriptor(IOMemoryDescriptor *requestMemoryDescriptor) 
 {
-    _expansionData->_requestMemoryDescriptor = requestMemoryDescriptor;
+	_expansionData->_requestMemoryDescriptor = requestMemoryDescriptor;
 }
 
 void 
 IOUSBCommand::SetBufferMemoryDescriptor(IOMemoryDescriptor *bufferMemoryDescriptor) 
 {
-    _expansionData->_bufferMemoryDescriptor = bufferMemoryDescriptor;
+	_expansionData->_bufferMemoryDescriptor = bufferMemoryDescriptor;
 }
 
 void
@@ -263,7 +270,7 @@ IOUSBCommand::SetIsSyncTransfer(bool isSync)
 }
 
 
-void					
+void
 IOUSBCommand::SetBufferUSBCommand(IOUSBCommand *bufferUSBCommand)
 {
 	if (!bufferUSBCommand && (_expansionData->_bufferUSBCommand))
@@ -387,7 +394,7 @@ IOUSBCommand::GetCompletionTimeout(void)
 
 UInt32 IOUSBCommand::GetUIMScratch(UInt32 index) 
 { 
-	if (index < 10)
+	if (index < kUSBCommandScratchBuffers)
 		return _expansionData->_masterUSBCommand ? _expansionData->_masterUSBCommand->_UIMScratch[index] : _UIMScratch[index];
 	else
 		return 0;
@@ -516,7 +523,7 @@ IOUSBCommandPool::gatedGetCommand(IOCommand ** command, bool blockForCommand)
 	IOReturn ret;
 	
 	ret = IOCommandPool::gatedGetCommand(command, blockForCommand);
-
+	
 	return ret;
 }
 
@@ -568,6 +575,69 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		{
 			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - missing dmaCommand in IOUSBCommand", this);
 		}
+		
+		// Test to poison the IOUSBCommand when returning it
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+		{
+		char*					bt[kUSBCommandScratchBuffers];
+	
+		OSBacktrace((void**)bt, kUSBCommandScratchBuffers);
+		for ( int i=0; i < kUSBCommandScratchBuffers; i++)
+			usbCommand->SetBT(i, bt[i]);
+		}
+#endif
+		// Clean up the command before returning it
+		IOUSBCompletion			nullCompletion;
+		nullCompletion.target = (void *) POISONVALUE;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) POISONVALUE;
+				
+		usbCommand->SetSelector(INVALID_SELECTOR);
+		usbCommand->SetRequest((IOUSBDeviceRequestPtr) POISONVALUE);
+		usbCommand->SetAddress(0xFF);
+		usbCommand->SetEndpoint(0xFF);
+		usbCommand->SetDirection(0xFF);
+		usbCommand->SetType(0xFF);
+		usbCommand->SetBufferRounding(false);
+		usbCommand->SetBuffer((IOMemoryDescriptor *) POISONVALUE);
+		usbCommand->SetUSLCompletion(nullCompletion);
+		usbCommand->SetClientCompletion(nullCompletion);
+		usbCommand->SetDataRemaining(POISONVALUE);
+		usbCommand->SetStage(0xFF);
+		usbCommand->SetStatus(POISONVALUE);
+		usbCommand->SetOrigBuffer((IOMemoryDescriptor *) POISONVALUE);
+		usbCommand->SetDisjointCompletion(nullCompletion);
+		usbCommand->SetDblBufLength(POISONVALUE);
+		usbCommand->SetNoDataTimeout(POISONVALUE);
+		usbCommand->SetCompletionTimeout(POISONVALUE);
+		usbCommand->SetReqCount(POISONVALUE);
+		usbCommand->SetMultiTransferTransaction(true);
+		usbCommand->SetFinalTransferInTransaction(true);
+		usbCommand->SetUseTimeStamp(true);
+		usbCommand->SetIsSyncTransfer(FALSE);
+		for ( int i=0; i < kUSBCommandScratchBuffers; i++)
+			usbCommand->SetUIMScratch(i, POISONVALUE);
+#ifdef SUPPORTS_SS_USB
+		usbCommand->SetStreamID(POISONVALUE);
+#endif
+		
+		if ( usbCommand->GetBufferUSBCommand() != NULL )
+		{
+			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - GetBufferUSBCommand() is not NULL", this);
+		}
+		if ( usbCommand->GetRequestMemoryDescriptor() != NULL )
+		{
+			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - GetRequestMemoryDescriptor() is not NULL", this);
+		}
+		if ( usbCommand->GetBufferMemoryDescriptor() != NULL )
+		{
+			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - GetBufferMemoryDescriptor() is not NULL", this);
+		}
+		
+		// Do not see these to anything but NULL as a lot of the code depends on checking for NULLness
+		usbCommand->SetBufferUSBCommand(NULL);
+		usbCommand->SetRequestMemoryDescriptor(NULL);
+		usbCommand->SetBufferMemoryDescriptor(NULL);
 	}
 	
 	if (isocCommand)

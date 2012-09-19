@@ -33,6 +33,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IODeviceMemory.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/pci/IOAGPDevice.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -287,6 +288,7 @@ protected:
         IOFilterInterruptEventSource * bridgeInterruptSource;
 		IOTimerEventSource *	    timerProbeES;
 		IOWorkLoop *                workLoop;
+		IOPMDriverAssertionID 		pmAssertion;
         uint32_t                    hotplugCount;
         uint8_t                     presence;
         uint8_t                     waitingLinkEnable;

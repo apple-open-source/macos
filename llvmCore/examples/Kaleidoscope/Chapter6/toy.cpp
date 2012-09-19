@@ -5,10 +5,11 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/IRBuilder.h"
+#include "llvm/Support/TargetSelect.h"
 #include <cstdio>
 #include <string>
 #include <map>
@@ -571,9 +572,9 @@ Value *BinaryExprAST::Codegen() {
   if (L == 0 || R == 0) return 0;
   
   switch (Op) {
-  case '+': return Builder.CreateAdd(L, R, "addtmp");
-  case '-': return Builder.CreateSub(L, R, "subtmp");
-  case '*': return Builder.CreateMul(L, R, "multmp");
+  case '+': return Builder.CreateFAdd(L, R, "addtmp");
+  case '-': return Builder.CreateFSub(L, R, "subtmp");
+  case '*': return Builder.CreateFMul(L, R, "multmp");
   case '<':
     L = Builder.CreateFCmpULT(L, R, "cmptmp");
     // Convert bool 0/1 to double 0.0 or 1.0
@@ -588,7 +589,7 @@ Value *BinaryExprAST::Codegen() {
   assert(F && "binary operator not found!");
   
   Value *Ops[] = { L, R };
-  return Builder.CreateCall(F, Ops, Ops+2, "binop");
+  return Builder.CreateCall(F, Ops, "binop");
 }
 
 Value *CallExprAST::Codegen() {
@@ -607,7 +608,7 @@ Value *CallExprAST::Codegen() {
     if (ArgsV.back() == 0) return 0;
   }
   
-  return Builder.CreateCall(CalleeF, ArgsV.begin(), ArgsV.end(), "calltmp");
+  return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
 Value *IfExprAST::Codegen() {
@@ -653,7 +654,7 @@ Value *IfExprAST::Codegen() {
   // Emit merge block.
   TheFunction->getBasicBlockList().push_back(MergeBB);
   Builder.SetInsertPoint(MergeBB);
-  PHINode *PN = Builder.CreatePHI(Type::getDoubleTy(getGlobalContext()),
+  PHINode *PN = Builder.CreatePHI(Type::getDoubleTy(getGlobalContext()), 2,
                                   "iftmp");
   
   PN->addIncoming(ThenV, ThenBB);
@@ -695,7 +696,7 @@ Value *ForExprAST::Codegen() {
   Builder.SetInsertPoint(LoopBB);
   
   // Start the PHI node with an entry for Start.
-  PHINode *Variable = Builder.CreatePHI(Type::getDoubleTy(getGlobalContext()), VarName.c_str());
+  PHINode *Variable = Builder.CreatePHI(Type::getDoubleTy(getGlobalContext()), 2, VarName.c_str());
   Variable->addIncoming(StartVal, PreheaderBB);
   
   // Within the loop, the variable is defined equal to the PHI node.  If it
@@ -719,7 +720,7 @@ Value *ForExprAST::Codegen() {
     StepVal = ConstantFP::get(getGlobalContext(), APFloat(1.0));
   }
   
-  Value *NextVar = Builder.CreateAdd(Variable, StepVal, "nextvar");
+  Value *NextVar = Builder.CreateFAdd(Variable, StepVal, "nextvar");
 
   // Compute the end condition.
   Value *EndCond = End->Codegen();
@@ -756,8 +757,8 @@ Value *ForExprAST::Codegen() {
 
 Function *PrototypeAST::Codegen() {
   // Make the function type:  double(double,double) etc.
-	std::vector<const Type*> Doubles(Args.size(),
-                                   Type::getDoubleTy(getGlobalContext()));
+  std::vector<Type*> Doubles(Args.size(),
+                             Type::getDoubleTy(getGlobalContext()));
   FunctionType *FT = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
                                        Doubles, false);
   
@@ -947,6 +948,8 @@ int main() {
   // Set up the optimizer pipeline.  Start with registering info about how the
   // target lays out data structures.
   OurFPM.add(new TargetData(*TheExecutionEngine->getTargetData()));
+  // Provide basic AliasAnalysis support for GVN.
+  OurFPM.add(createBasicAliasAnalysisPass());
   // Do simple "peephole" optimizations and bit-twiddling optzns.
   OurFPM.add(createInstructionCombiningPass());
   // Reassociate expressions.

@@ -1,5 +1,5 @@
 /*
- * Copyright � 2009 Apple Inc.  All rights reserved.
+ * Copyright © 2009-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,12 @@
 
 #include <sys/kdebug.h>
 
+#if !KERNEL
+    #include <AvailabilityMacros.h>
+
+	#define SUPPORTS_SS_USB 1
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,6 +43,8 @@ extern "C" {
 #define DEBUG_UNUSED( X )	( void )( X )
 	
 	extern UInt32 gUSBStackDebugFlags;
+	extern UInt32 gEHCIBandwidthLogLevel;
+	extern UInt32 gEHCIRLvalue;
 	
 	typedef struct USBSysctlArgs
 		{
@@ -60,14 +68,30 @@ extern "C" {
 		kUSBEnableTracePointsBit		= 1,	// bit 1 used to turn on Trace Points when a USB controller first loads
 		kUSBEnableErrorLogBit			= 2,	// bit 2 (4) turns level 1 log for errors
 		kUSBForceCompanionControllers	= 4,	// bit 4 (0x10) forces companion controllers to be on even if they might not normally
+  		kUSBDontAllowHubLowPower		= 5,	// bit 5 (0x20) prevents hubs from being automatically suspended
 		kUSBDebugRetryCountShift		= 8,	// bits 8 and 9 will set the retry count for low level bus transactions
 		kUSBDebugRetryCountReserved		= 9,	// must be 1, 2, or 3 (0 is invalid, 3 is the default)
+#ifdef SUPPORTS_SS_USB
+		kUSBDisableMuxedPorts			= 11,	// bit 11 prevents xMuxing EHCI
+		kUSBEnableAllXHCIControllers	= 12,	// bit 12: Will allow XHCI driver to match to any vendor/productID
+		kUSBUASControl					= 13,	// bit 13: Disable UAS support
+        kUSBMasterAbortLogging          = 14,
+        kUSBMasterAbortPanic            = 15,
+#endif
 		
 		kUSBEnableDebugLoggingMask			= (1 << kUSBEnableDebugLoggingBit),
 		kUSBEnableTracePointsMask			= (1 << kUSBEnableTracePointsBit),
 		kUSBDebugRetryCountMask				= (3 << kUSBDebugRetryCountShift),
 		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit),
-		kUSBForceCompanionControllersMask	= (1 << kUSBForceCompanionControllers)
+		kUSBForceCompanionControllersMask	= (1 << kUSBForceCompanionControllers),
+		kUSBDontAllowHubLowPowerMask		= (1 << kUSBDontAllowHubLowPower),
+#ifdef SUPPORTS_SS_USB
+		kUSBDisableMuxedPortsMask			= (1 << kUSBDisableMuxedPorts),
+		kUSBEnableAllXHCIControllersMask	= (1 << kUSBEnableAllXHCIControllers),
+		kUSBUASControlMask					= (1 << kUSBUASControl),
+        kUSBMasterAbortLoggingMask          = (1 << kUSBMasterAbortLogging),
+        kUSBMasterAbortPanicMask            = (1 << kUSBMasterAbortPanic)
+#endif
 	};
 	
 	
@@ -134,6 +158,13 @@ extern "C" {
 		kUSBTEHCIInterrupts			= 23,
 		kUSBTEHCIDumpQueues			= 24,
 		
+#ifdef SUPPORTS_SS_USB		
+		kUSBTXHCI					= 28,
+		kUSBTXHCIInterrupts			= 29,
+		kUSBTXHCIRootHubs			= 30,
+		kUSBTXHCIPrintTRB			= 31,
+#endif
+
 		// 30-33 reserved
 
 		// 21-25 reserved
@@ -287,7 +318,15 @@ extern "C" {
 		kTPHSHubUCGetPowerSwitchingMode			= 11,
 		kTPHSHubUCGetPortPower					= 12,
 		kTPHSHubUCSetPortPower					= 13,
-		kTPHSHubUCDisablePwrMgmt				= 14
+		kTPHSHubUCDisablePwrMgmt				= 14,
+		kTPHSHubUCSetPortReset					= 15,
+#ifdef SUPPORTS_SS_USB
+		kTPHSHubUCSetPortWarmReset				= 16,
+		kTPHSHubUCSetPortLinkState				= 17,
+		kTPHSHubUCSetPortU1Timeout				= 18,
+		kTPHSHubUCSetPortU2Timeout				= 19,
+		kTPHSHubUCSetPortRemoteWakeMask			= 20
+#endif		
 	};
 	
 	// USB Hub Tracepoints			
@@ -328,7 +367,8 @@ extern "C" {
 		kTPHubCheckPowerRequirements			= 32,
 		kTPHubWaitForPowerOn					= 33,
 		kTPHubDoPortActionLock					= 34,
-		kTPHubCheckForDeadDevice				= 35
+		kTPHubCheckForDeadDevice				= 35,
+		kTPHubPortDeviceDisconnected			= 36
 	};
 	
 	// USB HubPort Tracepoints			
@@ -349,7 +389,10 @@ extern "C" {
 		kTPHubPortDisplayOverCurrentNotice			= 12,
 		kTPHubPortWakeSuspendCommand				= 13,
 		kTPHubPortWaitForSuspendCommand				= 14,
-		kTPHubPortEnablePowerAfterOvercurrent		= 15
+		kTPHubPortEnablePowerAfterOvercurrent		= 15,
+#ifdef SUPPORTS_SS_USB
+		kTPHubPortRetrySSDevice						= 16
+#endif
 	};
 	
 	// USB HID Tracepoints			
@@ -598,6 +641,75 @@ extern "C" {
 	};
 	//
 	
+#ifdef SUPPORTS_SS_USB
+	// USB XHCI Tracepoints			
+	// kUSBTXHCI
+	enum
+	{
+		kTPXHCIWaitForCmd						= 3,
+		kTPXHCIUIMFinalize						= 4,
+		kTPXHCIUIMCreateTransfer				= 5,
+		kTPXHCIUIMClearEndpointStall			= 6,
+        kTPXHCIPrintContext                     = 7,
+        kTPXHCIClearEndpoint                    = 8,
+        kTPXHCIStartEndpoint                    = 9,
+        kTPXHCIStopEndpoint                     = 10,
+        kTPXHCIReturnATransfer                  = 11,
+        kTPXHCIReturnAllTransfers               = 12,
+        kTPXHCIReInitTransferRing               = 13,
+        kTPXHCIFilterEventRing                  = 14,
+        kTPXHCIPollEventRing2                   = 15,
+        kTPXHCICheckEPForTimeOuts               = 17,
+        kTPXHCICheckForTimeouts                 = 18,
+        kTPXHCIResetEndpoint                    = 19,
+		kTPXHCIUIMDeviceToBeReset				= 20,
+		kTPXHCIUIMGetDeviceActualAddress		= 21,
+		kTPXHCIGetFrameNumber					= 22,
+        kTPXHCIQuiesceEndpoint                  = 23,
+        kTPXHCIAbortIsochEP                     = 24,
+        kTPXHCIUIMAbortStream					= 25,
+        
+        // 26-29 for isoch
+        kTPXHCIAddIsochFramesToSchedule         = 26,
+        kTPXHCIScavengeIsocTransactions         = 27,
+		kTPXHCIUIMCreateIsocEndpoint			= 28,
+		kTPXHCIDeleteIsochEP					= 29,
+
+        // 30-39 for async queue
+        kTPXHCIAsyncEPCreateTD                  = 30,
+        kTPXHCIAsyncEPScheduleTD                = 31,
+        kTPXHCIAsyncEPScavengeTD                = 32,
+        kTPXHCIAsyncEPUpdateTimeout             = 33,
+        kTPXHCIAsyncEPAbort                     = 34,
+        kTPXHCIAsyncEPComplete                  = 35
+   };
+	
+	// USB XHCI Interrupt Tracepoints			
+	// kUSBTXHCIInterrupts
+	enum
+	{
+		kTPXHCIInterruptsPollInterrupts			= 1,
+		kTPXHCIInterruptsPrimaryInterruptFilter	= 2,
+	};
+
+    // kUSBTXHCIRootHubs
+	enum
+	{
+		kTPXHCIRootHubResetPort					= 1,
+		kTPXHCIRootHubPortEnable				= 2,
+		kTPXHCIRootHubPortSuspend				= 3,
+		kTPXHCIRootHubResetResetChange			= 4
+	};
+	
+	// kUSBTXHCIPrintTRB
+	enum
+	{
+		kTPXHCIPrintTRBTransfer					= 1,
+		kTPXHCIPrintTRBEvent					= 2,
+		kTPXHCIPrintTRBCommand					= 3
+	};
+#endif
+    
 	// USB HubPolicyMaker Tracepoints			
 	// kUSBTHubPolicyMaker
 	enum
@@ -672,6 +784,13 @@ extern "C" {
 #define USB_EHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTEHCIInterrupts, code, DBG_FUNC_NONE )
 #define USB_EHCI_DUMPQS_TRACE(code)				USB_TRACE( kUSBTEHCIDumpQueues, code, DBG_FUNC_NONE )
 
+#ifdef SUPPORTS_SS_USB
+	#define USB_XHCI_TRACE(code)					USB_TRACE( kUSBTXHCI, code, DBG_FUNC_NONE )
+	#define USB_XHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTXHCIInterrupts, code, DBG_FUNC_NONE )
+	#define USB_XHCI_ROOTHUBS_TRACE(code)			USB_TRACE( kUSBTXHCIRootHubs, code, DBG_FUNC_NONE )
+	#define USB_XHCI_PRINTTRB_TRACE(code)			USB_TRACE( kUSBTXHCIPrintTRB, code, DBG_FUNC_NONE )
+#endif
+
 #define USB_HUB_POLICYMAKER_TRACE(code)			USB_TRACE( kUSBTHubPolicyMaker, code, DBG_FUNC_NONE )
 #define USB_COMPOSITE_DRIVER_TRACE(code)		USB_TRACE( kUSBTCompositeDriver, code, DBG_FUNC_NONE )
 
@@ -710,4 +829,4 @@ extern "C" {
 #endif
 
 
-#endif	/* __IOKIT_IO_USB_FAMILY_TRACEPOINTS__ */
+#endif

@@ -62,7 +62,8 @@ typedef struct _cups_monitor_s		/**** Monitoring data ****/
 			*resource;	/* Resource path */
   int			port,		/* Port number */
 			version,	/* IPP version */
-			job_id;		/* Job ID for submitted job */
+			job_id,		/* Job ID for submitted job */
+			get_job_attrs;	/* Support Get-Job-Attributes? */
   const char		*job_name;	/* Job name for submitted job */
   http_encryption_t	encryption;	/* Use encryption? */
   ipp_jstate_t		job_state;	/* Current job state */
@@ -237,6 +238,7 @@ main(int  argc,				/* I - Number of command-line args */
   ipp_attribute_t *printer_state;	/* printer-state attribute */
   ipp_attribute_t *printer_accepting;	/* printer-is-accepting-jobs */
   int		create_job = 0,		/* Does printer support Create-Job? */
+		get_job_attrs = 0,	/* Does printer support Get-Job-Attributes? */
 		send_document = 0,	/* Does printer support Send-Document? */
 		validate_job = 0;	/* Does printer support Validate-Job? */
   int		copies,			/* Number of copies for job */
@@ -1065,6 +1067,8 @@ main(int  argc,				/* I - Number of command-line args */
 	  create_job = 1;
         else if (operations_sup->values[i].integer == IPP_SEND_DOCUMENT)
 	  send_document = 1;
+        else if (operations_sup->values[i].integer == IPP_GET_JOB_ATTRIBUTES)
+	  get_job_attrs = 1;
       }
 
       if (!send_document)
@@ -1255,6 +1259,7 @@ main(int  argc,				/* I - Number of command-line args */
   monitor.port          = port;
   monitor.version       = version;
   monitor.job_id        = 0;
+  monitor.get_job_attrs = get_job_attrs;
   monitor.encryption    = cupsEncryption();
   monitor.job_state     = IPP_JOB_PENDING;
   monitor.printer_state = IPP_PRINTER_IDLE;
@@ -1298,6 +1303,8 @@ main(int  argc,				/* I - Number of command-line args */
       _cupsLangPrintFilter(stderr, "INFO", _("The printer is busy."));
       sleep(10);
     }
+    else if (ipp_status == IPP_DOCUMENT_FORMAT)
+      goto cleanup;
     else if (ipp_status == IPP_FORBIDDEN ||
 	     ipp_status == IPP_AUTHENTICATION_CANCELED)
     {
@@ -1321,7 +1328,8 @@ main(int  argc,				/* I - Number of command-line args */
 			   "cups-ipp-missing-validate-job");
       break;
     }
-    else if (ipp_status < IPP_REDIRECTION_OTHER_SITE)
+    else if (ipp_status < IPP_REDIRECTION_OTHER_SITE ||
+             ipp_status == IPP_BAD_REQUEST)
       break;
   }
 
@@ -1583,10 +1591,11 @@ main(int  argc,				/* I - Number of command-line args */
 
 	if (fd >= 0)
 	{
-	  while (!job_canceled &&
+	  while (!job_canceled && http_status == HTTP_CONTINUE &&
 	         (bytes = read(fd, buffer, sizeof(buffer))) > 0)
 	  {
-	    if (cupsWriteRequestData(http, buffer, bytes) != HTTP_CONTINUE)
+	    if ((http_status = cupsWriteRequestData(http, buffer, bytes))
+	            != HTTP_CONTINUE)
 	      break;
 	    else
 	    {
@@ -1650,7 +1659,7 @@ main(int  argc,				/* I - Number of command-line args */
     * Wait for the job to complete...
     */
 
-    if (!job_id || !waitjob)
+    if (!job_id || !waitjob || !get_job_attrs)
       continue;
 
     _cupsLangPrintFilter(stderr, "INFO", _("Waiting for job to complete."));
@@ -1693,7 +1702,7 @@ main(int  argc,				/* I - Number of command-line args */
       response   = cupsDoRequest(http, request, resource);
       ipp_status = cupsLastError();
 
-      if (ipp_status == IPP_NOT_FOUND)
+      if (ipp_status == IPP_NOT_FOUND || ipp_status == IPP_NOT_POSSIBLE)
       {
        /*
         * Job has gone away and/or the server has no job history...
@@ -1715,7 +1724,6 @@ main(int  argc,				/* I - Number of command-line args */
       else
       {
 	if (ipp_status != IPP_SERVICE_UNAVAILABLE &&
-	    ipp_status != IPP_NOT_POSSIBLE &&
 	    ipp_status != IPP_PRINTER_BUSY)
 	{
 	  ippDelete(response);
@@ -1863,12 +1871,17 @@ main(int  argc,				/* I - Number of command-line args */
     return (CUPS_BACKEND_AUTH_REQUIRED);
   else if (ipp_status == IPP_INTERNAL_ERROR)
     return (CUPS_BACKEND_STOP);
-  else if (ipp_status == IPP_DOCUMENT_FORMAT ||
-           ipp_status == IPP_CONFLICT)
+  else if (ipp_status == IPP_CONFLICT)
     return (CUPS_BACKEND_FAILED);
-  else if (ipp_status == IPP_REQUEST_VALUE)
+  else if (ipp_status == IPP_REQUEST_VALUE ||
+           ipp_status == IPP_DOCUMENT_FORMAT)
   {
-    _cupsLangPrintFilter(stderr, "ERROR", _("Print job too large."));
+    if (ipp_status == IPP_REQUEST_VALUE)
+      _cupsLangPrintFilter(stderr, "ERROR", _("Print job too large."));
+    else
+      _cupsLangPrintFilter(stderr, "ERROR",
+                           _("Printer cannot print supplied content."));
+
     return (CUPS_BACKEND_CANCEL);
   }
   else if (ipp_status > IPP_OK_CONFLICT && ipp_status != IPP_ERROR_JOB_CANCELED)
@@ -2114,7 +2127,8 @@ monitor_printer(
       * Check the status of the job itself...
       */
 
-      job_op  = monitor->job_id > 0 ? IPP_GET_JOB_ATTRIBUTES : IPP_GET_JOBS;
+      job_op  = (monitor->job_id > 0 && monitor->get_job_attrs) ?
+                    IPP_GET_JOB_ATTRIBUTES : IPP_GET_JOBS;
       request = ippNewRequest(job_op);
       request->request.op.version[0] = monitor->version / 10;
       request->request.op.version[1] = monitor->version % 10;
@@ -2304,7 +2318,7 @@ new_request(
     fprintf(stderr, "DEBUG: job-name=\"%s\"\n", title);
   }
 
-  if (format)
+  if (format && op != IPP_CREATE_JOB)
   {
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
 		 "document-format", NULL, format);
@@ -2312,7 +2326,7 @@ new_request(
   }
 
 #ifdef HAVE_LIBZ
-  if (compression)
+  if (compression && op != IPP_CREATE_JOB)
   {
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
 		 "compression", NULL, compression);
@@ -2512,7 +2526,7 @@ new_request(
       * When talking to another CUPS server, send all options...
       */
 
-      cupsEncodeOptions(request, num_options, options);
+      cupsEncodeOptions2(request, num_options, options, IPP_TAG_JOB);
     }
 
     if (copies > 1)

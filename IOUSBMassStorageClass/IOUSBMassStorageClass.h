@@ -60,6 +60,7 @@
 #define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
 #define kIOUSBMassStorageEnableSuspendResumePM	"Enable Port Suspend-Resume PM"
 #define kIOUSBMassStoragePostResetCoolDown		"Reset Recovery Time"
+#define kIOUSBMassStorageSuspendOnReboot        "Suspend On Reboot"
 
 enum 
 {
@@ -198,6 +199,7 @@ protected:
 		UInt32					fRequiredMaxBusStall;
 		bool					fBlockOnResetThread;
 		UInt32					fPostDeviceResetCoolDownInterval;
+		bool					fSuspendOnReboot;
 	};
     ExpansionData *				reserved;
 	
@@ -223,6 +225,7 @@ protected:
 	#define fRequiredMaxBusStall				reserved->fRequiredMaxBusStall
 	#define fBlockOnResetThread					reserved->fBlockOnResetThread
 	#define fPostDeviceResetCoolDownInterval	reserved->fPostDeviceResetCoolDownInterval
+	#define fSuspendOnReboot					reserved->fSuspendOnReboot
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.
@@ -454,6 +457,8 @@ public:
 	virtual bool		handleIsOpen(  const IOService * client ) const;
 	
 	virtual IOReturn	HandlePowerOn( void );
+	
+	virtual void		systemWillShutdown ( IOOptionBits specifier );
 	
 protected:
 

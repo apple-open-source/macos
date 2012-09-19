@@ -696,19 +696,25 @@ IOReturn IONDRVFramebuffer::_probeAction( IONDRVFramebuffer * self, IOOptionBits
         }
         else
         {
+#if 1
+            err = self->_doControl( self, cscProbeConnection, 0 );
+#else
             do
             {
                 OSNumber * num = OSDynamicCast(OSNumber, self->getProperty(kIOFBDependentIndexKey));
                 if (num && (0 != num->unsigned32BitValue()))
                     continue;
-                err = self->_doControl( self, cscProbeConnection, 0 );
-                IONDRVFramebuffer * other;
-                if ((other = OSDynamicCast(IONDRVFramebuffer, self->nextDependent)))
-                {
-                    other->_doControl( other, cscProbeConnection, 0 );
-                }
+
+				IONDRVFramebuffer * next = self;
+				do
+				{
+					next->_doControl( next, cscProbeConnection, 0 );
+					next = OSDynamicCast(IONDRVFramebuffer, next->nextDependent);
+				}
+				while (next && (next != self));
             }
             while (false);
+#endif
         }
     }
     else if (options & kIOFBForceReadEDID)
@@ -1835,6 +1841,12 @@ void IONDRVFramebuffer::getCurrentConfiguration( void )
     }
 }
 
+IOReturn IONDRVFramebuffer::setupForCurrentConfig( void )
+{
+	getCurrentConfiguration();
+	return (super::setupForCurrentConfig());
+}
+
 IODeviceMemory * IONDRVFramebuffer::makeSubRange(
     IOPhysicalAddress64   start,
     IOPhysicalLength64    length )
@@ -2377,8 +2389,6 @@ IOReturn IONDRVFramebuffer::setDisplayMode( IODisplayModeID displayMode, IOIndex
         _doControl( this, cscGrayPage, &pageInfo);
 #endif
 
-    getCurrentConfiguration();
-
     return (err);
 }
 
@@ -2509,7 +2519,6 @@ IOReturn IONDRVFramebuffer::setGammaTable(
 IOReturn IONDRVFramebuffer::setMirror( IONDRVFramebuffer * other )
 {
     IOReturn            err = kIOReturnSuccess;
-    IONDRVFramebuffer * next;
     VDMirrorRec         mirror;
 
     if (mirrored == (other != 0))
@@ -2517,8 +2526,8 @@ IOReturn IONDRVFramebuffer::setMirror( IONDRVFramebuffer * other )
 
     if (!nextDependent)
         return (kIOReturnUnsupported);
-    if (other && (other != nextDependent))
-        return (kIOReturnUnsupported);
+//    if (other && (other != nextDependent))
+//        return (kIOReturnUnsupported);
 
     do
     {
@@ -2546,8 +2555,12 @@ IOReturn IONDRVFramebuffer::setMirror( IONDRVFramebuffer * other )
             continue;
 
         mirrored = (other != 0);
-        if ((next = OSDynamicCast(IONDRVFramebuffer, nextDependent)))
-            next->setMirror( (other != 0) ? this : 0 );
+		if (metaCast("NVDAG7xxx"))
+		{
+		    IONDRVFramebuffer * next;
+			if ((next = OSDynamicCast(IONDRVFramebuffer, nextDependent)))
+				next->setMirror( (other != 0) ? this : 0 );
+		}
     }
     while (false);
 
@@ -2627,8 +2640,10 @@ IOReturn IONDRVFramebuffer::setAttribute( IOSelect attribute, uintptr_t _value )
 
                 OSNumber * num = OSDynamicCast(OSNumber, getProperty(kIOFBDependentIndexKey));
                 mirrorPrimary = mirrored && (!num || (1 == num->unsigned32BitValue()));
-
-                (void) setDisplayMode( currentDisplayMode, currentDepth );
+				if (metaCast("NVDAG7xxx"))
+				{
+	                (void) setDisplayMode( currentDisplayMode, currentDepth );
+				}
             }
             while (false);
 
@@ -2870,7 +2885,10 @@ IOReturn IONDRVFramebuffer::doI2CRequest( UInt32 bus, IOI2CBusTiming * timing, I
     {
         comm.csBusID            = bus;
         comm.csCommFlags        = request->commFlags;
-        comm.csMinReplyDelay    = 0;
+
+        comm.csMinReplyDelay    = request->minReplyDelay * 1000;    // ms -> us
+        if (comm.csMinReplyDelay)
+            comm.csCommFlags    |= kVideoReplyMicroSecDelayMask;
 
         if (kIOI2CUseSubAddressCommFlag & request->commFlags)
             comm.csSendAddress  = (request->sendAddress << 8) | request->sendSubAddress;
@@ -3934,8 +3952,10 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
 
         if ((kHardwareWakeToDoze == ndrvPowerState)
                 && (0 == (kPowerStateSleepWaketoDozeMask & sleepInfo.powerFlags)))
+        {
+        	DEBG1(thisName, " no kHardwareWakeToDoze support\n");
             ndrvPowerState = kHardwareWake;
-
+		}
         else if (kAVPowerSuspend == ndrvPowerState)
         {
 #ifdef __ppc__
@@ -3945,7 +3965,7 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
         }
 
 
-        DEBG(thisName, " idx %d powerFlags %08x, state->%02x\n",
+        DEBG1(thisName, " idx %d powerFlags %08x, state->%02x\n",
              (uint32_t) newState, (uint32_t) sleepInfo.powerFlags, (uint32_t) ndrvPowerState);
 
         powerState = newState;
@@ -4013,14 +4033,18 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
         }
     }
 
-    IONDRVFramebuffer * other;
-    other = OSDynamicCast(IONDRVFramebuffer, nextDependent);
-    if (true && other
+    IONDRVFramebuffer * next;
+    next = OSDynamicCast(IONDRVFramebuffer, nextDependent);
+    if (true && next
             && ((newState > oldState)))
 //                 /*|| ((newState == kNDRVFramebufferDozeState)&& !other->getOnlineState()*/)))
-    {
-        other->ndrvSetPowerState( newState );
-    }
+	{
+		while (next && (next != this))
+		{
+		    next->ndrvSetPowerState( newState );
+			next = OSDynamicCast(IONDRVFramebuffer, next->nextDependent);
+		}
+	}
 
     if ((kNDRVFramebufferSleepState == oldState)
       && !__private->ackConnectChange

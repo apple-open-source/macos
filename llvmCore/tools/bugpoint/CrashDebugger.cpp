@@ -43,7 +43,7 @@ namespace {
 }
 
 namespace llvm {
-  class ReducePassList : public ListReducer<const PassInfo*> {
+  class ReducePassList : public ListReducer<std::string> {
     BugDriver &BD;
   public:
     ReducePassList(BugDriver &bd) : BD(bd) {}
@@ -52,15 +52,15 @@ namespace llvm {
     // running the "Kept" passes fail when run on the output of the "removed"
     // passes.  If we return true, we update the current module of bugpoint.
     //
-    virtual TestResult doTest(std::vector<const PassInfo*> &Removed,
-                              std::vector<const PassInfo*> &Kept,
+    virtual TestResult doTest(std::vector<std::string> &Removed,
+                              std::vector<std::string> &Kept,
                               std::string &Error);
   };
 }
 
 ReducePassList::TestResult
-ReducePassList::doTest(std::vector<const PassInfo*> &Prefix,
-                       std::vector<const PassInfo*> &Suffix,
+ReducePassList::doTest(std::vector<std::string> &Prefix,
+                       std::vector<std::string> &Suffix,
                        std::string &Error) {
   sys::Path PrefixOutput;
   Module *OrigProgram = 0;
@@ -68,7 +68,7 @@ ReducePassList::doTest(std::vector<const PassInfo*> &Prefix,
     outs() << "Checking to see if these passes crash: "
            << getPassesString(Prefix) << ": ";
     std::string PfxOutput;
-    if (BD.runPasses(Prefix, PfxOutput))
+    if (BD.runPasses(BD.getProgram(), Prefix, PfxOutput))
       return KeepPrefix;
 
     PrefixOutput.set(PfxOutput);
@@ -86,7 +86,7 @@ ReducePassList::doTest(std::vector<const PassInfo*> &Prefix,
   outs() << "Checking to see if these passes crash: "
          << getPassesString(Suffix) << ": ";
 
-  if (BD.runPasses(Suffix)) {
+  if (BD.runPasses(BD.getProgram(), Suffix)) {
     delete OrigProgram;            // The suffix crashes alone...
     return KeepSuffix;
   }
@@ -106,10 +106,10 @@ namespace {
   ///
   class ReduceCrashingGlobalVariables : public ListReducer<GlobalVariable*> {
     BugDriver &BD;
-    bool (*TestFn)(BugDriver &, Module *);
+    bool (*TestFn)(const BugDriver &, Module *);
   public:
     ReduceCrashingGlobalVariables(BugDriver &bd,
-                                  bool (*testFn)(BugDriver &, Module *))
+                                  bool (*testFn)(const BugDriver &, Module *))
       : BD(bd), TestFn(testFn) {}
 
     virtual TestResult doTest(std::vector<GlobalVariable*> &Prefix,
@@ -130,14 +130,14 @@ bool
 ReduceCrashingGlobalVariables::TestGlobalVariables(
                               std::vector<GlobalVariable*> &GVs) {
   // Clone the program to try hacking it apart...
-  DenseMap<const Value*, Value*> ValueMap;
-  Module *M = CloneModule(BD.getProgram(), ValueMap);
+  ValueToValueMapTy VMap;
+  Module *M = CloneModule(BD.getProgram(), VMap);
 
   // Convert list to set for fast lookup...
   std::set<GlobalVariable*> GVSet;
 
   for (unsigned i = 0, e = GVs.size(); i != e; ++i) {
-    GlobalVariable* CMGV = cast<GlobalVariable>(ValueMap[GVs[i]]);
+    GlobalVariable* CMGV = cast<GlobalVariable>(VMap[GVs[i]]);
     assert(CMGV && "Global Variable not in module?!");
     GVSet.insert(CMGV);
   }
@@ -176,10 +176,10 @@ namespace llvm {
   ///
   class ReduceCrashingFunctions : public ListReducer<Function*> {
     BugDriver &BD;
-    bool (*TestFn)(BugDriver &, Module *);
+    bool (*TestFn)(const BugDriver &, Module *);
   public:
     ReduceCrashingFunctions(BugDriver &bd,
-                            bool (*testFn)(BugDriver &, Module *))
+                            bool (*testFn)(const BugDriver &, Module *))
       : BD(bd), TestFn(testFn) {}
 
     virtual TestResult doTest(std::vector<Function*> &Prefix,
@@ -204,13 +204,13 @@ bool ReduceCrashingFunctions::TestFuncs(std::vector<Function*> &Funcs) {
     return false;
 
   // Clone the program to try hacking it apart...
-  DenseMap<const Value*, Value*> ValueMap;
-  Module *M = CloneModule(BD.getProgram(), ValueMap);
+  ValueToValueMapTy VMap;
+  Module *M = CloneModule(BD.getProgram(), VMap);
 
   // Convert list to set for fast lookup...
   std::set<Function*> Functions;
   for (unsigned i = 0, e = Funcs.size(); i != e; ++i) {
-    Function *CMF = cast<Function>(ValueMap[Funcs[i]]);
+    Function *CMF = cast<Function>(VMap[Funcs[i]]);
     assert(CMF && "Function not in module?!");
     assert(CMF->getFunctionType() == Funcs[i]->getFunctionType() && "wrong ty");
     assert(CMF->getName() == Funcs[i]->getName() && "wrong name");
@@ -249,9 +249,10 @@ namespace {
   ///
   class ReduceCrashingBlocks : public ListReducer<const BasicBlock*> {
     BugDriver &BD;
-    bool (*TestFn)(BugDriver &, Module *);
+    bool (*TestFn)(const BugDriver &, Module *);
   public:
-    ReduceCrashingBlocks(BugDriver &bd, bool (*testFn)(BugDriver &, Module *))
+    ReduceCrashingBlocks(BugDriver &bd,
+                         bool (*testFn)(const BugDriver &, Module *))
       : BD(bd), TestFn(testFn) {}
 
     virtual TestResult doTest(std::vector<const BasicBlock*> &Prefix,
@@ -270,13 +271,13 @@ namespace {
 
 bool ReduceCrashingBlocks::TestBlocks(std::vector<const BasicBlock*> &BBs) {
   // Clone the program to try hacking it apart...
-  DenseMap<const Value*, Value*> ValueMap;
-  Module *M = CloneModule(BD.getProgram(), ValueMap);
+  ValueToValueMapTy VMap;
+  Module *M = CloneModule(BD.getProgram(), VMap);
 
   // Convert list to set for fast lookup...
   SmallPtrSet<BasicBlock*, 8> Blocks;
   for (unsigned i = 0, e = BBs.size(); i != e; ++i)
-    Blocks.insert(cast<BasicBlock>(ValueMap[BBs[i]]));
+    Blocks.insert(cast<BasicBlock>(VMap[BBs[i]]));
 
   outs() << "Checking for crash with only these blocks:";
   unsigned NumPrint = Blocks.size();
@@ -298,10 +299,7 @@ bool ReduceCrashingBlocks::TestBlocks(std::vector<const BasicBlock*> &BBs) {
 
         TerminatorInst *BBTerm = BB->getTerminator();
         
-        if (BBTerm->getType()->isStructTy())
-           BBTerm->replaceAllUsesWith(UndefValue::get(BBTerm->getType()));
-        else if (BB->getTerminator()->getType() != 
-                    Type::getVoidTy(BB->getContext()))
+        if (!BB->getTerminator()->getType()->isVoidTy())
           BBTerm->replaceAllUsesWith(Constant::getNullValue(BBTerm->getType()));
 
         // Replace the old terminator instruction.
@@ -314,17 +312,24 @@ bool ReduceCrashingBlocks::TestBlocks(std::vector<const BasicBlock*> &BBs) {
   // a "persistent mapping" by turning basic blocks into <function, name> pairs.
   // This won't work well if blocks are unnamed, but that is just the risk we
   // have to take.
-  std::vector<std::pair<Function*, std::string> > BlockInfo;
+  std::vector<std::pair<std::string, std::string> > BlockInfo;
 
   for (SmallPtrSet<BasicBlock*, 8>::iterator I = Blocks.begin(),
          E = Blocks.end(); I != E; ++I)
-    BlockInfo.push_back(std::make_pair((*I)->getParent(), (*I)->getName()));
+    BlockInfo.push_back(std::make_pair((*I)->getParent()->getName(),
+                                       (*I)->getName()));
 
   // Now run the CFG simplify pass on the function...
-  PassManager Passes;
-  Passes.add(createCFGSimplificationPass());
-  Passes.add(createVerifierPass());
-  Passes.run(*M);
+  std::vector<std::string> Passes;
+  Passes.push_back("simplifycfg");
+  Passes.push_back("verify");
+  Module *New = BD.runPassesOn(M, Passes);
+  delete M;
+  if (!New) {
+    errs() << "simplifycfg failed!\n";
+    exit(1);
+  }
+  M = New;
 
   // Try running on the hacked up program...
   if (TestFn(BD, M)) {
@@ -333,8 +338,10 @@ bool ReduceCrashingBlocks::TestBlocks(std::vector<const BasicBlock*> &BBs) {
     // Make sure to use basic block pointers that point into the now-current
     // module, and that they don't include any deleted blocks.
     BBs.clear();
+    const ValueSymbolTable &GST = M->getValueSymbolTable();
     for (unsigned i = 0, e = BlockInfo.size(); i != e; ++i) {
-      ValueSymbolTable &ST = BlockInfo[i].first->getValueSymbolTable();
+      Function *F = cast<Function>(GST.lookup(BlockInfo[i].first));
+      ValueSymbolTable &ST = F->getValueSymbolTable();
       Value* V = ST.lookup(BlockInfo[i].second);
       if (V && V->getType() == Type::getLabelTy(V->getContext()))
         BBs.push_back(cast<BasicBlock>(V));
@@ -351,10 +358,10 @@ namespace {
   ///
   class ReduceCrashingInstructions : public ListReducer<const Instruction*> {
     BugDriver &BD;
-    bool (*TestFn)(BugDriver &, Module *);
+    bool (*TestFn)(const BugDriver &, Module *);
   public:
-    ReduceCrashingInstructions(BugDriver &bd, bool (*testFn)(BugDriver &,
-                                                             Module *))
+    ReduceCrashingInstructions(BugDriver &bd,
+                               bool (*testFn)(const BugDriver &, Module *))
       : BD(bd), TestFn(testFn) {}
 
     virtual TestResult doTest(std::vector<const Instruction*> &Prefix,
@@ -374,14 +381,14 @@ namespace {
 bool ReduceCrashingInstructions::TestInsts(std::vector<const Instruction*>
                                            &Insts) {
   // Clone the program to try hacking it apart...
-  DenseMap<const Value*, Value*> ValueMap;
-  Module *M = CloneModule(BD.getProgram(), ValueMap);
+  ValueToValueMapTy VMap;
+  Module *M = CloneModule(BD.getProgram(), VMap);
 
   // Convert list to set for fast lookup...
   SmallPtrSet<Instruction*, 64> Instructions;
   for (unsigned i = 0, e = Insts.size(); i != e; ++i) {
     assert(!isa<TerminatorInst>(Insts[i]));
-    Instructions.insert(cast<Instruction>(ValueMap[Insts[i]]));
+    Instructions.insert(cast<Instruction>(VMap[Insts[i]]));
   }
 
   outs() << "Checking for crash with only " << Instructions.size();
@@ -394,8 +401,9 @@ bool ReduceCrashingInstructions::TestInsts(std::vector<const Instruction*>
     for (Function::iterator FI = MI->begin(), FE = MI->end(); FI != FE; ++FI)
       for (BasicBlock::iterator I = FI->begin(), E = FI->end(); I != E;) {
         Instruction *Inst = I++;
-        if (!Instructions.count(Inst) && !isa<TerminatorInst>(Inst)) {
-          if (Inst->getType() != Type::getVoidTy(Inst->getContext()))
+        if (!Instructions.count(Inst) && !isa<TerminatorInst>(Inst) &&
+            !isa<LandingPadInst>(Inst)) {
+          if (!Inst->getType()->isVoidTy())
             Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
           Inst->eraseFromParent();
         }
@@ -425,7 +433,8 @@ bool ReduceCrashingInstructions::TestInsts(std::vector<const Instruction*>
 /// DebugACrash - Given a predicate that determines whether a component crashes
 /// on a program, try to destructively reduce the program while still keeping
 /// the predicate true.
-static bool DebugACrash(BugDriver &BD, bool (*TestFn)(BugDriver &, Module *),
+static bool DebugACrash(BugDriver &BD,
+                        bool (*TestFn)(const BugDriver &, Module *),
                         std::string &Error) {
   // See if we can get away with nuking some of the global variable initializers
   // in the program...
@@ -474,7 +483,7 @@ static bool DebugACrash(BugDriver &BD, bool (*TestFn)(BugDriver &, Module *),
             return true;
 
           if (GVs.size() < OldSize)
-            BD.EmitProgressBitcode("reduced-global-variables");
+            BD.EmitProgressBitcode(BD.getProgram(), "reduced-global-variables");
         }
       }
     }
@@ -495,7 +504,7 @@ static bool DebugACrash(BugDriver &BD, bool (*TestFn)(BugDriver &, Module *),
     ReduceCrashingFunctions(BD, TestFn).reduceList(Functions, Error);
 
     if (Functions.size() < OldSize)
-      BD.EmitProgressBitcode("reduced-function");
+      BD.EmitProgressBitcode(BD.getProgram(), "reduced-function");
   }
 
   // Attempt to delete entire basic blocks at a time to speed up
@@ -512,7 +521,7 @@ static bool DebugACrash(BugDriver &BD, bool (*TestFn)(BugDriver &, Module *),
     unsigned OldSize = Blocks.size();
     ReduceCrashingBlocks(BD, TestFn).reduceList(Blocks, Error);
     if (Blocks.size() < OldSize)
-      BD.EmitProgressBitcode("reduced-blocks");
+      BD.EmitProgressBitcode(BD.getProgram(), "reduced-blocks");
   }
 
   // Attempt to delete instructions using bisection. This should help out nasty
@@ -566,6 +575,9 @@ static bool DebugACrash(BugDriver &BD, bool (*TestFn)(BugDriver &, Module *),
             } else {
               if (BugpointIsInterrupted) goto ExitLoops;
 
+              if (isa<LandingPadInst>(I))
+                continue;
+
               outs() << "Checking instruction: " << *I;
               Module *M = BD.deleteInstructionFromProgram(I, Simplification);
 
@@ -605,12 +617,12 @@ ExitLoops:
     }
   }
 
-  BD.EmitProgressBitcode("reduced-simplified");
+  BD.EmitProgressBitcode(BD.getProgram(), "reduced-simplified");
 
   return false;
 }
 
-static bool TestForOptimizerCrash(BugDriver &BD, Module *M) {
+static bool TestForOptimizerCrash(const BugDriver &BD, Module *M) {
   return BD.runPasses(M);
 }
 
@@ -631,14 +643,14 @@ bool BugDriver::debugOptimizerCrash(const std::string &ID) {
          << (PassesToRun.size() == 1 ? ": " : "es: ")
          << getPassesString(PassesToRun) << '\n';
 
-  EmitProgressBitcode(ID);
+  EmitProgressBitcode(Program, ID);
 
   bool Success = DebugACrash(*this, TestForOptimizerCrash, Error);
   assert(Error.empty());
   return Success;
 }
 
-static bool TestForCodeGenCrash(BugDriver &BD, Module *M) {
+static bool TestForCodeGenCrash(const BugDriver &BD, Module *M) {
   std::string Error;
   BD.compileProgram(M, &Error);
   if (!Error.empty()) {

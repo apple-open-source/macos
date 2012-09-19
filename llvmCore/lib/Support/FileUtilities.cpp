@@ -15,7 +15,8 @@
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Path.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/system_error.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallString.h"
 #include <cstdlib>
@@ -51,7 +52,15 @@ static const char *BackupNumber(const char *Pos, const char *FirstChar) {
   if (!isNumberChar(*Pos)) return Pos;
 
   // Otherwise, return to the start of the number.
+  bool HasPeriod = false;
   while (Pos > FirstChar && isNumberChar(Pos[-1])) {
+    // Backup over at most one period.
+    if (Pos[-1] == '.') {
+      if (HasPeriod)
+        break;
+      HasPeriod = true;
+    }
+
     --Pos;
     if (Pos > FirstChar && isSignedChar(Pos[0]) && !isExponentChar(Pos[-1]))
       break;
@@ -100,17 +109,17 @@ static bool CompareNumbers(const char *&F1P, const char *&F2P,
       SmallString<200> StrTmp(F1P, EndOfNumber(F1NumEnd)+1);
       // Strange exponential notation!
       StrTmp[static_cast<unsigned>(F1NumEnd-F1P)] = 'e';
-      
+
       V1 = strtod(&StrTmp[0], const_cast<char**>(&F1NumEnd));
       F1NumEnd = F1P + (F1NumEnd-&StrTmp[0]);
     }
-    
+
     if (*F2NumEnd == 'D' || *F2NumEnd == 'd') {
       // Copy string into tmp buffer to replace the 'D' with an 'e'.
       SmallString<200> StrTmp(F2P, EndOfNumber(F2NumEnd)+1);
       // Strange exponential notation!
       StrTmp[static_cast<unsigned>(F2NumEnd-F2P)] = 'e';
-      
+
       V2 = strtod(&StrTmp[0], const_cast<char**>(&F2NumEnd));
       F2NumEnd = F2P + (F2NumEnd-&StrTmp[0]);
     }
@@ -189,13 +198,22 @@ int llvm::DiffFilesWithTolerance(const sys::PathWithStatus &FileA,
     return 1;
   }
 
-  // Now its safe to mmap the files into memory becasue both files
+  // Now its safe to mmap the files into memory because both files
   // have a non-zero size.
-  OwningPtr<MemoryBuffer> F1(MemoryBuffer::getFile(FileA.c_str(), Error));
-  OwningPtr<MemoryBuffer> F2(MemoryBuffer::getFile(FileB.c_str(), Error));
-  if (F1 == 0 || F2 == 0)
+  error_code ec;
+  OwningPtr<MemoryBuffer> F1;
+  if (error_code ec = MemoryBuffer::getFile(FileA.c_str(), F1)) {
+    if (Error)
+      *Error = ec.message();
     return 2;
-  
+  }
+  OwningPtr<MemoryBuffer> F2;
+  if (error_code ec = MemoryBuffer::getFile(FileB.c_str(), F2)) {
+    if (Error)
+      *Error = ec.message();
+    return 2;
+  }
+
   // Okay, now that we opened the files, scan them for the first difference.
   const char *File1Start = F1->getBufferStart();
   const char *File2Start = F2->getBufferStart();
@@ -204,16 +222,16 @@ int llvm::DiffFilesWithTolerance(const sys::PathWithStatus &FileA,
   const char *F1P = File1Start;
   const char *F2P = File2Start;
 
-  if (A_size == B_size) {
-    // Are the buffers identical?  Common case: Handle this efficiently.
-    if (std::memcmp(File1Start, File2Start, A_size) == 0)
-      return 0;
+  // Are the buffers identical?  Common case: Handle this efficiently.
+  if (A_size == B_size &&
+      std::memcmp(File1Start, File2Start, A_size) == 0)
+    return 0;
 
-    if (AbsTol == 0 && RelTol == 0) {
-      if (Error)
-        *Error = "Files differ without tolerance allowance";
-      return 1;   // Files different!
-    }
+  // Otherwise, we are done a tolerances are set.
+  if (AbsTol == 0 && RelTol == 0) {
+    if (Error)
+      *Error = "Files differ without tolerance allowance";
+    return 1;   // Files different!
   }
 
   bool CompareFailed = false;

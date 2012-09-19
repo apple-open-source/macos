@@ -180,6 +180,13 @@
 		52008C6411496BD200E8CA78 /* SecCertificateInternalP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52008C6311496BD200E8CA78 /* SecCertificateInternalP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		521DC57F1125FEE300937BF2 /* SecCertificateP.c in Sources */ = {isa = PBXBuildFile; fileRef = 521DC57D1125FEE300937BF2 /* SecCertificateP.c */; };
 		521DC5801125FEE300937BF2 /* SecCertificateP.h in Headers */ = {isa = PBXBuildFile; fileRef = 521DC57E1125FEE300937BF2 /* SecCertificateP.h */; };
+		521F28D615757759002B3975 /* main-tsa.m in Sources */ = {isa = PBXBuildFile; fileRef = 521F28D315757759002B3975 /* main-tsa.m */; };
+		521F28D71575775A002B3975 /* timestampclient.m in Sources */ = {isa = PBXBuildFile; fileRef = 521F28D415757759002B3975 /* timestampclient.m */; };
+		521F28DB1575778B002B3975 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 521F28D91575778B002B3975 /* CoreFoundation.framework */; };
+		521F28DC1575778B002B3975 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 521F28DA1575778B002B3975 /* Foundation.framework */; };
+		52218A431576EE8A0001C9E2 /* SecCertificatePrivP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52C23EF71135AE5100E079D2 /* SecCertificatePrivP.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52218A441576EE9E0001C9E2 /* SecCertificateP.h in Headers */ = {isa = PBXBuildFile; fileRef = 521DC57E1125FEE300937BF2 /* SecCertificateP.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52218A471576F1C40001C9E2 /* SecBaseP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52218A451576F1B80001C9E2 /* SecBaseP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		525E9A9C1149DD1E00C71A29 /* SecCertificateOIDs.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FB44A81146D769006D3B0A /* SecCertificateOIDs.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		525E9A9D1149DD3100C71A29 /* SecCertificateInternalP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52008C6311496BD200E8CA78 /* SecCertificateInternalP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5261C28A112F0D570047EF8B /* SecFrameworkP.c in Sources */ = {isa = PBXBuildFile; fileRef = 5261C289112F0D570047EF8B /* SecFrameworkP.c */; };
@@ -504,6 +511,15 @@
 		52008C6311496BD200E8CA78 /* SecCertificateInternalP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateInternalP.h; sourceTree = "<group>"; };
 		521DC57D1125FEE300937BF2 /* SecCertificateP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecCertificateP.c; sourceTree = "<group>"; };
 		521DC57E1125FEE300937BF2 /* SecCertificateP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateP.h; sourceTree = "<group>"; };
+		521F28BA15757517002B3975 /* XPCTimeStampingService.xpc */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XPCTimeStampingService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
+		521F28BC15757517002B3975 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		521F28D315757759002B3975 /* main-tsa.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "main-tsa.m"; path = "xpc-tsa/main-tsa.m"; sourceTree = SOURCE_ROOT; };
+		521F28D415757759002B3975 /* timestampclient.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = timestampclient.m; path = "xpc-tsa/timestampclient.m"; sourceTree = SOURCE_ROOT; };
+		521F28D515757759002B3975 /* XPCTimeStampingService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "XPCTimeStampingService-Info.plist"; path = "xpc-tsa/XPCTimeStampingService-Info.plist"; sourceTree = SOURCE_ROOT; };
+		521F28D91575778B002B3975 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = ../../../../../../System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
+		521F28DA1575778B002B3975 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = ../../../../../../System/Library/Frameworks/Foundation.framework; sourceTree = "<group>"; };
+		521F28DD15757851002B3975 /* timestampclient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = timestampclient.h; path = "xpc-tsa/timestampclient.h"; sourceTree = SOURCE_ROOT; };
+		52218A451576F1B80001C9E2 /* SecBaseP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecBaseP.h; sourceTree = "<group>"; };
 		5261C289112F0D570047EF8B /* SecFrameworkP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecFrameworkP.c; sourceTree = "<group>"; };
 		5261C2E1112F19BA0047EF8B /* debuggingP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = debuggingP.c; sourceTree = "<group>"; };
 		5261C30F112F1C560047EF8B /* SecBase64P.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecBase64P.c; sourceTree = "<group>"; };
@@ -645,6 +661,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		521F28B715757517002B3975 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				521F28DB1575778B002B3975 /* CoreFoundation.framework in Frameworks */,
+				521F28DC1575778B002B3975 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -783,6 +808,7 @@
 		05FB014905E5438C00A5194C /* Internal */ = {
 			isa = PBXGroup;
 			children = (
+				52218A451576F1B80001C9E2 /* SecBaseP.h */,
 				48E66AE4120254FC00E878AD /* SecRandomP.h */,
 				C2AA2B46052E099D006D0211 /* CCallbackMgr.cp */,
 				C2AA2B47052E099D006D0211 /* CCallbackMgr.h */,
@@ -872,6 +898,8 @@
 			children = (
 				5297A586112B78BB00EAA0C0 /* libDER.xcodeproj */,
 				C2AA2B41052E099D006D0211 /* lib */,
+				521F28BE15757517002B3975 /* xpc-tsa */,
+				521F28BB15757517002B3975 /* Frameworks */,
 				4CA1FEBF052A3C8100F22E42 /* Products */,
 				4C5719D712FB5F3300B31F85 /* xpc */,
 				5297A65A112C7D6200EAA0C0 /* libDER.a */,
@@ -886,8 +914,31 @@
 				4CA1FEBE052A3C8100F22E42 /* security_keychain */,
 				4C5635170540A54300DCF0C8 /* security_keychain.framework */,
 				4C5719C812FB5E9E00B31F85 /* XPCKeychainSandboxCheck.xpc */,
+				521F28BA15757517002B3975 /* XPCTimeStampingService.xpc */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		521F28BB15757517002B3975 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				521F28BC15757517002B3975 /* Foundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		521F28BE15757517002B3975 /* xpc-tsa */ = {
+			isa = PBXGroup;
+			children = (
+				521F28D91575778B002B3975 /* CoreFoundation.framework */,
+				521F28DA1575778B002B3975 /* Foundation.framework */,
+				521F28D515757759002B3975 /* XPCTimeStampingService-Info.plist */,
+				521F28D315757759002B3975 /* main-tsa.m */,
+				521F28D415757759002B3975 /* timestampclient.m */,
+				521F28DD15757851002B3975 /* timestampclient.h */,
+			);
+			name = "xpc-tsa";
+			path = XPCTimeStampingService;
 			sourceTree = "<group>";
 		};
 		5297A72A112CB13800EAA0C0 /* Products */ = {
@@ -965,8 +1016,11 @@
 				BE50AE690F687AB900D28C54 /* TrustAdditions.h in Headers */,
 				BECE5142106B056C0091E644 /* TrustKeychains.h in Headers */,
 				525E9A9C1149DD1E00C71A29 /* SecCertificateOIDs.h in Headers */,
+				52218A441576EE9E0001C9E2 /* SecCertificateP.h in Headers */,
+				52218A431576EE8A0001C9E2 /* SecCertificatePrivP.h in Headers */,
 				525E9A9D1149DD3100C71A29 /* SecCertificateInternalP.h in Headers */,
 				526A869E11E67F4F0063464F /* SecFDERecoveryAsymmetricCrypto.h in Headers */,
+				52218A471576F1C40001C9E2 /* SecBaseP.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1101,6 +1155,23 @@
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_keychain */;
 			productType = "com.apple.product-type.library.static";
 		};
+		521F28B915757517002B3975 /* XPCTimeStampingService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 521F28C715757517002B3975 /* Build configuration list for PBXNativeTarget "XPCTimeStampingService" */;
+			buildPhases = (
+				521F28B615757517002B3975 /* Sources */,
+				521F28B715757517002B3975 /* Frameworks */,
+				521F28B815757517002B3975 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = XPCTimeStampingService;
+			productName = XPCTimeStampingService;
+			productReference = 521F28BA15757517002B3975 /* XPCTimeStampingService.xpc */;
+			productType = "com.apple.product-type.bundle";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -1115,6 +1186,7 @@
 				Japanese,
 				French,
 				German,
+				en,
 			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
@@ -1131,6 +1203,7 @@
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_keychain */,
 				4C5635160540A54300DCF0C8 /* security_keychain */,
 				4C5719C712FB5E9E00B31F85 /* XPCKeychainSandboxCheck */,
+				521F28B915757517002B3975 /* XPCTimeStampingService */,
 			);
 		};
 /* End PBXProject section */
@@ -1172,6 +1245,16 @@
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
+
+/* Begin PBXResourcesBuildPhase section */
+		521F28B815757517002B3975 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		4C789C22055AF6EF00B6FC95 /* ShellScript */ = {
@@ -1295,6 +1378,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		521F28B615757517002B3975 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				521F28D615757759002B3975 /* main-tsa.m in Sources */,
+				521F28D71575775A002B3975 /* timestampclient.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1340,6 +1432,7 @@
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
@@ -1360,6 +1453,7 @@
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
@@ -1379,6 +1473,7 @@
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
@@ -1397,9 +1492,128 @@
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
+				WRAPPER_EXTENSION = xpc;
+			};
+			name = Default;
+		};
+		521F28C815757517002B3975 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				MACH_O_TYPE = mh_execute;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_64)";
+				OTHER_CFLAGS = "";
+				PRODUCT_NAME = XPCTimeStampingService;
+				SDKROOT = "";
+				WRAPPER_EXTENSION = xpc;
+			};
+			name = Development;
+		};
+		521F28C915757517002B3975 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				MACH_O_TYPE = mh_execute;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				OTHER_CFLAGS = "";
+				PRODUCT_NAME = XPCTimeStampingService;
+				SDKROOT = "";
+				WRAPPER_EXTENSION = xpc;
+			};
+			name = Deployment;
+		};
+		521F28CA15757517002B3975 /* normal with debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				MACH_O_TYPE = mh_execute;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				OTHER_CFLAGS = "";
+				PRODUCT_NAME = XPCTimeStampingService;
+				SDKROOT = "";
+				WRAPPER_EXTENSION = xpc;
+			};
+			name = "normal with debug";
+		};
+		521F28CB15757517002B3975 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/XPC/Security.framework/XPCServices/;
+				MACH_O_TYPE = mh_execute;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				OTHER_CFLAGS = "";
+				PRODUCT_NAME = XPCTimeStampingService;
+				SDKROOT = "";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = Default;
@@ -1504,7 +1718,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55050.2;
+				CURRENT_PROJECT_VERSION = 55050.9;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1518,6 +1732,8 @@
 					"$(SRCROOT)/libDER",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1535,6 +1751,7 @@
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
@@ -1565,7 +1782,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55050.2;
+				CURRENT_PROJECT_VERSION = 55050.9;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1577,6 +1794,8 @@
 					"$(SRCROOT)/libDER",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1594,6 +1813,7 @@
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
@@ -1621,7 +1841,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55050.2;
+				CURRENT_PROJECT_VERSION = 55050.9;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1633,6 +1853,8 @@
 					"$(SRCROOT)/libDER",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1650,6 +1872,7 @@
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
@@ -1679,7 +1902,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55050.2;
+				CURRENT_PROJECT_VERSION = 55050.9;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1691,6 +1914,8 @@
 					"$(SRCROOT)/libDER",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1708,6 +1933,7 @@
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
@@ -1775,6 +2001,17 @@
 				4C5719CC12FB5E9F00B31F85 /* Deployment */,
 				4C5719CD12FB5E9F00B31F85 /* normal with debug */,
 				4C5719CE12FB5E9F00B31F85 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		521F28C715757517002B3975 /* Build configuration list for PBXNativeTarget "XPCTimeStampingService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				521F28C815757517002B3975 /* Development */,
+				521F28C915757517002B3975 /* Deployment */,
+				521F28CA15757517002B3975 /* normal with debug */,
+				521F28CB15757517002B3975 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

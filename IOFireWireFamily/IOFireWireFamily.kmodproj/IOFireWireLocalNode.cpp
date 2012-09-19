@@ -25,6 +25,10 @@
  */
 /*
 	$Log: IOFireWireLocalNode.cpp,v $
+	Revision 1.11.12.1  2012/06/07 18:46:05  calderon
+	Fix leak and partial protect against failed poweredStart()
+	<rdar://11005341> or <rdar://11411007>
+
 	Revision 1.11  2009/03/26 22:45:17  calderon
 	<rdar://6728033> User client fails to terminate with unexpected consuequences
 
@@ -159,7 +163,13 @@ void IOFireWireLocalNode::free()
 		fOpenClients = NULL;
 	}
 	
-    IOService::free();
+    if ( fControl )
+    {
+        fControl->release();
+        fControl = NULL;
+    }
+    
+    IOFireWireNub::free();
 }
 
 // attach

@@ -10,20 +10,12 @@
 #ifndef LLVM_CODEGEN_SPILLER_H
 #define LLVM_CODEGEN_SPILLER_H
 
-#include "llvm/ADT/SmallVector.h"
-#include <vector>
-
 namespace llvm {
 
-  class LiveInterval;
-  class LiveIntervals;
-  class LiveStacks;
+  class LiveRangeEdit;
   class MachineFunction;
-  class MachineInstr;
-  class MachineLoopInfo;
-  class SlotIndex;
+  class MachineFunctionPass;
   class VirtRegMap;
-  class VNInfo;
 
   /// Spiller interface.
   ///
@@ -33,17 +25,22 @@ namespace llvm {
   public:
     virtual ~Spiller() = 0;
 
-    /// Spill the given live range. The method used will depend on the Spiller
-    /// implementation selected.
-    virtual std::vector<LiveInterval*> spill(LiveInterval *li,
-					     SmallVectorImpl<LiveInterval*> &spillIs,
-                                             SlotIndex *earliestIndex = 0) = 0;
+    /// spill - Spill the LRE.getParent() live interval.
+    virtual void spill(LiveRangeEdit &LRE) = 0;
 
   };
 
   /// Create and return a spiller object, as specified on the command line.
-  Spiller* createSpiller(MachineFunction *mf, LiveIntervals *li,
-                         const MachineLoopInfo *loopInfo, VirtRegMap *vrm);
+  Spiller* createSpiller(MachineFunctionPass &pass,
+                         MachineFunction &mf,
+                         VirtRegMap &vrm);
+
+  /// Create and return a spiller that will insert spill code directly instead
+  /// of deferring though VirtRegMap.
+  Spiller *createInlineSpiller(MachineFunctionPass &pass,
+                               MachineFunction &mf,
+                               VirtRegMap &vrm);
+
 }
 
 #endif

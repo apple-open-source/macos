@@ -485,7 +485,7 @@ echo "Starting scheduler:"
 echo "    $valgrind ../scheduler/cupsd -c /tmp/cups-$user/cupsd.conf -f >/tmp/cups-$user/log/debug_log 2>&1 &"
 echo ""
 
-if test `uname` = Darwin -a "x$valgrind" = x; then
+if test `uname` = Darwin -a "x$valgrind" = x -a -f /usr/lib/libgmalloc.dylib; then
 	DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib \
 	$valgrind ../scheduler/cupsd -c /tmp/cups-$user/cupsd.conf -f >/tmp/cups-$user/log/debug_log 2>&1 &
 else

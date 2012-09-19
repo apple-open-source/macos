@@ -20,10 +20,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-#include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/IOLib.h>
 #include <libkern/c++/OSContainers.h>
+#include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOPlatformExpert.h>
+#include <IOKit/IOHibernatePrivate.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 
 extern "C"
 {

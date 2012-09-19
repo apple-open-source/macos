@@ -144,15 +144,17 @@ enum {
     kBReadCellVoltage1Cmd             = 0x3f,     // READ WORD
     kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
     kBReserveCapacityCmd              = 0x8B,     // READ WORD
-    kBDesignCycleCount9CCmd           = 0x9C,      // READ WORD
-    kBSafetyStatusCmd                 = 0x80        // READ WORD
+    kBDesignCycleCount9CCmd           = 0x9C,     // READ WORD
+    kBSafetyStatusCmd                 = 0x80,     // READ WORD
+    kBPackReserveCmd                  = 0x8B      // READ WORD
 };
 
 /*  Smart Battery Extended Registers                    */
 /*  bq20z90-V110 + bq29330 Chipset Technical Reference Manual    */
 /*  TI Literature SLUU264                               */
 enum {
-    kBExtendedPFStatusCmd             = 0x53
+    kBExtendedPFStatusCmd             = 0x53,
+    kBExtendedOperationStatusCmd      = 0x54      // READ WORD
 };
 
 /* Apple Hardware Serial Number */

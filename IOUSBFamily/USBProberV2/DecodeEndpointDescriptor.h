@@ -38,5 +38,7 @@ enum {
 }
 
 + (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice isOtherSpeedDesc:(BOOL)isOtherSpeedDesc;
-
+#ifdef SUPPORTS_SS_USB
++ (void)decodeBytesCompanion:(Byte *)p forDevice:(BusProbeDevice *)thisDevice endpoint:(UInt8)epType;
+#endif
 @end

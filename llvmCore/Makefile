@@ -10,7 +10,7 @@
 LEVEL := .
 
 # Top-Level LLVM Build Stages:
-#   1. Build lib/System and lib/Support, which are used by utils (tblgen).
+#   1. Build lib/Support and lib/TableGen, which are used by utils (tblgen).
 #   2. Build utils, which is used by VMCore.
 #   3. Build VMCore, which builds the Intrinsics.inc file used by libs.
 #   4. Build libs, which are needed by llvm-config.
@@ -27,10 +27,10 @@ LEVEL := .
 ifneq ($(findstring llvmCore, $(RC_ProjectName)),llvmCore)  # Normal build (not "Apple-style").
 
 ifeq ($(BUILD_DIRS_ONLY),1)
-  DIRS := lib/System lib/Support utils
-  OPTIONAL_DIRS :=
+  DIRS := lib/Support lib/TableGen utils
+  OPTIONAL_DIRS := tools/clang/utils/TableGen
 else
-  DIRS := lib/System lib/Support utils lib/VMCore lib tools/llvm-shlib \
+  DIRS := lib/Support lib/TableGen utils lib/VMCore lib tools/llvm-shlib \
           tools/llvm-config tools runtime docs unittests
   OPTIONAL_DIRS := projects bindings
 endif
@@ -45,6 +45,10 @@ include $(LEVEL)/Makefile.config
 
 ifneq ($(ENABLE_SHARED),1)
   DIRS := $(filter-out tools/llvm-shlib, $(DIRS))
+endif
+
+ifneq ($(ENABLE_DOCS),1)
+  DIRS := $(filter-out docs, $(DIRS))
 endif
 
 ifeq ($(MAKECMDGOALS),libs-only)
@@ -64,21 +68,17 @@ endif
 
 ifeq ($(MAKECMDGOALS),install-clang)
   DIRS := tools/clang/tools/driver tools/clang/lib/Headers \
-          tools/clang/lib/Runtime tools/clang/docs
-  OPTIONAL_DIRS :=
-  NO_INSTALL = 1
-endif
-
-ifeq ($(MAKECMDGOALS),install-clang-c)
-  DIRS := tools/clang/tools/driver tools/clang/lib/Headers \
           tools/clang/tools/libclang tools/clang/tools/c-index-test \
-	  tools/clang/include/clang-c
+          tools/clang/include/clang-c \
+          tools/clang/runtime tools/clang/docs \
+          tools/lto runtime
   OPTIONAL_DIRS :=
   NO_INSTALL = 1
 endif
 
 ifeq ($(MAKECMDGOALS),clang-only)
-  DIRS := $(filter-out tools runtime docs unittests, $(DIRS)) tools/clang
+  DIRS := $(filter-out tools docs unittests, $(DIRS)) \
+          tools/clang tools/lto
   OPTIONAL_DIRS :=
 endif
 
@@ -91,6 +91,11 @@ endif
 # if the directory is installed or not
 ifeq ($(MAKECMDGOALS),install)
   OPTIONAL_DIRS := $(filter bindings, $(OPTIONAL_DIRS))
+endif
+
+# Don't build unittests when ONLY_TOOLS is set.
+ifneq ($(ONLY_TOOLS),)
+  DIRS := $(filter-out unittests, $(DIRS))
 endif
 
 # If we're cross-compiling, build the build-hosted tools first
@@ -107,10 +112,12 @@ cross-compile-build-tools:
 	  unset CFLAGS ; \
 	  unset CXXFLAGS ; \
 	  $(PROJ_SRC_DIR)/configure --build=$(BUILD_TRIPLE) \
-		--host=$(BUILD_TRIPLE) --target=$(BUILD_TRIPLE); \
+		--host=$(BUILD_TRIPLE) --target=$(BUILD_TRIPLE) \
+	        --disable-polly ; \
 	  cd .. ; \
 	fi; \
-        ($(MAKE) -C BuildTools \
+	(unset SDKROOT; \
+	 $(MAKE) -C BuildTools \
 	  BUILD_DIRS_ONLY=1 \
 	  UNIVERSAL= \
 	  ENABLE_OPTIMIZED=$(ENABLE_OPTIMIZED) \
@@ -147,14 +154,22 @@ dist-hook::
 	$(Echo) Eliminating files constructed by configure
 	$(Verb) $(RM) -f \
 	  $(TopDistDir)/include/llvm/Config/config.h  \
-	  $(TopDistDir)/include/llvm/System/DataTypes.h
+	  $(TopDistDir)/include/llvm/Support/DataTypes.h
 
 clang-only: all
 tools-only: all
 libs-only: all
 install-clang: install
-install-clang-c: install
 install-libs: install
+
+# If SHOW_DIAGNOSTICS is enabled, clear the diagnostics file first.
+ifeq ($(SHOW_DIAGNOSTICS),1)
+clean-diagnostics:
+	$(Verb) rm -f $(LLVM_OBJ_ROOT)/$(BuildMode)/diags
+.PHONY: clean-diagnostics
+
+all-local:: clean-diagnostics
+endif
 
 #------------------------------------------------------------------------
 # Make sure the generated headers are up-to-date. This must be kept in
@@ -166,8 +181,7 @@ FilesToConfig := \
   include/llvm/Config/AsmPrinters.def \
   include/llvm/Config/AsmParsers.def \
   include/llvm/Config/Disassemblers.def \
-  include/llvm/System/DataTypes.h \
-  tools/llvmc/plugins/Base/Base.td
+  include/llvm/Support/DataTypes.h
 FilesToConfigPATH  := $(addprefix $(LLVM_OBJ_ROOT)/,$(FilesToConfig))
 
 all-local:: $(FilesToConfigPATH)
@@ -180,20 +194,23 @@ $(FilesToConfigPATH) : $(LLVM_OBJ_ROOT)/% : $(LLVM_SRC_ROOT)/%.in
 # that it gets executed last.
 ifneq ($(BUILD_DIRS_ONLY),1)
 all::
-	$(Echo) '*****' Completed $(BuildMode)$(AssertMode) Build
-ifeq ($(BuildMode),Debug)
+	$(Echo) '*****' Completed $(BuildMode) Build
+ifneq ($(ENABLE_OPTIMIZED),1)
 	$(Echo) '*****' Note: Debug build can be 10 times slower than an
 	$(Echo) '*****' optimized build. Use 'make ENABLE_OPTIMIZED=1' to
 	$(Echo) '*****' make an optimized build. Alternatively you can
 	$(Echo) '*****' configure with --enable-optimized.
+ifeq ($(SHOW_DIAGNOSTICS),1)
+	$(Verb) if test -s $(LLVM_OBJ_ROOT)/$(BuildMode)/diags; then \
+	  $(LLVM_SRC_ROOT)/utils/clang-parse-diagnostics-file -a \
+	    $(LLVM_OBJ_ROOT)/$(BuildMode)/diags; \
+	fi
+endif
 endif
 endif
 
 check-llvm2cpp:
 	$(Verb)$(MAKE) check TESTSUITE=Feature RUNLLVM2CPP=1
-
-check-one:
-	$(Verb)$(MAKE) -C test check-one TESTONE=$(TESTONE)
 
 srpm: $(LLVM_OBJ_ROOT)/llvm.spec
 	rpmbuild -bs $(LLVM_OBJ_ROOT)/llvm.spec
@@ -219,7 +236,7 @@ SVN-UPDATE-OPTIONS =
 AWK = awk
 SUB-SVN-DIRS = $(AWK) '/\?\ \ \ \ \ \ / {print $$2}'   \
 		| LC_ALL=C xargs $(SVN) info 2>/dev/null \
-		| $(AWK) '/Path:\ / {print $$2}'
+		| $(AWK) '/^Path:\ / {print $$2}'
 
 update:
 	$(SVN) $(SVN-UPDATE-OPTIONS) update $(LLVM_SRC_ROOT)

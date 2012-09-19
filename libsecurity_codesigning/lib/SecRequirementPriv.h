@@ -179,9 +179,11 @@ OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anch
 	an Info.plist. If this key is missing, all references to Info.plist contents will fail.
 	@constant kSecRequirementKeyEntitlements A context key providing an CFDictionary describing
 	an entitlement dictionary. If this key is missing, all references to entitlements will fail.
+	@constant kSecRequirementKeyIdentifier A context key providing the signing identifier as a CFString.
 */
 extern CFStringRef kSecRequirementKeyInfoPlist;
 extern CFStringRef kSecRequirementKeyEntitlements;
+extern CFStringRef kSecRequirementKeyIdentifier;
 
 OSStatus SecRequirementEvaluate(SecRequirementRef requirement,
 	CFArrayRef certificateChain, CFDictionaryRef context,

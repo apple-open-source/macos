@@ -1138,7 +1138,7 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
 	IOBufferMemoryDescriptor * buffer = OSDynamicCast(IOBufferMemoryDescriptor, report);
 	if (buffer)
 	{
-		USBLog(5, "IOUSBHIDDriver(%s)[%p]::getReport we have an IOBufferMemoryDescriptor, so set the length to wLenDone of %d", getName(), this, (int)requestPB.wLenDone);
+		USBLog(5, "IOUSBHIDDriver(%s)[%p]::getReport we have an IOBufferMemoryDescriptor, so set the length to wLenDone of %d", getName(), this, (uint32_t)requestPB.wLenDone);
 		buffer->setLength((vm_size_t)requestPB.wLenDone);
 	}
 	
@@ -1553,7 +1553,7 @@ IOUSBHIDDriver::InterruptReadHandlerEntry(OSObject *target, void *param, IORetur
 void 
 IOUSBHIDDriver::InterruptReadHandlerWithTimeStampEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining, AbsoluteTime timeStamp)
 {
-#pragma unused (param, timeStamp)
+#pragma unused (param)
    IOUSBHIDDriver *	me = OSDynamicCast(IOUSBHIDDriver, target);
     
     if (!me)
@@ -3006,6 +3006,12 @@ IOUSBHIDDriver::RearmInterruptRead()
 			}
 		}
 
+		// A kIOReturnNoDevice tells us that somehow the device is not there anymore.  We will not post a read assuming that the endpoint has gone away and that we will get a message later with that notification
+		if (err == kIOReturnNoDevice)
+		{
+			break;
+		}
+
 		// If we get an error, let's clear the pipe and try again
 		if ( (err != kIOReturnSuccess) && (err != kIOReturnNoBandwidth) && (_interruptPipe != NULL))
 		{
@@ -3023,18 +3029,18 @@ IOUSBHIDDriver::RearmInterruptRead()
 	{
 		if (isInactive())
 		{
-			USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+			USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x (%s), not issuing any reads to device", getName(), this, err, USBStringFromReturn(err));
 			USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, err, 0, 6 );
 		}
 		else
 		{
 			if ( err != kIOReturnNoBandwidth )
 			{
-				USBError(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+				USBError(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x (%s), not issuing any reads to device", getName(), this, err, USBStringFromReturn(err));
 			}
 			else
 			{
-				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x (%s), not issuing any reads to device", getName(), this, err, USBStringFromReturn(err));
 			}
 		}
 

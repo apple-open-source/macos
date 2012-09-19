@@ -13,13 +13,13 @@
 
 #define DEBUG_TYPE "asm-printer"
 #include "llvm/CodeGen/AsmPrinter.h"
-#include "llvm/CodeGen/MachineLocation.h"
+#include "llvm/MC/MachineLocation.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetFrameInfo.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
@@ -35,24 +35,8 @@ using namespace llvm;
 void AsmPrinter::EmitSLEB128(int Value, const char *Desc) const {
   if (isVerbose() && Desc)
     OutStreamer.AddComment(Desc);
-    
-  if (MAI->hasLEB128()) {
-    // FIXME: MCize.
-    OutStreamer.EmitRawText("\t.sleb128\t" + Twine(Value));
-    return;
-  }
 
-  // If we don't have .sleb128, emit as .bytes.
-  int Sign = Value >> (8 * sizeof(Value) - 1);
-  bool IsMore;
-  
-  do {
-    unsigned char Byte = static_cast<unsigned char>(Value & 0x7f);
-    Value >>= 7;
-    IsMore = Value != Sign || ((Byte ^ Sign) & 0x40) != 0;
-    if (IsMore) Byte |= 0x80;
-    OutStreamer.EmitIntValue(Byte, 1, /*addrspace*/0);
-  } while (IsMore);
+  OutStreamer.EmitSLEB128IntValue(Value);
 }
 
 /// EmitULEB128 - emit the specified signed leb128 value.
@@ -60,26 +44,8 @@ void AsmPrinter::EmitULEB128(unsigned Value, const char *Desc,
                              unsigned PadTo) const {
   if (isVerbose() && Desc)
     OutStreamer.AddComment(Desc);
- 
-  if (MAI->hasLEB128() && PadTo == 0) {
-    // FIXME: MCize.
-    OutStreamer.EmitRawText("\t.uleb128\t" + Twine(Value));
-    return;
-  }
-  
-  // If we don't have .uleb128 or we want to emit padding, emit as .bytes.
-  do {
-    unsigned char Byte = static_cast<unsigned char>(Value & 0x7f);
-    Value >>= 7;
-    if (Value || PadTo != 0) Byte |= 0x80;
-    OutStreamer.EmitIntValue(Byte, 1, /*addrspace*/0);
-  } while (Value);
 
-  if (PadTo) {
-    if (PadTo > 1)
-      OutStreamer.EmitFill(PadTo - 1, 0x80/*fillval*/, 0/*addrspace*/);
-    OutStreamer.EmitFill(1, 0/*fillval*/, 0/*addrspace*/);
-  }
+  OutStreamer.EmitULEB128IntValue(Value, 0/*addrspace*/, PadTo);
 }
 
 /// EmitCFAByte - Emit a .byte 42 directive for a DW_CFA_xxx value.
@@ -156,8 +122,8 @@ void AsmPrinter::EmitReference(const MCSymbol *Sym, unsigned Encoding) const {
   const TargetLoweringObjectFile &TLOF = getObjFileLowering();
   
   const MCExpr *Exp =
-    TLOF.getExprForDwarfReference(Sym, Mang, MMI, Encoding, OutStreamer);
-  OutStreamer.EmitValue(Exp, GetSizeOfEncodedValue(Encoding), /*addrspace*/0);
+    TLOF.getExprForDwarfReference(Sym, Encoding, OutStreamer);
+  OutStreamer.EmitAbsValue(Exp, GetSizeOfEncodedValue(Encoding));
 }
 
 void AsmPrinter::EmitReference(const GlobalValue *GV, unsigned Encoding)const{
@@ -207,73 +173,28 @@ void AsmPrinter::EmitSectionOffset(const MCSymbol *Label,
 // Dwarf Lowering Routines
 //===----------------------------------------------------------------------===//
 
-
-/// EmitFrameMoves - Emit frame instructions to describe the layout of the
-/// frame.
-void AsmPrinter::EmitFrameMoves(const std::vector<MachineMove> &Moves,
-                                MCSymbol *BaseLabel, bool isEH) const {
+/// EmitCFIFrameMove - Emit a frame instruction.
+void AsmPrinter::EmitCFIFrameMove(const MachineMove &Move) const {
   const TargetRegisterInfo *RI = TM.getRegisterInfo();
-  
-  int stackGrowth = TM.getTargetData()->getPointerSize();
-  if (TM.getFrameInfo()->getStackGrowthDirection() !=
-      TargetFrameInfo::StackGrowsUp)
-    stackGrowth *= -1;
-  
-  for (unsigned i = 0, N = Moves.size(); i < N; ++i) {
-    const MachineMove &Move = Moves[i];
-    MCSymbol *Label = Move.getLabel();
-    // Throw out move if the label is invalid.
-    if (Label && !Label->isDefined()) continue; // Not emitted, in dead code.
-    
-    const MachineLocation &Dst = Move.getDestination();
-    const MachineLocation &Src = Move.getSource();
-    
-    // Advance row if new location.
-    if (BaseLabel && Label) {
-      MCSymbol *ThisSym = Label;
-      if (ThisSym != BaseLabel) {
-        EmitCFAByte(dwarf::DW_CFA_advance_loc4);
-        EmitLabelDifference(ThisSym, BaseLabel, 4);
-        BaseLabel = ThisSym;
-      }
-    }
-    
-    // If advancing cfa.
-    if (Dst.isReg() && Dst.getReg() == MachineLocation::VirtualFP) {
-      assert(!Src.isReg() && "Machine move not supported yet.");
-      
-      if (Src.getReg() == MachineLocation::VirtualFP) {
-        EmitCFAByte(dwarf::DW_CFA_def_cfa_offset);
-      } else {
-        EmitCFAByte(dwarf::DW_CFA_def_cfa);
-        EmitULEB128(RI->getDwarfRegNum(Src.getReg(), isEH), "Register");
-      }
-      
-      EmitULEB128(-Src.getOffset(), "Offset");
-      continue;
-    }
-    
-    if (Src.isReg() && Src.getReg() == MachineLocation::VirtualFP) {
-      assert(Dst.isReg() && "Machine move not supported yet.");
-      EmitCFAByte(dwarf::DW_CFA_def_cfa_register);
-      EmitULEB128(RI->getDwarfRegNum(Dst.getReg(), isEH), "Register");
-      continue;
-    }
-    
-    unsigned Reg = RI->getDwarfRegNum(Src.getReg(), isEH);
-    int Offset = Dst.getOffset() / stackGrowth;
-    
-    if (Offset < 0) {
-      EmitCFAByte(dwarf::DW_CFA_offset_extended_sf);
-      EmitULEB128(Reg, "Reg");
-      EmitSLEB128(Offset, "Offset");
-    } else if (Reg < 64) {
-      EmitCFAByte(dwarf::DW_CFA_offset + Reg);
-      EmitULEB128(Offset, "Offset");
+
+  const MachineLocation &Dst = Move.getDestination();
+  const MachineLocation &Src = Move.getSource();
+
+  // If advancing cfa.
+  if (Dst.isReg() && Dst.getReg() == MachineLocation::VirtualFP) {
+    if (Src.getReg() == MachineLocation::VirtualFP) {
+      OutStreamer.EmitCFIDefCfaOffset(-Src.getOffset());
     } else {
-      EmitCFAByte(dwarf::DW_CFA_offset_extended);
-      EmitULEB128(Reg, "Reg");
-      EmitULEB128(Offset, "Offset");
+      // Reg + Offset
+      OutStreamer.EmitCFIDefCfa(RI->getDwarfRegNum(Src.getReg(), true),
+                                Src.getOffset());
     }
+  } else if (Src.isReg() && Src.getReg() == MachineLocation::VirtualFP) {
+    assert(Dst.isReg() && "Machine move not supported yet.");
+    OutStreamer.EmitCFIDefCfaRegister(RI->getDwarfRegNum(Dst.getReg(), true));
+  } else {
+    assert(!Dst.isReg() && "Machine move not supported yet.");
+    OutStreamer.EmitCFIOffset(RI->getDwarfRegNum(Src.getReg(), true),
+                              Dst.getOffset());
   }
 }

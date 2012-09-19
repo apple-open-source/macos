@@ -162,6 +162,7 @@ OSStatus SecRequirementCopyString(SecRequirementRef requirementRef, SecCSFlags f
 //
 CFStringRef kSecRequirementKeyInfoPlist = CFSTR("requirement:eval:info");
 CFStringRef kSecRequirementKeyEntitlements = CFSTR("requirement:eval:entitlements");
+CFStringRef kSecRequirementKeyIdentifier = CFSTR("requirement:eval:identifier");
 
 OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 	CFArrayRef certificateChain, CFDictionaryRef context,
@@ -176,6 +177,8 @@ OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 	Requirement::Context ctx(certificateChain,		// mandatory
 		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyInfoPlist)) : NULL,
 		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyEntitlements)) : NULL,
+		(context && CFDictionaryGetValue(context, kSecRequirementKeyIdentifier)) ?
+			cfString(CFStringRef(CFDictionaryGetValue(context, kSecRequirementKeyIdentifier))) : "",
 		NULL	// can't specify a CodeDirectory here
 	);
 	req->validate(ctx);

@@ -153,7 +153,7 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 
     // Bitmap data is packed according to the number
     // of ports on the hub, and is stored little-endian.
-    numBytes = (hubDesc.numPorts + 1) / 8 + 1;
+    numBytes = (hubDesc.numPorts / 8) + 1;
     dstP = (UInt8 *)&hubDesc.removablePortFlags[0];
         
     // bitmap of removable port flags.  If we have the apple property, use it,
@@ -574,6 +574,7 @@ AppleUSBOHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
 void
 AppleUSBOHCI::UIMRootHubStatusChange( bool abort )
 {
+#pragma unused (abort)
 	USBLog(1, "AppleUSBOHCI[%p]::UIMRootHubStatusChange - calling obsolete method UIMRootHubStatusChange(bool)", this);
 }
 
@@ -939,12 +940,14 @@ AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port, bool	on)
 IOReturn 
 AppleUSBOHCI::SimulateControlEDCreate (UInt16 maxPacketSize)
 {
+#pragma unused (maxPacketSize)
     return kIOReturnSuccess;
 }
 
 IOReturn 
 AppleUSBOHCI::SimulateEDDelete (short endpointNumber, short direction)
 {
+#pragma unused (endpointNumber, direction)
     return SimulateEDAbort(endpointNumber, direction);
 }
 
@@ -977,6 +980,7 @@ AppleUSBOHCI::SimulateEDAbort (short endpointNumber, short direction)
 IOReturn 
 AppleUSBOHCI::SimulateEDClearStall (short endpointNumber, short direction)
 {
+#pragma unused (endpointNumber, direction)
     return kIOReturnSuccess;
 }
 

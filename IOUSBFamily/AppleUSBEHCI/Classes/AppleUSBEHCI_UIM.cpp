@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2011 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,8 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-
 
 #include <libkern/OSByteOrder.h>
 
@@ -267,6 +265,7 @@ AppleUSBEHCI::UIMDeleteEndpoint(short functionAddress, short endpointNumber, sho
         EHCIUIMDoDoneQueueProcessing(pED->_qTD, kIOUSBTransactionReturned, NULL, pED->_TailTD);
         pED->_qTD = pED->_TailTD;
         pED->GetSharedLogical()->NextqTDPtr = HostToUSBLong(pED->_qTD->pPhysical);
+        IOSync();
     }
 	
 	if ( pED->_qTD != NULL )
@@ -330,6 +329,7 @@ AppleUSBEHCI::AddEmptyCBEndPoint(UInt8					functionAddress,
     AppleEHCIQueueHead *	CBED;
     UInt32					cFlag;
     UInt32					myDataToggleCntrl;
+    UInt32                  myRL = 0;
 	
     USBLog(7, "AppleUSBEHCI[%p]::AddEmptyCBEndPoint speed %d @(%d, %d)", this, speed, highSpeedHub, highSpeedPort);
 	
@@ -352,7 +352,11 @@ AppleUSBEHCI::AddEmptyCBEndPoint(UInt8					functionAddress,
 		myDataToggleCntrl = 0;
     }
 	
-    CBED->GetSharedLogical()->flags |= HostToUSBLong(myDataToggleCntrl | cFlag);
+    if (_errataBits & kErrataEHCIUseRLvalue)
+    {
+        myRL = gEHCIRLvalue << kEHCIEDFlags_RLPhase;
+    }
+    CBED->GetSharedLogical()->flags |= HostToUSBLong(myDataToggleCntrl | cFlag | myRL);
 	
 	// note that it is possible for pED to be NULL here, which means it won't really be linked in until later
 	linkAsyncEndpoint(CBED);
@@ -536,6 +540,7 @@ AppleUSBEHCI::FindControlBulkEndpoint( short				functionNumber,
 IOReturn 
 AppleUSBEHCI::UIMCreateControlEndpoint(UInt8 functionAddress, UInt8 endpointNumber, UInt16 maxPacketSize, UInt8 speed)
 {
+#pragma unused (functionAddress, endpointNumber, maxPacketSize, speed)
     IOLog("EHCIUIM -- UIMCreateControlEndpoint old version called with no split params\n");
     return(kIOReturnInternalError);
 }
@@ -551,7 +556,8 @@ AppleUSBEHCI::UIMCreateControlTransfer(short				functionAddress,
 									   UInt32				bufferSize,
 									   short				direction)
 {
-    USBLog(1, "AppleUSBEHCI[%p]::UIMCreateControlTransfer- calling the wrong method (buffer)!", this);
+#pragma unused (functionAddress, endpointNumber, command, CBP, bufferRounding, bufferSize, direction)
+   USBLog(1, "AppleUSBEHCI[%p]::UIMCreateControlTransfer- calling the wrong method (buffer)!", this);
     return kIOReturnIPCError;
 }
 
@@ -566,6 +572,7 @@ AppleUSBEHCI::UIMCreateControlTransfer(short				functionAddress,
 									   UInt32				bufferSize,
 									   short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     USBLog(1, "AppleUSBEHCI[%p]::UIMCreateControlTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
 }
@@ -622,6 +629,7 @@ AppleUSBEHCI::UIMCreateControlTransfer(short				functionAddress,
 									   UInt32				bufferSize,
 									   short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBEHCI[%p]::UIMCreateControlTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -825,7 +833,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
                 
 				if (totalPhysLength > bufferSize)
 				{
-					USBLog(5, "AppleUSBEHCI[%p]::allocateTDs - segment physical length > buffer size - truncating", this);
+					USBLog(5, "AppleUSBEHCI[%p]::allocateTDs - segment physical length (%d) > buffer size(%d) - truncating", this, (uint32_t)totalPhysLength, (uint32_t)bufferSize);
 					totalPhysLength = bufferSize;
 				}
 				// each TD can transfer at most four full pages plus from the initial offset to the end of the first page
@@ -1073,6 +1081,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
     // Make new descriptor the tail
     pEDQueue->_TailTD = pTD1;
     pTDLast->pShared->flags = flags;
+    IOSync();
 	
     if (status)
     {
@@ -1515,7 +1524,8 @@ AppleUSBEHCI::scavengeIsocTransactions(IOUSBCompletionAction safeAction, bool re
 IOReturn
 AppleUSBEHCI::scavengeAnIsocTD(IOUSBControllerIsochListElement *pTD, IOUSBCompletionAction safeAction)
 {
-    IOUSBControllerIsochEndpoint* 		pEP;
+#pragma unused (safeAction)
+   IOUSBControllerIsochEndpoint* 		pEP;
     IOReturn						ret;
     uint64_t						timeStamp;
 	
@@ -1616,6 +1626,7 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 								flags |= kEHCITDStatus_Active | (1<<kEHCITDFlags_CerrPhase);	// make active, with 1 err to go.
 								qTD->pShared->flags = HostToUSBLong(flags);	// restart transaction
 								pQH->GetSharedLogical()->qTDFlags = HostToUSBLong(flags); // and in the overlay.
+                                IOSync();
 								break;
 							}
 							else
@@ -1689,10 +1700,12 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 							if (foundAltTD)
 							{
 								pQH->GetSharedLogical()->AltqTDPtr = HostToUSBLong(qTD->pPhysical);
+                                IOSync();
 							}
 							if (foundNextTD)
 							{
 								pQH->GetSharedLogical()->NextqTDPtr = HostToUSBLong(qTD->pPhysical);
+                                IOSync();
 							}
 							if ((flags & kEHCITDStatus_Active) != 0)	// Next command is still active
 							{
@@ -1806,6 +1819,7 @@ AppleUSBEHCI::UIMCreateBulkEndpoint(UInt8				functionAddress,
 									UInt8				speed,
 									UInt8				maxPacketSize)
 {
+#pragma unused (functionAddress, endpointNumber, direction, speed, maxPacketSize)
     USBLog(1, "AppleUSBEHCI[%p] UIMCreateBulkEndpoint- calling the wrong method!", this);
     return kIOReturnInternalError;
 }
@@ -1860,8 +1874,10 @@ AppleUSBEHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     IOMemoryDescriptor*			buffer = command->GetBuffer();
     short						direction = command->GetDirection();
 	
-    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer - adr=%d:%d(%s) cbp=%p:%x cback=[%p:%p:%p])", this,
-		   command->GetAddress(), command->GetEndpoint(), direction == kUSBIn ? "in" : "out",buffer, (int)command->GetReqCount(), 
+    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer - addr=%d:%d(%s), Timeouts:(%d,%d) cbp=%p:%x cback=[%p:%p:%p])", this,
+		   command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", 
+		   (uint32_t) command->GetNoDataTimeout(), (uint32_t) command->GetCompletionTimeout(),
+		   command->GetBuffer(), (int)command->GetReqCount(), 
 		   command->GetUSLCompletion().action, command->GetUSLCompletion().target, command->GetUSLCompletion().parameter);
     
     pEDQueue = FindControlBulkEndpoint(command->GetAddress(), command->GetEndpoint(), NULL, direction);
@@ -1899,6 +1915,7 @@ AppleUSBEHCI::UIMCreateBulkTransfer(short					functionAddress,
 									UInt32					bufferSize,
 									short					direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -1945,6 +1962,7 @@ AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDes
     }
     USBLog(5, "AppleUSBEHCI[%p]::returnTransactions, pED->qTD flags were %x", this, USBToHostLong(pED->_qTD->pShared->flags));
 	pED->_qTD->pShared->flags &= ~HostToUSBLong(kEHCITDStatus_Halted); // clear the halted bit in the first TD
+    IOSync();
     USBLog(5, "AppleUSBEHCI[%p]::returnTransactions, pED->qTD flags now %x", this, USBToHostLong(pED->_qTD->pShared->flags));
 	
     // Kill the overlay transaction and leave the EP enabled (NOT halted)
@@ -1963,7 +1981,9 @@ AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDes
 		pED->GetSharedLogical()->qTDFlags = 0;									// Ensure that next TD is fetched (not the ALT) and reset the data toggle
     else
 		pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(kEHCITDFlags_DT);	// Ensure that next TD is fetched (not the ALT) but keep the data toggle
-	
+
+	IOSync();
+
 	if (doneQueue)
     {
 		USBLog(5, "AppleUSBEHCI[%p]::returnTransactions: calling back the done queue (after ED is made active)", this);    
@@ -2073,7 +2093,10 @@ AppleUSBEHCI::HandleEndpointAbort(short			functionAddress,
 	}
 	
 	if (clearToggle)
+    {
 		pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(~((UInt32)kEHCITDFlags_DT));	// clear the data toggle
+        IOSync();
+    }
 	
 	if(USBToHostLong(pED->GetSharedLogical()->qTDFlags) & kEHCITDStatus_Halted)
 	{
@@ -2142,7 +2165,7 @@ AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED)
 		// Point new endpoint at same endpoint old queuehead was pointing
 		CBED->SetPhysicalLink(pEDHead->GetPhysicalLink());
 		CBED->_logicalNext = pEDHead->_logicalNext;
-		
+				
 		// Point queue head to new endpoint
 		pEDHead->_logicalNext = CBED;
 		pEDHead->SetPhysicalLink(newHorizPtr);
@@ -2326,6 +2349,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 void
 AppleUSBEHCI::printAsyncQueue(int level, const char* str, bool printSkipped, bool printTDs)
 {
+#pragma unused (printSkipped)
     AppleEHCIQueueHead *pED = _AsyncHead;
     
     if (pED)
@@ -2359,6 +2383,7 @@ AppleUSBEHCI::printAsyncQueue(int level, const char* str, bool printSkipped, boo
 void
 AppleUSBEHCI::printInactiveQueue(int level, const char* str, bool printSkipped, bool printTDs)
 {
+#pragma unused (printSkipped)
     AppleEHCIQueueHead *pED = _InactiveAsyncHead;
     
     if (pED)
@@ -2388,6 +2413,7 @@ AppleUSBEHCI::printInactiveQueue(int level, const char* str, bool printSkipped, 
 void
 AppleUSBEHCI::printPeriodicList(int level, const char* str, bool printSkipped, bool printTDs)
 {
+#pragma unused (level, str, printTDs, printSkipped)
 		// TODO
 }
 
@@ -2500,7 +2526,8 @@ AppleUSBEHCI::UIMCreateInterruptEndpoint(short		functionAddress,
 										 UInt16		maxPacketSize,
 										 short		pollingRate)
 {
-    USBError(1, "AppleUSBEHCI[%p]::UIMCreateInterruptEndpoint - old version called with no split params", this);
+#pragma unused (functionAddress, endpointNumber, direction, speed, maxPacketSize, pollingRate)
+   USBError(1, "AppleUSBEHCI[%p]::UIMCreateInterruptEndpoint - old version called with no split params", this);
     return kIOReturnInternalError;
 }
 
@@ -2530,7 +2557,7 @@ AppleUSBEHCI::UIMCreateInterruptEndpoint(short					functionAddress,
         return RootHubStartTimer32(pollingRate);
 	}
 	
-    USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::+UIMCreateInterruptEndpoint (%d, %d, %s, %s, %d, %d)", this, functionAddress, endpointNumber, 
+    USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::+UIMCreateInterruptEndpoint (%d, %d, %s, %s, %d, %d)", this, functionAddress, endpointNumber, 
 		   (direction == kUSBIn) ? "in" : "out",
 		   (speed == kUSBDeviceSpeedLow) ? "lo" : (speed == kUSBDeviceSpeedFull) ? "full" : "high", maxPacketSize, pollingRate);
 	
@@ -2723,6 +2750,7 @@ AppleUSBEHCI::UIMCreateInterruptTransfer(
 										 UInt32				bufferSize,
 										 short				direction)
 {
+#pragma unused (functionAddress, endpointNumber, completion, CBP, bufferRounding, bufferSize, direction)
     // this is the old 1.8/1.8.1 method. It should not be used any more.
     USBLog(1, "AppleUSBEHCI[%p]UIMCreateInterruptTransfer- calling the wrong method!", this);
     return kIOReturnIPCError;
@@ -2926,6 +2954,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short		functionAddress,
 									 UInt32		maxPacketSize,
 									 UInt8		direction)
 {
+#pragma unused (functionAddress, endpointNumber, maxPacketSize, direction)
     USBError(1, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint -- old version called with no split params", this);
     return kIOReturnIPCError;
 }
@@ -2940,6 +2969,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
 									 USBDeviceAddress    	highSpeedHub,
 									 int               		highSpeedPort)
 {
+#pragma unused (functionAddress, endpointNumber, maxPacketSize, direction, highSpeedHub, highSpeedPort)
     USBError(1, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint -- old version called with no interval", this);
     return kIOReturnIPCError;
 }
@@ -2968,7 +2998,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
     // and high speed (iTD). This method will allocate an internal data structure which will be used
     // to track bandwidth, etc.
 	
-    USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint(%d, %d, %d, %d, %d, %d)", this, functionAddress, endpointNumber, (uint32_t)maxPacketSize, direction, highSpeedHub, highSpeedPort);
+    USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint(%d, %d, %d, %d, %d, %d)", this, functionAddress, endpointNumber, (uint32_t)maxPacketSize, direction, highSpeedHub, highSpeedPort);
 	
     if (highSpeedHub == 0)
     {
@@ -3305,9 +3335,10 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
     UInt32								bufferSize;
     AppleEHCIIsochTransferDescriptor 	*pNewITD = NULL;
     IOByteCount							transferOffset;
+    IOByteCount							saveTransferOffset;
     UInt32								buffPtrSlot, transfer, frameNumberIncrease;
     unsigned							i,j;
-    USBPhysicalAddress32							*buffP, *buffHighP;
+    USBPhysicalAddress32				*buffP, *buffHighP;
     UInt32								*transactionPtr = 0;
     UInt32								*savedTransactionPtr = 0;
     UInt32								pageOffset=0;
@@ -3335,6 +3366,7 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	
 	epInterval = pEP->interval;
     transferOffset = 0;
+    saveTransferOffset = 0;
 	
     // Each frame in the frameList (either "pFrames" or "pLLFrames",
 	// depending on whether you're dealing with low-latency), corresponds
@@ -3451,35 +3483,74 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 		buffP = &pNewITD->GetSharedLogical()->bufferPage0;
 		buffHighP = &pNewITD->GetSharedLogical()->extBufferPage0;
 		
-		for (buffPtrSlot=0; ((buffPtrSlot <= 6) && (bufferSize != 0)); buffPtrSlot++)
+        // first initialize all of the buffPtr fields in the TD
+		for (buffPtrSlot=0; buffPtrSlot < kEHCI_ITDMaxPhysicalPages; buffPtrSlot++)
+        {
+            buffP[buffPtrSlot] = 0;
+            buffHighP[buffPtrSlot] = 0;
+        }
+        
+        buffPtrSlot=0;
+        
+        transferOffset = saveTransferOffset;
+		while ((buffPtrSlot < kEHCI_ITDMaxPhysicalPages) && (bufferSize != 0))
 		{
-			GET_NEXT_BUFFPTR();		// get next values of "segLen" and "dmaStartAddr"
+			GET_NEXT_BUFFPTR();				// get next values of segLen and dmaStartAddr based off of transferOffset
 			
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - Addr (0x%x) Length (%d) BufferSize (%d)", this, (uint32_t)dmaStartAddr, (uint32_t)segLen, (uint32_t)bufferSize);
-			*(buffP++) = HostToUSBLong( dmaStartAddr & kEHCIPageMask);
-			*(buffHighP++) = HostToUSBLong( dmaAddrHighBits );
 			
 			if (buffPtrSlot == 0)
 			{ 
-				// Only need to take the pageOffset into account for the 1st buffer pointer
-				pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
-				ADJUST_SEGMENT_LENGTH(pageOffset); 
+                buffP[buffPtrSlot] = HostToUSBLong( dmaStartAddr & kEHCIPageMask);
+                buffHighP[buffPtrSlot] = HostToUSBLong( dmaAddrHighBits );
+                USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using buffer slot %d - buffP 0x%x buffHighP 0x%x", this, (int)buffPtrSlot, (int)buffP[buffPtrSlot], (int)buffHighP[buffPtrSlot]);
+                buffPtrSlot++;
 			} 
 			else 
 			{
-				ADJUST_SEGMENT_LENGTH(0); 
+                if ((buffP[buffPtrSlot-1] != HostToUSBLong( dmaStartAddr & kEHCIPageMask)) || (buffHighP[buffPtrSlot-1] != HostToUSBLong( dmaAddrHighBits )))
+                {
+                    // we need to use the next buffPtrSlot
+                    buffP[buffPtrSlot] = HostToUSBLong( dmaStartAddr & kEHCIPageMask);
+                    buffHighP[buffPtrSlot] = HostToUSBLong( dmaAddrHighBits );
+                    USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using buffer slot %d - buffP 0x%x buffHighP 0x%x", this, (int)buffPtrSlot, (int)buffP[buffPtrSlot], (int)buffHighP[buffPtrSlot]);
+                    buffPtrSlot++;
+                }
 			}
-			
-			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - getPhysicalSegment returned start of 0x%x; length:%d ; Buff Ptr0:%x", this, (uint32_t)dmaStartAddr, (uint32_t)segLen, *(buffP-1));
-			
+            
+            // Adjust the segment length to take into account the page boundary
+            pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
+            ADJUST_SEGMENT_LENGTH(pageOffset);                                  // adjust the value of segLen to go no further than the end of the page
+						
 			transferOffset += segLen;
 			bufferSize -= segLen;
-			
 		}
 		
+        if ((buffPtrSlot >= kEHCI_ITDMaxPhysicalPages) && (bufferSize != 0))
+        {
+            // This happens when we run out of slots to hold the DMA page addresses in the ITD
+            // There are only 7 physical pages allowed in a single ITD, which is the case because
+            // the maximum per microframe is 3K, and 8*3K=24K and 24K can always be described by
+            // 7 physical pages if 5 of them are full (20K) and the buffer is contiguous
+            // with the fix for <rdar://problem/9845501>, we allow clients to use a non-contiguous
+            // buffer, so that individual microframes can have their starting points adjusted
+            // by a small amount (usually 2 bytes). however, this means that a client COULD
+            // pass in a memory descriptor with 8 microframe buffers on 16 different physical
+            // pages, and that we cannot describe. so if we get here, then we have gobe beyond the 
+            // 7 physical page limit and so we must return an error.
+
+			USBError(1, "AppleUSBEHCI[%p]::CreateHSIochTransfer - ran out of physical page slots", this);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+			panic("EHCI: HS Isoch Disjoint!\n");
+#endif
+            return kIOReturnInternalError;
+        }
+
         // set up all the 'Transaction' section of the TD
         //
         page = 0;
+        transferOffset = saveTransferOffset;                                             // reset the transfer offset
+        
         transactionPtr = &pNewITD->GetSharedLogical()->Transaction0;
 		
 		for (transfer = 0; transfer < transfersPerTD; transfer++)
@@ -3488,7 +3559,47 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			pNewITD->_framesInTD++;
 			
 			trLen = (lowLatency ? pLLFrames[baseTransferIndex + transfer].frReqCount : pFrames[baseTransferIndex + transfer].frReqCount);
+            
+            if (trLen)
+            {
 			
+                // 9845501 - This is the big change. In the previous loop we would set up our page addresses. In this loop, we recalculate
+                // the individual segment beginning addresses to see where they fit in that page array, rather than relying on a contiguous logical buffer
+
+                GET_NEXT_BUFFPTR();                         // sets segLength, dmaStartAddr and dmaAddrHighBits based on transferOffset
+
+                // Adjust the segment length to take into account the page boundary
+                // Note segLength can end up < trLen, and the assumption is that the segment continues on the next physical page in the list
+
+                pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
+                ADJUST_SEGMENT_LENGTH(pageOffset); 
+               
+                for (buffPtrSlot=0; buffPtrSlot < kEHCI_ITDMaxPhysicalPages; buffPtrSlot++)
+                {
+                    if ((buffP[buffPtrSlot] ==  HostToUSBLong( dmaStartAddr & kEHCIPageMask)) && (buffHighP[buffPtrSlot] == HostToUSBLong( dmaAddrHighBits )))
+                    {
+                        page = buffPtrSlot;
+                        USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using physical page in slot %d for transfer %d in ITD %p", this, (int)page, (int)transfer, pNewITD);
+                        break;
+                    }
+                }
+                if (buffPtrSlot >= kEHCI_ITDMaxPhysicalPages)
+                {
+                    USBError(1, "AppleUSBEHCI[%p]::CreateHSIochTransfer - could not find the correct physical page slot for buffP 0x%x buffHighP 0x%x", this, HostToUSBLong( dmaStartAddr & kEHCIPageMask), HostToUSBLong( dmaAddrHighBits ));
+    #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+                    panic("EHCI: HS Isoch Disjoint (2)!\n");
+    #endif
+                    return kIOReturnInternalError;
+               }
+            }
+            else
+            {
+                // default to the beginning of the first DMA page (there should be at least one)
+                // since this is a zero length frame, nothing will be sent, but the DMA address should be valid (and unused by the HC)
+                page = 0;
+                pageOffset = 0;
+            }
+                
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - baseTransferIndex: %d, microFrame: %d, frameIndex: %d, interval %d", this, (uint32_t)baseTransferIndex, (uint32_t) transfer, (uint32_t)(baseTransferIndex + transfer), (uint32_t)epInterval);
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - forming transaction length (%d), pageOffset (0x%x), page (%d)", this, (uint32_t)trLen, (uint32_t)pageOffset, (uint32_t)page);
 			
@@ -3499,16 +3610,10 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			//
 			savedTransactionPtr = transactionPtr;
 			transactionPtr += epInterval;
-			
-			// Adjust the page and pageOffset for the next transaction
-			pageOffset += trLen;
-			if (pageOffset >= kEHCIPageSize)
-			{
-				pageOffset -= kEHCIPageSize;
-				page++;
-			}
-		}
+            transferOffset += trLen;
+        }
 		
+        saveTransferOffset = transferOffset;                        // remember where we are for the next time around the loop
 		// Now, check to see if we need to set the IOC bit for the last transaction in this TD.  At this point, we have
 		// a TD with transfers for 1ms, so this is the granularity that we need for updateFrequency.
 		//
@@ -3872,50 +3977,9 @@ AppleUSBEHCI::UIMCreateIsochTransfer(	short				functionAddress,
 										UInt32				frameCount,
 										IOUSBIsocFrame 		*pFrames)
 {
+#pragma unused (functionAddress, endpointNumber, completion, direction, frameStart, pBuffer, frameCount, pFrames)
 	USBError(1, "AppleUSBEHCI::UIMCreateIsochTransfer - old method");
 	return kIOReturnIPCError;
-	
-	/*****
-	 AppleEHCIIsochEndpoint *			pEP;
-	 bool								requestFromRosettaClient = false;
-	 
-	 USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d cbp=%p:%lx (cback=[%lx:%lx:%lx]), frameStart: %qd, count: %ld, pFrames: %p", this,  
-	 functionAddress, endpointNumber, pBuffer, 
-	 pBuffer->getLength(), 
-	 (UInt32)completion.action, (UInt32)completion.target, 
-	 (UInt32)completion.parameter, frameStart, frameCount, pFrames);
-	 
-	 if ( (frameCount == 0) || (frameCount > 1000) )
-	 {
-	 USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, frameCount);
-	 return kIOReturnBadArgument;
-	 }
-	 
-	 // Determine if our request came from a rosetta client
-	 if ( direction & 0x80 )
-	 {
-	 requestFromRosettaClient = true;
-	 direction &= ~0x80;
-	 }
-	 
-	 pEP = OSDynamicCast(AppleEHCIIsochEndpoint, FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL));
-	 if (pEP == NULL)
-	 {
-	 USBLog(1, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
-	 return kIOUSBEndpointNotFound;        
-	 }
-	 
-	 if ( pEP->aborting )
-	 {
-	 USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
-	 return kIOReturnNotPermitted;        
-	 }
-	 
-	 if (pEP->highSpeedHub)
-	 return CreateSplitIsochTransfer(pEP, completion, frameStart, pBuffer, frameCount, pFrames, 0, false, requestFromRosettaClient);
-	 else
-	 return CreateHSIsochTransfer(pEP, completion, frameStart, pBuffer, frameCount, (IOUSBLowLatencyIsocFrame*)pFrames, 0, false, requestFromRosettaClient);
-	 *****/
 }
 
 
@@ -3932,46 +3996,10 @@ AppleUSBEHCI::UIMCreateIsochTransfer(	short						functionAddress,
 										IOUSBLowLatencyIsocFrame	*pFrames,
 										UInt32						updateFrequency)
 {
+#pragma unused (functionAddress, endpointNumber, completion, direction, frameNumberStart, pBuffer, frameCount, pFrames, updateFrequency)
 	USBError(1, "AppleUSBEHCI::UIMCreateIsochTransfer(LL) - old method");
 	return kIOReturnIPCError;
 	
-	/*****
-	 AppleEHCIIsochEndpoint  *			pEP;
-	 bool								requestFromRosettaClient = false;
-	 
-	 USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d cbp=%p:%lx (cback=[%lx:%lx:%lx])", this, functionAddress, endpointNumber, pBuffer, pBuffer->getLength(), (UInt32)completion.action, (UInt32)completion.target, (UInt32)completion.parameter);
-	 if ( (frameCount == 0) || (frameCount > 1000) )
-	 {
-	 USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, frameCount);
-	 return kIOReturnBadArgument;
-	 }
-	 
-	 // Determine if our request came from a rosetta client
-	 if ( direction & 0x80 )
-	 {
-	 requestFromRosettaClient = true;
-	 direction &= ~0x80;
-	 }
-	 
-	 pEP = OSDynamicCast(AppleEHCIIsochEndpoint, FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL));
-	 
-	 if (pEP == NULL)
-	 {
-	 USBLog(1, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
-	 return kIOUSBEndpointNotFound;        
-	 }
-	 
-	 if ( pEP->aborting )
-	 {
-	 USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
-	 return kIOReturnNotPermitted;        
-	 }
-	 
-	 if (pEP->highSpeedHub)
-	 return CreateSplitIsochTransfer(pEP, completion, frameNumberStart, pBuffer, frameCount, (IOUSBIsocFrame*)pFrames, updateFrequency, true, requestFromRosettaClient);
-	 else
-	 return CreateHSIsochTransfer(pEP, completion, frameNumberStart, pBuffer, frameCount, pFrames, updateFrequency, true, requestFromRosettaClient);
-	 *****/
 }
 
 
@@ -4013,7 +4041,7 @@ AppleUSBEHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 	
     if (command->GetStartFrame() < pEP->firstAvailableFrame)
     {
-		USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer: no overlapping frames -   EP (%p) frameNumberStart: %Ld, pEP->firstAvailableFrame: %Ld.  Returning 0x%x", this, pEP, command->GetStartFrame(), pEP->firstAvailableFrame, kIOReturnIsoTooOld);
+		USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer: no overlapping frames -   EP (%p) frameNumberStart: %qd, pEP->firstAvailableFrame: %qd.  Returning 0x%x", this, pEP, command->GetStartFrame(), pEP->firstAvailableFrame, kIOReturnIsoTooOld);
 		return kIOReturnIsoTooOld;
     }
 	
@@ -4122,7 +4150,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
     currFrame = GetFrameNumber();
 	startFrame = currFrame;
     
-    // USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - fn:%d EP:%d inSlot (0x%x), currFrame: 0x%Lx", this, pEP->functionAddress, pEP->endpointNumber, pEP->inSlot, currFrame);
+    // USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - fn:%d EP:%d inSlot (0x%x), currFrame: 0x%qx", this, pEP->functionAddress, pEP->endpointNumber, pEP->inSlot, currFrame);
 	timeStamp = mach_absolute_time();
     while(pEP->toDoList->_frameNumber <= (currFrame+_istKeepAwayFrames))		// Add keepaway, and use <= so you never put in a new frame 
 																				// at less than 2 ahead of now. (EHCI spec, 7.2.1)
@@ -4132,7 +4160,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		
 		// this transaction is old before it began, move to done queue
 		pTD = GetTDfromToDoList(pEP);
-		//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - ignoring TD(%p) because it is too old (%Lx) vs (%Lx) ", this, pTD, pTD->_frameNumber, currFrame);
+		//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - ignoring TD(%p) because it is too old (%qx) vs (%qx) ", this, pTD, pTD->_frameNumber, currFrame);
 		ret = pTD->UpdateFrameList(*(AbsoluteTime*)&timeStamp);		// TODO - accumulate the return values
 		if (pEP->scheduledTDs > 0)
 			PutTDonDeferredQueue(pEP, pTD);
@@ -4168,7 +4196,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		
 		if (newCurrFrame > currFrame)
 		{
-			//USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - Current frame moved (0x%Lx->0x%Lx) resetting", this, currFrame, newCurrFrame);
+			//USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - Current frame moved (0x%qx->0x%qx) resetting", this, currFrame, newCurrFrame);
 			currFrame = newCurrFrame;
 		}		
     }
@@ -4200,7 +4228,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 			{
 				pTD = GetTDfromToDoList(pEP);
 				pSITD = OSDynamicCast(AppleEHCISplitIsochTransferDescriptor, pTD);
-				// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - checking TD(%p) FN(0x%Lx) against currFrame (0x%Lx)", this, pTD, pTD->_frameNumber, currFrame);
+				// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - checking TD(%p) FN(0x%qx) against currFrame (0x%qx)", this, pTD, pTD->_frameNumber, currFrame);
 			}
 			
 			if (currFrame == pTD->_frameNumber)
@@ -4215,7 +4243,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 				}
 				// Place TD in list
 				
-				//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - linking TD (%p) with frame (0x%Lx) into slot (0x%x) - curr next log (%p) phys (%p)", this, pTD, pTD->_frameNumber, pEP->inSlot, _logicalPeriodicList[pEP->inSlot], (void *)USBToHostLong(_periodicList[pEP->inSlot]));
+				//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - linking TD (%p) with frame (0x%qx) into slot (0x%x) - curr next log (%p) phys (%p)", this, pTD, pTD->_frameNumber, pEP->inSlot, _logicalPeriodicList[pEP->inSlot], (void *)USBToHostLong(_periodicList[pEP->inSlot]));
 				//pTD->print(7);
 				if (pEP->pSPE)
 				{
@@ -4272,10 +4300,10 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 	IOSimpleLockUnlock(_isochScheduleLock);
 	if (!lostRegisterAccess && (finFrame - startFrame) > 1)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - end -  startFrame(0x%Lx) finFrame(0x%Lx)", this, startFrame, finFrame);
+		USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - end -  startFrame(0x%qx) finFrame(0x%qx)", this, startFrame, finFrame);
 	}
 	
-	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - finished,  currFrame: %Lx", this, GetFrameNumber() );
+	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - finished,  currFrame: %qx", this, GetFrameNumber() );
 }
 
 
@@ -4283,7 +4311,8 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 IOReturn 		
 AppleUSBEHCI::UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags)
 {
-    AppleUSBEHCIHubInfo		*hiPtr;
+#pragma unused (highSpeedPort)
+   AppleUSBEHCIHubInfo		*hiPtr;
 	
     switch (command)
     {
@@ -4763,6 +4792,7 @@ AppleUSBEHCI::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime)
 IOReturn
 AppleUSBEHCI::GatedGetFrameNumberWithTime(OSObject *owner, void* arg0, void* arg1, void* arg2, void* arg3)
 {
+#pragma unused (arg2, arg3)
 	AppleUSBEHCI		*me = (AppleUSBEHCI*)owner;
 	UInt64				*frameNumber = (UInt64*)arg0;
 	AbsoluteTime		*theTime = (AbsoluteTime*)arg1;
@@ -5063,7 +5093,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 	UInt16		realPollingRate, realMPS, FSbytesNeeded, HSallocation;
 	UInt32		splitFlags;
 	
-	USBLog(5, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - pED[%p] _speed(%d)", this, pED, (int)pED->_speed);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - pED[%p] _speed(%d)", this, pED, (int)pED->_speed);
 
 	// Set the adjusted polling rate before doing anything else
 	if (pED->_speed == kUSBDeviceSpeedHigh)
@@ -5093,7 +5123,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 	// Special case a zero MPS endpoint always succeeds
 	if (pED->_maxPacketSize == 0)
 	{
-		USBLog(5, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - 0 MPS always succeeds!", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - 0 MPS always succeeds!", this);
 		
 		// Default our start frames in this case
 		pED->_startFrame = 0;
@@ -5102,7 +5132,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 		return kIOReturnSuccess;
 	}
 	
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "+AllocateInterruptBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "+AllocateInterruptBandwidth");
 
 	if (pED->_speed == kUSBDeviceSpeedHigh)
 	{
@@ -5118,7 +5148,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 		
 		HSallocation += ((pED->_maxPacketSize * 7) / 6);					// account for bit stuffing
 
-		USBLog(5, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - pEP[%p] HSallocation[%d]", this, pED, HSallocation);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - pEP[%p] HSallocation[%d]", this, pED, HSallocation);
 		
 		// if _pollingRate is 1 (poll every uFrame.. highly unusual) then we will end up using [0][0] since we have to use every uFrame
 		// if _pollingRate is 2 (poll every other uFrame) we could use[0][0] or [0][1], but it has to be one of those
@@ -5138,7 +5168,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 			USBLog(1, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - could not find bandwidth", this);
 			return kIOReturnNoBandwidth;
 		}
-		USBLog(3, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - using startFrame[%d] startuFrame[%d]", this, startFrame, startuFrame);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - using startFrame[%d] startuFrame[%d]", this, startFrame, startuFrame);
 		pED->_startFrame = startFrame;
 		pED->_startuFrame = startuFrame;
 
@@ -5150,7 +5180,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 			UInt16 uFrameNum = index % kEHCIuFramesPerFrame;
 
 			pED->GetSharedLogical()->splitFlags |= HostToUSBLong(1 << (uFrameNum));
-			USBLog(5, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - adding %d bytes to frameNum(%d) uFrameNum(%d)", this, HSallocation, frameNum, uFrameNum);
+			USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - adding %d bytes to frameNum(%d) uFrameNum(%d)", this, HSallocation, frameNum, uFrameNum);
 			err = ReservePeriodicBandwidth(frameNum, uFrameNum, HSallocation);
 			if (err == kIOReturnNoBandwidth)
 			{
@@ -5167,7 +5197,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 				UInt16 frameNum = index / kEHCIuFramesPerFrame;
 				UInt16 uFrameNum = index % kEHCIuFramesPerFrame;
 
-				USBLog(5, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - returning %d bytes to frameNum(%d) uFrameNum(%d)", this, HSallocation, frameNum, uFrameNum);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - returning %d bytes to frameNum(%d) uFrameNum(%d)", this, HSallocation, frameNum, uFrameNum);
 				ReleasePeriodicBandwidth(frameNum, uFrameNum, HSallocation);
 			}
 			
@@ -5177,7 +5207,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 		else
 		{
 			// All is good, we got our desired bandwidth
-			ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-AllocateInterruptBandwidth");
+			ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-AllocateInterruptBandwidth");
 			err = kIOReturnSuccess;
 		}
 	}
@@ -5191,7 +5221,7 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 			goto ErrorExit;
 		}
 		
-		pTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "+AllocateInterruptBandwidth");
+		pTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "+AllocateInterruptBandwidth");
 		
 		// start with the bus allocation on the FS bus
 		if (pED->_speed == kUSBDeviceSpeedFull)
@@ -5240,16 +5270,16 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 		pTT->CalculateSPEsToAdjustAfterChange(pED->_pSPE, true);
 		AdjustSPEs(pED->_pSPE, true);
 		
-		pTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "-AllocateInterruptBandwidth");
-		ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-AllocateInterruptBandwidth");
-		pTT->print(EHCISPLITTRANSFERLOGGING, "-AllocateInterruptBandwidth");
+		pTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "-AllocateInterruptBandwidth");
+		ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-AllocateInterruptBandwidth");
+		pTT->print(gEHCIBandwidthLogLevel, "-AllocateInterruptBandwidth");
 		
 		err =  kIOReturnSuccess;
 	}
 	
 ErrorExit:
 	
-	USBLog(5, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - returning 0x%x(%s)", this, err, USBStringFromReturn(err));
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateInterruptBandwidth - returning 0x%x(%s)", this, err, USBStringFromReturn(err));
 
 	return err;
 }
@@ -5262,7 +5292,7 @@ AppleUSBEHCI::ReturnInterruptBandwidth(AppleEHCIQueueHead	*pED)
 	int				index;
 	IOReturn		err;
 	
-	USBLog(5, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - pED[%p] _speed(%d)", this, pED, (int)pED->_speed);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - pED[%p] _speed(%d)", this, pED, (int)pED->_speed);
 
 	if (pED->_maxPacketSize == 0)
 	{
@@ -5270,13 +5300,13 @@ AppleUSBEHCI::ReturnInterruptBandwidth(AppleEHCIQueueHead	*pED)
 		{
 			USBLog(1, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - 0 MPS - unexpected _pSPE(%p) in pED(%p)", this, pED->_pSPE, pED);
 		}
-		USBLog(5, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - 0 MPS always succeeds (no bandwidth to return)!", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - 0 MPS always succeeds (no bandwidth to return)!", this);
 
 		return kIOReturnSuccess;
 	}
 	
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "+ReturnInterruptBandwidth");
-	pED->print(EHCISPLITTRANSFERLOGGING, this);
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "+ReturnInterruptBandwidth");
+	pED->print(gEHCIBandwidthLogLevel, this);
 	if (pED->_speed == kUSBDeviceSpeedHigh)
 	{
 		UInt16				HSallocation;
@@ -5300,7 +5330,7 @@ AppleUSBEHCI::ReturnInterruptBandwidth(AppleEHCIQueueHead	*pED)
 			
 			ReleasePeriodicBandwidth(frameNum, uFrameNum, HSallocation);
 		}
-		ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-ReturnInterruptBandwidth");
+		ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-ReturnInterruptBandwidth");
 		return kIOReturnSuccess;
 	}
 	if (!pED->_pSPE)
@@ -5315,29 +5345,28 @@ AppleUSBEHCI::ReturnInterruptBandwidth(AppleEHCIQueueHead	*pED)
 		return kIOReturnInternalError;
 	}
 	
-	pED->_pSPE->_myTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "+ReturnInterruptBandwidth");
+	pED->_pSPE->_myTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "+ReturnInterruptBandwidth");
 	err = pED->_pSPE->_myTT->DeallocatePeriodicBandwidth(pED->_pSPE);
 	pED->_pSPE->_FSBytesUsed = 0;
 
 	if (err)
 	{
 		USBLog (1, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - pTT->ReturnInterruptBandwidth returned err(%p)", this, (void*)err);
-		return kIOReturnInternalError;
+		return err;
 	}
-	err = ReturnHSPeriodicSplitBandwidth(pED->_pSPE);
-	if (err)
-	{
-		USBLog (1, "AppleUSBEHCI[%p]::ReturnInterruptBandwidth - pTT->ReturnInterruptBandwidth returned err(%p)", this, (void*)err);
-		return kIOReturnInternalError;
-	}
+	ReturnHSPeriodicSplitBandwidth(pED->_pSPE);
 
-	pED->_pSPE->_myTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "-ReturnInterruptBandwidth");
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-ReturnInterruptBandwidth");
-	pED->_pSPE->_myTT->print(EHCISPLITTRANSFERLOGGING, "-ReturnInterruptBandwidth");
+	// 10066698 - see if we can reclaim any bandwidth after the change
+	pED->_pSPE->_myTT->CalculateSPEsToAdjustAfterChange(pED->_pSPE, false);
+	AdjustSPEs(pED->_pSPE, false);
+
+	pED->_pSPE->_myTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "-ReturnInterruptBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-ReturnInterruptBandwidth");
+	pED->_pSPE->_myTT->print(gEHCIBandwidthLogLevel, "-ReturnInterruptBandwidth");
 	pED->_pSPE->release();
 	pED->_pSPE = NULL;
 	
-	return err;
+	return kIOReturnSuccess;
 }
 
 
@@ -5353,16 +5382,16 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 	int			index;
 	IOReturn	err;
 	
-	USBLog(5, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - pEP[%p] _speed(%d) maxPacketSize(%d)", this, pEP, (int)pEP->_speed, (int)pEP->maxPacketSize);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - pEP[%p] _speed(%d) maxPacketSize(%d)", this, pEP, (int)pEP->_speed, (int)pEP->maxPacketSize);
 	
 	// special case. a zero MPS endpoint always succeeds
 	if (pEP->maxPacketSize == 0)
 	{
-		USBLog(5, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - 0 MPS always succeeds!", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - 0 MPS always succeeds!", this);
 		return kIOReturnSuccess;
 	}
 	
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "+AllocateIsochBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "+AllocateIsochBandwidth");
 
 	// High Speed allocation is the same as Interrupt, except pEP points to a different thing...
 	if (pEP->_speed == kUSBDeviceSpeedHigh)
@@ -5382,7 +5411,7 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 		}
 		HSallocation += ((pEP->maxPacketSize * 7) / 6);					// account for bit stuffing
 		
-		USBLog(6, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - pEP[%p] HSallocation[%d]", this, pEP, HSallocation);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - pEP[%p] HSallocation[%d]", this, pEP, HSallocation);
 		// if _pollingRate is 1 (poll every uFrame.. highly unusual) then we will end up using [0][0] since we have to use every uFrame
 		// if _pollingRate is 2 (poll every other uFrame) we could use[0][0] or [0][1], but it has to be one of those
 		// if _polingRate is 8 (once per ms) then we could use any microframe in frame [0]
@@ -5401,7 +5430,7 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 			USBLog(1, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - could not find bandwidth", this);
 			return kIOReturnNoBandwidth;
 		}
-		USBLog(6, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - using startFrame[%d] startuFrame[%d]", this, startFrame, startuFrame);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - using startFrame[%d] startuFrame[%d]", this, startFrame, startuFrame);
 		pEP->_startFrame = startFrame;
 		pEP->_startuFrame = startuFrame;
 		
@@ -5432,7 +5461,7 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 			}
 			return kIOReturnNoBandwidth;
 		}
-		ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-AllocateIsochBandwidth");
+		ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-AllocateIsochBandwidth");
 		return kIOReturnSuccess;
 	}
 	
@@ -5448,25 +5477,25 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 		return kIOReturnInternalError;		
 	}
 	
-	pTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "+AllocateIsochBandwidth");
+	pTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "+AllocateIsochBandwidth");
 	// start with the bus allocation on the FS bus
 	FSbytesNeeded = kEHCIFSSplitIsochOverhead + pTT->_thinkTime + pEP->maxPacketSize;
 	
 	if (pEP->interval != 1)
 	{
-		USBLog(2, "AppleUSBEHCI[%p]::AllocateIsochBandwidth.. interval != 1. unexpected. fixing.", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth.. interval != 1. unexpected. fixing.", this);
 		pEP->interval = 1;
 	}
 	
 	if (pEP->pSPE)
 	{
-		USBLog(5, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - reusing pSPE(%p)", this, pEP->pSPE);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - reusing pSPE(%p)", this, pEP->pSPE);
 		pEP->pSPE->_FSBytesUsed = FSbytesNeeded;
 	}
 	else 
 	{
 		
-		USBLog(EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - FSBytesNeeded(%d) creating SPE", this, FSbytesNeeded); 
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - FSBytesNeeded(%d) creating SPE", this, FSbytesNeeded); 
 
 		pEP->pSPE = AppleUSBEHCISplitPeriodicEndpoint::NewSplitPeriodicEndpoint(pTT, kUSBIsoc, pEP, FSbytesNeeded, pEP->interval);
 	}
@@ -5480,7 +5509,7 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 	err = pTT->AllocatePeriodicBandwidth(pEP->pSPE);
 	if (err)
 	{
-		USBLog (3, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - pTT->AllocatePeriodicBandwidth returned err(%p)", this, (void*)err);
+		USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - pTT->AllocatePeriodicBandwidth returned err(%p)", this, (void*)err);
 		
 		pEP->pSPE->release();
 		pEP->pSPE = NULL;
@@ -5490,18 +5519,18 @@ AppleUSBEHCI::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITT
 	pEP->_startFrame = pEP->pSPE->_startFrame;
 	err = AllocateHSPeriodicSplitBandwidth(pEP->pSPE);
 	
-	pTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "-AllocateIsochBandwidth");
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-AllocateIsochBandwidth");
+	pTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "-AllocateIsochBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-AllocateIsochBandwidth");
 
 	pTT->CalculateSPEsToAdjustAfterChange(pEP->pSPE, true);
 	AdjustSPEs(pEP->pSPE, true);
 
 	
-	USBLog(6, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - returning kIOReturnSuccess!", this);
-	pEP->print(EHCISPLITTRANSFERLOGGING);
-	pTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "-AllocateIsochBandwidth");
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-AllocateIsochBandwidth");
-	pTT->print(EHCISPLITTRANSFERLOGGING, "-AllocateIsochBandwidth");
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - returning kIOReturnSuccess!", this);
+	pEP->print(gEHCIBandwidthLogLevel);
+	pTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "-AllocateIsochBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-AllocateIsochBandwidth");
+	pTT->print(gEHCIBandwidthLogLevel, "-AllocateIsochBandwidth");
 	return kIOReturnSuccess;
 }
 
@@ -5514,7 +5543,7 @@ AppleUSBEHCI::ReturnIsochBandwidth(AppleEHCIIsochEndpoint *pEP)
 	IOReturn	err;
 	UInt16		HSallocation;
 	
-	USBLog(5, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - pEP[%p] _speed(%d)", this, pEP, (int)pEP->_speed);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - pEP[%p] _speed(%d)", this, pEP, (int)pEP->_speed);
 	
 	if (pEP->maxPacketSize == 0)
 	{
@@ -5522,12 +5551,12 @@ AppleUSBEHCI::ReturnIsochBandwidth(AppleEHCIIsochEndpoint *pEP)
 		{
 			USBLog(1, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - 0 MPS - unexpected pSPE(%p) in pEP(%p)", this, pEP->pSPE, pEP);
 		}
-		USBLog(5, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - 0 MPS always succeeds (no bandwidth to return)!", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - 0 MPS always succeeds (no bandwidth to return)!", this);
 		return kIOReturnSuccess;
 	}
 	
 
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "+ReturnIsochBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "+ReturnIsochBandwidth");
 	if (pEP->_speed == kUSBDeviceSpeedHigh)
 	{
 		// now calculate the used bandwidth - this is all on the HS bus
@@ -5549,7 +5578,7 @@ AppleUSBEHCI::ReturnIsochBandwidth(AppleEHCIIsochEndpoint *pEP)
 			
 			ReleasePeriodicBandwidth(frameNum, uFrameNum, HSallocation);
 		}
-		ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-ReturnIsochBandwidth");
+		ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-ReturnIsochBandwidth");
 		return kIOReturnSuccess;
 	}
 	
@@ -5566,7 +5595,7 @@ AppleUSBEHCI::ReturnIsochBandwidth(AppleEHCIIsochEndpoint *pEP)
 		return kIOReturnInternalError;		
 	}
 	
-	pEP->pSPE->_myTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "+ReturnIsochBandwidth");
+	pEP->pSPE->_myTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "+ReturnIsochBandwidth");
 	// this call gets the allocation needed on the Transaction Translator (the FS or LS parts)
 	err = pEP->pSPE->_myTT->DeallocatePeriodicBandwidth(pEP->pSPE);
 	pEP->pSPE->_FSBytesUsed = 0;
@@ -5578,12 +5607,14 @@ AppleUSBEHCI::ReturnIsochBandwidth(AppleEHCIIsochEndpoint *pEP)
 	ReturnHSPeriodicSplitBandwidth(pEP->pSPE);
 	pEP->pSPE->_myTT->CalculateSPEsToAdjustAfterChange(pEP->pSPE, false);
 	AdjustSPEs(pEP->pSPE, false);
-	pEP->pSPE->_myTT->ShowHSSplitTimeUsed(EHCISPLITTRANSFERLOGGING, "-ReturnIsochBandwidth");
-	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "-ReturnIsochBandwidth");
-	pEP->pSPE->_myTT->print(EHCISPLITTRANSFERLOGGING, "-ReturnIsochBandwidth");
+	pEP->pSPE->_myTT->ShowHSSplitTimeUsed(gEHCIBandwidthLogLevel, "-ReturnIsochBandwidth");
+	ShowPeriodicBandwidthUsed(gEHCIBandwidthLogLevel, "-ReturnIsochBandwidth");
+	pEP->pSPE->_myTT->print(gEHCIBandwidthLogLevel, "-ReturnIsochBandwidth");
 	pEP->pSPE->release();
 	pEP->pSPE = NULL;
-	USBLog(5, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - returning kIOReturnSuccess!", this);
+
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnIsochBandwidth - returning kIOReturnSuccess!", this);
+    
 	return kIOReturnSuccess;
 }
 
@@ -5667,7 +5698,7 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 	// allocate the SS bandwidth
 	undoAllocation = false;
 	// FS _polling rate is in ms
-	USBLog (EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - calculating the frames - SSoverhead(%d) CSoverhead(%d)", this, SSoverhead, CSoverhead);
+	USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - calculating the frames - SSoverhead(%d) CSoverhead(%d)", this, SSoverhead, CSoverhead);
 	for (frameNum = pSPE->_startFrame; frameNum < kEHCIMaxPollingInterval; frameNum += pSPE->_period)
 	{
 		int			hostuFrame;
@@ -5701,24 +5732,24 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 				effectiveuFrame = uFrameNum % kEHCIuFramesPerFrame;
 			}
 			
-			USBLog (EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - SS index(%d) uFrameNum(%d) bytesToAllocate(%d) effectiveFrame(%d) effectiveuFrame(%d)", this, index, uFrameNum, bytesToAllocate, effectiveFrame, effectiveuFrame);
+			USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - SS index(%d) uFrameNum(%d) bytesToAllocate(%d) effectiveFrame(%d) effectiveuFrame(%d)", this, index, uFrameNum, bytesToAllocate, effectiveFrame, effectiveuFrame);
 			if (hostuFrame >= kEHCIuFramesPerFrame)
 			{
 				// this should never happen
-				USBLog(1, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - SS can't go into the next frame", this);
+				USBLog(1, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - SS can't go into the next frame", this);
 			}
 			
 			if (frameNum == pSPE->_startFrame)
 			{
 				// add this up, but only for the first harmonic
-				USBLog (EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - setting a SS in host uFrame(%d)", this, hostuFrame);
+				USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - setting a SS in host uFrame(%d)", this, hostuFrame);
 				pSPE->_SSflags |= (1 << hostuFrame);
 			}
 
 			err = ReservePeriodicBandwidth(effectiveFrame, effectiveuFrame, SSoverhead+bytesToAllocate);
 			if (err == kIOReturnNoBandwidth)
 			{
-				USBLog(5, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - not enough bandwidth", this);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - not enough bandwidth", this);
 				undoAllocation = true;
 			}			
 		}
@@ -5741,7 +5772,7 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 				effectiveuFrame = uFrameNum % kEHCIuFramesPerFrame;
 			}
 			
-			USBLog (EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - CS index(%d) uFrameNum(%d) effectiveFrame(%d) effectiveuFrame(%d)", this, index, uFrameNum, effectiveFrame, effectiveuFrame);
+			USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - CS index(%d) uFrameNum(%d) effectiveFrame(%d) effectiveuFrame(%d)", this, index, uFrameNum, effectiveFrame, effectiveuFrame);
 			
 			if (frameNum == pSPE->_startFrame)
 			{
@@ -5753,7 +5784,7 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 				}
 				else
 				{
-					USBLog (EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - setting a CS in host uFrame(%d)", this, hostuFrame);
+					USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - setting a CS in host uFrame(%d)", this, hostuFrame);
 					pSPE->_CSflags |= (1 << hostuFrame);
 				}
 			}
@@ -5761,31 +5792,35 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 			err = ReservePeriodicBandwidth(effectiveFrame, effectiveuFrame, CSoverhead);
 			
 			// now account for the HS part of the actual data bytes, limiting it to the TT FS frame size
-			if (pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame] < kEHCIFSBytesPeruFrame)
-			{
-				UInt16			spaceAvailable = kEHCIFSBytesPeruFrame - pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame];
-				UInt16			bytesToAllocate = realMPS;
-				
-				// it is OK to go "over" on the HS side, so we will run it up to the MAX when that happens
-				if (spaceAvailable < bytesToAllocate)
-					bytesToAllocate = spaceAvailable;
-				
-				err = ReservePeriodicBandwidth(effectiveFrame, effectiveuFrame, bytesToAllocate);
-			}
-			if (realMPS > kEHCIFSBytesPeruFrame)
-			{
-				pSPE->_myTT->ReserveHSSplitINBytes(effectiveFrame, effectiveuFrame, kEHCIFSBytesPeruFrame);
-			}
-			else
-			{
-				pSPE->_myTT->ReserveHSSplitINBytes(effectiveFrame, effectiveuFrame, realMPS);
-			}
-			if (err == kIOReturnNoBandwidth)
-			{
-				USBLog(2, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - not enough bandwidth", this);
-				undoAllocation = true;
-				// TODO: Deal with this error case!
-			}			
+            // 10066697 - only do this for IN endpoints
+            if (pSPE->_direction == kUSBIn)
+            {
+                if (pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame] < kEHCIFSBytesPeruFrame)
+                {
+                    UInt16			spaceAvailable = kEHCIFSBytesPeruFrame - pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame];
+                    UInt16			bytesToAllocate = realMPS;
+                    
+                    // it is OK to go "over" on the HS side, so we will run it up to the MAX when that happens
+                    if (spaceAvailable < bytesToAllocate)
+                        bytesToAllocate = spaceAvailable;
+                    
+                    err = ReservePeriodicBandwidth(effectiveFrame, effectiveuFrame, bytesToAllocate);
+                }
+                if (realMPS > kEHCIFSBytesPeruFrame)
+                {
+                    pSPE->_myTT->ReserveHSSplitINBytes(effectiveFrame, effectiveuFrame, kEHCIFSBytesPeruFrame);
+                }
+                else
+                {
+                    pSPE->_myTT->ReserveHSSplitINBytes(effectiveFrame, effectiveuFrame, realMPS);
+                }
+                if (err == kIOReturnNoBandwidth)
+                {
+                    USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AllocateHSPeriodicSplitBandwidth - not enough bandwidth", this);
+                    undoAllocation = true;
+                    // TODO: Deal with this error case!
+                }
+            }
 		}
 	}
 	return kIOReturnSuccess;
@@ -5831,7 +5866,7 @@ AppleUSBEHCI::ReturnHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint *
 	
 	if (!realMPS)
 	{
-		USBLog(5, "AppleUSBEHCI[%p]::ReturnHSPeriodicSplitBandwidth - pSPE[%p] has no maxPacketSize - nothing to do..", this, pSPE);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnHSPeriodicSplitBandwidth - pSPE[%p] has no maxPacketSize - nothing to do..", this, pSPE);
 		return kIOReturnSuccess;
 	}
 	
@@ -5871,7 +5906,7 @@ AppleUSBEHCI::ReturnHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint *
 				effectiveuFrame = uFrameNum % kEHCIuFramesPerFrame;
 			}
 			
-			USBLog (EHCISPLITTRANSFERLOGGING, "AppleUSBEHCI[%p]::ReturnHSPeriodicSplitBandwidth - SS index(%d) uFrameNum(%d) bytesAllocated(%d) effectiveFrame(%d) effectiveuFrame(%d)", this, index, uFrameNum, bytesAllocated, effectiveFrame, effectiveuFrame);
+			USBLog (gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReturnHSPeriodicSplitBandwidth - SS index(%d) uFrameNum(%d) bytesAllocated(%d) effectiveFrame(%d) effectiveuFrame(%d)", this, index, uFrameNum, bytesAllocated, effectiveFrame, effectiveuFrame);
 			
 			ReleasePeriodicBandwidth(effectiveFrame, effectiveuFrame, SSoverhead + bytesAllocated);
 		}
@@ -5895,23 +5930,26 @@ AppleUSBEHCI::ReturnHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint *
 			
 			ReleasePeriodicBandwidth(effectiveFrame, effectiveuFrame, CSoverhead);
 			
-			bytesToReturn = realMPS;
-			if (bytesToReturn > kEHCIFSBytesPeruFrame)
-				bytesToReturn = kEHCIFSBytesPeruFrame;
-			
-			pSPE->_myTT->ReleaseHSSplitINBytes(effectiveFrame, effectiveuFrame, bytesToReturn);
-			
-			if (pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame] < kEHCIFSBytesPeruFrame)
-			{
-				// these are the bytes to return to the overall bandwidth
-				bytesToReturn = kEHCIFSBytesPeruFrame - pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame];
+            // 10066697 - only do this for IN endpoints
+            if (pSPE->_direction == kUSBIn)
+            {
+                bytesToReturn = realMPS;
+                if (bytesToReturn > kEHCIFSBytesPeruFrame)
+                    bytesToReturn = kEHCIFSBytesPeruFrame;
+                
+                pSPE->_myTT->ReleaseHSSplitINBytes(effectiveFrame, effectiveuFrame, bytesToReturn);
+                
+                if (pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame] < kEHCIFSBytesPeruFrame)
+                {
+                    // these are the bytes to return to the overall bandwidth
+                    bytesToReturn = kEHCIFSBytesPeruFrame - pSPE->_myTT->_HSSplitINBytesUsed[effectiveFrame][effectiveuFrame];
 
-				if (realMPS < bytesToReturn)
-					bytesToReturn = realMPS;
+                    if (realMPS < bytesToReturn)
+                        bytesToReturn = realMPS;
 
-				ReleasePeriodicBandwidth(effectiveFrame, effectiveuFrame, bytesToReturn);
+                    ReleasePeriodicBandwidth(effectiveFrame, effectiveuFrame, bytesToReturn);
+                }
 			}
-			
 		}	
 	}
 	return kIOReturnSuccess;
@@ -5927,7 +5965,7 @@ AppleUSBEHCI::AdjustSPEs(AppleUSBEHCISplitPeriodicEndpoint *pSPEChanged, bool ad
 	
 	if (!pTT)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::AdjustSPEs - no TT - can't do anything!", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AdjustSPEs - no TT - can't do anything!", this);
 		return kIOReturnInternalError;
 	}
 	
@@ -5936,16 +5974,16 @@ AppleUSBEHCI::AdjustSPEs(AppleUSBEHCISplitPeriodicEndpoint *pSPEChanged, bool ad
 		UInt16			newStartTime;
 		
 		pSPE = (AppleUSBEHCISplitPeriodicEndpoint*)pTT->_pSPEsToAdjust->getFirstObject();
-		pSPE->print(EHCISPLITTRANSFERLOGGING);
+		pSPE->print(gEHCIBandwidthLogLevel);
 		pTT->_pSPEsToAdjust->removeObject(pSPE);
 		newStartTime = pSPE->CalculateNewStartTimeFromChange(pSPEChanged);
-		USBLog(5, "AppleUSBEHCI[%p]::AdjustSPEs - candidate(%p) newStartTime(%d)", this, pSPE, newStartTime);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AdjustSPEs - candidate(%p) newStartTime(%d)", this, pSPE, newStartTime);
 		if (added)
 		{
 			// the SPE should not have moved to an earlier start time, although it may not have moved at all
 			if (newStartTime < pSPE->_startTime)
 			{
-				USBLog(2, "AppleUSBEHCI[%p]::AdjustSPEs - newStartTime(%d) should be >= old _startTime (%d)", this, newStartTime, pSPE->_startTime);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AdjustSPEs - newStartTime(%d) should be >= old _startTime (%d)", this, newStartTime, pSPE->_startTime);
 			}
 		}
 		else
@@ -5953,7 +5991,7 @@ AppleUSBEHCI::AdjustSPEs(AppleUSBEHCISplitPeriodicEndpoint *pSPEChanged, bool ad
 			// the SPE should not have moved to a later start time, although it may not have moved at all
 			if (newStartTime > pSPE->_startTime)
 			{
-				USBLog(1, "AppleUSBEHCI[%p]::AdjustSPEs - newStartTime(%d) should be <= old _startTime (%d)", this, newStartTime, pSPE->_startTime);
+				USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AdjustSPEs - newStartTime(%d) should be <= old _startTime (%d)", this, newStartTime, pSPE->_startTime);
 			}
 		}
 		ReturnHSPeriodicSplitBandwidth(pSPE);
@@ -5971,8 +6009,8 @@ AppleUSBEHCI::AdjustSPEs(AppleUSBEHCISplitPeriodicEndpoint *pSPEChanged, bool ad
 			splitFlags |= (pSPE->_CSflags << kEHCIEDSplitFlags_CMaskPhase);
 			pSPE->_intEP->GetSharedLogical()->splitFlags = HostToUSBLong(splitFlags);
 		}
-		USBLog(5, "AppleUSBEHCI[%p]::AdjustSPEs - done with pSPE(%p)", this, pSPE);
-		pSPE->print(EHCISPLITTRANSFERLOGGING);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::AdjustSPEs - done with pSPE(%p)", this, pSPE);
+		pSPE->print(gEHCIBandwidthLogLevel);
 	}
 	return kIOReturnSuccess;
 }
@@ -5986,35 +6024,35 @@ AppleUSBEHCI::ReservePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth)
 	// validate each of the params
 	if (!bandwidth)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - 0 bandwidth - nothing to do", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - 0 bandwidth - nothing to do", this);
 		return kIOReturnSuccess;
 	}
 	
 	if (bandwidth > kEHCIHSMaxPeriodicBytesPeruFrame)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - ERROR: bandwidth(%d) too big", this, (int)bandwidth);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - ERROR: bandwidth(%d) too big", this, (int)bandwidth);
 		return kIOReturnBadArgument;
 	}
 	
 	if ((frame < 0) || (frame > kEHCIMaxPollingInterval))
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - ERROR: invalid frame(%d)", this, frame);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - ERROR: invalid frame(%d)", this, frame);
 		return kIOReturnBadArgument;
 	}
 	if ((uFrame < 0) || (uFrame > kEHCIuFramesPerFrame))
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - ERROR: invalid uFrame(%d)", this, uFrame);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - ERROR: invalid uFrame(%d)", this, uFrame);
 		return kIOReturnBadArgument;
 	}
 	
 	_periodicBandwidthUsed[frame][uFrame] += bandwidth;
 	if (_periodicBandwidthUsed[frame][uFrame] > kEHCIHSMaxPeriodicBytesPeruFrame)
 	{
-		USBLog(5, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - frame[%d] uFrame[%d] reserved space(%d) over the limit - could be OK", this, frame, uFrame, _periodicBandwidthUsed[frame][uFrame]);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - frame[%d] uFrame[%d] reserved space(%d) over the limit - could be OK", this, frame, uFrame, _periodicBandwidthUsed[frame][uFrame]);
 		return kIOReturnNoBandwidth;
 	}
 	
-	USBLog(7, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - frame[%d] uFrame[%d] reserved bandwidth(%d)", this, frame, uFrame, _periodicBandwidthUsed[frame][uFrame]);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReservePeriodicBandwidth - frame[%d] uFrame[%d] reserved bandwidth(%d)", this, frame, uFrame, _periodicBandwidthUsed[frame][uFrame]);
 	return kIOReturnSuccess;
 }
 
@@ -6026,37 +6064,37 @@ AppleUSBEHCI::ReleasePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth)
 	// validate each of the params
 	if (!bandwidth)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - 0 bandwidth - nothing to do", this);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - 0 bandwidth - nothing to do", this);
 		return kIOReturnSuccess;
 	}
 	
 	if (bandwidth > kEHCIHSMaxPeriodicBytesPeruFrame)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: bandwidth(%d) too big", this, (int)bandwidth);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: bandwidth(%d) too big", this, (int)bandwidth);
 		return kIOReturnBadArgument;
 	}
 	
 	if ((frame < 0) || (frame > kEHCIMaxPollingInterval))
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: invalid frame(%d)", this, frame);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: invalid frame(%d)", this, frame);
 		return kIOReturnBadArgument;
 	}
 	if ((uFrame < 0) || (uFrame > kEHCIuFramesPerFrame))
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: invalid uFrame(%d)", this, uFrame);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: invalid uFrame(%d)", this, uFrame);
 		return kIOReturnBadArgument;
 	}
 	
 	if (bandwidth > _periodicBandwidthUsed[frame][uFrame])
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: trying to release(%d) more than you have(%d) - i will take it to zero", this, (int)bandwidth, _periodicBandwidthUsed[frame][uFrame]);
+		USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - ERROR: trying to release(%d) more than you have(%d) - i will take it to zero", this, (int)bandwidth, _periodicBandwidthUsed[frame][uFrame]);
 		_periodicBandwidthUsed[frame][uFrame] = 0;
 		return kIOReturnBadArgument;
 	}
 
 	_periodicBandwidthUsed[frame][uFrame] -= bandwidth;
 	
-	USBLog(7, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - frame[%d] uFrame[%d] reserved bandwidth(%d)", this, frame, uFrame, _periodicBandwidthUsed[frame][uFrame]);
+	USBLog(gEHCIBandwidthLogLevel, "AppleUSBEHCI[%p]::ReleasePeriodicBandwidth - frame[%d] uFrame[%d] reserved bandwidth(%d)", this, frame, uFrame, _periodicBandwidthUsed[frame][uFrame]);
 	return kIOReturnSuccess;
 }
 

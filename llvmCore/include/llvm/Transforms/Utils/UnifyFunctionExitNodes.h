@@ -26,8 +26,10 @@ struct UnifyFunctionExitNodes : public FunctionPass {
   BasicBlock *ReturnBlock, *UnwindBlock, *UnreachableBlock;
 public:
   static char ID; // Pass identification, replacement for typeid
-  UnifyFunctionExitNodes() : FunctionPass(&ID),
-                             ReturnBlock(0), UnwindBlock(0) {}
+  UnifyFunctionExitNodes() : FunctionPass(ID),
+                             ReturnBlock(0), UnwindBlock(0) {
+    initializeUnifyFunctionExitNodesPass(*PassRegistry::getPassRegistry());
+  }
 
   // We can preserve non-critical-edgeness when we unify function exit nodes
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;

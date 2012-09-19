@@ -52,7 +52,7 @@ RefPointer<OSXCode> OSXCode::main()
 
 	// otherwise, follow the legacy path precisely - no point in messing with this, is there?
 	Boolean isRealBundle;
-	string path = cfString(_CFBundleCopyMainBundleExecutableURL(&isRealBundle), true);
+	string path = cfStringRelease(_CFBundleCopyMainBundleExecutableURL(&isRealBundle));
 	if (isRealBundle) {
 		const char *cpath = path.c_str();
 		if (const char *slash = strrchr(cpath, '/'))
@@ -132,7 +132,7 @@ Bundle::Bundle(CFBundleRef bundle, const char *root /* = NULL */)
 {
 	assert(bundle);
 	CFRetain(bundle);
-	mPath = root ? root : cfString(CFBundleCopyBundleURL(mBundle), true);
+	mPath = root ? root : cfStringRelease(CFBundleCopyBundleURL(mBundle));
 	secdebug("bundle", "%p Bundle from bundle %p(%s)", this, bundle, mPath.c_str());
 }
 
@@ -147,7 +147,7 @@ Bundle::~Bundle()
 string Bundle::executablePath() const
 {
 	if (mExecutablePath.empty())
-		return mExecutablePath = cfString(CFBundleCopyExecutableURL(cfBundle()), true);
+		return mExecutablePath = cfStringRelease(CFBundleCopyExecutableURL(cfBundle()));
 	else
 		return mExecutablePath;
 }
@@ -192,8 +192,8 @@ string Bundle::canonicalPath() const
 
 string Bundle::resource(const char *name, const char *type, const char *subdir)
 {
-	return cfString(CFBundleCopyResourceURL(cfBundle(),
-		CFTempString(name), CFTempString(type), CFTempString(subdir)), true);
+	return cfStringRelease(CFBundleCopyResourceURL(cfBundle(),
+		CFTempString(name), CFTempString(type), CFTempString(subdir)));
 }
 
 void Bundle::resources(vector<string> &paths, const char *type, const char *subdir)
@@ -203,7 +203,7 @@ void Bundle::resources(vector<string> &paths, const char *type, const char *subd
 	UInt32 size = CFArrayGetCount(cfList);
 	paths.reserve(size);
 	for (UInt32 n = 0; n < size; n++)
-		paths.push_back(cfString(CFURLRef(CFArrayGetValueAtIndex(cfList, n)), false));
+		paths.push_back(cfString(CFURLRef(CFArrayGetValueAtIndex(cfList, n))));
 }
 
 
@@ -236,7 +236,7 @@ string OSXCodeWrap::canonicalPath() const
 {
 	CFURLRef path;
 	MacOSError::check(SecCodeCopyPath(mCode, kSecCSDefaultFlags, &path));
-	return cfString(path, true);
+	return cfStringRelease(path);
 }
 
 

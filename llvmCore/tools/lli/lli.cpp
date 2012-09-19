@@ -16,22 +16,33 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Type.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
+#include "llvm/ExecutionEngine/MCJIT.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/IRReader.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Process.h"
-#include "llvm/System/Signals.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/Process.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/TargetSelect.h"
 #include <cerrno>
+
+#ifdef __CYGWIN__
+#include <cygwin/version.h>
+#if defined(CYGWIN_VERSION_DLL_MAJOR) && CYGWIN_VERSION_DLL_MAJOR<1007
+#define DO_NOTHING_ATEXIT 1
+#endif
+#endif
+
 using namespace llvm;
 
 namespace {
@@ -44,6 +55,10 @@ namespace {
   cl::opt<bool> ForceInterpreter("force-interpreter",
                                  cl::desc("Force interpretation: disable JIT"),
                                  cl::init(false));
+
+  cl::opt<bool> UseMCJIT(
+    "use-mcjit", cl::desc("Enable use of the MC-based JIT (if available)"),
+    cl::init(false));
 
   // Determine optimization level.
   cl::opt<char>
@@ -93,13 +108,48 @@ namespace {
   NoLazyCompilation("disable-lazy-compilation",
                   cl::desc("Disable JIT lazy compilation"),
                   cl::init(false));
+
+  cl::opt<Reloc::Model>
+  RelocModel("relocation-model",
+             cl::desc("Choose relocation model"),
+             cl::init(Reloc::Default),
+             cl::values(
+            clEnumValN(Reloc::Default, "default",
+                       "Target default relocation model"),
+            clEnumValN(Reloc::Static, "static",
+                       "Non-relocatable code"),
+            clEnumValN(Reloc::PIC_, "pic",
+                       "Fully relocatable, position independent code"),
+            clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
+                       "Relocatable external references, non-relocatable code"),
+            clEnumValEnd));
+
+  cl::opt<llvm::CodeModel::Model>
+  CMModel("code-model",
+          cl::desc("Choose code model"),
+          cl::init(CodeModel::JITDefault),
+          cl::values(clEnumValN(CodeModel::JITDefault, "default",
+                                "Target default JIT code model"),
+                     clEnumValN(CodeModel::Small, "small",
+                                "Small code model"),
+                     clEnumValN(CodeModel::Kernel, "kernel",
+                                "Kernel code model"),
+                     clEnumValN(CodeModel::Medium, "medium",
+                                "Medium code model"),
+                     clEnumValN(CodeModel::Large, "large",
+                                "Large code model"),
+                     clEnumValEnd));
+
 }
 
 static ExecutionEngine *EE = 0;
 
 static void do_shutdown() {
+  // Cygwin-1.5 invokes DLL's dtors before atexit handler.
+#ifndef DO_NOTHING_ATEXIT
   delete EE;
   llvm_shutdown();
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -115,6 +165,7 @@ int main(int argc, char **argv, char * const *envp) {
   // If we have a native target, initialize it to ensure it is linked in and
   // usable by the JIT.
   InitializeNativeTarget();
+  InitializeNativeTargetAsmPrinter();
 
   cl::ParseCommandLineOptions(argc, argv,
                               "llvm interpreter & dynamic compiler\n");
@@ -124,20 +175,15 @@ int main(int argc, char **argv, char * const *envp) {
     sys::Process::PreventCoreFiles();
   
   // Load the bitcode...
-  std::string ErrorMsg;
-  Module *Mod = NULL;
-  if (MemoryBuffer *Buffer = MemoryBuffer::getFileOrSTDIN(InputFile,&ErrorMsg)){
-    Mod = getLazyBitcodeModule(Buffer, Context, &ErrorMsg);
-    if (!Mod) delete Buffer;
-  }
-  
+  SMDiagnostic Err;
+  Module *Mod = ParseIRFile(InputFile, Err, Context);
   if (!Mod) {
-    errs() << argv[0] << ": error loading program '" << InputFile << "': "
-           << ErrorMsg << "\n";
-    exit(1);
+    Err.print(argv[0], errs());
+    return 1;
   }
 
   // If not jitting lazily, load the whole bitcode file eagerly too.
+  std::string ErrorMsg;
   if (NoLazyCompilation) {
     if (Mod->MaterializeAllPermanently(&ErrorMsg)) {
       errs() << argv[0] << ": bitcode didn't read correctly.\n";
@@ -150,6 +196,8 @@ int main(int argc, char **argv, char * const *envp) {
   builder.setMArch(MArch);
   builder.setMCPU(MCPU);
   builder.setMAttrs(MAttrs);
+  builder.setRelocationModel(RelocModel);
+  builder.setCodeModel(CMModel);
   builder.setErrorStr(&ErrorMsg);
   builder.setEngineKind(ForceInterpreter
                         ? EngineKind::Interpreter
@@ -157,7 +205,11 @@ int main(int argc, char **argv, char * const *envp) {
 
   // If we are supposed to override the target triple, do so now.
   if (!TargetTriple.empty())
-    Mod->setTargetTriple(TargetTriple);
+    Mod->setTargetTriple(Triple::normalize(TargetTriple));
+
+  // Enable MCJIT, if desired.
+  if (UseMCJIT)
+    builder.setUseMCJIT(true);
 
   CodeGenOpt::Level OLvl = CodeGenOpt::Default;
   switch (OptLevel) {

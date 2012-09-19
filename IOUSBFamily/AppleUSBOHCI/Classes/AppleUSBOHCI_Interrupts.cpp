@@ -199,6 +199,7 @@ AppleUSBOHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
 bool 
 AppleUSBOHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source)
 {
+#pragma unused (source)
 	register AppleUSBOHCI *controller = (AppleUSBOHCI *)owner;
 	bool result = true;
 	
@@ -255,7 +256,7 @@ AppleUSBOHCI::IsValidPhysicalAddress(IOPhysicalAddress pageAddr)
 bool 
 AppleUSBOHCI::FilterInterrupt(int index)
 {
-	
+#pragma unused (index)
 	register UInt32							activeInterrupts;
 	register UInt32							enabledInterrupts;
 	IOPhysicalAddress						physicalAddress;

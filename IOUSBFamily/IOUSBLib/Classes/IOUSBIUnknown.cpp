@@ -30,7 +30,8 @@ int IOUSBIUnknown::factoryRefCount = 0;
 void 
 *IOUSBLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 {
-    if (CFEqual(typeID, kIOUSBDeviceUserClientTypeID))
+#pragma unused (allocator)
+   if (CFEqual(typeID, kIOUSBDeviceUserClientTypeID))
         return (void *) IOUSBDeviceClass::alloc();
     else if (CFEqual(typeID, kIOUSBInterfaceUserClientTypeID))
         return (void *) IOUSBInterfaceClass::alloc();

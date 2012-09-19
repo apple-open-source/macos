@@ -18,10 +18,11 @@
 #ifndef LLVM_TRANSFORMS_UTILS_CLONING_H
 #define LLVM_TRANSFORMS_UTILS_CLONING_H
 
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/ValueMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/ValueHandle.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 namespace llvm {
 
@@ -46,7 +47,7 @@ class AllocaInst;
 /// CloneModule - Return an exact copy of the specified module
 ///
 Module *CloneModule(const Module *M);
-Module *CloneModule(const Module *M, DenseMap<const Value*, Value*> &ValueMap);
+Module *CloneModule(const Module *M, ValueToValueMapTy &VMap);
 
 /// ClonedCodeInfo - This struct can be used to capture information about code
 /// being cloned, while it is being cloned.
@@ -89,7 +90,7 @@ struct ClonedCodeInfo {
 /// incoming edges.
 ///
 /// The correlation between instructions in the source and result basic blocks
-/// is recorded in the ValueMap map.
+/// is recorded in the VMap map.
 ///
 /// If you have a particular suffix you'd like to use to add to any cloned
 /// names, specify it as the optional third parameter.
@@ -102,47 +103,50 @@ struct ClonedCodeInfo {
 /// parameter.
 ///
 BasicBlock *CloneBasicBlock(const BasicBlock *BB,
-                            DenseMap<const Value*, Value*> &ValueMap,
+                            ValueToValueMapTy &VMap,
                             const Twine &NameSuffix = "", Function *F = 0,
                             ClonedCodeInfo *CodeInfo = 0);
 
-
-/// CloneLoop - Clone Loop. Clone dominator info for loop insiders. Populate
-/// ValueMap using old blocks to new blocks mapping.
-Loop *CloneLoop(Loop *L, LPPassManager *LPM, LoopInfo *LI, 
-                DenseMap<const Value *, Value *> &ValueMap, Pass *P);
-
 /// CloneFunction - Return a copy of the specified function, but without
 /// embedding the function into another module.  Also, any references specified
-/// in the ValueMap are changed to refer to their mapped value instead of the
-/// original one.  If any of the arguments to the function are in the ValueMap,
-/// the arguments are deleted from the resultant function.  The ValueMap is
+/// in the VMap are changed to refer to their mapped value instead of the
+/// original one.  If any of the arguments to the function are in the VMap,
+/// the arguments are deleted from the resultant function.  The VMap is
 /// updated to include mappings from all of the instructions and basicblocks in
 /// the function from their old to new values.  The final argument captures
 /// information about the cloned code if non-null.
 ///
+/// If ModuleLevelChanges is false, VMap contains no non-identity GlobalValue
+/// mappings.
+///
 Function *CloneFunction(const Function *F,
-                        DenseMap<const Value*, Value*> &ValueMap,
+                        ValueToValueMapTy &VMap,
+                        bool ModuleLevelChanges,
                         ClonedCodeInfo *CodeInfo = 0);
 
-/// CloneFunction - Version of the function that doesn't need the ValueMap.
+/// CloneFunction - Version of the function that doesn't need the VMap.
 ///
 inline Function *CloneFunction(const Function *F, ClonedCodeInfo *CodeInfo = 0){
-  DenseMap<const Value*, Value*> ValueMap;
-  return CloneFunction(F, ValueMap, CodeInfo);
+  ValueToValueMapTy VMap;
+  return CloneFunction(F, VMap, CodeInfo);
 }
 
 /// Clone OldFunc into NewFunc, transforming the old arguments into references
-/// to ArgMap values.  Note that if NewFunc already has basic blocks, the ones
+/// to VMap values.  Note that if NewFunc already has basic blocks, the ones
 /// cloned into it will be added to the end of the function.  This function
-/// fills in a list of return instructions, and can optionally append the
-/// specified suffix to all values cloned.
+/// fills in a list of return instructions, and can optionally remap types
+/// and/or append the specified suffix to all values cloned.
+///
+/// If ModuleLevelChanges is false, VMap contains no non-identity GlobalValue
+/// mappings.
 ///
 void CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
-                       DenseMap<const Value*, Value*> &ValueMap,
+                       ValueToValueMapTy &VMap,
+                       bool ModuleLevelChanges,
                        SmallVectorImpl<ReturnInst*> &Returns,
                        const char *NameSuffix = "", 
-                       ClonedCodeInfo *CodeInfo = 0);
+                       ClonedCodeInfo *CodeInfo = 0,
+                       ValueMapTypeRemapper *TypeMapper = 0);
 
 /// CloneAndPruneFunctionInto - This works exactly like CloneFunctionInto,
 /// except that it does some simple constant prop and DCE on the fly.  The
@@ -151,8 +155,13 @@ void CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
 /// constant arguments cause a significant amount of code in the callee to be
 /// dead.  Since this doesn't produce an exactly copy of the input, it can't be
 /// used for things like CloneFunction or CloneModule.
+///
+/// If ModuleLevelChanges is false, VMap contains no non-identity GlobalValue
+/// mappings.
+///
 void CloneAndPruneFunctionInto(Function *NewFunc, const Function *OldFunc,
-                               DenseMap<const Value*, Value*> &ValueMap,
+                               ValueToValueMapTy &VMap,
+                               bool ModuleLevelChanges,
                                SmallVectorImpl<ReturnInst*> &Returns,
                                const char *NameSuffix = "", 
                                ClonedCodeInfo *CodeInfo = 0,
@@ -193,7 +202,7 @@ public:
 ///
 /// Note that this only does one level of inlining.  For example, if the
 /// instruction 'call B' is inlined, and 'B' calls 'C', then the call to 'C' now
-/// exists in the instruction stream.  Similiarly this will inline a recursive
+/// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
 bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI);

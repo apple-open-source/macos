@@ -26,12 +26,19 @@
 #include <CoreFoundation/CFBundlePriv.h>
 #include <security_utilities/cfmunge.h>
 #include <copyfile.h>
+#include <fts.h>
 
 
 namespace Security {
 namespace CodeSigning {
 
 using namespace UnixPlusPlus;
+
+
+//
+// Local helpers
+//
+static std::string findDistFile(const std::string &directory);
 
 
 //
@@ -56,6 +63,8 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 // common construction code
 void BundleDiskRep::setup(const Context *ctx)
 {
+	mInstallerPackage = false;	// default
+	
 	// deal with versioned bundles (aka Frameworks)
 	string version = resourcesRootPath()
 		+ "/Versions/"
@@ -70,23 +79,27 @@ void BundleDiskRep::setup(const Context *ctx)
 		if (ctx && ctx->version)	// explicitly specified
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
 	}
-
-	// conventional executable bundle: CFBundle identifies an executable for us
-	if (mMainExecutableURL.take(CFBundleCopyExecutableURL(mBundle))) {
-		// conventional executable bundle
-		mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
-		mFormat = string("bundle with ") + mExecRep->format();
-		return;
-	}
 	
 	CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle);
 	assert(infoDict);	// CFBundle will always make one up for us
+	CFTypeRef mainHTML = CFDictionaryGetValue(infoDict, CFSTR("MainHTML"));
+	CFTypeRef packageVersion = CFDictionaryGetValue(infoDict, CFSTR("IFMajorVersion"));
+
+	// conventional executable bundle: CFBundle identifies an executable for us
+	if (CFRef<CFURLRef> mainExec = CFBundleCopyExecutableURL(mBundle))		// if CFBundle claims an executable...
+		if (mainHTML == NULL) {												// ... and it's not a widget
+			mMainExecutableURL = mainExec;
+			mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
+			mFormat = "bundle with " + mExecRep->format();
+			return;
+		}
 	
-	if (CFTypeRef main = CFDictionaryGetValue(infoDict, CFSTR("MainHTML"))) {
-		// widget
-		if (CFGetTypeID(main) != CFStringGetTypeID())
+	// widget
+	if (mainHTML) {
+		if (CFGetTypeID(mainHTML) != CFStringGetTypeID())
 			MacOSError::throwMe(errSecCSBadBundleFormat);
-		mMainExecutableURL = makeCFURL(cfString(CFStringRef(main)), false, CFRef<CFURLRef>(CFBundleCopySupportFilesDirectoryURL(mBundle)));
+		mMainExecutableURL.take(makeCFURL(cfString(CFStringRef(mainHTML)), false,
+			CFRef<CFURLRef>(CFBundleCopySupportFilesDirectoryURL(mBundle))));
 		if (!mMainExecutableURL)
 			MacOSError::throwMe(errSecCSBadBundleFormat);
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
@@ -94,23 +107,68 @@ void BundleDiskRep::setup(const Context *ctx)
 		return;
 	}
 	
-	// generic bundle case - impose our own "minimal signable bundle" standard
+	// do we have a real Info.plist here?
+	if (CFRef<CFURLRef> infoURL = _CFBundleCopyInfoPlistURL(mBundle)) {
+		// focus on the Info.plist (which we know exists) as the nominal "main executable" file
+		if ((mMainExecutableURL = _CFBundleCopyInfoPlistURL(mBundle))) {
+			mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+			if (packageVersion) {
+				mInstallerPackage = true;
+				mFormat = "installer package bundle";
+			} else {
+				mFormat = "bundle";
+			}
+			return;
+		}
+	}
 
-	// we MUST have an actual Info.plist in here
-	CFRef<CFURLRef> infoURL = _CFBundleCopyInfoPlistURL(mBundle);
-	if (!infoURL)
-		MacOSError::throwMe(errSecCSBadBundleFormat);
-	
-
-	// focus on the Info.plist (which we know exists) as the nominal "main executable" file
-	if ((mMainExecutableURL = _CFBundleCopyInfoPlistURL(mBundle))) {
+	// we're getting desperate here. Perhaps an oldish-style installer package? Look for a *.dist file
+	std::string distFile = findDistFile(this->resourcesRootPath());
+	if (!distFile.empty()) {
+		mMainExecutableURL = makeCFURL(distFile);
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
-		mFormat = "bundle";
+		mInstallerPackage = true;
+		mFormat = "installer package bundle";
 		return;
 	}
 	
 	// this bundle cannot be signed
 	MacOSError::throwMe(errSecCSBadBundleFormat);
+}
+
+
+//
+// Return the full path to the one-and-only file named something.dist in a directory.
+// Return empty string if none; throw an exception if multiple. Do not descend into subdirectories.
+//
+static std::string findDistFile(const std::string &directory)
+{
+	std::string found;
+	char *paths[] = {(char *)directory.c_str(), NULL};
+	FTS *fts = fts_open(paths, FTS_PHYSICAL | FTS_NOCHDIR | FTS_NOSTAT, NULL);
+	bool root = true;
+	while (FTSENT *ent = fts_read(fts)) {
+		switch (ent->fts_info) {
+		case FTS_F:
+		case FTS_NSOK:
+			if (!strcmp(ent->fts_path + ent->fts_pathlen - 5, ".dist")) {	// found plain file foo.dist
+				if (found.empty())	// first found
+					found = ent->fts_path;
+				else				// multiple *.dist files (bad)
+					MacOSError::throwMe(errSecCSBadBundleFormat);
+			}
+			break;
+		case FTS_D:
+			if (!root)
+				fts_set(fts, ent, FTS_SKIP);	// don't descend
+			root = false;
+			break;
+		default:
+			break;
+		}
+	}
+	fts_close(fts);
+	return found;
 }
 
 
@@ -122,7 +180,7 @@ void BundleDiskRep::setup(const Context *ctx)
 string BundleDiskRep::metaPath(const char *name)
 {
 	if (mMetaPath.empty()) {
-		string support = cfString(CFBundleCopySupportFilesDirectoryURL(mBundle), true);
+		string support = cfStringRelease(CFBundleCopySupportFilesDirectoryURL(mBundle));
 		mMetaPath = support + "/" BUNDLEDISKREP_DIRECTORY;
 		if (::access(mMetaPath.c_str(), F_OK) == 0) {
 			mMetaExists = true;
@@ -209,7 +267,7 @@ string BundleDiskRep::mainExecutablePath()
 
 string BundleDiskRep::resourcesRootPath()
 {
-	return cfString(CFBundleCopySupportFilesDirectoryURL(mBundle), true);
+	return cfStringRelease(CFBundleCopySupportFilesDirectoryURL(mBundle));
 }
 
 void BundleDiskRep::adjustResources(ResourceBuilder &builder)
@@ -303,19 +361,30 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &)
 	string rbase = this->resourcesRootPath();
 	if (rbase.substr(rbase.length()-2, 2) == "/.")	// produced by versioned bundle implicit "Current" case
 		rbase = rbase.substr(0, rbase.length()-2);	// ... so take it off for this
-	string resources = cfString(CFBundleCopyResourcesDirectoryURL(mBundle), true);
+	string resources = cfStringRelease(CFBundleCopyResourcesDirectoryURL(mBundle));
 	if (resources == rbase)
 		resources = "";
 	else if (resources.compare(0, rbase.length(), rbase, 0, rbase.length()) != 0)	// Resources not in resource root
 		MacOSError::throwMe(errSecCSBadBundleFormat);
 	else
 		resources = resources.substr(rbase.length() + 1) + "/";	// differential path segment
+
+	// installer package rules
+	if (mInstallerPackage)
+		return cfmake<CFDictionaryRef>("{rules={"
+			"'^.*' = #T"							// include everything, but...
+			"%s = {optional=#T, weight=1000}"		// make localizations optional
+			"'^.*/.*\\.pkg/' = {omit=#T, weight=10000}" // and exclude all nested packages (by name)
+			"}}",
+			(string("^") + resources + ".*\\.lproj/").c_str()
+		);
 	
+	// executable bundle rules
 	return cfmake<CFDictionaryRef>("{rules={"
-		"'^version.plist$' = #T"
-		"%s = #T"
-		"%s = {optional=#T, weight=1000}"
-		"%s = {omit=#T, weight=1100}"
+		"'^version.plist$' = #T"					// include version.plist
+		"%s = #T"									// include Resources
+		"%s = {optional=#T, weight=1000}"			// make localizations optional
+		"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
 		"}}",
 		(string("^") + resources).c_str(),
 		(string("^") + resources + ".*\\.lproj/").c_str(),

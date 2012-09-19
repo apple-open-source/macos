@@ -16,7 +16,9 @@
 #define SPU_REGISTERINFO_H
 
 #include "SPU.h"
-#include "SPUGenRegisterInfo.h.inc"
+
+#define GET_REGINFO_HEADER
+#include "SPUGenRegisterInfo.inc"
 
 namespace llvm {
   class SPUSubtarget;
@@ -33,7 +35,7 @@ namespace llvm {
 
   public:
     SPURegisterInfo(const SPUSubtarget &subtarget, const TargetInstrInfo &tii);
-    
+ 
     //! Translate a register's enum value to a register number
     /*!
       This method translates a register's enum value to it's regiser number,
@@ -46,12 +48,16 @@ namespace llvm {
     virtual const TargetRegisterClass *
     getPointerRegClass(unsigned Kind = 0) const;
 
+    /// After allocating this many registers, the allocator should feel
+    /// register pressure. The value is a somewhat random guess, based on the
+    /// number of non callee saved registers in the C calling convention.
+    virtual unsigned getRegPressureLimit( const TargetRegisterClass *RC,
+                                          MachineFunction &MF) const{
+      return 50;
+    }
+
     //! Return the array of callee-saved registers
     virtual const unsigned* getCalleeSavedRegs(const MachineFunction *MF) const;
-
-    //! Return the register class array of the callee-saved registers
-    virtual const TargetRegisterClass* const *
-      getCalleeSavedRegClasses(const MachineFunction *MF) const;
 
     //! Allow for scavenging, so we can get scratch registers when needed.
     virtual bool requiresRegisterScavenging(const MachineFunction &MF) const
@@ -60,47 +66,20 @@ namespace llvm {
     //! Return the reserved registers
     BitVector getReservedRegs(const MachineFunction &MF) const;
 
-    //! Prediate: Target has dedicated frame pointer
-    bool hasFP(const MachineFunction &MF) const;
     //! Eliminate the call frame setup pseudo-instructions
     void eliminateCallFramePseudoInstr(MachineFunction &MF,
                                        MachineBasicBlock &MBB,
                                        MachineBasicBlock::iterator I) const;
     //! Convert frame indicies into machine operands
-    unsigned eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
-                                 FrameIndexValue *Value = NULL,
-                                 RegScavenger *RS = NULL) const;
-    //! Determine the frame's layour
-    void determineFrameLayout(MachineFunction &MF) const;
+    void eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
+                             RegScavenger *RS = NULL) const;
 
-    void processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
-                                              RegScavenger *RS = NULL) const;
-    //! Emit the function prologue
-    void emitPrologue(MachineFunction &MF) const;
-    //! Emit the function epilogue
-    void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
-    //! Get return address register (LR, aka R0)
-    unsigned getRARegister() const;
     //! Get the stack frame register (SP, aka R1)
     unsigned getFrameRegister(const MachineFunction &MF) const;
-    //! Perform target-specific stack frame setup.
-    void getInitialFrameState(std::vector<MachineMove> &Moves) const;
 
     //------------------------------------------------------------------------
     // New methods added:
     //------------------------------------------------------------------------
-
-    //! Return the array of argument passing registers
-    /*!
-      \note The size of this array is returned by getArgRegsSize().
-     */
-    static const unsigned *getArgRegs();
-
-    //! Return the size of the argument passing register array
-    static unsigned getNumArgRegs();
-
-    //! Get DWARF debugging register number
-    int getDwarfRegNum(unsigned RegNum, bool isEH) const;
 
     //! Convert D-form load/store to X-form load/store
     /*!

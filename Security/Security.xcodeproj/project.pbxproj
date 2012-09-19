@@ -53,7 +53,6 @@
 		40A2A721066FE6B300858603 /* SecPassword.h in Headers */ = {isa = PBXBuildFile; fileRef = 40A2A720066FE6B200858603 /* SecPassword.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		44B9317D11CC0917005FBCF1 /* FDEPrefs.plist in Resources */ = {isa = PBXBuildFile; fileRef = 44B9317C11CC0917005FBCF1 /* FDEPrefs.plist */; };
 		44DAD0F411CAB4F8007A9244 /* FDELocalizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 44DAD0F211CAB4F8007A9244 /* FDELocalizable.strings */; };
-		48C16F4511D162D60037E993 /* SecRecoveryPassword.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C16F4411D162D60037E993 /* SecRecoveryPassword.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4C2495B305811D3200DDE4A6 /* security_exports.s in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF731A05363BD700D9DA7C /* security_exports.s */; };
 		4C596A41058115A0001507D4 /* Authorization.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C5969E5058115A0001507D4 /* Authorization.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4C596A42058115A0001507D4 /* AuthorizationDB.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C5969E6058115A0001507D4 /* AuthorizationDB.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -151,8 +150,11 @@
 		4CA9BED6063726BD0013F16F /* SecSMIME.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CA9BEC9063726BD0013F16F /* SecSMIME.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52008CCC11496FB700E8CA78 /* SecCertificateInternalP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52008CCB11496FB700E8CA78 /* SecCertificateInternalP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52141F5809771DAB002C0FF6 /* SecDebugErrorMessages.strings in Resources */ = {isa = PBXBuildFile; fileRef = 52141F5709771DAB002C0FF6 /* SecDebugErrorMessages.strings */; };
+		521F28F215758C66002B3975 /* TimeStampingPrefs.plist in Resources */ = {isa = PBXBuildFile; fileRef = 521F28F115758C66002B3975 /* TimeStampingPrefs.plist */; };
 		5270685507024D6F00C5D30E /* iToolsTrustedApps.plist in Resources */ = {isa = PBXBuildFile; fileRef = 5270685407024D6F00C5D30E /* iToolsTrustedApps.plist */; };
 		52B88E9511DD5D96005BCA6B /* SecFDERecoveryAsymmetricCrypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 52B88E9411DD5CCF005BCA6B /* SecFDERecoveryAsymmetricCrypto.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52EEE6FB15893A5000D20784 /* tsaSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 52EEE6FA15893A5000D20784 /* tsaSupport.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52EEE6FD15893ADA00D20784 /* cmspriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 52EEE6FC15893ADA00D20784 /* cmspriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52FB469D11481F39006D3B0A /* SecCertificateOIDs.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FB469C11481F39006D3B0A /* SecCertificateOIDs.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		5D97B436114EFC260033D0F9 /* SecDecodeTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D97B3F9114EF0D00033D0F9 /* SecDecodeTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		5D97B437114EFC260033D0F9 /* SecEncodeTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D97B3FA114EF0D00033D0F9 /* SecEncodeTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -193,6 +195,7 @@
 		D619986109F6FC4800699932 /* SecureDownload.h in Headers */ = {isa = PBXBuildFile; fileRef = D619986009F6FC4800699932 /* SecureDownload.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D619986309F6FC5A00699932 /* SecureDownloadInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = D619986209F6FC5A00699932 /* SecureDownloadInternal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D6FB4E6A05F934DC0015312A /* SecManifest.h in Headers */ = {isa = PBXBuildFile; fileRef = D6FB4E6805F934DC0015312A /* SecManifest.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB286952157EA8FC008BAF8C /* libOpenScriptingUtil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EB286951157EA8FC008BAF8C /* libOpenScriptingUtil.dylib */; };
 		FE2D0DC110DC0E8D00726AB5 /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = FE2D0DC010DC0E6A00726AB5 /* SecTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
@@ -391,8 +394,11 @@
 		4ED0DD500E887E6400F626D0 /* security_cryptkit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cryptkit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		52008CCB11496FB700E8CA78 /* SecCertificateInternalP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateInternalP.h; sourceTree = "<group>"; };
 		52141F5709771DAB002C0FF6 /* SecDebugErrorMessages.strings */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; path = SecDebugErrorMessages.strings; sourceTree = "<group>"; };
+		521F28F115758C66002B3975 /* TimeStampingPrefs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = TimeStampingPrefs.plist; sourceTree = "<group>"; };
 		5270685407024D6F00C5D30E /* iToolsTrustedApps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = iToolsTrustedApps.plist; sourceTree = "<group>"; };
 		52B88E9411DD5CCF005BCA6B /* SecFDERecoveryAsymmetricCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecFDERecoveryAsymmetricCrypto.h; sourceTree = "<group>"; };
+		52EEE6FA15893A5000D20784 /* tsaSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = tsaSupport.h; path = tsaSupport.h; sourceTree = "<group>"; };
+		52EEE6FC15893ADA00D20784 /* cmspriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cmspriv.h; path = cmspriv.h; sourceTree = "<group>"; };
 		52FB469C11481F39006D3B0A /* SecCertificateOIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateOIDs.h; sourceTree = "<group>"; };
 		5D97B3F9114EF0D00033D0F9 /* SecDecodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecDecodeTransform.h; sourceTree = "<group>"; };
 		5D97B3FA114EF0D00033D0F9 /* SecEncodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEncodeTransform.h; sourceTree = "<group>"; };
@@ -441,6 +447,7 @@
 		D6FB4E6F05F935690015312A /* security_manifest.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_manifest.exp; sourceTree = "<group>"; };
 		D6FB4E9405F937900015312A /* security_manifest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_manifest.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6FB4E9505F937900015312A /* security_smime.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_smime.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB286951157EA8FC008BAF8C /* libOpenScriptingUtil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libOpenScriptingUtil.dylib; path = ../../../../../../usr/lib/libOpenScriptingUtil.dylib; sourceTree = "<group>"; };
 		FE2D0DC010DC0E6A00726AB5 /* SecTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTask.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -449,6 +456,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB286952157EA8FC008BAF8C /* libOpenScriptingUtil.dylib in Frameworks */,
 				AA8AC7AF1117BDD10002A07F /* security_transform.framework in Frameworks */,
 				1C4A135111066573006A16DA /* libpam.dylib in Frameworks */,
 				C2FBE3530E3E5B0A00BC6617 /* libsqlite3.dylib in Frameworks */,
@@ -482,6 +490,7 @@
 		0867D691FE84028FC02AAC07 /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				EB286951157EA8FC008BAF8C /* libOpenScriptingUtil.dylib */,
 				4CD808CC05360655009F54B0 /* lib */,
 				C27262DF0B86228400D889AF /* plugins */,
 				089C1665FE841158C02AAC07 /* intl */,
@@ -692,6 +701,8 @@
 		4C596A17058115A0001507D4 /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				52EEE6FC15893ADA00D20784 /* cmspriv.h */,
+				52EEE6FA15893A5000D20784 /* tsaSupport.h */,
 				12D4A8BE1226FAD900C2B581 /* SecRandomP.h */,
 				52B88E9411DD5CCF005BCA6B /* SecFDERecoveryAsymmetricCrypto.h */,
 				AA963A0B11A61D3500AE419B /* SecTransformInternal.h */,
@@ -808,6 +819,7 @@
 		4CD808CC05360655009F54B0 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				521F28F115758C66002B3975 /* TimeStampingPrefs.plist */,
 				44B9317C11CC0917005FBCF1 /* FDEPrefs.plist */,
 				4C60A0B105811AC800C8A016 /* copy_pieces.mk */,
 				C299D086056BF15B004BB123 /* generateErrStrings.pl */,
@@ -968,11 +980,12 @@
 				050CCC3E0A115FAC004DFCA9 /* TrustSettingsSchema.h in Headers */,
 				BE4AFDB00F85EEAB002B2F42 /* SecItem.h in Headers */,
 				BE4AFDB50F85EEE7002B2F42 /* SecItemPriv.h in Headers */,
-				48C16F4511D162D60037E993 /* SecRecoveryPassword.h in Headers */,
 				5DCB819012073F90007A7D84 /* SecCustomTransform.h in Headers */,
 				12D4A8BF1226FAD900C2B581 /* SecRandomP.h in Headers */,
 				12D4A8F212270ABC00C2B581 /* SecRandom.h in Headers */,
 				C273608C1433F36D00A9A5FF /* SecAssessment.h in Headers */,
+				52EEE6FB15893A5000D20784 /* tsaSupport.h in Headers */,
+				52EEE6FD15893ADA00D20784 /* cmspriv.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1113,6 +1126,7 @@
 				52141F5809771DAB002C0FF6 /* SecDebugErrorMessages.strings in Resources */,
 				44DAD0F411CAB4F8007A9244 /* FDELocalizable.strings in Resources */,
 				44B9317D11CC0917005FBCF1 /* FDEPrefs.plist in Resources */,
+				521F28F215758C66002B3975 /* TimeStampingPrefs.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1579,9 +1593,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55148.1;
+				CURRENT_PROJECT_VERSION = 55148.6;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55148.1;
+				DYLIB_CURRENT_VERSION = 55148.6;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1640,9 +1654,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55148.1;
+				CURRENT_PROJECT_VERSION = 55148.6;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55148.1;
+				DYLIB_CURRENT_VERSION = 55148.6;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1699,9 +1713,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55148.1;
+				CURRENT_PROJECT_VERSION = 55148.6;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55148.1;
+				DYLIB_CURRENT_VERSION = 55148.6;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1751,9 +1765,9 @@
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security";
-				CURRENT_PROJECT_VERSION = 55148.1;
+				CURRENT_PROJECT_VERSION = 55148.6;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55148.1;
+				DYLIB_CURRENT_VERSION = 55148.6;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1814,9 +1828,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55148.1;
+				CURRENT_PROJECT_VERSION = 55148.6;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55148.1;
+				DYLIB_CURRENT_VERSION = 55148.6;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1871,6 +1885,7 @@
 		C23B0C8609A2987F00B7FCED /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				BUILD_VARIANTS = debug;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
@@ -1884,6 +1899,7 @@
 		C23B0C8709A2987F00B7FCED /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
@@ -1892,6 +1908,7 @@
 		C23B0C8809A2987F00B7FCED /* Darwin */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
@@ -1900,6 +1917,7 @@
 		C23B0C8909A2987F00B7FCED /* normal with debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
@@ -1908,6 +1926,7 @@
 		C23B0C8A09A2987F00B7FCED /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};

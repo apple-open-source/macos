@@ -52,6 +52,16 @@ const CFStringRef kSecCodeSignerRequirements =	CFSTR("requirements");
 const CFStringRef kSecCodeSignerResourceRules =	CFSTR("resource-rules");
 const CFStringRef kSecCodeSignerSDKRoot =		CFSTR("sdkroot");
 const CFStringRef kSecCodeSignerSigningTime =	CFSTR("signing-time");
+const CFStringRef kSecCodeSignerRequireTimestamp = CFSTR("timestamp-required");
+const CFStringRef kSecCodeSignerTimestampServer = CFSTR("timestamp-url");
+const CFStringRef kSecCodeSignerTimestampAuthentication = CFSTR("timestamp-authentication");
+const CFStringRef kSecCodeSignerTimestampOmitCertificates =	CFSTR("timestamp-omit-certificates");
+
+// temporary add-back to bridge B&I build dependencies -- remove soon
+const CFStringRef kSecCodeSignerTSAUse = CFSTR("timestamp-required");
+const CFStringRef kSecCodeSignerTSAURL = CFSTR("timestamp-url");
+const CFStringRef kSecCodeSignerTSAClientAuth = CFSTR("timestamp-authentication");
+const CFStringRef kSecCodeSignerTSANoCerts =	CFSTR("timestamp-omit-certificates");
 
 
 //

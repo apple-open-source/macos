@@ -31,6 +31,14 @@
 #define kUSBAudioInterfaceDesc (0x24)
 #define kUSBAudioEndPointDesc  (0x25)
 
+// <rdar://10009579>
+#define kUSBAudioDescriptorBytesPerLine     16
+// String buffer size to log desciptor:
+//     Each byte in descriptor requires 3 chars: 2 for nibbles + a space char
+//     One byte for null terminator
+#define kUSBAudioMaxDescriptorStringSize    ( ( kUSBAudioDescriptorBytesPerLine * 3 ) + 1 ) * sizeof ( char )  
+
+
 #pragma pack(1)
 typedef struct {
     UInt8	descLen;
@@ -196,7 +204,7 @@ typedef struct {
 
 #pragma pack(1)
 typedef struct acProcessingDescriptor{						//	ееее WARNING еее ADDING ELEMENTS WILL KILL CODE!!!
-    UInt8			bLength;				//	size of this descriptor in bytes
+    UInt8			descLen;				//	size of this descriptor in bytes
     UInt8			bDescriptorType;		//	const CS_INTERFACE
     UInt8			bDescriptorSubtype;		//	const FEATURE_UNIT
     UInt8			bUnitID;
@@ -304,8 +312,6 @@ typedef struct {
     UInt8	bLockDelayUnits;
     UInt16	wLockDelay;
 } CSA20S_IsocEndPtDesc, *CSAS20_IsocEndPtDescPtr;
-#pragma options align=reset
-
 #pragma options align=reset
 
 #pragma pack(1)
@@ -450,7 +456,6 @@ typedef struct ac20ProcessingDescriptorCont{
 typedef ac20ProcessingDescriptorCont *ac20ProcessingDescriptorContPtr;
 
 /* Refer to USB PDF files for Frmts10.pdf pp. 10 for Type I Format Descriptor. */
-#pragma options align=reset
 #pragma pack(1)
 typedef struct {
     UInt8	descLen;

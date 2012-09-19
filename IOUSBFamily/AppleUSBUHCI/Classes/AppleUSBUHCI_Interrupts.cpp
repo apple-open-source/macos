@@ -39,7 +39,8 @@
 void 
 AppleUSBUHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 {
-    USBLog(1, "AppleUSBUHCI[%p]::PollInterrupts (unused)", this);
+#pragma unused (safeAction)
+   USBLog(1, "AppleUSBUHCI[%p]::PollInterrupts (unused)", this);
     // Not used
 }
 
@@ -71,6 +72,7 @@ AppleUSBUHCI::UpdateFrameNumberWithTime(void)
 bool 
 AppleUSBUHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source)
 {
+#pragma unused (source)
     register AppleUSBUHCI	*controller = (AppleUSBUHCI *)owner;
     bool					result = true;
 	
@@ -98,6 +100,7 @@ AppleUSBUHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
 void 
 AppleUSBUHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource *source, int count)
 {
+#pragma unused (source, count)
     AppleUSBUHCI *controller = (AppleUSBUHCI *)owner;
     
     //USBLog(7, "AppleUSBUHCI::InterruptHandler");

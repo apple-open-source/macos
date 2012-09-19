@@ -113,7 +113,7 @@
 		52DEDA790D57A5B800F6FF83 /* Info-IOUSBMassStorageClass.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOUSBMassStorageClass.plist"; sourceTree = "<group>"; };
 		52DEDA7A0D57A5B800F6FF83 /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		F3476D6C0F54778B00C7C673 /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
+		F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
 		F5C72C5902B5B8E201CE155F /* Debugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Debugging.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -433,7 +433,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -478,7 +478,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -513,7 +513,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -546,7 +546,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -580,7 +580,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -618,7 +618,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -658,7 +658,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -691,7 +691,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -732,7 +732,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -766,7 +766,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -810,7 +810,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -848,7 +848,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
+				MODULE_VERSION = 3.0.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

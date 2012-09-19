@@ -25,6 +25,8 @@
 <a href="../fr/mod/mod_proxy.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div>
+<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
+            anglaise pour les changements récents.</div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Serveur mandataire/passerelle HTTP/1.1</td></tr>
 <tr><th><a href="module-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Identificateur de Module:</a></th><td>proxy_module</td></tr>
@@ -1215,7 +1217,7 @@ l'espace d'URLs du serveur local</td></tr>
 
     </table>
 
-    <p>Si l'URL de la directive Proxy débute par
+    <p>Si l'URL de la directive <code class="directive">ProxyPass</code> débute par
     <code>balancer://</code> (par exemple:
     <code>balancer://cluster/</code>, toute information relative au
     chemin est ignorée), alors un serveur cible virtuel ne communiquant pas
@@ -1288,6 +1290,7 @@ l'espace d'URLs du serveur local</td></tr>
 	un état d'erreur lorsque le serveur d'arrière-plan retounera un
 	code d'état spécifié dans la liste. Le rétablissement du worker
 	est le même qu'avec les autres erreurs de worker.
+	Disponible à partir de la version 2.2.17 du serveur HTTP Apache.
     </td></tr>
     </table>
     <p>Exemple de configuration d'un répartiteur</p>
@@ -1384,7 +1387,8 @@ les configurations de mandataires inverses</td></tr>
     <code class="directive">ProxyPassReverseCookiePath</code>, en leur indiquant
     de remplacer la chaîne <code>${nom_var}</code> dans les directives
     de configuration par la valeur de la variable d'environnement
-    <code>nom_var</code>.</p>
+    <code>nom_var</code> (si l'option <var>interpolate</var> est
+    spécifiée).</p>
     <p>Conservez cette directive à off (pour les performances du
     serveur), sauf si vous en avez réellement besoin.</p>
 
@@ -1449,6 +1453,16 @@ d'Apache</td></tr>
     <p>Si vous avez besoin d'une configuration de mandataire inverse
     plus flexible, reportez-vous à la directive <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> avec le drapeau
     <code>[P]</code>.</p>
+
+    <div class="warning">
+      <h3>Avertissement à propos de la sécurité</h3>
+      <p>Lors de la construction de l'URL cible de la règle, il convient
+      de prendre en compte l'impact en matière de sécurité qu'aura le
+      fait de permettre au client d'influencer le jeu d'URLs pour
+      lesquelles votre serveur agira en tant que mandataire.
+      Assurez-vous que la partie protocole://nom-serveur de l'URL soit
+      fixe, ou ne permette pas au client de l'influencer induement.</p>
+    </div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1567,11 +1581,26 @@ Set-Cookie en provenance d'un serveur mandaté</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 </table>
-<p>L'utilisation de cette directive est similaire à celle de la
-directive <code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code>,
-mais au lieu de réécrire des en-têtes qui contiennent des URLs, elle
-réécrit la chaîne correspondant au <code>chemin</code> dans les en-têtes
-<code>Set-Cookie</code>.</p>
+<p>
+Cette directive s'avère utile en conjonction avec la directive
+<code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code> dans les
+situations où les chemins d'URL d'arrière-plan correspondent à des
+chemins publics sur le mandataire inverse. Cette directive permet de
+réécrire la chaîne <code>path</code> dans les en-têtes
+<code>Set-Cookie</code>. Si le début du chemin du cookie correspond à
+<var>chemin-interne</var>, le chemin du cookie sera remplacé par
+<var>chemin-public</var>.
+</p><p>
+Dans l'exemple fourni avec la directive <code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code>, la directive :
+</p>
+    <div class="example"><p><code>
+      ProxyPassReverseCookiePath  /  /mirror/foo/
+    </code></p></div>
+<p>
+va réécrire un cookie possédant un chemin d'arrière-plan <code>/</code>
+(ou <code>/example</code> ou en fait tout chemin)
+en <code>/mirror/foo/</code>..
+</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1864,6 +1893,6 @@ mandatées</td></tr>
 <a href="../fr/mod/mod_proxy.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
 </body></html>

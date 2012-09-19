@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1997-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1997-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -77,6 +77,8 @@ class USBGlobals
 static int				USBSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct sysctl_req * req );
 static USBGlobals		gUSBStackGlobals;						// needs to be declared early to register tracepoints via sysctl
 UInt32					gUSBStackDebugFlags = 0;				// extern-ed in USBTracepoints.h
+UInt32                  gEHCIBandwidthLogLevel = 7;             // Level for USBLog calls pertaining to EHCI Periodic Bandwidth allocation
+UInt32                  gEHCIRLvalue = 15;                      // Level for an appropriate EHCI driver to use for the RL field
 
 SYSCTL_PROC ( _debug, OID_AUTO, USB, CTLFLAG_RW, 0, 0, USBSysctl, "USB", "USB debug interface" );
 
@@ -118,6 +120,18 @@ USBGlobals::USBGlobals ( void )
 	if ( PE_parse_boot_argn ( "usb", &debugFlags, sizeof ( debugFlags ) ) )
 	{
 		gUSBStackDebugFlags = debugFlags;
+	}
+	
+	if ( PE_parse_boot_argn ( "ehciBWlogs", &debugFlags, sizeof ( debugFlags ) ) )
+	{
+        if (debugFlags < 8)
+            gEHCIBandwidthLogLevel = debugFlags;
+	}
+	
+	if ( PE_parse_boot_argn ( "ehciRL", &debugFlags, sizeof ( debugFlags ) ) )
+	{
+        if (debugFlags < 16)
+            gEHCIRLvalue = debugFlags;
 	}
 	
 	// Register our sysctl interface
@@ -268,6 +282,9 @@ static SleepCurrentPerModel  gSleepCurrentInfo[] = {
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 #define _needToClose					_expansionData->_needToClose
 #define _isochMaxBusStall				_expansionData->_isochMaxBusStall
+#ifdef SUPPORTS_SS_USB
+	#define _rootHubDeviceSS				_expansionData->_rootHubDeviceSS
+#endif
 
 #pragma mark Synchronous Callbacks
 //================================================================================================
@@ -389,7 +406,10 @@ IOUSBController::init(OSDictionary * propTable)
     // This needs to be set before start.
     _controllerSpeed = kUSBDeviceSpeedFull;	
 	
-    
+#ifdef SUPPORTS_SS_USB
+	_rootHubDeviceSS = NULL;
+#endif
+ 
     return (true);
 }
 
@@ -408,18 +428,27 @@ IOUSBController::start( IOService * provider )
         return false;
 	
 #if CONTROLLER_USE_KPRINTF
-	IOSleep(5000);
+	IOSleep(25000);
 #endif
 	
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
 	static bool gVersionPrinted = false;
 	
+#if CONTROLLER_USE_KPRINTF
+	setProperty("IOUSBFamily-kprintf version", QUOTEDSTRING(IOUSBFAMILY_VERSION));
+	if ( not gVersionPrinted)
+	{
+		gVersionPrinted = true;
+		IOLog("IOUSBFamily-kprintf version: %s, usb boot-args: 0x%x\n", QUOTEDSTRING(IOUSBFAMILY_VERSION), (uint32_t)gUSBStackDebugFlags);
+	}
+#else
 	setProperty("IOUSBFamily version", QUOTEDSTRING(IOUSBFAMILY_VERSION));
 	if ( not gVersionPrinted)
 	{
 		gVersionPrinted = true;
-		IOLog("IOUSBFamily version: %s\n", QUOTEDSTRING(IOUSBFAMILY_VERSION));
+		IOLog("IOUSBFamily version: %s, usb boot-args: 0x%x\n", QUOTEDSTRING(IOUSBFAMILY_VERSION), (uint32_t)gUSBStackDebugFlags);
 	}
+#endif
 #endif
 	
 	USBTrace_Start( kUSBTController, kTPControllerStart, (uintptr_t)provider, 0, 0, 0);
@@ -682,8 +711,12 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
 {
 	
     USBLog(5,"%s[%p]::CreateDevice: addr=%d, speed=%s, power=%d", getName(), this,
+#ifdef SUPPORTS_SS_USB
+		   deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : ((speed == kUSBDeviceSpeedHigh) ? "high" : "super")), (int)powerAvailable*2);
+#else
 		   deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : "high"), (int)powerAvailable*2);
-    
+#endif
+   
     _addressPending[deviceAddress] = true;			// in case the INIT takes a long time
     do 
     {
@@ -749,7 +782,7 @@ USBDeviceAddress
 IOUSBController::GetNewAddress(void)
 {
     int 	i;
-    bool 	assigned[kUSBMaxDevices];
+    bool 	assigned[kUSBMaxDevices+2];     // 2 for when we split the root hub
     OSIterator * clients;
 	
     bzero(assigned, sizeof(assigned));
@@ -764,7 +797,9 @@ IOUSBController::GetNewAddress(void)
             IOUSBDevice *testIt = OSDynamicCast(IOUSBDevice, next);
             if (testIt)
             {
-                assigned[testIt->GetAddress()] = true;
+				USBLog(6, "%s[%p]::GetNewAddress - Assigned address %d", getName(), this, testIt->GetAddress());
+				if (testIt->GetAddress() < kUSBMaxDevices)
+                	assigned[testIt->GetAddress()] = true;
             }
         }
         clients->release();
@@ -776,6 +811,7 @@ IOUSBController::GetNewAddress(void)
     {
         if ( _addressPending[i] == true )
         {
+			USBLog(5, "%s[%p]::GetNewAddress - Assigned address pending at index: %d", getName(), this, i);
             assigned[i] = true;
         }
     }
@@ -787,11 +823,12 @@ IOUSBController::GetNewAddress(void)
     {
 		if (!assigned[i])
         {
-            return i;
+ 			USBLog(5, "%s[%p]::GetNewAddress - returning address: %d", getName(), this, i);
+           	return i;
         }
     }
 	
-    USBLog(2, "%s[%p]::GetNewAddress - ran out of new addresses!", getName(), this);
+    USBLog(1, "%s[%p]::GetNewAddress - ran out of new addresses!", getName(), this);
     return (0);	// No free device addresses!
 }
 
@@ -860,7 +897,8 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 									   kUSBSetup);					// direction
         if (err)
         {
-            USBLog(2, "IOUSBController(%s)[%p]::ControlTransaction - phase 1 err(%p), command(%p), requestMemoryDescriptor(%p), bufferCommand(%p)", getName(), this, (void*)err, command, requestMemoryDescriptor, bufferCommand);
+            USBLog(2, "IOUSBController(%s)[%p]::ControlTransaction - phase 1 err(0x%x), command(%p), requestMemoryDescriptor(%p), bufferCommand(%p)", getName(), this, (uint32_t)err, command, requestMemoryDescriptor, bufferCommand);
+
 			// 5522629 - we need to "unwind" the command structure, since there is nothing actually queued up at this point
 			// we do that here - after phase 1 - rather than after phase 2 or phase 3, because after those phases there is still SOMETHING which 
 			// will get dealt with when the interrupts get processed. This is the same stuff which might otherwise happen in ControlPacketHandler
@@ -934,10 +972,7 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 										   direction);										// direction
             if (err)
             {
-                char theString[255]="";
-                snprintf(theString, sizeof(theString), "ControlTransaction: control packet 2 error 0x%x", err);
-                // panic(theString);
-				// {USBError(1, theString);}
+				USBLog(2, "IOUSBController(%s)[%p]::ControlTransaction - Data Stage err(0x%x), command(%p), bufferCommand->GetBufferMemoryDescriptor(%p), bufferCommand(%p)", getName(), this, (uint32_t)err, command, bufferCommand->GetBufferMemoryDescriptor(), bufferCommand);
                 break;
             }
             
@@ -959,9 +994,7 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 									   direction);					// direction
         if (err)
         {
-            char theString[255]="";
-            snprintf(theString, sizeof(theString), "%s[%p]::ControlTransaction: control packet 3 error 0x%x", getName(), this, err);
-           //  { USBError(1, theString);}
+			USBLog(2, "IOUSBController(%s)[%p]::ControlTransaction - Status Stage err(0x%x), command(%p), bufferCommand->GetBufferMemoryDescriptor(%p), bufferCommand(%p)", getName(), this, (uint32_t)err, command, bufferCommand->GetBufferMemoryDescriptor(), bufferCommand);
             break;
         }
     } while(false);
@@ -1244,6 +1277,7 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 	bool				isSyncTransfer;
 	IOUSBCompletion		theCompletion;
 	AbsoluteTime		theTimeStamp;
+    bool                useTimeStamp;
 	
     if (command == 0)
         return;
@@ -1286,16 +1320,19 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 	isSyncTransfer = command->GetIsSyncTransfer();
 	theCompletion = command->GetClientCompletion();
 	theTimeStamp = command->GetTimeStamp();
+    useTimeStamp = command->GetUseTimeStamp();
 	
-    // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
+    // Only return the command if this is NOT a synchronous request and NOT a disjoint completion.  
+	// For Sync requests, we return it later.  For Disjoint completions, we return it in that completion
 	//
-	if ( !isSyncTransfer )
+    IOUSBCompletion disjointCompletion = command->GetDisjointCompletion();
+	if ( !isSyncTransfer && (disjointCompletion.action == NULL))
 	{
 		me->_freeUSBCommandPool->returnCommand(command);
 	}
 
     // Call the clients handler
-    if ( command->GetUseTimeStamp() )
+    if ( useTimeStamp )
     {
         IOUSBCompletionWithTimeStamp	completionWithTimeStamp;
 		
@@ -1416,9 +1453,11 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 	
 	theCompletion = command->GetClientCompletion();
 	
-    // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
+    // Only return the command if this is NOT a synchronous request and NOT a disjoint completion.  
+	// For Sync requests, we return it later.  For Disjoint completions, we return it in that completion
 	//
-	if ( !isSyncTransfer )
+    IOUSBCompletion disjointCompletion = command->GetDisjointCompletion();
+	if ( !isSyncTransfer && (disjointCompletion.action == NULL))
 	{
 		me->_freeUSBCommandPool->returnCommand(command);
 	}
@@ -1537,6 +1576,7 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 		busFunctEP |= 0x80000000;
 	
 	USBTrace_Start( kUSBTController, kTPIsocTransaction, (uintptr_t)this, busFunctEP, (uintptr_t)command->GetStartFrame(), command->GetNumFrames());
+	USBTrace( kUSBTController, kTPIsocTransaction, (uintptr_t)this, command->GetUpdateFrequency(), 0, 0);
 
 	command->SetUSLCompletion(completion);
 	if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
@@ -2096,10 +2136,10 @@ IOUSBController::AcquireDeviceZero()
     IOReturn			err = 0;
 	IOCommandGate * 	commandGate = GetCommandGate();
 	
-    USBLog(6,"%s[%p]: Trying to acquire Device Zero", getName(), this);
+    USBLog(6,"%s[%p]::AcquireDeviceZero  Trying to acquire Device Zero", getName(), this);
     commandGate->runAction(ProtectedDevZeroLock, (void*)true);
 	
-    USBLog(5,"%s[%p]: Acquired Device Zero", getName(), this);
+    USBLog(5,"%s[%p]::AcquireDeviceZero  Acquired Device Zero", getName(), this);
 		
     return(err);
 }
@@ -2112,10 +2152,12 @@ IOUSBController::ReleaseDeviceZero(void)
     IOReturn			err = 0;
 	IOCommandGate * 	commandGate = GetCommandGate();
 	
+    USBLog(6,"%s[%p]::ReleaseDeviceZero  calling DoDeleteEP", getName(), this);
     err = commandGate->runAction(DoDeleteEP, (void *)0, (void *)0, (void *)kUSBAnyDirn);
+    USBLog(6,"%s[%p]::ReleaseDeviceZero  calling to release devZero lock", getName(), this);
     err = commandGate->runAction(ProtectedDevZeroLock, (void*)false);
 	
-    USBLog(5,"%s[%p]:: Released Device Zero", getName(), this);
+    USBLog(5,"%s[%p]::ReleaseDeviceZero Released Device Zero", getName(), this);
 	
     return;
 }
@@ -2127,8 +2169,11 @@ IOUSBController::WaitForReleaseDeviceZero()
 {
 	IOCommandGate * 	commandGate = GetCommandGate();
 	
+    USBLog(6,"%s[%p]::WaitForReleaseDeviceZero acquiring", getName(), this);
     commandGate->runAction(ProtectedDevZeroLock, (void*)true);
+    USBLog(6,"%s[%p]::WaitForReleaseDeviceZero releasing", getName(), this);
     commandGate->runAction(ProtectedDevZeroLock, (void*)false);
+    USBLog(6,"%s[%p]::WaitForReleaseDeviceZero returning", getName(), this);
 }
 
 
@@ -2149,7 +2194,12 @@ IOUSBController::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed)
     //
     err = OpenPipe(0, speed, &ep);
 	
-    return(err);
+	if ( err != kIOReturnSuccess)
+	{
+		USBLog(3, "%s[%p]::ConfigureDeviceZero (maxPacketSize: %d, Speed: %d) returned 0x%x (%s)", getName(), this, maxPacketSize, speed, err, USBStringFromReturn(err));
+	}
+	
+    return  err;
 }
 
 
@@ -2272,6 +2322,27 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
 		return NULL;
     }
 	
+#ifdef SUPPORTS_SS_USB
+	IOUSBControllerV3* me3 = OSDynamicCast(IOUSBControllerV3, this);
+	
+	if (me3)
+	{
+		USBDeviceAddress 	latestDeviceAddress = 0;
+		
+		err = me3->GetActualDeviceAddress(*address, &latestDeviceAddress);
+		
+		if (err == kIOReturnSuccess)
+		{
+			USBLog(5, "%s[%p]::MakeDevice  GetActualDeviceAddress returned address: %d", getName(), this, latestDeviceAddress);
+			*address = latestDeviceAddress;
+		}
+		else
+		{
+			USBLog(6, "%s[%p]::MakeDevice  GetActualDeviceAddress returned 0x%x", getName(), this, (uint32_t) err);
+		}
+	}
+#endif
+
 	USBTrace_End( kUSBTController, kTPControllerMakeDevice, (uintptr_t)this, (uintptr_t)newDev, 0, 0);
 	
     return newDev;
@@ -2304,7 +2375,7 @@ IOUSBController::MakeHubDevice(USBDeviceAddress *	address)
 	
     err = SetDeviceZeroAddress(*address);
     
-    if (err)
+	if (err)
     {
         USBLog(1, "%s[%p]::MakeHubDevice error setting address. err=0x%x device=%p - releasing device", getName(), this, err, newDev);
 		USBTrace( kUSBTController, kTPControllerMakeHubDevice, (uintptr_t)this, err, (uintptr_t)newDev, *address);
@@ -2312,6 +2383,20 @@ IOUSBController::MakeHubDevice(USBDeviceAddress *	address)
 		newDev->release();
 		return NULL;
     }
+	
+#ifdef SUPPORTS_SS_USB
+	IOUSBControllerV3* me3 = OSDynamicCast(IOUSBControllerV3, this);
+	
+	if (me3)
+	{
+		USBDeviceAddress latestDeviceAddress = me3->UIMGetActualDeviceAddress(*address);
+		
+		if(latestDeviceAddress > 0)
+		{
+			*address = latestDeviceAddress;
+		}
+	}
+#endif
 	
 	USBTrace_End( kUSBTController, kTPControllerMakeHubDevice, (uintptr_t)this, (uintptr_t)newDev, 0, 0 );
 	
@@ -2352,6 +2437,9 @@ IOUSBController::PolledRead(short					functionNumber,
     command->SetRequest(0);            	// Not a device request
     command->SetAddress(functionNumber);
     command->SetEndpoint(endpointNumber);
+#ifdef SUPPORTS_SS_USB
+    command->SetStreamID(0);
+#endif
     command->SetDirection(kUSBIn);
     command->SetType(kUSBInterrupt);
     command->SetBuffer(CBP);
@@ -2410,7 +2498,7 @@ IOUSBController::stop( IOService * provider )
 {
 #pragma unused (provider)
 	UInt32				i;
-	    
+
 	if ( _expansionData && _watchdogUSBTimer )
     {
 		_watchdogUSBTimer->cancelTimeout();
@@ -2520,6 +2608,15 @@ IOUSBController::finalize(IOOptionBits options)
         _rootHubDevice = NULL;	    
     }
 	
+#ifdef SUPPORTS_SS_USB
+	if ( _rootHubDeviceSS )
+    {
+        _rootHubDeviceSS->detachFromParent(getRegistryRoot(), gIOUSBPlane);
+        _rootHubDeviceSS->release();
+        _rootHubDeviceSS = NULL;	    
+    }
+#endif
+	
 	if (_provider->isOpen(this))
 	{
         _provider->close(this);
@@ -2614,6 +2711,12 @@ IOUSBController::GetCommandGate(void)
     return _commandGate; 
 }
 
+
+void 				
+IOUSBController::ReturnUSBCommand( IOUSBCommand *  command )
+{
+	_freeUSBCommandPool->returnCommand(command);
+}
 
 
 void
@@ -2991,6 +3094,9 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 		command->SetRequest(request);
 		command->SetAddress(address);
 		command->SetEndpoint(ep);
+#ifdef SUPPORTS_SS_USB
+    	command->SetStreamID(0);
+#endif
 		command->SetDirection(kUSBAnyDirn);
 		command->SetType(kUSBControl);
 		command->SetBuffer(0);											// no buffer for device requests
@@ -3309,6 +3415,9 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *co
 		command->SetRequest((IOUSBDevRequest *)request);
 		command->SetAddress(address);
 		command->SetEndpoint(ep);
+#ifdef SUPPORTS_SS_USB
+    	command->SetStreamID(0);
+#endif
 		command->SetDirection(kUSBAnyDirn);
 		command->SetType(kUSBControl);
 		command->SetClientCompletion(*completion);
@@ -3468,13 +3577,18 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     IOReturn					err = kIOReturnSuccess;
     OSNumber *					busNumberProp;
     UInt32						bus;
-    UInt32						address;
+    UInt32						address = 0, localAddress = 0;
     int							deviceNum = 0, functionNum = 0;
     SInt32						busIndex;
 	const char *				parentLocation;
 	IOPCIDevice *				pciDevice = OSDynamicCast(IOPCIDevice, provider);
 	bool						sleepExtraCurrentExists = false;
-
+#ifdef SUPPORTS_SS_USB
+	IOUSBControllerV3			*me3 = NULL;
+#endif
+	UInt8						localSpeed = _controllerSpeed; 
+	UInt32						localPower = kUSB500mAAvailable;
+	
 	USBTrace_Start( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)provider, 0, 0, 0);
 	
     /*
@@ -3488,11 +3602,46 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         goto ErrorExit;
     }
 	
+#ifdef SUPPORTS_SS_USB
+	me3 = OSDynamicCast(IOUSBControllerV3, this);
+	
+	if (me3 && (_controllerSpeed == kUSBDeviceSpeedSuper))
+	{
+		if(_rootHubDeviceSS == NULL)
+		{
+			// XHCI Root hub SS
+			localAddress = kXHCISSRootHubAddress;
+			localSpeed   = kUSBDeviceSpeedSuper;
+			localPower	 = kUSB900mAAvailable;
+			
+			// Since we are creating the SuperSpeed RootHub device, this is a good time to count how many
+			// external ports we have, using the ACPI tables.  This is needed to 'reserve' the extra power
+			// for SS device that can be attached.  So, at this point we would count those ports and add
+			// them to a AAPL,External-USB-Ports property
+		}
+		else 
+		{
+			// XHCI Root hub HS
+			localAddress = kXHCIUSB2RootHubAddress;
+			localSpeed   = kUSBDeviceSpeedHigh;
+		}
+		address	=	(localAddress << kUSBAddress_Shift) & kUSBAddress_Mask;
+		address	|=	(localSpeed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
+	}
+	else
+#endif
+	{
+		// EHCI Root hub HS
+		address = GetNewAddress();
+		localAddress = address; 
+	}
+
     *rootHubDevice = IOUSBRootHubDevice::NewRootHubDevice();
-    address = GetNewAddress();
+
     SetHubAddress( address );
-    
-    err = CreateDevice(*rootHubDevice, address, desc.bMaxPacketSize0, _controllerSpeed, kUSB500mAAvailable);
+
+	err = CreateDevice(*rootHubDevice, localAddress, desc.bMaxPacketSize0, localSpeed, localPower);
+
     if ( err != kIOReturnSuccess)
     {
         USBError(1,"%s[%p]::CreateRootHubDevice  unable to create and initialize root hub device", getName(), this);
@@ -3514,6 +3663,32 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	{
 		deviceNum = pciDevice->getDeviceNumber();
 		functionNum = pciDevice->getFunctionNumber();
+        USBLog(6,"%s[%p]::CreateRootHubDevice  PCI deviceNum: %d, functionNum: %d", getName(), this, (uint32_t)deviceNum, (uint32_t)functionNum);
+		if ( deviceNum == 0 && functionNum == 0)
+		{
+			IOPCIDevice *	parentPCI = OSDynamicCast(IOPCIDevice, pciDevice->getParentEntry(gIOServicePlane));
+			if (parentPCI)
+			{
+				deviceNum = pciDevice->getDeviceNumber();
+				functionNum = pciDevice->getFunctionNumber();
+				USBLog(6,"%s[%p]::CreateRootHubDevice  Parent PCI deviceNum: %d, Parent functionNum: %d", getName(), this, (uint32_t)deviceNum, (uint32_t)functionNum);
+			}
+			else 
+			{
+				USBLog(6,"%s[%p]::CreateRootHubDevice  Parent PCI not an IOPCIDevice, trying grandparent", getName(), this);
+				IOPCIDevice *	grandParentPCI = OSDynamicCast(IOPCIDevice, (pciDevice->getParentEntry(gIOServicePlane))->getParentEntry(gIOServicePlane));
+				if (grandParentPCI)
+				{
+					deviceNum = grandParentPCI->getDeviceNumber();
+					functionNum = grandParentPCI->getFunctionNumber();
+					USBLog(6,"%s[%p]::CreateRootHubDevice  Grand Parent PCI deviceNum: %d, Grand Parent functionNum: %d", getName(), this, (uint32_t)deviceNum, (uint32_t)functionNum);
+				}
+				else 
+				{
+					USBLog(6,"%s[%p]::CreateRootHubDevice  Grand Parent PCI not an IOPCIDevice", getName(), this);
+				}
+			}
+		}
 	}
 	else
 	{
@@ -3560,9 +3735,25 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     // We have an entry we can use so claim it
     //
     gUsedBusIDs[bus] = true;
-    pseudoBus = (bus & 0xff) << 24;
+	USBLog(6,"%s[%p]::CreateRootHubDevice  Using bus number: %d", getName(), this, (uint32_t)bus);
     provider->setProperty("USBBusNumber", bus, 32);
+	
+	// We need to modify the way we allocate the location ID for a SuperSpeed RH Simulation.  The problem arises
+	// because we have 2 root hub simulations for XHCI controllers, one for SS devices and one for 2.0 devices.  If we
+	// allow them to have the same locationID, a SS Hub (which has a 2.0 and a 3.0 hub) will get the same location ID, as
+	// they are both connected to the same RH port.  So, we have decided to break our locationID allocation scheme for a 
+	// SuperSpeed bus:  The top bit of the second byte in the locationID will now be 1 for SS RH Simulations.  For example
+	// if the bus number is 0x7C, then the locationID of the SS simulation will be 0x7C800000 and the 2.0 Simulation: 0x7C000000
+    pseudoBus = (bus & 0xff) << 24;
+#ifdef SUPPORTS_SS_USB
+	if ( localSpeed == kUSBDeviceSpeedSuper )
+	{
+		pseudoBus |= 0x00800000;
+		USBLog(6,"%s[%p]::CreateRootHubDevice  Added SS bit to locationID: 0x%x", getName(), this, (uint32_t)pseudoBus);
+	}
+#endif
     provider->setProperty(kUSBDevicePropertyLocationID, pseudoBus, 32);
+	
 	
     //  Save a copy of our busNumber property in a field
     _busNumber = bus;
@@ -3631,7 +3822,11 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	{
 		sleepExtraCurrentExists = true;
         (*rootHubDevice)->setProperty(kAppleCurrentExtraInSleep, aProperty);
+#ifdef SUPPORTS_SS_USB
+		(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, _controllerSpeed == kUSBDeviceSpeedSuper ?  kUSB3MaxPowerPerPort : kUSB2MaxPowerPerPort, 32);
+#else
 		(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+#endif
 		aProperty->release();
 	}
 	
@@ -3660,7 +3855,11 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 			if (matched)
 			{
 				// Update our properties with those from the table.  Also, for root hubs, we do always provide at least 500mA in sleep
+#ifdef SUPPORTS_SS_USB
+				(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, _controllerSpeed == kUSBDeviceSpeedSuper ?  kUSB3MaxPowerPerPort : kUSB2MaxPowerPerPort, 32);
+#else
 				(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+#endif
 
 				if ( gSleepCurrentInfo[i].totalExtraWakeCurrent != 0)
 				{
@@ -3699,30 +3898,48 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 
 	if (OSCompareAndSwap(0, 1, &gExtraCurrentPropertiesInitialized))
 	{
-		IOService * ioResources;
-		
+		IOService *     ioResources = getResourceService();
 		USBLog(2, "%s[%p]::CreateRootHubDevice -  gExtraCurrentPropertiesInitialized have not been initialized, doing so", getName(), this);
 		
-		ioResources = waitForMatchingService( serviceMatching("IOResources"), kSecondScale	* 10ULL);
 		if ( ioResources != NULL )
 		{
 			// Let's add the properties that are used to parcel out the extra current during sleep and wake
 			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentExtra);
-			ioResources->setProperty(kAppleCurrentExtra, aProperty);
+			if (aProperty)
+				ioResources->setProperty(kAppleCurrentExtra, aProperty);
+			else
+			{
+				gExtraCurrentPropertiesInitialized = 0;
+			}
 			
 			aProperty = (*rootHubDevice)->getProperty(kAppleMaxPortCurrent);
-			ioResources->setProperty(kAppleMaxPortCurrent, aProperty);
+			if (aProperty)
+				ioResources->setProperty(kAppleMaxPortCurrent, aProperty);
+			else
+			{
+				gExtraCurrentPropertiesInitialized = 0;
+			}
 			
 			aProperty = (*rootHubDevice)->getProperty(kAppleMaxPortCurrentInSleep);
-			ioResources->setProperty(kAppleMaxPortCurrentInSleep, aProperty);
+			if (aProperty)
+				ioResources->setProperty(kAppleMaxPortCurrentInSleep, aProperty);
+			else
+			{
+				gExtraCurrentPropertiesInitialized = 0;
+			}
 			
 			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentExtraInSleep);
-			ioResources->setProperty(kAppleCurrentExtraInSleep, aProperty);
-			
+			if (aProperty)
+				ioResources->setProperty(kAppleCurrentExtraInSleep, aProperty);
+			else
+			{
+				gExtraCurrentPropertiesInitialized = 0;
+			}
 		}
 		else 
 		{
 			USBLog(1, "%s[%p]::CreateRootHubDevice -  could not find IOResources entry", getName(), this);
+			gExtraCurrentPropertiesInitialized = 0;
 		}
 	}
 	
@@ -3768,7 +3985,7 @@ IOUSBController::UIMCreateIsochTransfer(	short						functionAddress,
 											IOUSBLowLatencyIsocFrame	*pFrames,
 											UInt32						updateFrequency)
 {
-#pragma unused(functionAddress, endpointNumber, completion, direction, frameStart, pBuffer, frameCount, , pFrames, updateFrequency)
+#pragma unused(functionAddress, endpointNumber, completion, direction, frameStart, pBuffer, frameCount, pFrames, updateFrequency)
     // This would normally be a pure virtual function which is implemented only in the UIM. However, 
     // too maintain binary compatibility, I am implementing it
     // in the controller class as a call that returns unimplemented. This method will be overriden with "new" UIMs.
@@ -3878,6 +4095,13 @@ const char *DecodeUSBConnectorType( UInt8 type )
 		case kUSBTypeAConnector			: return "Type A connector";	
 		case kUSBTypeMiniABConnector	: return "Mini-AB connector";	
 		case kUSBTypeExpressCard		: return "ExpressCard";				
+#ifdef SUPPORTS_SS_USB
+		case kUSB3TypeStdAConnector		: return "USB 3 Standard-A connector";			
+		case kUSB3TypeStdBConnector		: return "USB 3 Standard-B connector";			
+		case kUSB3TypeMicroBConnector	: return "USB 3 Micro-B connector";				
+		case kUSB3TypeMicroABConnector	: return "USB 3 Micro-AB connector";				
+		case kUSB3TypePowerBConnector	: return "USB 3 Power-B connector";	
+#endif	
 		case kUSBProprietaryConnector	: return "Proprietary connector";
 		default							: return "Unknown/Reserved connector";
 	}
@@ -3893,14 +4117,19 @@ const char *DecodeUSBConnectorType( UInt8 type )
 //		Note that the device at the locationID had better be a HUB or something is wrong
 //================================================================================================
 //
-int calculateUSBDepth(UInt32 locationID)
+int 
+IOUSBController::calculateUSBDepth(UInt32 locationID)
 {
 	SInt32		shift;
 	int			ret = 0;
-	
+#ifdef SUPPORTS_SS_USB
+	UInt32		realLocationID = (_controllerSpeed == kUSBDeviceSpeedSuper) ? locationID & 0xff7FFFFF : locationID;
+#else
+	UInt32		realLocationID = locationID;
+#endif
 	for ( shift = 20; shift >= 0; shift -= 4)
 	{
-		if ((locationID & (0x0f << shift)) == 0)
+		if ((realLocationID & (0x0f << shift)) == 0)
 		{
 			break;
 		}
@@ -3921,13 +4150,14 @@ int calculateUSBDepth(UInt32 locationID)
 // more internal chained hubs.
 //================================================================================================
 //
-int calculateACPIDepth(int hubUSBDepth)
+int 
+IOUSBController::calculateACPIDepth(int hubUSBDepth)
 {
 	int		ret;
 	
 	if (hubUSBDepth > 1)
 	{
-		USBLog(1, "calculateACPIDepth (in IOUSBController.cpp) - hubUSBDepth of %d unexpected", hubUSBDepth);
+		USBLog(3, "calculateACPIDepth (in IOUSBController.cpp) - hubUSBDepth of %d unexpected", hubUSBDepth);
 	}
 	
 	if (hubUSBDepth == 0)
@@ -3986,9 +4216,8 @@ IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
 	{
 		while (!match && (entry = iter->getNextObject()))
 		{			
-			// USB port must be a leaf node (no child), and
-			// must be an IOACPIPlatformDevice.
-			if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
+			// USB port must be an IOACPIPlatformDevice.
+			if (entry->metaCast("IOACPIPlatformDevice"))
 			{
 				char path[255];
 				int	 length = 254;
@@ -4063,7 +4292,7 @@ IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
 
 //================================================================================================
 //
-//   DumpUSBACPI
+//   DumpUSBACPI - This just a method to dump UPC ACPI information and XHCN value.
 //
 //================================================================================================
 //
@@ -4075,7 +4304,7 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 	IORegistryEntry*		entry;
 	UInt32					portnum = 0;
 	IOACPIPlatformDevice*	acpiDevice;
-	
+    
 	acpiDevice = CopyACPIDevice( provider );
 	if (!acpiDevice)
 	{
@@ -4083,6 +4312,25 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 		return false;
 	}
 	
+#ifdef SUPPORTS_SS_USB
+    if( (acpiDevice != NULL) )
+	{
+		UInt32					assertVal	= 0;
+        
+		IOReturn status = acpiDevice->evaluateInteger ( "XHCN", &assertVal );
+        
+        if (status == kIOReturnSuccess)
+        {
+            USBLog(3, "IOUSBController[%p]::DumpUSBACPI XHCN 0x%08x", this, (unsigned int)assertVal);
+        }
+        else
+        {
+            USBLog(3, "IOUSBController[%p]::DumpUSBACPI [%p] controller does not have shared ports with XHCI", this, this);
+        }
+		
+	}
+#endif
+    
 	do {
 		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
 		if (!acpiPlane)
@@ -4099,10 +4347,9 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 		{
 			while ( (entry = iter->getNextObject()) )
 			{
-				
-				// USB port must be a leaf node (no child), and
+				// For Dumping we need to see all nodes and
 				// must be an IOACPIPlatformDevice.
-				if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
+				if ( entry->metaCast("IOACPIPlatformDevice") )
 				{
 					char path[255];
 					int	 length = 254;
@@ -4157,7 +4404,7 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 										USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _UPC[%d]=0x%02x Connector Type   => %s", 
 											   this, i, upcPackageValue, DecodeUSBConnectorType(upcPackageValue) );
 										
-										if ( (upcPackageValue == kUSBTypeExpressCard) )
+										if ( upcPackageValue == kUSBTypeExpressCard) 
 										{
 											portnum	= portNumber;
 										}
@@ -4172,6 +4419,24 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 							theObject->release();
 						} 
 					} // end of UPC parsing
+                    
+                    if ( (port->validateObject( "MUXS" ) == kIOReturnSuccess) )
+                    {
+                        OSObject*	theObject;
+						IOReturn	status	= port->evaluateObject("MUXS", &theObject);
+                        if ( status == kIOReturnSuccess )
+                        {
+                            OSString*	methodName = OSDynamicCast(OSString, theObject);
+                            
+                            if( methodName )
+                            {
+                                USBLog(5, "IOUSBController[%p]::DumpUSBACPI  Muxed Method Name: %s", this, methodName->getCStringNoCopy());
+                            }
+                            
+                            theObject->release(); 
+                        }
+                    }  // end of mux method detection
+
 				}
 			}
 			iter->release();
@@ -4213,7 +4478,47 @@ IOUSBController::ExpressCardPort( IORegistryEntry* provider )
 	return(portNum);
 }
 
+#ifdef SUPPORTS_SS_USB
+bool 
+IOUSBController::IsPortMuxed(IORegistryEntry * provider, UInt32 portnum, UInt32 locationID, char *muxName)
+{
+    IOACPIPlatformDevice *	acpiDevice;
+	bool					isMuxed = false;
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (acpiDevice)
+	{
+		isMuxed = CheckACPIUPCTableForMuxedMethods( acpiDevice, portnum, locationID, muxName );	
+		acpiDevice->release();
+		acpiDevice = NULL;
+	}
+	
+    USBLog(5, "IOUSBController(%s)[%p]::IsPortMuxed(%s) - provider(%p) portNum(%d) locationID(0x%x)", getName(), this, isMuxed?"true":"false", provider, (int)portnum, (int)locationID);
 
+	return isMuxed;
+}
+#endif
+
+bool       
+IOUSBController::GetInternalHubErrataBits(IORegistryEntry * provider, UInt32 portnum, UInt32 locationID, UInt32 *errataBits)
+{
+    IOACPIPlatformDevice *	acpiDevice;
+	bool					found = false;
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (acpiDevice)
+	{
+		found = CheckACPIUPCTableForInternalHubErrataBits( acpiDevice, portnum, locationID, errataBits );	
+		acpiDevice->release();
+		acpiDevice = NULL;
+	}
+	
+    USBLog(5, "IOUSBController(%s)[%p]::GetInternalHubErrataBits(%s) - provider(%p) portNum(%d) locationID(0x%x)", getName(), this, found?"true":"false", provider, (int)portnum, (int)locationID);
+    
+	return found;
+}
+
+//================================================================================================
 //
 //	bool IsPortInternal
 //
@@ -4223,6 +4528,8 @@ IOUSBController::ExpressCardPort( IORegistryEntry* provider )
 //	portnum is the port number for some hub which is known to be internal to the hardware that controller is part of
 //	locationID is the locationID for the HUB whose port we are interested in
 //	
+//================================================================================================
+//
 bool 
 IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UInt32 locationID )
 {
@@ -4243,7 +4550,7 @@ IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UIn
 }
 
 
-
+//================================================================================================
 //
 //	bool	CheckACPIUPCTable
 //
@@ -4256,7 +4563,8 @@ IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UIn
 //	locationID is the locationID of that hub. for current hardware, it will be a number either 0xZZ000000 (for a root hub on bus ZZ)
 //				or (0xZZn00000) for an internal hub conneted to port n of the root hub of bus ZZ
 //
-
+//================================================================================================
+//
 bool 
 IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID )
 {
@@ -4285,9 +4593,8 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 	{
 		while (!match && (entry = iter->getNextObject()))
 		{			
-			// USB port must be a leaf node (no child), and
-			// must be an IOACPIPlatformDevice.
-			if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
+			// USB port must be an IOACPIPlatformDevice.
+			if (entry->metaCast("IOACPIPlatformDevice"))
 			{
 				char	path[255];
 				int		length		= 254;
@@ -4361,6 +4668,255 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 	
 	return match;
 }
+
+bool
+IOUSBController::CheckACPIUPCTableForInternalHubErrataBits( IORegistryEntry* acpiDevice, UInt32 portnum, UInt32 locationID, UInt32* errataBits )
+{
+	const IORegistryPlane*	acpiPlane;
+	bool					match = false;
+	IORegistryIterator*		iter = NULL;
+	IORegistryEntry*		entry;
+	
+	USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTableForInternalHubErrataBits - acpiDevice(%p) portNum(%d) locationID(0x%x)", getName(), this, acpiDevice, (int)portnum, (int)locationID);
+	if( acpiDevice )
+	{
+		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
+		if (acpiPlane)
+		{
+			iter = IORegistryIterator::iterateOver(
+												   acpiDevice,
+												   acpiPlane,
+												   kIORegistryIterateRecursively);
+		}
+	}
+	
+	// we will now iterate recursively over the entire ACPI tree starting with a particular USB Host Controller
+	// we will only look at leaf nodes (which will have no child entries) which means will will only be looking
+	// at PRTx nodes representing USB port hardware
+	if (iter)
+	{
+		while (!match && (entry = iter->getNextObject()))
+		{			
+			// USB port must be an IOACPIPlatformDevice.
+			if (entry->metaCast("IOACPIPlatformDevice"))
+			{
+				char	path[255];
+				int		length		= 254;
+				int		acpiDepth	= 0;
+				int		hubDepth;
+				int		hubPortACPIDepth;
+				
+				// calculate the hub depth of the hub whose port we are checking. with current hardware, this should return either
+				// 0 (root hub) or 1 (integrated hub) - any other return at this point is probably errant
+				hubDepth = calculateUSBDepth(locationID);
+				USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTableForInternalHubErrataBits - locationID(0x%x) is at hub depth(%d)", getName(), this, (int)locationID, hubDepth);
+				
+				// calculate the depth in the ACPI table for a port which is attached to a hub at the given USB hub depth
+				hubPortACPIDepth = calculateACPIDepth(hubDepth);
+				USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTableForInternalHubErrataBits - hubDepth(%d) is at PortACPIDepth(%d)", getName(), this, hubDepth, hubPortACPIDepth);
+				
+				
+				IOACPIPlatformDevice * port = (IOACPIPlatformDevice *) entry;
+                
+				if ( (port->validateObject( "HERB" ) == kIOReturnSuccess) && (match == false) )
+				{
+					length = 254;
+					
+					entry->getPath(path, &length, acpiPlane);
+					
+					acpiDepth = entry->getDepth(acpiPlane);
+					
+					USBLog(5, "IOUSBController[%p]::CheckACPIUPCTableForInternalHubErrataBits locationID %x hubPortACPIDepth %d @ port %d acpiDepth %d _UPC: %s ", this, (uint32_t)locationID, hubPortACPIDepth, (unsigned int)portnum, acpiDepth, path);
+					
+                    UInt32		portNumber	= strtoul(entry->getLocation(acpiPlane), NULL, 10);
+                    
+                    if ( (portNumber == portnum) && (acpiDepth == hubPortACPIDepth) )
+                    {
+                        OSObject*	theObject;
+                        IOReturn	status	= port->evaluateObject("HERB", &theObject);
+                        if ( status == kIOReturnSuccess )
+                        {
+                            OSNumber*	hubErrataBitObject = OSDynamicCast(OSNumber, theObject);
+                            
+                            if( hubErrataBitObject )
+                            {
+                                *errataBits = hubErrataBitObject->unsigned32BitValue();
+                                
+                                match = true;
+                            }
+                            
+                            theObject->release(); 
+                        }
+                    }
+                }
+			}
+		}
+		iter->release();
+	}
+	
+	
+	if (match == true) 
+	{
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTableForInternalHubErrataBits locationID %x found HERB 0x%x @ port %d", this, (uint32_t)locationID, (uint32_t)*errataBits, (unsigned int)portnum);
+	}
+	else
+	{
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTableForInternalHubErrataBits locationID %x did not find HERB @ port %d", this, (uint32_t)locationID, (unsigned int)portnum);
+	}
+	
+	return match;
+}
+
+
+#ifdef SUPPORTS_SS_USB
+//================================================================================================
+//
+//	bool IsControllerMuxed
+//
+//	Checks to see if the controller is muxed.
+//
+//	provider is the IORegistryEntry for the IOPCIDevice which is the Host Controller hardware
+//	locationID is the locationID for the HUB whose port we are interested in
+//	
+//================================================================================================
+//
+bool 
+IOUSBController::IsControllerMuxed( IORegistryEntry * provider, UInt32 locationID )
+{
+	IOACPIPlatformDevice *	acpiDevice;
+	bool					isMuxedController = false;
+	UInt32					assertVal	= 0;
+    
+    
+	USBLog(5, "IOUSBController(%s)[%p]::IsControllerMuxed - provider(%p) locationID(0x%x)", getName(), this, provider, (int)locationID);
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (acpiDevice)
+	{
+
+        IOReturn status = acpiDevice->evaluateInteger ( "XHCN", &assertVal );
+        if (status == kIOReturnSuccess)
+        {
+            USBLog(3, "IOUSBController[%p]::IsControllerMuxed XHCN 0x%08x", this, (unsigned int)assertVal);
+            isMuxedController = true;
+        }
+        else
+        {
+            USBLog(3, "IOUSBController[%p]::IsControllerMuxed [%p] controller does not have shared ports with XHCI", this, this);
+        }
+        
+		acpiDevice->release();
+		acpiDevice = NULL;
+        
+	}
+	
+	return isMuxedController;
+}
+
+bool 
+IOUSBController::CheckACPIUPCTableForMuxedMethods( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID, char* muxName )
+{
+	const IORegistryPlane*	acpiPlane;
+	bool					match = false;
+	IORegistryIterator*		iter = NULL;
+	IORegistryEntry*		entry;
+	
+	USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTableForMuxedMethods - acpiDevice(%p) portNum(%d) locationID(0x%x)", getName(), this, acpiDevice, (int)portnum, (int)locationID);
+	if( acpiDevice )
+	{
+		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
+		if (acpiPlane)
+		{
+			iter = IORegistryIterator::iterateOver(
+												   acpiDevice,
+												   acpiPlane,
+												   kIORegistryIterateRecursively);
+		}
+	}
+	
+	// we will now iterate recursively over the entire ACPI tree starting with a particular USB Host Controller
+	// we will only look at leaf nodes (which will have no child entries) which means will will only be looking
+	// at PRTx nodes representing USB port hardware
+	if (iter)
+	{
+		while (!match && (entry = iter->getNextObject()))
+		{			
+			// USB port must be an IOACPIPlatformDevice.
+			if (entry->metaCast("IOACPIPlatformDevice"))
+			{
+				char	path[255];
+				int		length		= 254;
+				int		acpiDepth	= 0;
+				int		hubDepth;
+				int		hubPortACPIDepth;
+				
+				// calculate the hub depth of the hub whose port we are checking. with current hardware, this should return either
+				// 0 (root hub) or 1 (integrated hub) - any other return at this point is probably errant
+				hubDepth = calculateUSBDepth(locationID);
+				USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTableForMuxedMethods - locationID(0x%x) is at hub depth(%d)", getName(), this, (int)locationID, hubDepth);
+				
+				// calculate the depth in the ACPI table for a port which is attached to a hub at the given USB hub depth
+				hubPortACPIDepth = calculateACPIDepth(hubDepth);
+				USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTableForMuxedMethods - hubDepth(%d) is at PortACPIDepth(%d)", getName(), this, hubDepth, hubPortACPIDepth);
+				
+				
+				IOACPIPlatformDevice * port = (IOACPIPlatformDevice *) entry;
+
+                // Check for muxed ports here
+				if ( (port->validateObject( "MUXS" ) == kIOReturnSuccess) && (match == false) )
+				{
+					length = 254;
+					
+					entry->getPath(path, &length, acpiPlane);
+					
+					acpiDepth = entry->getDepth(acpiPlane);
+					
+					USBLog(5, "IOUSBController[%p]::CheckACPIUPCTableForMuxedMethods locationID %x hubPortACPIDepth %d @ port %d acpiDepth %d _UPC: %s ", this, (uint32_t)locationID, hubPortACPIDepth, (unsigned int)portnum, acpiDepth, path);
+					
+                    UInt32		portNumber	= strtoul(entry->getLocation(acpiPlane), NULL, 10);
+                    
+                    if ( (portNumber == portnum) && (acpiDepth == hubPortACPIDepth) )
+                    {
+                        OSObject*	theObject;
+                        IOReturn	status	= port->evaluateObject("MUXS", &theObject);
+                        if ( status == kIOReturnSuccess )
+                        {
+                            OSString*	methodName = OSDynamicCast(OSString, theObject);
+                            
+                            if( methodName )
+                            {
+                                // The strlcpy() function copies up to size - 1 characters from the NUL-terminated 
+                                // string src to dst, NUL-terminating the result.
+                                if( (methodName->getLength()+1) <= kIOUSBMuxMethodNameLength )
+                                {
+                                    strlcpy(muxName, (char *)methodName->getCStringNoCopy(), (size_t)(methodName->getLength()+1));
+                                }
+
+                                match = true;
+                            }
+                            
+                            theObject->release(); 
+                        }
+                    }
+                }  // end of mux method detection
+			}
+		}
+		iter->release();
+	}
+	
+	
+	if (match == true) 
+	{
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTableForMuxedMethods locationID %x found muxed method %s @ port %d", this, (uint32_t)locationID, muxName, (unsigned int)portnum);
+	}
+	else
+	{
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTableForMuxedMethods locationID %x did not find a muxed method @ port %d", this, (uint32_t)locationID, (unsigned int)portnum);
+	}
+	
+	return match;
+}
+#endif
 
 OSMetaClassDefineReservedUnused(IOUSBController,  19);
 

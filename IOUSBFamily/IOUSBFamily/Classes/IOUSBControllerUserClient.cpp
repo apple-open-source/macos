@@ -162,7 +162,7 @@ IOUSBControllerUserClient::initWithTask(task_t owningTask, void *security_id, UI
         return false;
 
 	IOReturn ret = clientHasPrivilege(security_id, kIOClientPrivilegeAdministrator);
-	USBLog(6,"IOUSBControllerUserClient[%p]::initWithTask  clientHasPrivilege returned 0x%x (%s)", this, ret, stringFromReturn(ret));
+	USBLog(6,"IOUSBControllerUserClient[%p]::initWithTask  clientHasPrivilege returned 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	if ( ret == kIOReturnSuccess )
 	{
 		fIsTaskPrileged = true;
@@ -341,18 +341,6 @@ IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
     return kIOReturnSuccess;
 }
 
-
-
-
-IOReturn
-IOUSBControllerUserClient::GatedMessage(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 )
-{
-#pragma unused (arg1, arg2, arg3)
-    IOUSBControllerUserClient *me = (IOUSBControllerUserClient *)owner;
-	
-	USBLog(6, "IOUSBControllerUserClient[%p]::GatedMessage: %p", me, arg0);
-	return me->fOwner->message(kIOUSBMessageController, me, arg0);
-}
 
 
 

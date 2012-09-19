@@ -174,6 +174,7 @@ enum {
 
     kPCIDeviceStateDead             = 0x80000000,
     kPCIDeviceStateEjected          = 0x40000000,
+    kPCIDeviceStateToKill           = 0x20000000,
 };
 
 enum {
@@ -184,12 +185,13 @@ enum {
 
 // value of supportsHotPlug
 enum {
-    kPCIStatic            = 0,
-    kPCILinkChange        = 1,
-    kPCIHotPlug           = 2,
-    kPCIHotPlugRoot       = 3,
-    kPCIHotPlugTunnel     = 4,
-    kPCIHotPlugTunnelRoot = 5,
+    kPCIStatic                  = 0,
+    kPCILinkChange              = 1,
+    kPCIHotPlug                 = 2,
+    kPCIHotPlugRoot             = 3,
+    kPCIHotPlugTunnel           = 4,
+    kPCIHotPlugTunnelRoot       = 5,
+    kPCIHotPlugTunnelRootParent = 6,
 };
 
 enum {
@@ -215,6 +217,7 @@ enum
     kConfigOpGetState,
     kConfigOpNeedsScan,
     kConfigOpEject,
+    kConfigOpKill,
     kConfigOpTerminated,
     kConfigOpProtect
 };

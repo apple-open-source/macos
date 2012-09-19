@@ -20,6 +20,7 @@
 namespace llvm {
   class Value;
   class TargetData;
+  class TargetLibraryInfo;
   
   /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
   Value *CastToCStr(Value *V, IRBuilder<> &B);
@@ -34,6 +35,10 @@ namespace llvm {
   /// and the return value has 'i8*' type.
   Value *EmitStrChr(Value *Ptr, char C, IRBuilder<> &B, const TargetData *TD);
 
+  /// EmitStrNCmp - Emit a call to the strncmp function to the builder.
+  Value *EmitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+                     const TargetData *TD);
+
   /// EmitStrCpy - Emit a call to the strcpy function to the builder, for the
   /// specified pointer arguments.
   Value *EmitStrCpy(Value *Dst, Value *Src, IRBuilder<> &B,
@@ -43,22 +48,12 @@ namespace llvm {
   /// specified pointer arguments and length.
   Value *EmitStrNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
                     const TargetData *TD, StringRef Name = "strncpy");
-  
-  /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This
-  /// always expects that the size has type 'intptr_t' and Dst/Src are pointers.
-  Value *EmitMemCpy(Value *Dst, Value *Src, Value *Len, unsigned Align,
-                    bool isVolatile, IRBuilder<> &B, const TargetData *TD);
 
   /// EmitMemCpyChk - Emit a call to the __memcpy_chk function to the builder.
   /// This expects that the Len and ObjSize have type 'intptr_t' and Dst/Src
   /// are pointers.
   Value *EmitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
                        IRBuilder<> &B, const TargetData *TD);
-
-  /// EmitMemMove - Emit a call to the memmove function to the builder.  This
-  /// always expects that the size has type 'intptr_t' and Dst/Src are pointers.
-  Value *EmitMemMove(Value *Dst, Value *Src, Value *Len, unsigned Align,
-                     bool isVolatile, IRBuilder<> &B, const TargetData *TD);
 
   /// EmitMemChr - Emit a call to the memchr function.  This assumes that Ptr is
   /// a pointer, Val is an i32 value, and Len is an 'intptr_t' value.
@@ -68,10 +63,6 @@ namespace llvm {
   /// EmitMemCmp - Emit a call to the memcmp function.
   Value *EmitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
                     const TargetData *TD);
-
-  /// EmitMemSet - Emit a call to the memset function
-  Value *EmitMemSet(Value *Dst, Value *Val, Value *Len, bool isVolatile,
-                    IRBuilder<> &B, const TargetData *TD);
 
   /// EmitUnaryFloatFnCall - Emit a call to the unary function named 'Name'
   /// (e.g.  'floor').  This function is known to take a single of type matching
@@ -96,12 +87,13 @@ namespace llvm {
 
   /// EmitFPutS - Emit a call to the puts function.  Str is required to be a
   /// pointer and File is a pointer to FILE.
-  void EmitFPutS(Value *Str, Value *File, IRBuilder<> &B, const TargetData *TD);
+  void EmitFPutS(Value *Str, Value *File, IRBuilder<> &B, const TargetData *TD,
+                 const TargetLibraryInfo *TLI);
 
   /// EmitFWrite - Emit a call to the fwrite function.  This assumes that Ptr is
   /// a pointer, Size is an 'intptr_t', and File is a pointer to FILE.
   void EmitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilder<> &B,
-                  const TargetData *TD);
+                  const TargetData *TD, const TargetLibraryInfo *TLI);
 
   /// SimplifyFortifiedLibCalls - Helper class for folding checked library
   /// calls (e.g. __strcpy_chk) into their unchecked counterparts.

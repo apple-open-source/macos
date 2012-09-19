@@ -153,6 +153,8 @@ SecCmsMessageIsSigned(SecCmsMessageRef cmsg);
 extern Boolean
 SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen);
 
+extern Boolean
+SecCmsMessageContainsTSTInfo(SecCmsMessageRef cmsg);
 
 #if defined(__cplusplus)
 }

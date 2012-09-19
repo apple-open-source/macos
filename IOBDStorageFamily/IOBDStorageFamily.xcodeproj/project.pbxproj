@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -29,9 +29,6 @@
 		60BD236E0736E82C00AC1192 /* IOBDMediaBSDClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 12BF9C9900D8588E03CA2AA4 /* IOBDMediaBSDClient.h */; };
 		60BD236F0736E82C00AC1192 /* IOBDTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFDB008B977E11CA2AA4 /* IOBDTypes.h */; };
 		60BD23710736E82C00AC1192 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		60BD23720736E82C00AC1192 /* BD.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8F01BFAFB103A87B01 /* BD.icns */; };
-		60BD23730736E82C00AC1192 /* BD-R.icns in Resources */ = {isa = PBXBuildFile; fileRef = 122704CE02B8FC3603A87B01 /* BD-R.icns */; };
-		60BD23750736E82C00AC1192 /* BD-RE.icns in Resources */ = {isa = PBXBuildFile; fileRef = 122704D002B8FC3603A87B01 /* BD-RE.icns */; };
 		60BD23790736E82C00AC1192 /* IOBDBlockStorageDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD7008B977E11CA2AA4 /* IOBDBlockStorageDevice.cpp */; };
 		60BD237A0736E82C00AC1192 /* IOBDBlockStorageDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD5008B977E11CA2AA4 /* IOBDBlockStorageDriver.cpp */; };
 		60BD237B0736E82C00AC1192 /* IOBDMedia.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD9008B977E11CA2AA4 /* IOBDMedia.cpp */; };
@@ -96,13 +93,10 @@
 		0560FFDA008B977E11CA2AA4 /* IOBDMedia.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOBDMedia.h; sourceTree = "<group>"; };
 		0560FFDB008B977E11CA2AA4 /* IOBDTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOBDTypes.h; sourceTree = "<group>"; };
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		122704CE02B8FC3603A87B01 /* BD-R.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "BD-R.icns"; sourceTree = "<group>"; };
-		122704D002B8FC3603A87B01 /* BD-RE.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "BD-RE.icns"; sourceTree = "<group>"; };
-		126DFF8F01BFAFB103A87B01 /* BD.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = BD.icns; sourceTree = "<group>"; };
 		12BF9C9800D8588E03CA2AA4 /* IOBDMediaBSDClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOBDMediaBSDClient.cpp; sourceTree = "<group>"; };
 		12BF9C9900D8588E03CA2AA4 /* IOBDMediaBSDClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOBDMediaBSDClient.h; sourceTree = "<group>"; };
 		6058858007382A7900193F37 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		60BD23800736E82C00AC1192 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		60BD23800736E82C00AC1192 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60BD23810736E82C00AC1192 /* IOBDStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOBDStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -121,9 +115,6 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				126DFF8F01BFAFB103A87B01 /* BD.icns */,
-				122704CE02B8FC3603A87B01 /* BD-R.icns */,
-				122704D002B8FC3603A87B01 /* BD-RE.icns */,
 				60BD23800736E82C00AC1192 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
 			);
@@ -186,6 +177,7 @@
 			buildPhases = (
 				60BD236A0736E82C00AC1192 /* Headers */,
 				60BD23700736E82C00AC1192 /* Resources */,
+				60A599521517B6F800CB67C2 /* ShellScript */,
 				60BD23780736E82C00AC1192 /* Sources */,
 			);
 			buildRules = (
@@ -204,9 +196,16 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0410;
+			};
 			buildConfigurationList = 60218F97095B74720026C3D8 /* Build configuration list for PBXProject "IOBDStorageFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOBDStorageFamily */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -222,9 +221,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				60BD23720736E82C00AC1192 /* BD.icns in Resources */,
-				60BD23730736E82C00AC1192 /* BD-R.icns in Resources */,
-				60BD23750736E82C00AC1192 /* BD-RE.icns in Resources */,
 				60BD23710736E82C00AC1192 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -232,6 +228,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		60A599521517B6F800CB67C2 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i \"BD\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"BD-R\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"BD-RE\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1";
+		};
 		60FD67AD0D3FFAE0000D088D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -287,10 +296,7 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOBDStorageFamily;
-				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOBDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -301,10 +307,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOBDStorageFamily;
-				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOBDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

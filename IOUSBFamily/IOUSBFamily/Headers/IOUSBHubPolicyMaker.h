@@ -127,4 +127,4 @@ public:
     OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  19);
 };
 
-#endif _IOKIT_IOUSBHUBPOLICYMAKER_H
+#endif

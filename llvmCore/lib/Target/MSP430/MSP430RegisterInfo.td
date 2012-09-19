@@ -43,6 +43,9 @@ def R13B : MSP430Reg<13, "r13">;
 def R14B : MSP430Reg<14, "r14">;
 def R15B : MSP430Reg<15, "r15">;
 
+def subreg_8bit : SubRegIndex { let Namespace = "MSP430"; }
+
+let SubRegIndices = [subreg_8bit] in {
 def PCW  : MSP430RegWithSubregs<0,  "r0",  [PCB]>;
 def SPW  : MSP430RegWithSubregs<1,  "r1",  [SPB]>;
 def SRW  : MSP430RegWithSubregs<2,  "r2",  [SRB]>;
@@ -59,64 +62,24 @@ def R12W : MSP430RegWithSubregs<12, "r12", [R12B]>;
 def R13W : MSP430RegWithSubregs<13, "r13", [R13B]>;
 def R14W : MSP430RegWithSubregs<14, "r14", [R14B]>;
 def R15W : MSP430RegWithSubregs<15, "r15", [R15B]>;
-
-def : SubRegSet<1, [PCW, SPW, SRW, CGW, FPW,
-                    R5W, R6W, R7W, R8W, R9W, R10W, R11W, R12W, R13W, R14W, R15W],
-                   [PCB, SPB, SRB, CGB, FPB,
-                    R5B, R6B, R7B, R8B, R9B, R10B, R11B, R12B, R13B, R14B, R15B]>;
-
-def subreg_8bit : PatLeaf<(i32 1)>;
+}
 
 def GR8 : RegisterClass<"MSP430", [i8], 8,
    // Volatile registers
-  [R12B, R13B, R14B, R15B, R11B, R10B, R9B, R8B, R7B, R6B, R5B,
+  (add R12B, R13B, R14B, R15B, R11B, R10B, R9B, R8B, R7B, R6B, R5B,
    // Frame pointer, sometimes allocable
    FPB,
    // Volatile, but not allocable
-   PCB, SPB, SRB, CGB]>
-{
-  let MethodProtos = [{
-    iterator allocation_order_end(const MachineFunction &MF) const;
-  }];
-  let MethodBodies = [{
-    GR8Class::iterator
-    GR8Class::allocation_order_end(const MachineFunction &MF) const {
-      const TargetMachine &TM = MF.getTarget();
-      const TargetRegisterInfo *RI = TM.getRegisterInfo();
-      // Depending on whether the function uses frame pointer or not, last 5 or 4
-      // registers on the list above are reserved
-      if (RI->hasFP(MF))
-        return end()-5;
-      else
-        return end()-4;
-    }
-  }];
-}
+   PCB, SPB, SRB, CGB)>;
 
 def GR16 : RegisterClass<"MSP430", [i16], 16,
    // Volatile registers
-  [R12W, R13W, R14W, R15W, R11W, R10W, R9W, R8W, R7W, R6W, R5W,
+  (add R12W, R13W, R14W, R15W, R11W, R10W, R9W, R8W, R7W, R6W, R5W,
    // Frame pointer, sometimes allocable
    FPW,
    // Volatile, but not allocable
-   PCW, SPW, SRW, CGW]>
+   PCW, SPW, SRW, CGW)>
 {
-  let SubRegClassList = [GR8];
-  let MethodProtos = [{
-    iterator allocation_order_end(const MachineFunction &MF) const;
-  }];
-  let MethodBodies = [{
-    GR16Class::iterator
-    GR16Class::allocation_order_end(const MachineFunction &MF) const {
-      const TargetMachine &TM = MF.getTarget();
-      const TargetRegisterInfo *RI = TM.getRegisterInfo();
-      // Depending on whether the function uses frame pointer or not, last 5 or 4
-      // registers on the list above are reserved
-      if (RI->hasFP(MF))
-        return end()-5;
-      else
-        return end()-4;
-    }
-  }];
+  let SubRegClasses = [(GR8 subreg_8bit)];
 }
 

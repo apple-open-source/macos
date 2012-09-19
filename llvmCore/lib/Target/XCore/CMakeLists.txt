@@ -1,24 +1,37 @@
 set(LLVM_TARGET_DEFINITIONS XCore.td)
 
-tablegen(XCoreGenRegisterInfo.h.inc -gen-register-desc-header)
-tablegen(XCoreGenRegisterNames.inc -gen-register-enums)
-tablegen(XCoreGenRegisterInfo.inc -gen-register-desc)
-tablegen(XCoreGenInstrNames.inc -gen-instr-enums)
-tablegen(XCoreGenInstrInfo.inc -gen-instr-desc)
-tablegen(XCoreGenAsmWriter.inc -gen-asm-writer)
-tablegen(XCoreGenDAGISel.inc -gen-dag-isel)
-tablegen(XCoreGenCallingConv.inc -gen-callingconv)
-tablegen(XCoreGenSubtarget.inc -gen-subtarget)
+tablegen(LLVM XCoreGenRegisterInfo.inc -gen-register-info)
+tablegen(LLVM XCoreGenInstrInfo.inc -gen-instr-info)
+tablegen(LLVM XCoreGenAsmWriter.inc -gen-asm-writer)
+tablegen(LLVM XCoreGenDAGISel.inc -gen-dag-isel)
+tablegen(LLVM XCoreGenCallingConv.inc -gen-callingconv)
+tablegen(LLVM XCoreGenSubtargetInfo.inc -gen-subtarget)
+add_public_tablegen_target(XCoreCommonTableGen)
 
-add_llvm_target(XCore
-  XCoreFrameInfo.cpp
+add_llvm_target(XCoreCodeGen
+  XCoreAsmPrinter.cpp
+  XCoreFrameLowering.cpp
   XCoreInstrInfo.cpp
   XCoreISelDAGToDAG.cpp
   XCoreISelLowering.cpp
-  XCoreMCAsmInfo.cpp
   XCoreRegisterInfo.cpp
   XCoreSubtarget.cpp
   XCoreTargetMachine.cpp
   XCoreTargetObjectFile.cpp
   XCoreSelectionDAGInfo.cpp
   )
+
+add_llvm_library_dependencies(LLVMXCoreCodeGen
+  LLVMAsmPrinter
+  LLVMCodeGen
+  LLVMCore
+  LLVMMC
+  LLVMSelectionDAG
+  LLVMSupport
+  LLVMTarget
+  LLVMXCoreDesc
+  LLVMXCoreInfo
+  )
+
+add_subdirectory(TargetInfo)
+add_subdirectory(MCTargetDesc)

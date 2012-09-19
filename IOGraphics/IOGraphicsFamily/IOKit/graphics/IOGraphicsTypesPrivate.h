@@ -125,6 +125,8 @@ enum {
 
 #define kIOFBConnectInterruptDelayKey   "connect-interrupt-delay"
 
+#define kIOFBUIScaleKey					"IOFBUIScale"
+
 #define kIOGraphicsPrefsKey             "IOGraphicsPrefs"
 #define kIODisplayPrefKeyKey            "IODisplayPrefsKey"
 #define kIOGraphicsPrefsParametersKey   "IOGraphicsPrefsParameters"
@@ -244,6 +246,44 @@ enum
 	kIODisplayOptionBacklight  = 0x00000001,
 	kIODisplayOptionDimDisable = 0x00000002
 };
+
+// boot compress gamma types
+
+struct IOFBGammaPoint
+{
+	uint16_t in;
+	uint16_t out;
+};
+typedef struct IOFBGammaPoint IOFBGammaPoint;
+
+struct IOFBGamma
+{
+	uint16_t       pointCount;
+	IOFBGammaPoint points[0];
+};
+typedef struct IOFBGamma IOFBGamma;
+
+struct IOFBCompressedGamma
+{
+	IOFBGamma red;
+	IOFBGamma green;
+	IOFBGamma blue;
+};
+typedef struct IOFBCompressedGamma IOFBCompressedGamma;
+
+struct IOFBBootGamma
+{
+	uint32_t            vendor;
+	uint32_t            product;
+	uint32_t            serial;
+	uint16_t            length;
+	uint16_t            resvA;
+	uint32_t            resvB;
+	IOFBCompressedGamma gamma;
+};
+typedef struct IOFBBootGamma IOFBBootGamma;
+
+#define kIOFBBootGammaKey	"boot-gamma"
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

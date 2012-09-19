@@ -199,6 +199,7 @@ _kSecPolicyApplePKINITServer
 _kSecPolicyAppleCodeSigning
 _kSecPolicyMacAppStoreReceipt
 _kSecPolicyAppleIDValidation
+_kSecPolicyAppleTimeStamping
 _kSecPolicyOid
 _kSecPolicyName
 _kSecPolicyClient
@@ -684,6 +685,7 @@ _SecCertificateCreateWithPEM
 _SecCertificateCopySerialNumber
 _SecCertificateCopyNormalizedIssuerContent
 _SecCertificateCopyNormalizedSubjectContent
+_SecCertificateIsValidX
 _SecDERItemCopyOIDDecimalRepresentation
 _SecAbsoluteTimeFromDateContent
 _SecWrapRecoveryPasswordWithAnswers

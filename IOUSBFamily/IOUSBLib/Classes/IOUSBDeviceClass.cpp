@@ -124,7 +124,11 @@ IOUSBDeviceClass::IOUSBDeviceClass()
 #endif
 	
 	DEBUGPRINT("IOUSBDeviceClass[%p]::IOUSBDeviceClass\n", this);
+#ifdef SUPPORTS_SS_USB
+    fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV500;
+#else
     fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV320;
+#endif
     fUSBDevice.obj = this;
 }
 
@@ -185,7 +189,11 @@ IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID197) ||
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID245) ||
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID300) ||
-			 CFEqual(uuid, kIOUSBDeviceInterfaceID320) ) 
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID320) 
+#ifdef SUPPORTS_SS_USB
+			 || CFEqual(uuid, kIOUSBDeviceInterfaceID500)
+#endif
+			 ) 
     {
         *ppv = &fUSBDevice;
         addRef();
@@ -219,6 +227,7 @@ IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
 IOReturn 
 IOUSBDeviceClass::probe(CFDictionaryRef propertyTable, io_service_t inService, SInt32 *order)
 {
+#pragma unused (propertyTable, order)
 	DEBUGPRINT("IOUSBDeviceClass[%p]::probe\n", this);
     if (!inService || !IOObjectConformsTo(inService, "IOUSBDevice"))
 	{
@@ -234,6 +243,7 @@ IOUSBDeviceClass::probe(CFDictionaryRef propertyTable, io_service_t inService, S
 IOReturn 
 IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
 {
+#pragma unused (propertyTable)
     IOReturn 			res;
     CFMutableDictionaryRef 	entryProperties = 0;
     kern_return_t 		kr;
@@ -1126,6 +1136,42 @@ IOUSBDeviceClass::GetExtraPowerAllocated(UInt32 type, UInt32 *powerAllocated)
     return kr;
 }
 
+#ifdef SUPPORTS_SS_USB
+IOReturn
+IOUSBDeviceClass::GetBandwidthAvailableForDevice(UInt32 *bandwidth)
+{
+    uint64_t			output[1];
+    uint32_t			len = 1;
+    IOReturn			ret = kIOReturnSuccess;
+	
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::GetBandwidthAvailableForDevice\n", this);
+	
+	ATTACHEDCHECK();
+	
+	output[0] = 0;
+	ret = IOConnectCallScalarMethod(fConnection, kUSBDeviceUserClientGetBandwidthAvailableForDevice, 0, 0, output, &len);
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fDeviceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	
+	if (ret == kIOReturnSuccess)
+	{
+		*bandwidth = (UInt32) output[0];
+	}
+	
+	if ( ret != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBDeviceClass[%p]::GetBandwidthAvailableForDevice returning 0x%x\n", this, ret);
+	}
+	
+	DEBUGPRINT("-IOUSBDeviceClass[%p]::GetBandwidthAvailableForDevice returning %" PRIu32 "\n", this, (uint32_t)*bandwidth);
+	
+    return ret;
+}
+#endif
 
 #pragma mark -
 IOReturn 
@@ -1506,8 +1552,13 @@ IOUSBDeviceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
+#ifdef SUPPORTS_SS_USB
+IOUSBDeviceStruct500 
+IOUSBDeviceClass::sUSBDeviceInterfaceV500 = {
+#else
 IOUSBDeviceStruct320 
 IOUSBDeviceClass::sUSBDeviceInterfaceV320 = {
+#endif
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -1558,6 +1609,10 @@ IOUSBDeviceClass::sUSBDeviceInterfaceV320 = {
     &IOUSBDeviceClass::deviceRequestExtraPower,
     &IOUSBDeviceClass::deviceReturnExtraPower,
     &IOUSBDeviceClass::deviceGetExtraPowerAllocated
+#ifdef SUPPORTS_SS_USB
+    // ---------- new with 5.0.0
+    ,&IOUSBDeviceClass::deviceGetBandwidthAvailableForDevice
+#endif
 };
 
 #pragma mark Routing interfaces
@@ -1775,4 +1830,11 @@ IOUSBDeviceClass::deviceReturnExtraPower(void *self, UInt32 type, UInt32 powerRe
 IOReturn 
 IOUSBDeviceClass::deviceGetExtraPowerAllocated(void *self, UInt32 type, UInt32 *powerAllocated)
 { return getThis(self)->GetExtraPowerAllocated(type, powerAllocated); }
+
+#ifdef SUPPORTS_SS_USB
+//--------------- added in 5.0.0
+IOReturn
+IOUSBDeviceClass::deviceGetBandwidthAvailableForDevice(void *self, UInt32 *bandwidth)
+{ return getThis(self)->GetBandwidthAvailableForDevice(bandwidth); }
+#endif
 

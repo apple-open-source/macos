@@ -25,6 +25,7 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/IOHibernatePrivate.h>
 
 #include "IOPEFLibraries.h"
 #include "IONDRV.h"
@@ -430,8 +431,8 @@ OSStatus EXP(RegistryPropertySet)( const RegEntryID * entryID,
     {
         regEntry->setProperty( sym, prop);
 
-        if ((sym == (const OSSymbol *)
-                regEntry->getProperty("IONVRAMProperty")))
+        if (sym == (const OSSymbol *)
+                regEntry->getProperty("IONVRAMProperty"))
             err = IONDRVSetNVRAMPropertyValue( regEntry, sym, prop );
         prop->release();
     }

@@ -398,7 +398,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
             goto finish;
         }
 
-      /* Handle the "Kernelcache" key for prelinked kernels for Lion and
+      /* Handle the "Kernelcache" key for prelinked kernels for Barolo and
        * later, the "MKext2 key" for format-2 mkext on Snow Leopard, and the
        * original "MKext" key for format-1 mkexts prior to SnowLeopard.
        */
@@ -446,7 +446,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
                     sizeof(caches->kernel))) {
                     goto finish;
                 }
-
             }
  
             // Archs are fetched from the cacheinfo dictionary when needed

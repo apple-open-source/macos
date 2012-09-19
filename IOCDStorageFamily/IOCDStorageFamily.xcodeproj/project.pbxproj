@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -30,9 +30,6 @@
 		6033BEFA0738279600FC5AD5 /* IOCDPartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFCC008B970111CA2AA4 /* IOCDPartitionScheme.h */; };
 		6033BEFB0738279600FC5AD5 /* IOCDTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFCD008B970111CA2AA4 /* IOCDTypes.h */; };
 		6033BEFD0738279600FC5AD5 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		6033BEFE0738279600FC5AD5 /* CD.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8901BFAF3303A87B01 /* CD.icns */; };
-		6033BEFF0738279600FC5AD5 /* CD-R.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8A01BFAF3303A87B01 /* CD-R.icns */; };
-		6033BF000738279600FC5AD5 /* CD-RW.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8B01BFAF3303A87B01 /* CD-RW.icns */; };
 		6033BF040738279600FC5AD5 /* IOCDBlockStorageDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFBD008B96A711CA2AA4 /* IOCDBlockStorageDevice.cpp */; };
 		6033BF050738279600FC5AD5 /* IOCDBlockStorageDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFBE008B96A711CA2AA4 /* IOCDBlockStorageDriver.cpp */; };
 		6033BF060738279600FC5AD5 /* IOCDMedia.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFBF008B96A711CA2AA4 /* IOCDMedia.cpp */; };
@@ -104,9 +101,6 @@
 		0560FFCC008B970111CA2AA4 /* IOCDPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOCDPartitionScheme.h; sourceTree = "<group>"; };
 		0560FFCD008B970111CA2AA4 /* IOCDTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOCDTypes.h; sourceTree = "<group>"; };
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		126DFF8901BFAF3303A87B01 /* CD.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = CD.icns; sourceTree = "<group>"; };
-		126DFF8A01BFAF3303A87B01 /* CD-R.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "CD-R.icns"; sourceTree = "<group>"; };
-		126DFF8B01BFAF3303A87B01 /* CD-RW.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "CD-RW.icns"; sourceTree = "<group>"; };
 		12BF9C9C00D858A003CA2AA4 /* IOCDMediaBSDClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOCDMediaBSDClient.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 0; };
 		12BF9C9D00D858A003CA2AA4 /* IOCDMediaBSDClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOCDMediaBSDClient.h; sourceTree = "<group>"; };
 		6033BF0C0738279600FC5AD5 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -129,9 +123,6 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				126DFF8901BFAF3303A87B01 /* CD.icns */,
-				126DFF8A01BFAF3303A87B01 /* CD-R.icns */,
-				126DFF8B01BFAF3303A87B01 /* CD-RW.icns */,
 				6033BF0C0738279600FC5AD5 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
 			);
@@ -197,6 +188,7 @@
 			buildPhases = (
 				6033BEF30738279600FC5AD5 /* Headers */,
 				6033BEFC0738279600FC5AD5 /* Resources */,
+				60568B5E1513DD81003BF360 /* ShellScript */,
 				6033BF010738279600FC5AD5 /* Sources */,
 			);
 			buildRules = (
@@ -215,9 +207,16 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0410;
+			};
 			buildConfigurationList = 60218FA8095B74720026C3D8 /* Build configuration list for PBXProject "IOCDStorageFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOCDStorageFamily */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -233,9 +232,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6033BEFE0738279600FC5AD5 /* CD.icns in Resources */,
-				6033BEFF0738279600FC5AD5 /* CD-R.icns in Resources */,
-				6033BF000738279600FC5AD5 /* CD-RW.icns in Resources */,
 				6033BEFD0738279600FC5AD5 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -243,6 +239,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		60568B5E1513DD81003BF360 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i \"CD\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"CD-R\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"CD-RW\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1";
+		};
 		60FD68320D4029E3000D088D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -299,7 +308,6 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
@@ -311,7 +319,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";

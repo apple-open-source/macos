@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2353,7 +2353,6 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
 
         attributes.options |= (flags & B_FUA         ) ? kIOStorageOptionForceUnitAccess : 0;
         attributes.options |= (flags & B_ENCRYPTED_IO) ? kIOStorageOptionIsEncrypted     : 0;
-        attributes.options |= (flags & B_META        ) ? kIOStorageOptionIsMeta          : 0;
     }
 
     return attributes;

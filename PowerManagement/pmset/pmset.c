@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -165,8 +165,6 @@
 #define ARG_USERCLIENTS		"userclients"
 #define ARG_UUID            "uuid"
 #define ARG_UUID_LOG        "uuidlog"
-#define ARG_EVERYTHING      "everything"
-#define ARG_PRINT_GETTERS   "getters"
 
 // special
 #define ARG_BOOT            "boot"
@@ -324,8 +322,6 @@ static void show_log(void);
 static void show_uuid(bool keep_running);
 static void listen_for_everything(void);
 static void show_power_adapter(void);
-static void show_getters(void);
-static void show_everything(void);
 
 static void show_power_event_history(void);
 static void show_power_event_history_detailed(void);
@@ -357,8 +353,6 @@ static void log_raw_battery_interest(
 static void log_raw_battery_match(
         void *refcon, 
         io_iterator_t b_iter);
-
-static void show_activity(bool repeat);
 
 static void log_thermal_events(void);        
 static void show_systempower_notify(void);
@@ -422,69 +416,6 @@ static int parseArgs(
         CFDictionaryRef             *repeating_event,
         bool                        *cancel_repeating_event,
         uint32_t                    *pmCmd);
-
-
-
-    static const char *getCanonicalArgForSynonym(char *pass)
-    {
-        if (!pass || 0 == strlen(pass)) 
-            return ARG_LIVE;
-        if (!strncmp(ARG_DISK, pass, kMaxArgStringLength))
-            return ARG_CUSTOM;
-        if (!strncmp(ARG_ADAPTER_AC, pass, kMaxArgStringLength))
-            return ARG_ADAPTER;
-        if (!strncmp(ARG_BATT, pass, kMaxArgStringLength))
-            return ARG_PS;
-        return pass;
-    }
-
-    typedef enum {
-        kActionGetOnceNoArgs,
-        kActionGetLog,
-        kActionRecursiveBeCareful
-    } CommandActionType;
-
-    typedef struct {
-        CommandActionType       actionType;
-    	const char              *arg;
-    	void                    (^action)(void);
-    } CommandAndAction;
-
-    static CommandAndAction the_getters[] =
-    	{ 
-    		{kActionGetOnceNoArgs,  ARG_LIVE,           ^{ show_system_power_settings(); show_active_profiles(); show_live_pm_settings();}},	
-    		{kActionGetOnceNoArgs,  ARG_CUSTOM,         ^{ show_custom_pm_settings(); }},
-            {kActionGetOnceNoArgs,  ARG_CAP,            ^{ show_supported_pm_features(); }},
-            {kActionGetOnceNoArgs,  ARG_SCHED,          ^{ show_scheduled_events(); }},
-            {kActionGetOnceNoArgs,  ARG_UPS,            ^{ show_ups_settings(); }},
-            {kActionGetOnceNoArgs,  ARG_SYS_PROFILES,   ^{ show_active_profiles(); show_system_profiles(); }},
-        	{kActionGetOnceNoArgs,  ARG_ADAPTER,        ^{ show_power_adapter(); }},
-        	{kActionGetOnceNoArgs,  ARG_PS,             ^{ show_power_sources(kApplyToBattery | kApplyToUPS); }},
-        	{kActionGetLog,         ARG_PSLOG,          ^{ log_power_source_changes(kApplyToBattery | kApplyToUPS); }},
-        	{kActionGetLog,         ARG_TRCOLUMNS,      ^{ log_power_source_changes(kShowColumns); }},
-        	{kActionGetLog,         ARG_PSRAW,          ^{ log_raw_power_source_changes(); }},
-        	{kActionGetLog,         ARG_THERMLOG,       ^{ log_thermal_events(); }},
-        	{kActionGetOnceNoArgs,  ARG_ASSERTIONS,     ^{ show_assertions(); }},
-        	{kActionGetLog,         ARG_ASSERTIONSLOG,  ^{ log_assertions(); }},
-        	{kActionGetOnceNoArgs,  ARG_SYSLOAD,        ^{ show_systemload(); }},
-        	{kActionGetLog,         ARG_SYSLOADLOG,     ^{ log_systemload(); }},
-        	{kActionGetOnceNoArgs,  ARG_LOG,            ^{ show_log(); }},
-        	{kActionGetLog,         ARG_LISTEN,         ^{ listen_for_everything(); }},
-        	{kActionGetOnceNoArgs,  ARG_HISTORY,        ^{ show_power_event_history(); }},
-        	{kActionGetOnceNoArgs,  ARG_HISTORY_DETAILED, ^{ show_power_event_history_detailed(); }},
-        	{kActionGetOnceNoArgs,  ARG_HID_NULL,       ^{ show_NULL_HID_events(); }},
-        	{kActionGetOnceNoArgs,  ARG_USERCLIENTS,    ^{ show_root_domain_user_clients(); }},
-            {kActionGetOnceNoArgs,  ARG_UUID,           ^{ show_uuid(kActionGetOnceNoArgs); }},
-        	{kActionGetLog,         ARG_UUID_LOG,       ^{ show_uuid(kActionGetLog); }},
-        	{kActionGetLog,         ARG_ACTIVITYLOG,    ^{ show_activity(kActionGetLog); }},
-        	{kActionGetOnceNoArgs,  ARG_ACTIVITY,       ^{ show_activity(kActionGetOnceNoArgs); }},
-            {kActionGetOnceNoArgs,  ARG_PRINT_GETTERS,  ^{ show_getters(); }},
-            {kActionRecursiveBeCareful, ARG_EVERYTHING, ^{ show_everything(); }}
-    	};
-
-
-    static const int the_getters_count = (sizeof(the_getters) / sizeof(CommandAndAction));
-
 
 //****************************
 //****************************
@@ -3230,13 +3161,13 @@ void myPMConnectionHandler(
     print_pretty_date(CFAbsoluteTimeGetCurrent(), true);
     _snprintSystemPowerStateDescription(stateDescriptionStr, sizeof(stateDescriptionStr), (uint64_t)capabilities);
     printf("PMConnection: %s\n", stateDescriptionStr);
-#if 0
+
     IOPMSystemPowerStateCapabilities    fromAPI = IOPMConnectionGetSystemCapabilities();
     if (capabilities != fromAPI)
     {
         printf("PMConnection: API IOPMConnectionGetSystemCapabilities() returns 0x%04x, should have returned 0x%04x\n", (uint32_t)fromAPI, (uint32_t)capabilities);
     }
-#endif    
+    
     if (!(kIOPMSystemPowerStateCapabilityCPU & capabilities))
     {
         printSleepAndWakeReasons(kJustPrintSleep);
@@ -3297,7 +3228,6 @@ static void install_listen_PM_connection(void)
 
 static void install_listen_com_apple_powermanagement_sleepservices_notify(void)
 {
-#if 0
     int     token;
     int     status;
     
@@ -3321,7 +3251,6 @@ static void install_listen_com_apple_powermanagement_sleepservices_notify(void)
     } else {
         printf("SleepServices are: OFF\n");
     }
-#endif
 }
 
 static void install_listen_IORegisterForSystemPower(void)
@@ -3514,7 +3443,12 @@ static void show_power_adapter(void)
         valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterCurrentKey));
         if (valNum) {
             CFNumberGetValue(valNum, kCFNumberIntType, &val);
-            printf(" Current = 0x%04x\n", val); 
+            printf(" Current = %dmA\n", val); 
+        }
+        
+        if ((valNum = CFDictionaryGetValue(acInfo, CFSTR("Voltage")))) {
+            CFNumberGetValue(valNum, kCFNumberIntType, &val);
+            printf(" Voltage = %dmW\n", val);
         }
     }
     else {
@@ -4302,38 +4236,145 @@ static int parseArgs(int argc,
                     if(ups) apply = kApplyToUPS;
                     break;
                 case 'g':
-                    // One of the "getters"
+                    // One of the "gets"
                     if('\0' != argv[i][2]) {
                         ret = kParseBadArgs;
                         goto exit;
                     }
                     i++;
-
-                    const char *canonical_arg = getCanonicalArgForSynonym(argv[i]);
-                    if (!canonical_arg) {
+                    
+                    // is the next word NULL? then it's a "-g" arg
+                    if( (NULL == argv[i])
+                        || !strncmp(argv[i], ARG_LIVE, kMaxArgStringLength))
+                    {
+                        show_system_power_settings();
+                        show_active_profiles();
+                        show_live_pm_settings();
+                        goto exit;
+                    } else if( !strncmp(argv[i], ARG_DISK, kMaxArgStringLength)
+                            || !strncmp(argv[i], ARG_CUSTOM, kMaxArgStringLength))        
+                    {
+                        show_custom_pm_settings();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_CAP, kMaxArgStringLength))
+                    {
+                        // show capabilities
+                        show_supported_pm_features();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_SCHED, kMaxArgStringLength))
+                    {
+                        // show scheduled repeating and one-time sleep/wakeup events
+                        show_scheduled_events();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_UPS, kMaxArgStringLength))
+                    {
+                        // show UPS
+                        show_ups_settings();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_SYS_PROFILES, kMaxArgStringLength))
+                    {
+                        // show profiles
+                        show_active_profiles();
+                        show_system_profiles();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_ADAPTER_AC, kMaxArgStringLength)
+                           || !strncmp(argv[i], ARG_ADAPTER, kMaxArgStringLength))
+                    {
+                        show_power_adapter();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_PS, kMaxArgStringLength)
+                           || !strncmp(argv[i], ARG_BATT, kMaxArgStringLength))
+                    {
+                        // show battery & UPS state
+                        show_power_sources(kApplyToBattery | kApplyToUPS);
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_PSLOG, kMaxArgStringLength))
+                    {
+                        // continuously log PS changes until user ctrl-c exits
+                        // or return kParseInternalError if something screwy happened
+                        log_power_source_changes(kApplyToBattery | kApplyToUPS);
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_TRCOLUMNS, kMaxArgStringLength))
+                    {
+                        // continuously log time remaining into column format
+                        log_power_source_changes(kShowColumns);
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_PSRAW, kMaxArgStringLength))
+                    {
+                        // continuously log PS changes until user ctrl-c exits
+                        // log via interest notes on the IOPMPowerSource nodes
+                        log_raw_power_source_changes();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_THERMLOG, kMaxArgStringLength))
+                    {
+                        // continuously log thermal events until user ctrl-c
+                        // exits
+                        log_thermal_events();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_ASSERTIONS, kMaxArgStringLength))
+                    {
+                        // show assertions
+                        show_assertions();
+                        goto exit;
+                    } else if(!strncmp(argv[i], ARG_ASSERTIONSLOG, kMaxArgStringLength))
+                    {
+                        // continuously log assertion events until user ctrl-c
+                        // exits
+                        log_assertions();
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_SYSLOAD, kMaxArgStringLength))
+                    {
+                        show_systemload();
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_SYSLOADLOG, kMaxArgStringLength))
+                    {
+                        log_systemload();
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_LOG, kMaxArgStringLength))
+                    {
+                        show_log();
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_LISTEN, kMaxArgStringLength))
+                    {
+                        listen_for_everything();
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_HISTORY, kMaxArgStringLength))
+                    {
+                        show_power_event_history();
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_HISTORY_DETAILED, kMaxArgStringLength))
+                    {
+                        show_power_event_history_detailed();
+                        goto exit;
+                    } else if( !strncmp(argv[i], ARG_SEARCH, kMaxArgStringLength) && argv[i+1])
+                    {
+                        // We need to convert the UUID string to upper case. 
+                        string_toupper(argv[i+1], argv[i+1]);
+                        show_details_for_UUID(argv[i+1]);
+                        goto exit;
+                    } else if (!strncmp(argv[i], ARG_HID_NULL, kMaxArgStringLength))
+                    {
+                        show_NULL_HID_events();
+                        goto exit;
+					} else if (!strncmp(argv[i], ARG_USERCLIENTS, kMaxArgStringLength))
+					{
+						show_root_domain_user_clients();
+						goto exit;
+                    } else if (!strncmp(argv[i], ARG_UUID, kMaxArgStringLength))
+                    {
+                        show_uuid(false);
+                    } else if (!strncmp(argv[i], ARG_UUID_LOG, kMaxArgStringLength))
+                    {
+                        show_uuid(true);
+                    } else if (!strncmp(argv[i], ARG_ACTIVITY, kMaxArgStringLength))
+                    {
+                        show_activity(false);
+                    } else if (!strncmp(argv[i], ARG_ACTIVITYLOG, kMaxArgStringLength))
+                    {
+                        show_activity(true);
+                    } else {
                         ret = kParseBadArgs;
                         goto exit;
-                    }
-
-                    int getter_iterator;
-                    bool handled_getter_arg = false;
-                    for (getter_iterator=0; getter_iterator<the_getters_count; getter_iterator++) {
-                        if (!strncmp(the_getters[getter_iterator].arg, canonical_arg, kMaxArgStringLength)) {
-                            the_getters[getter_iterator].action();
-                            handled_getter_arg = true;
-                            break;
-                        }                        
-                    }
-                    if (!handled_getter_arg)
-                    {
-                        // TODO: ARG_SEARCH is the only getter that's not described in the
-                        // "the_getters" array. If possible, we should fit it in there too.
-                        if (!strncmp(canonical_arg, ARG_SEARCH, kMaxArgStringLength) && argv[i+1] )
-                        {                        
-                            string_toupper(argv[i+1], argv[i+1]);
-                            show_details_for_UUID(argv[i+1]);
-                            goto exit;
-                        }
                     }
 
                     // return immediately - don't handle any more setting arguments
@@ -6062,25 +6103,4 @@ static void show_root_domain_user_clients(void)
 }
 
 
-static void show_getters(void)
-{
-    int i = 0;
-    for (i=0; i<the_getters_count; i++) 
-    {
-        if (the_getters[i].actionType == kActionGetOnceNoArgs) {
-            printf("%s\n", the_getters[i].arg);
-        }
-    }
-}
 
-static void show_everything(void)
-{
-    printf("pmset is invoking all non-blocking -g arguments");
-    int i=0;
-	for (i=0; i<the_getters_count; i++) {
-	    if (the_getters[i].actionType == kActionGetOnceNoArgs) {	    
-            printf("\nINVOKE: pmset -g %s\n", the_getters[i].arg);
-            the_getters[i].action();
-        }
-    }    
-}

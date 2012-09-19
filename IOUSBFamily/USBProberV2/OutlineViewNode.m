@@ -49,11 +49,21 @@
 }
 
 
-- (NSString *)name {
+- (NSString *)name 
+{
+    if (_name == nil)
+    {
+        [self setName:@""];
+    }
     return _name;
 }
 
-- (NSString *)value {
+- (NSString *)value 
+{
+    if (_value == nil)
+    {
+        [self setValue:@""];
+    }
     return _value;
 }
 
@@ -202,6 +212,35 @@
         }
     }
     return [finalText autorelease];
+}
+
+- (NSMutableDictionary *)dictionaryVersionOfMe
+{
+    NSMutableDictionary *returnDict = [NSMutableDictionary dictionary];
+    [returnDict setObject:[self name] forKey:@"nodeName"];
+    [returnDict setObject:[self value] forKey:@"nodeValue"];
+    [returnDict setObject:[NSMutableArray array] forKey:@"children"];
+    NSEnumerator *childObjectEnum = [[self children] objectEnumerator];
+    OutlineViewNode *eachChild;
+    while ((eachChild = [childObjectEnum nextObject]))
+    {
+        if ([eachChild childrenCount] > 0)
+        {
+            [[returnDict objectForKey:@"children"] addObject:[eachChild dictionaryVersionOfMe]];
+        }
+        else
+        {
+            if ([eachChild name] == nil || [[eachChild name] isEqualToString:@""])
+            {
+                [[returnDict objectForKey:@"children"] addObject:[eachChild value]];
+            }
+            else
+            {
+                [[returnDict objectForKey:@"children"] addObject:[NSMutableDictionary dictionaryWithObject:[eachChild value] forKey:[eachChild name]]];
+            }
+        }
+    }
+    return returnDict;
 }
 
 @end

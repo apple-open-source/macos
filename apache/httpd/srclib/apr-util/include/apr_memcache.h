@@ -287,9 +287,6 @@ APU_DECLARE(apr_status_t) apr_memcache_multgetp(apr_memcache_t *mc,
  * @param data_size   length of data at baton
  * @param timeout time in seconds for the data to live on the server
  * @param flags any flags set by the client for this key
- * @bug timeout is not implemented
- * @bug timeouts for apr must be prototyped in apr_interval_time_t;
- * this changes in 2.0
  */
 APU_DECLARE(apr_status_t) apr_memcache_set(apr_memcache_t *mc,
                                            const char *key,

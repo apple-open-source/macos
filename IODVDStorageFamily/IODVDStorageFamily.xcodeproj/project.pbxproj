@@ -29,12 +29,6 @@
 		60BD236E0736E82C00AC1192 /* IODVDMediaBSDClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 12BF9C9900D8588E03CA2AA4 /* IODVDMediaBSDClient.h */; };
 		60BD236F0736E82C00AC1192 /* IODVDTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFDB008B977E11CA2AA4 /* IODVDTypes.h */; };
 		60BD23710736E82C00AC1192 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		60BD23720736E82C00AC1192 /* DVD.icns in Resources */ = {isa = PBXBuildFile; fileRef = 126DFF8F01BFAFB103A87B01 /* DVD.icns */; };
-		60BD23730736E82C00AC1192 /* DVD-R.icns in Resources */ = {isa = PBXBuildFile; fileRef = 122704CE02B8FC3603A87B01 /* DVD-R.icns */; };
-		60BD23740736E82C00AC1192 /* DVD-RAM.icns in Resources */ = {isa = PBXBuildFile; fileRef = 122704CF02B8FC3603A87B01 /* DVD-RAM.icns */; };
-		60BD23750736E82C00AC1192 /* DVD-RW.icns in Resources */ = {isa = PBXBuildFile; fileRef = 122704D002B8FC3603A87B01 /* DVD-RW.icns */; };
-		60BD23760736E82C00AC1192 /* DVD+R.icns in Resources */ = {isa = PBXBuildFile; fileRef = 6D0114DB04EACC8800A87B01 /* DVD+R.icns */; };
-		60BD23770736E82C00AC1192 /* DVD+RW.icns in Resources */ = {isa = PBXBuildFile; fileRef = 6D0114DC04EACC8800A87B01 /* DVD+RW.icns */; };
 		60BD23790736E82C00AC1192 /* IODVDBlockStorageDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD7008B977E11CA2AA4 /* IODVDBlockStorageDevice.cpp */; };
 		60BD237A0736E82C00AC1192 /* IODVDBlockStorageDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD5008B977E11CA2AA4 /* IODVDBlockStorageDriver.cpp */; };
 		60BD237B0736E82C00AC1192 /* IODVDMedia.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FFD9008B977E11CA2AA4 /* IODVDMedia.cpp */; };
@@ -99,17 +93,11 @@
 		0560FFDA008B977E11CA2AA4 /* IODVDMedia.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IODVDMedia.h; sourceTree = "<group>"; };
 		0560FFDB008B977E11CA2AA4 /* IODVDTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IODVDTypes.h; sourceTree = "<group>"; };
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		122704CE02B8FC3603A87B01 /* DVD-R.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "DVD-R.icns"; sourceTree = "<group>"; };
-		122704CF02B8FC3603A87B01 /* DVD-RAM.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "DVD-RAM.icns"; sourceTree = "<group>"; };
-		122704D002B8FC3603A87B01 /* DVD-RW.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "DVD-RW.icns"; sourceTree = "<group>"; };
-		126DFF8F01BFAFB103A87B01 /* DVD.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = DVD.icns; sourceTree = "<group>"; };
 		12BF9C9800D8588E03CA2AA4 /* IODVDMediaBSDClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IODVDMediaBSDClient.cpp; sourceTree = "<group>"; };
 		12BF9C9900D8588E03CA2AA4 /* IODVDMediaBSDClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IODVDMediaBSDClient.h; sourceTree = "<group>"; };
 		6058858007382A7900193F37 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		60BD23800736E82C00AC1192 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60BD23810736E82C00AC1192 /* IODVDStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IODVDStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		6D0114DB04EACC8800A87B01 /* DVD+R.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "DVD+R.icns"; sourceTree = "<group>"; };
-		6D0114DC04EACC8800A87B01 /* DVD+RW.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "DVD+RW.icns"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -127,12 +115,6 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				126DFF8F01BFAFB103A87B01 /* DVD.icns */,
-				122704CE02B8FC3603A87B01 /* DVD-R.icns */,
-				122704CF02B8FC3603A87B01 /* DVD-RAM.icns */,
-				122704D002B8FC3603A87B01 /* DVD-RW.icns */,
-				6D0114DB04EACC8800A87B01 /* DVD+R.icns */,
-				6D0114DC04EACC8800A87B01 /* DVD+RW.icns */,
 				60BD23800736E82C00AC1192 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
 			);
@@ -195,6 +177,7 @@
 			buildPhases = (
 				60BD236A0736E82C00AC1192 /* Headers */,
 				60BD23700736E82C00AC1192 /* Resources */,
+				6071CF771513E0390031118C /* ShellScript */,
 				60BD23780736E82C00AC1192 /* Sources */,
 			);
 			buildRules = (
@@ -238,12 +221,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				60BD23720736E82C00AC1192 /* DVD.icns in Resources */,
-				60BD23730736E82C00AC1192 /* DVD-R.icns in Resources */,
-				60BD23740736E82C00AC1192 /* DVD-RAM.icns in Resources */,
-				60BD23750736E82C00AC1192 /* DVD-RW.icns in Resources */,
-				60BD23760736E82C00AC1192 /* DVD+R.icns in Resources */,
-				60BD23770736E82C00AC1192 /* DVD+RW.icns in Resources */,
 				60BD23710736E82C00AC1192 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -251,6 +228,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		6071CF771513E0390031118C /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i \"DVD\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"DVD-R\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"DVD-RAM\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"DVD-RW\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"DVD+R\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"DVD+RW\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1";
+		};
 		60FD68090D402769000D088D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;

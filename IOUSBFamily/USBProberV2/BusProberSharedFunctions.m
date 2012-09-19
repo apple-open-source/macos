@@ -229,8 +229,8 @@ int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 
 int GetCurrentConfiguration(IOUSBDeviceRef deviceIntf)
 {
     IOUSBDevRequest req;
-    IOReturn err;
-	char buf;
+    IOReturn 		err;
+	UInt8		 	buf;
     
 	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
@@ -327,6 +327,11 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                 case 2:
                     protocol = @"High Speed Multiple Transaction Translators";
                     break;
+#ifdef SUPPORTS_SS_USB
+                case 3:
+                    protocol = @"SuperSpeed";
+                    break;
+#endif
                 case 0:
                 default:
                     protocol = @"Full/Low Speed";

@@ -88,8 +88,8 @@ size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,
 // even ones not recognized by the local CL. It does not return any value, only presence.
 //
-bool certificateHasField(SecCertificateRef cert, const CssmOid &oid);
-bool certificateHasPolicy(SecCertificateRef cert, const CssmOid &policyOid);
+bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid);
+bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid);
 
 
 //

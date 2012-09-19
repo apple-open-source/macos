@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2010 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -92,7 +92,7 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
 	IODMACommand				*dmaCommand = NULL;
 
 	USBTrace_Start( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)me, (uintptr_t)command, status, bufferSizeRemaining );
-
+	
     if (!me || !command)
     {
 		USBError(1, "DisjointCompletion sanity check failed - me(%p) command (%p)", me, command);
@@ -104,8 +104,8 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
 	
 	if (!dmaCommand || !buf)
 	{
-		USBLog(1, "%s[%p]::DisjointCompletion - no dmaCommand", me->getName(), me);
-		USBTrace( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)me, 0, 0, 1 );
+		USBLog(1, "%s[%p]::DisjointCompletion - no dmaCommand, or buf(%p) is not an IOBMD", me->getName(), me, command->GetBuffer());
+		USBTrace( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)me, (uintptr_t)command->GetBuffer(), 0, 1 );
 		return;
 	}
 	
@@ -134,9 +134,18 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
 	
     // now call through to the original completion routine
     IOUSBCompletion completion = command->GetDisjointCompletion();
-    USBLog(5, "%s[%p]::DisjointCompletion calling through to %p - status (%p)!", me->getName(), me, completion.action, (void*)status);
-    if (completion.action)  
+	
+	if ( !command->GetIsSyncTransfer() )
+	{
+		// Free our command now that we have the completion and we are not going to use it anymore
+		me->ReturnUSBCommand(command);
+	}
+	
+   	if (completion.action)
+	{
+		USBLog(status == kIOReturnSuccess ? 7 : 3, "%s[%p]::DisjointCompletion calling through to %p - status 0x%x!", me->getName(), me, completion.action, (uint32_t)status);
 		(*completion.action)(completion.target, completion.parameter, status, bufferSizeRemaining);
+	}
 	
 	USBTrace_End( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)completion.target, (uintptr_t)completion.parameter, status, bufferSizeRemaining);
 }
@@ -189,7 +198,7 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 		err = dmaCommand->gen64IOVMSegments(&offset64, &segment64, &numSegments);
         if (err || (numSegments != 1))
         {
-            USBLog(1, "%s[%p]::CheckForDisjointDescriptor - err (%p) trying to generate segments at offset (%Ld), length (%d), segLength (%d), total length (%d), buf (%p), numSegments (%d)", getName(), this, (void*)err, offset64, (int)length, (int)segLength, (int)command->GetReqCount(), buf, (int)numSegments);
+            USBLog(1, "%s[%p]::CheckForDisjointDescriptor - err (%p) trying to generate segments at offset (%qd), length (%d), segLength (%d), total length (%d), buf (%p), numSegments (%d)", getName(), this, (void*)err, offset64, (int)length, (int)segLength, (int)command->GetReqCount(), buf, (int)numSegments);
 			USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, offset64, length, segLength, 3 );
 			USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, segLength, command->GetReqCount(), numSegments, 4 );
             return kIOReturnBadArgument;
@@ -208,7 +217,7 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
         if (segLength % maxPacketSize)
         {
             // this is the error case. I need to copy the descriptor to a new descriptor and remember that I did it
-            USBLog(5, "%s[%p]::CheckForDisjointDescriptor - found a disjoint segment of length (%d) MPS (%d)", getName(), this, (int)segLength, maxPacketSize);
+            USBLog(6, "%s[%p]::CheckForDisjointDescriptor - found a disjoint segment of length (%d) MPS (%d)", getName(), this, (int)segLength, maxPacketSize);
 			length = command->GetReqCount();		// we will not return to the while loop, so don't worry about changing the value of length
 													// allocate a new descriptor which is the same total length as the old one
 			newBuf = IOBufferMemoryDescriptor::withOptions((command->GetDirection() == kUSBIn) ? kIODirectionIn : kIODirectionOut, length);
@@ -218,10 +227,10 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 				USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, kIOReturnNoMemory, 0, 5 );
 				return kIOReturnNoMemory;
 			}
-			USBLog(5, "%s[%p]::CheckForDisjointDescriptor, obtained buffer %p of length %d", getName(), this, newBuf, (int)length);
+			USBLog(7, "%s[%p]::CheckForDisjointDescriptor, obtained buffer %p of length %d", getName(), this, newBuf, (int)length);
 			
 			// first close out (and complete) the original dma command descriptor
-			USBLog(6, "%s[%p]::CheckForDisjointDescriptor, clearing memDec (%p) from dmaCommand (%p)", getName(), this, dmaCommand->getMemoryDescriptor(), dmaCommand);
+			USBLog(7, "%s[%p]::CheckForDisjointDescriptor, clearing memDec (%p) from dmaCommand (%p)", getName(), this, dmaCommand->getMemoryDescriptor(), dmaCommand);
 			dmaCommand->clearMemoryDescriptor();
 			
 			// copy the bytes to the buffer if necessary
@@ -256,7 +265,7 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 			
 			command->SetOrigBuffer(command->GetBuffer());
 			command->SetDisjointCompletion(command->GetClientCompletion());
-			USBLog(5, "%s[%p]::CheckForDisjointDescriptor - changing buffer from (%p) to (%p) and putting new buffer in dmaCommand (%p)", getName(), this, command->GetBuffer(), newBuf, dmaCommand);
+			USBLog(7, "%s[%p]::CheckForDisjointDescriptor - changing buffer from (%p) to (%p) and putting new buffer in dmaCommand (%p)", getName(), this, command->GetBuffer(), newBuf, dmaCommand);
 			command->SetBuffer(newBuf);
 			
 			
@@ -418,6 +427,9 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		command->SetRequest(0);            	// Not a device request
 		command->SetAddress(address);
 		command->SetEndpoint(endpoint->number);
+#ifdef SUPPORTS_SS_USB
+    	command->SetStreamID(0);
+#endif
 		command->SetDirection(kUSBIn);
 		command->SetType(endpoint->transferType);
 		command->SetBuffer(buffer);
@@ -602,6 +614,9 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		command->SetRequest(0);            // Not a device request
 		command->SetAddress(address);
 		command->SetEndpoint(endpoint->number);
+#ifdef SUPPORTS_SS_USB
+    	command->SetStreamID(0);
+#endif
 		command->SetDirection(kUSBOut);
 		command->SetType(endpoint->transferType);
 		command->SetBuffer(buffer);

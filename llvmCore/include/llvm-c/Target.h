@@ -1,26 +1,26 @@
-/*===-- llvm-c/Target.h - Target Lib C Iface --------------------*- C++ -*-===*\
-|*                                                                            *|
-|*                     The LLVM Compiler Infrastructure                       *|
-|*                                                                            *|
-|* This file is distributed under the University of Illinois Open Source      *|
-|* License. See LICENSE.TXT for details.                                      *|
-|*                                                                            *|
-|*===----------------------------------------------------------------------===*|
-|*                                                                            *|
-|* This header declares the C interface to libLLVMTarget.a, which             *|
-|* implements target information.                                             *|
-|*                                                                            *|
-|* Many exotic languages can interoperate with C code but have a harder time  *|
-|* with C++ due to name mangling. So in addition to C, this interface enables *|
-|* tools written in such languages.                                           *|
-|*                                                                            *|
-\*===----------------------------------------------------------------------===*/
+/*===-- llvm-c/Target.h - Target Lib C Iface --------------------*- C++ -*-===*/
+/*                                                                            */
+/*                     The LLVM Compiler Infrastructure                       */
+/*                                                                            */
+/* This file is distributed under the University of Illinois Open Source      */
+/* License. See LICENSE.TXT for details.                                      */
+/*                                                                            */
+/*===----------------------------------------------------------------------===*/
+/*                                                                            */
+/* This header declares the C interface to libLLVMTarget.a, which             */
+/* implements target information.                                             */
+/*                                                                            */
+/* Many exotic languages can interoperate with C code but have a harder time  */
+/* with C++ due to name mangling. So in addition to C, this interface enables */
+/* tools written in such languages.                                           */
+/*                                                                            */
+/*===----------------------------------------------------------------------===*/
 
 #ifndef LLVM_C_TARGET_H
 #define LLVM_C_TARGET_H
 
 #include "llvm-c/Core.h"
-#include "llvm/Config/config.h"
+#include "llvm/Config/llvm-config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,10 +29,12 @@ extern "C" {
 enum LLVMByteOrdering { LLVMBigEndian, LLVMLittleEndian };
 
 typedef struct LLVMOpaqueTargetData *LLVMTargetDataRef;
+typedef struct LLVMOpaqueTargetLibraryInfotData *LLVMTargetLibraryInfoRef;
 typedef struct LLVMStructLayout *LLVMStructLayoutRef;
 
 /* Declare all of the target-initialization functions that are available. */
-#define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##TargetInfo(void);
+#define LLVM_TARGET(TargetName) \
+  void LLVMInitialize##TargetName##TargetInfo(void);
 #include "llvm/Config/Targets.def"
 #undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
   
@@ -40,6 +42,11 @@ typedef struct LLVMStructLayout *LLVMStructLayoutRef;
 #include "llvm/Config/Targets.def"
 #undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
 
+#define LLVM_TARGET(TargetName) \
+  void LLVMInitialize##TargetName##TargetMC(void);
+#include "llvm/Config/Targets.def"
+#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+  
 /** LLVMInitializeAllTargetInfos - The main program should call this function if
     it wants access to all available targets that LLVM is configured to
     support. */
@@ -63,15 +70,11 @@ static inline void LLVMInitializeAllTargets(void) {
     for JIT applications to ensure that the target gets linked in correctly. */
 static inline LLVMBool LLVMInitializeNativeTarget(void) {
   /* If we have a native target, initialize it to ensure it is linked in. */
-#ifdef LLVM_NATIVE_ARCH
-#define DoInit2(TARG) \
-  LLVMInitialize ## TARG ## Info ();          \
-  LLVMInitialize ## TARG ()
-#define DoInit(T) DoInit2(T)
-  DoInit(LLVM_NATIVE_ARCH);
+#ifdef LLVM_NATIVE_TARGET
+  LLVM_NATIVE_TARGETINFO();
+  LLVM_NATIVE_TARGET();
+  LLVM_NATIVE_TARGETMC();
   return 0;
-#undef DoInit
-#undef DoInit2
 #else
   return 1;
 #endif
@@ -87,6 +90,11 @@ LLVMTargetDataRef LLVMCreateTargetData(const char *StringRep);
     of the target data.
     See the method llvm::PassManagerBase::add. */
 void LLVMAddTargetData(LLVMTargetDataRef, LLVMPassManagerRef);
+
+/** Adds target library information to a pass manager. This does not take
+    ownership of the target library info.
+    See the method llvm::PassManagerBase::add. */
+void LLVMAddTargetLibraryInfo(LLVMTargetLibraryInfoRef, LLVMPassManagerRef);
 
 /** Converts target data to a target layout string. The string must be disposed
     with LLVMDisposeMessage.
@@ -145,12 +153,6 @@ unsigned LLVMElementAtOffset(LLVMTargetDataRef, LLVMTypeRef StructTy,
 unsigned long long LLVMOffsetOfElement(LLVMTargetDataRef, LLVMTypeRef StructTy,
                                        unsigned Element);
 
-/** Struct layouts are speculatively cached. If a TargetDataRef is alive when
-    types are being refined and removed, this method must be called whenever a
-    struct type is removed to avoid a dangling pointer in this cache.
-    See the method llvm::TargetData::InvalidateStructLayoutInfo. */
-void LLVMInvalidateStructLayout(LLVMTargetDataRef, LLVMTypeRef StructTy);
-
 /** Deallocates a TargetData.
     See the destructor llvm::TargetData::~TargetData. */
 void LLVMDisposeTargetData(LLVMTargetDataRef);
@@ -161,6 +163,7 @@ void LLVMDisposeTargetData(LLVMTargetDataRef);
 
 namespace llvm {
   class TargetData;
+  class TargetLibraryInfo;
 
   inline TargetData *unwrap(LLVMTargetDataRef P) {
     return reinterpret_cast<TargetData*>(P);
@@ -168,6 +171,15 @@ namespace llvm {
   
   inline LLVMTargetDataRef wrap(const TargetData *P) {
     return reinterpret_cast<LLVMTargetDataRef>(const_cast<TargetData*>(P));
+  }
+
+  inline TargetLibraryInfo *unwrap(LLVMTargetLibraryInfoRef P) {
+    return reinterpret_cast<TargetLibraryInfo*>(P);
+  }
+
+  inline LLVMTargetLibraryInfoRef wrap(const TargetLibraryInfo *P) {
+    TargetLibraryInfo *X = const_cast<TargetLibraryInfo*>(P);
+    return reinterpret_cast<LLVMTargetLibraryInfoRef>(X);
   }
 }
 

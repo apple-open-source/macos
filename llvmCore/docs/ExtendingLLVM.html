@@ -2,15 +2,16 @@
                       "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Extending LLVM: Adding instructions, intrinsics, types, etc.</title>
   <link rel="stylesheet" href="llvm.css" type="text/css">
 </head>
 
 <body>
 
-<div class="doc_title">
+<h1>
   Extending LLVM: Adding instructions, intrinsics, types, etc.
-</div>
+</h1>
 
 <ol>
   <li><a href="#introduction">Introduction and Warning</a></li>
@@ -31,12 +32,12 @@
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="introduction">Introduction and Warning</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>During the course of using LLVM, you may wish to customize it for your
 research project or for experimentation. At this point, you may realize that
@@ -68,12 +69,12 @@ effort by doing so.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="intrinsic">Adding a new intrinsic function</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>Adding a new intrinsic function to LLVM is much easier than adding a new
 instruction.  Almost all extensions to LLVM should start as an intrinsic
@@ -130,12 +131,12 @@ support for it.  Generally you must do the following steps:</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="sdnode">Adding a new SelectionDAG node</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>As with intrinsics, adding a new SelectionDAG node to LLVM is much easier
 than adding a new instruction.  New nodes are often added to help represent
@@ -146,7 +147,7 @@ cases, new nodes have been added to allow many targets to perform a common task
 complicated behavior in a single node (rotate).</p>
 
 <ol>
-<li><tt>include/llvm/CodeGen/SelectionDAGNodes.h</tt>:
+<li><tt>include/llvm/CodeGen/ISDOpcodes.h</tt>:
     Add an enum value for the new SelectionDAG node.</li>
 <li><tt>lib/CodeGen/SelectionDAG/SelectionDAG.cpp</tt>:
     Add code to print the node to <tt>getOperationName</tt>.  If your new node
@@ -220,12 +221,12 @@ complicated behavior in a single node (rotate).</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="instruction">Adding a new instruction</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p><span class="doc_warning">WARNING: adding instructions changes the bitcode
 format, and it will take some effort to maintain compatibility with
@@ -277,25 +278,23 @@ to understand this new instruction.</p>
 
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="type">Adding a new type</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p><span class="doc_warning">WARNING: adding new types changes the bitcode
 format, and will break compatibility with currently-existing LLVM
 installations.</span> Only add new types if it is absolutely necessary.</p>
 
-</div>
-
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="fund_type">Adding a fundamental type</a>
-</div>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <ol>
 
@@ -317,11 +316,11 @@ installations.</span> Only add new types if it is absolutely necessary.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="derived_type">Adding a derived type</a>
-</div>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <ol>
 <li><tt>llvm/include/llvm/Type.h</tt>:
@@ -373,6 +372,8 @@ void calcTypeName(const Type *Ty,
 
 </div>
 
+</div>
+
 <!-- *********************************************************************** -->
 
 <hr>
@@ -382,9 +383,9 @@ void calcTypeName(const Type *Ty,
   <a href="http://validator.w3.org/check/referer"><img
   src="http://www.w3.org/Icons/valid-html401-blue" alt="Valid HTML 4.01"></a>
 
-  <a href="http://llvm.org">The LLVM Compiler Infrastructure</a>
+  <a href="http://llvm.org/">The LLVM Compiler Infrastructure</a>
   <br>
-  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
+  Last modified: $Date$
 </address>
 
 </body>

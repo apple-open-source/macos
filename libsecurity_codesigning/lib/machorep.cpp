@@ -172,7 +172,7 @@ CFDataRef MachORep::embeddedComponent(CodeDirectory::SpecialSlot slot)
 			if (const linkedit_data_command *cs = macho->findCodeSignature()) {
 				size_t offset = macho->flip(cs->dataoff);
 				size_t length = macho->flip(cs->datasize);
-				if (mSigningData = EmbeddedSignatureBlob::readBlob(macho->fd(), macho->offset() + offset, length)) {
+				if ((mSigningData = EmbeddedSignatureBlob::readBlob(macho->fd(), macho->offset() + offset, length))) {
 					secdebug("machorep", "%zd signing bytes in %d blob(s) from %s(%s)",
 						mSigningData->length(), mSigningData->count(),
 						mainExecutablePath().c_str(), macho->architecture().name());
@@ -263,7 +263,7 @@ void MachORep::flush()
 string MachORep::recommendedIdentifier(const SigningContext &ctx)
 {
 	if (CFDataRef info = infoPlist()) {
-		if (CFDictionaryRef dict = makeCFDictionaryFrom(info)) {
+		if (CFRef<CFDictionaryRef> dict = makeCFDictionaryFrom(info)) {
 			CFStringRef code = CFStringRef(CFDictionaryGetValue(dict, kCFBundleIdentifierKey));
 			if (code && CFGetTypeID(code) != CFStringGetTypeID())
 				MacOSError::throwMe(errSecCSBadDictionaryFormat);
@@ -280,23 +280,12 @@ string MachORep::recommendedIdentifier(const SigningContext &ctx)
 
 //
 // The default suggested requirements for Mach-O binaries are as follows:
-// Hosting requirement: Rosetta if it's PPC, none otherwise.
 // Library requirement: Composed from dynamic load commands.
 //
-static const uint8_t ppc_host_ireq[] = {	// anchor apple and identifier com.apple.translate
-	0xfa, 0xde, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06,
-	0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x13, 0x63, 0x6f, 0x6d, 0x2e,
-	0x61, 0x70, 0x70, 0x6c, 0x65, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x6c, 0x61, 0x74, 0x65, 0x00,
-};
-
 const Requirements *MachORep::defaultRequirements(const Architecture *arch, const SigningContext &ctx)
 {
 	assert(arch);		// enforced by signing infrastructure
 	Requirements::Maker maker;
-	
-	// if ppc architecture, add hosting requirement for Rosetta's translate tool
-	if (arch->cpuType() == CPU_TYPE_POWERPC)
-		maker.add(kSecHostRequirementType, ((const Requirement *)ppc_host_ireq)->clone());
 		
 	// add library requirements from DYLIB commands (if any)
 	if (Requirement *libreq = libraryRequirements(arch, ctx))
@@ -311,31 +300,47 @@ Requirement *MachORep::libraryRequirements(const Architecture *arch, const Signi
 	auto_ptr<MachO> macho(mainExecutableImage()->architecture(*arch));
 	Requirement::Maker maker;
 	Requirement::Maker::Chain chain(maker, opOr);
-	if (macho.get()) {
-		for (const load_command *command = macho->loadCommands(); command; command = macho->nextCommand(command)) {
-			if (macho->flip(command->cmd) == LC_LOAD_DYLIB) {
-				const dylib_command *dycmd = (const dylib_command *)command;
-				if (const char *name = macho->string(command, dycmd->dylib.name))
-					try {
-						string path = ctx.sdkPath(name);
-						secdebug("machorep", "examining DYLIB %s", path.c_str());
-						// find path on disk, get designated requirement (if signed)
-						if (RefPointer<DiskRep> rep = DiskRep::bestGuess(path))
-							if (SecPointer<SecStaticCode> code = new SecStaticCode(rep))
-								if (const Requirement *req = code->designatedRequirement()) {
-									CODESIGN_SIGN_DEP_MACHO(this, (char*)path.c_str(), (void*)req);
-									chain.add();
-									chain.maker.copy(req);
-								}
-					} catch (...) {
-						CODESIGN_SIGN_DEP_MACHO(this, (char*)name, NULL);
-						secdebug("machorep", "exception getting library requirement (ignored)");
+
+	if (macho.get())
+		if (const linkedit_data_command *ldep = macho->findLibraryDependencies()) {
+			size_t offset = macho->flip(ldep->dataoff);
+			size_t length = macho->flip(ldep->datasize);
+			if (LibraryDependencyBlob *deplist = LibraryDependencyBlob::readBlob(macho->fd(), macho->offset() + offset, length)) {
+				try {
+					secdebug("machorep", "%zd library dependency bytes in %d blob(s) from %s(%s)",
+						deplist->length(), deplist->count(),
+						mainExecutablePath().c_str(), macho->architecture().name());
+					unsigned count = deplist->count();
+					// we could walk through DYLIB load commands in parallel. We just don't need anything from them so far
+					for (unsigned n = 0; n < count; n++) {
+						const Requirement *req = NULL;
+						if (const BlobCore *dep = deplist->blob(n)) {
+							if ((req = Requirement::specific(dep))) {
+								// binary code requirement; good to go
+							} else if (const BlobWrapper *wrap = BlobWrapper::specific(dep)) {
+								// blob-wrapped text form - convert to binary requirement
+								std::string reqString = std::string((const char *)wrap->data(), wrap->length());
+								CFRef<SecRequirementRef> areq;
+								MacOSError::check(SecRequirementCreateWithString(CFTempString(reqString), kSecCSDefaultFlags, &areq.aref()));
+								CFRef<CFDataRef> reqData;
+								MacOSError::check(SecRequirementCopyData(areq, kSecCSDefaultFlags, &reqData.aref()));
+								req = Requirement::specific((const BlobCore *)CFDataGetBytePtr(reqData));
+							} else {
+								secdebug("machorep", "unexpected blob type 0x%x in slot %d of binary dependencies", dep->magic(), n);
+								continue;
+							}
+							chain.add();
+							maker.copy(req);
+						} else
+							secdebug("machorep", "missing DR info for library index %d", n);
 					}
-				else
-					CODESIGN_SIGN_DEP_MACHO(this, NULL, NULL);
+					::free(deplist);
+				} catch (...) {
+					::free(deplist);
+					throw;
+				}
 			}
 		}
-	}
 	if (chain.empty())
 		return NULL;
 	else

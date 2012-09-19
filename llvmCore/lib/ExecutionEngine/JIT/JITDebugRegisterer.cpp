@@ -25,9 +25,8 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Mutex.h"
+#include "llvm/Support/Mutex.h"
 #include <string>
-#include <vector>
 
 namespace llvm {
 
@@ -35,7 +34,7 @@ namespace llvm {
 extern "C" {
 
   // Debuggers puts a breakpoint in this function.
-  DISABLE_INLINE void __jit_debug_register_code() { }
+  LLVM_ATTRIBUTE_NOINLINE void __jit_debug_register_code() { }
 
   // We put information about the JITed function in this global, which the
   // debugger reads.  Make sure to specify the version statically, because the
@@ -90,8 +89,8 @@ std::string JITDebugRegisterer::MakeELF(const Function *F, DebugInfo &I) {
   // section.  This allows GDB to get a good stack trace, particularly on
   // linux x86_64.  Mark this as a PROGBITS section that needs to be loaded
   // into memory at runtime.
-  ELFSection &EH = EW.getSection(".eh_frame", ELFSection::SHT_PROGBITS,
-                                 ELFSection::SHF_ALLOC);
+  ELFSection &EH = EW.getSection(".eh_frame", ELF::SHT_PROGBITS,
+                                 ELF::SHF_ALLOC);
   // Pointers in the DWARF EH info are all relative to the EH frame start,
   // which is stored here.
   EH.Addr = (uint64_t)I.EhStart;
@@ -102,9 +101,9 @@ std::string JITDebugRegisterer::MakeELF(const Function *F, DebugInfo &I) {
   // Add this single function to the symbol table, so the debugger prints the
   // name instead of '???'.  We give the symbol default global visibility.
   ELFSym *FnSym = ELFSym::getGV(F,
-                                ELFSym::STB_GLOBAL,
-                                ELFSym::STT_FUNC,
-                                ELFSym::STV_DEFAULT);
+                                ELF::STB_GLOBAL,
+                                ELF::STT_FUNC,
+                                ELF::STV_DEFAULT);
   FnSym->SectionIdx = Text.SectionIdx;
   FnSym->Size = I.FnEnd - I.FnStart;
   FnSym->Value = 0;  // Offset from start of section.
@@ -143,7 +142,7 @@ void JITDebugRegisterer::RegisterFunction(const Function *F, DebugInfo &I) {
 
   // Add a mapping from F to the entry and buffer, so we can delete this
   // info later.
-  FnMap[F] = std::make_pair<std::string, jit_code_entry*>(Buffer, JITCodeEntry);
+  FnMap[F] = std::make_pair(Buffer, JITCodeEntry);
 
   // Acquire the lock and do the registration.
   {

@@ -1516,7 +1516,11 @@ static int32_t xar_unserialize(xar_t x) {
 								f = xar_file_unserialize(x, NULL, reader);
 								XAR_FILE(f)->next = XAR(x)->files;
 								XAR(x)->files = f;
-							} else if( strcmp((const char*)name, "signature") == 0 ){
+							} else if( strcmp((const char*)name, "signature") == 0
+#ifdef __APPLE__
+                                      || strcmp((const char*)name, "x-signature") == 0
+#endif
+                                      ){
 								xar_signature_t sig = NULL;			
 								sig = xar_signature_unserialize(x, reader );
 								

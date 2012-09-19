@@ -63,6 +63,7 @@ static bool haveCreatedRef = false;
 IOService *
 AppleUSBMergeNub::probe(IOService *provider, SInt32 *score)
 {
+#pragma unused (score)
     const IORegistryPlane * usbPlane = getPlane(kIOUSBPlane);
     
 	// Note: the following line limits the use of the IOProviderParentUSBNubMergeProperties dictionary to IOUSBDevice nubs

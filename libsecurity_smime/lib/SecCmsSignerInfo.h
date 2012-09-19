@@ -72,6 +72,18 @@ SecCmsSignerInfoGetVerificationStatus(SecCmsSignerInfoRef signerinfo);
 /*!
     @function
  */
+extern OSStatus
+SecCmsSignerInfoVerifyUnAuthAttrs(SecCmsSignerInfoRef signerinfo);
+
+/*!
+    @function
+ */
+extern CSSM_DATA *
+SecCmsSignerInfoGetEncDigest(SecCmsSignerInfoRef signerinfo);
+
+/*!
+    @function
+ */
 extern SECOidData *
 SecCmsSignerInfoGetDigestAlg(SecCmsSignerInfoRef signerinfo);
 
@@ -89,6 +101,12 @@ SecCmsSignerInfoGetCertList(SecCmsSignerInfoRef signerinfo);
 
 /*!
     @function
+ */
+extern CFArrayRef
+SecCmsSignerInfoGetTimestampCertList(SecCmsSignerInfoRef signerinfo);
+
+/*!
+    @function
     @abstract Return the signing time, in UTCTime format, of a CMS signerInfo.
     @param sinfo SignerInfo data for this signer.
     @discussion Returns a pointer to XXXX (what?)
@@ -96,6 +114,16 @@ SecCmsSignerInfoGetCertList(SecCmsSignerInfoRef signerinfo);
  */
 extern OSStatus
 SecCmsSignerInfoGetSigningTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stime);
+
+/*!
+    @function
+    @abstract Return the timestamp time, in UTCTime format, of a CMS signerInfo.
+    @param sinfo SignerInfo data for this signer.
+    @discussion Returns a pointer to XXXX (what?)
+    @result A return value of NULL is an error.
+ */
+OSStatus
+SecCmsSignerInfoGetTimestampTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stime);
 
 /*!
     @function
@@ -163,6 +191,13 @@ SecCmsSignerInfoAddSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertifica
  */
 OSStatus
 SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert, SecKeychainRef keychainOrArray);
+
+/*!
+    @function
+    @abstract Create a timestamp unsigned attribute with a TimeStampToken.
+ */
+OSStatus
+SecCmsSignerInfoAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA *tstoken);
 
 /*!
     @function

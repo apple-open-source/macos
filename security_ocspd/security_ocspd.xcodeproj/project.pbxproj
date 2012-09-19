@@ -271,8 +271,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55106;
-				DYLIB_CURRENT_VERSION = 55106;
+				CURRENT_PROJECT_VERSION = 55106.1;
+				DYLIB_CURRENT_VERSION = 55106.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",
 					/usr/local/SecurityPieces/Frameworks/,
@@ -307,8 +307,8 @@
 		C27AD4790987FCE9001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55106;
-				DYLIB_CURRENT_VERSION = 55106;
+				CURRENT_PROJECT_VERSION = 55106.1;
+				DYLIB_CURRENT_VERSION = 55106.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",
 					/usr/local/SecurityPieces/Frameworks/,
@@ -340,8 +340,8 @@
 		C27AD47A0987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55106;
-				DYLIB_CURRENT_VERSION = 55106;
+				CURRENT_PROJECT_VERSION = 55106.1;
+				DYLIB_CURRENT_VERSION = 55106.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",
 					/usr/local/SecurityPieces/Frameworks/,

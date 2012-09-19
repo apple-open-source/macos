@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -251,6 +251,7 @@ exit:
 		IOLog( DEBUG_NAME "[FindKernelLogger] Could not find a logger instance. Error = %X.\n", error );
 	}
 	
+    if ( matchingService) matchingService->release();                       // 10397671: need to release this matchingService
 	if ( matchingDictionary ) matchingDictionary->release();
 	if ( iterator ) iterator->release();
 		
@@ -340,7 +341,7 @@ IOUSBLog::usblog()
 
     if (me && !me->init()) {
         me->release();
-        return false;
+        return NULL;
     }
 
     return me;
@@ -414,7 +415,7 @@ IOUSBLog::stringFromReturn( IOReturn rtn )
 		{kIOUSBNotEnoughPowerErr,							"There is not enough power for the device"        						},
 		{kIOUSBEndpointNotFound,							"Endpoint does not exist"												},
 		{kIOUSBConfigNotFound,								"Configuration does not exist"											},
-		{kIOUSBTransactionTimeout,							"Rrequest did not finish"												},
+		{kIOUSBTransactionTimeout,							"Request did not finish"												},
 		{kIOUSBTransactionReturned,							"Request has been returned to the caller"								},
 		{kIOUSBPipeStalled,									"Request returned a STALL"												},
 		{kIOUSBInterfaceNotFound,							"Requested interface was not found"       								},
@@ -435,7 +436,14 @@ IOUSBLog::stringFromReturn( IOReturn rtn )
 		{kIOUSBDataToggleErr,								"Pipe stall, Bad data toggle"       									},
 		{kIOUSBBitstufErr,									"Pipe stall, bitstuffing"												},
 		{kIOUSBCRCErr,										"Pipe stall, bad CRC"        											},
-		{kIOUSBDeviceNotHighSpeed,							"Device is not a high speed device"        								},
+		{kIOUSBDeviceTransferredToCompanion,				"Device transferred to another controller"     							},
+		{kIOUSBClearPipeStallNotRecursive,					"Attempting to clear stall while one is pending"     					},
+		{kIOUSBDevicePortWasNotSuspended,					"Issued a Suspend but the port was not suspended"     					},
+#ifdef SUPPORTS_SS_USB
+		{kIOUSBEndpointCountExceeded,						"Controller does not support more endpoints"     						},
+		{kIOUSBDeviceCountExceeded,							"Controller does not support more devices"     							},
+		{kIOUSBStreamsNotSupported,							"Controller does not support USB 3 streams"     						},
+#endif
 		{0,													NULL																	}
 	};
 	

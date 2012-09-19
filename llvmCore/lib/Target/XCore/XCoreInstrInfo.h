@@ -17,9 +17,12 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "XCoreRegisterInfo.h"
 
+#define GET_INSTRINFO_HEADER
+#include "XCoreGenInstrInfo.inc"
+
 namespace llvm {
 
-class XCoreInstrInfo : public TargetInstrInfoImpl {
+class XCoreInstrInfo : public XCoreGenInstrInfo {
   const XCoreRegisterInfo RI;
 public:
   XCoreInstrInfo();
@@ -30,12 +33,6 @@ public:
   ///
   virtual const TargetRegisterInfo &getRegisterInfo() const { return RI; }
 
-  /// Return true if the instruction is a register to register move and return
-  /// the source and dest operands and their sub-register indices by reference.
-  virtual bool isMoveInstr(const MachineInstr &MI,
-                           unsigned &SrcReg, unsigned &DstReg,
-                           unsigned &SrcSubIdx, unsigned &DstSubIdx) const;
-  
   /// isLoadFromStackSlot - If the specified machine instruction is a direct
   /// load from a stack slot, return the virtual or physical register number of
   /// the destination along with the FrameIndex of the loaded stack slot.  If
@@ -58,17 +55,16 @@ public:
                              bool AllowModify) const;
   
   virtual unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
-                             MachineBasicBlock *FBB,
-                             const SmallVectorImpl<MachineOperand> &Cond) const;
+                                MachineBasicBlock *FBB,
+                                const SmallVectorImpl<MachineOperand> &Cond,
+                                DebugLoc DL) const;
   
   virtual unsigned RemoveBranch(MachineBasicBlock &MBB) const;
 
-  virtual bool copyRegToReg(MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator I,
-                            unsigned DestReg, unsigned SrcReg,
-                            const TargetRegisterClass *DestRC,
-                            const TargetRegisterClass *SrcRC,
-                            DebugLoc DL) const;
+  virtual void copyPhysReg(MachineBasicBlock &MBB,
+                           MachineBasicBlock::iterator I, DebugLoc DL,
+                           unsigned DestReg, unsigned SrcReg,
+                           bool KillSrc) const;
 
   virtual void storeRegToStackSlot(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MI,
@@ -82,13 +78,11 @@ public:
                                     const TargetRegisterClass *RC,
                                     const TargetRegisterInfo *TRI) const;
 
-  virtual bool spillCalleeSavedRegisters(MachineBasicBlock &MBB,
-                                        MachineBasicBlock::iterator MI,
-                                const std::vector<CalleeSavedInfo> &CSI) const;
-  
-  virtual bool restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
-                                         MachineBasicBlock::iterator MI,
-                               const std::vector<CalleeSavedInfo> &CSI) const;
+  virtual MachineInstr *emitFrameIndexDebugValue(MachineFunction &MF,
+                                                 int FrameIx,
+                                                 uint64_t Offset,
+                                                 const MDNode *MDPtr,
+                                                 DebugLoc DL) const;
 
   virtual bool ReverseBranchCondition(
                             SmallVectorImpl<MachineOperand> &Cond) const;

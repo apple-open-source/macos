@@ -33,7 +33,9 @@ STATISTIC(NumRemoved, "Number of instructions removed");
 namespace {
   struct ADCE : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
-    ADCE() : FunctionPass(&ID) {}
+    ADCE() : FunctionPass(ID) {
+      initializeADCEPass(*PassRegistry::getPassRegistry());
+    }
     
     virtual bool runOnFunction(Function& F);
     
@@ -45,7 +47,7 @@ namespace {
 }
 
 char ADCE::ID = 0;
-static RegisterPass<ADCE> X("adce", "Aggressive Dead Code Elimination");
+INITIALIZE_PASS(ADCE, "adce", "Aggressive Dead Code Elimination", false, false)
 
 bool ADCE::runOnFunction(Function& F) {
   SmallPtrSet<Instruction*, 128> alive;
@@ -55,6 +57,7 @@ bool ADCE::runOnFunction(Function& F) {
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
     if (isa<TerminatorInst>(I.getInstructionIterator()) ||
         isa<DbgInfoIntrinsic>(I.getInstructionIterator()) ||
+        isa<LandingPadInst>(I.getInstructionIterator()) ||
         I->mayHaveSideEffects()) {
       alive.insert(I.getInstructionIterator());
       worklist.push_back(I.getInstructionIterator());
@@ -63,7 +66,6 @@ bool ADCE::runOnFunction(Function& F) {
   // Propagate liveness backwards to operands.
   while (!worklist.empty()) {
     Instruction* curr = worklist.pop_back_val();
-    
     for (Instruction::op_iterator OI = curr->op_begin(), OE = curr->op_end();
          OI != OE; ++OI)
       if (Instruction* Inst = dyn_cast<Instruction>(OI))
@@ -83,7 +85,7 @@ bool ADCE::runOnFunction(Function& F) {
   
   for (SmallVector<Instruction*, 1024>::iterator I = worklist.begin(),
        E = worklist.end(); I != E; ++I) {
-    NumRemoved++;
+    ++NumRemoved;
     (*I)->eraseFromParent();
   }
 

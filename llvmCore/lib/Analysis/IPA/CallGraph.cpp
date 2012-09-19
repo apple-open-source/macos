@@ -42,8 +42,10 @@ class BasicCallGraph : public ModulePass, public CallGraph {
 
 public:
   static char ID; // Class identification, replacement for typeinfo
-  BasicCallGraph() : ModulePass(&ID), Root(0), 
-    ExternalCallingNode(0), CallsExternalNode(0) {}
+  BasicCallGraph() : ModulePass(ID), Root(0), 
+    ExternalCallingNode(0), CallsExternalNode(0) {
+      initializeBasicCallGraphPass(*PassRegistry::getPassRegistry());
+    }
 
   // runOnModule - Compute the call graph for the specified module.
   virtual bool runOnModule(Module &M) {
@@ -86,8 +88,8 @@ public:
   /// an analysis interface through multiple inheritance.  If needed, it should
   /// override this to adjust the this pointer as needed for the specified pass
   /// info.
-  virtual void *getAdjustedAnalysisPointer(const PassInfo *PI) {
-    if (PI->isPassID(&CallGraph::ID))
+  virtual void *getAdjustedAnalysisPointer(AnalysisID PI) {
+    if (PI == &CallGraph::ID)
       return (CallGraph*)this;
     return this;
   }
@@ -125,14 +127,9 @@ private:
       }
     }
 
-    // Loop over all of the users of the function, looking for non-call uses.
-    for (Value::use_iterator I = F->use_begin(), E = F->use_end(); I != E; ++I)
-      if ((!isa<CallInst>(I) && !isa<InvokeInst>(I))
-          || !CallSite(cast<Instruction>(I)).isCallee(I)) {
-        // Not a call, or being used as a parameter rather than as the callee.
-        ExternalCallingNode->addCalledFunction(CallSite(), Node);
-        break;
-      }
+    // If this function has its address taken, anything could call it.
+    if (F->hasAddressTaken())
+      ExternalCallingNode->addCalledFunction(CallSite(), Node);
 
     // If this function is not defined in this translation unit, it could call
     // anything.
@@ -143,8 +140,8 @@ private:
     for (Function::iterator BB = F->begin(), BBE = F->end(); BB != BBE; ++BB)
       for (BasicBlock::iterator II = BB->begin(), IE = BB->end();
            II != IE; ++II) {
-        CallSite CS = CallSite::get(II);
-        if (CS.getInstruction() && !isa<DbgInfoIntrinsic>(II)) {
+        CallSite CS(cast<Value>(II));
+        if (CS && !isa<IntrinsicInst>(II)) {
           const Function *Callee = CS.getCalledFunction();
           if (Callee)
             Node->addCalledFunction(CS, getOrInsertFunction(Callee));
@@ -169,10 +166,9 @@ private:
 
 } //End anonymous namespace
 
-static RegisterAnalysisGroup<CallGraph> X("Call Graph");
-static RegisterPass<BasicCallGraph>
-Y("basiccg", "Basic CallGraph Construction", false, true);
-static RegisterAnalysisGroup<CallGraph, true> Z(Y);
+INITIALIZE_ANALYSIS_GROUP(CallGraph, "Call Graph", BasicCallGraph)
+INITIALIZE_AG_PASS(BasicCallGraph, CallGraph, "basiccg",
+                   "Basic CallGraph Construction", false, true, true)
 
 char CallGraph::ID = 0;
 char BasicCallGraph::ID = 0;
@@ -227,6 +223,21 @@ Function *CallGraph::removeFunctionFromModule(CallGraphNode *CGN) {
   return F;
 }
 
+/// spliceFunction - Replace the function represented by this node by another.
+/// This does not rescan the body of the function, so it is suitable when
+/// splicing the body of the old function to the new while also updating all
+/// callers from old to new.
+///
+void CallGraph::spliceFunction(const Function *From, const Function *To) {
+  assert(FunctionMap.count(From) && "No CallGraphNode for function!");
+  assert(!FunctionMap.count(To) &&
+         "Pointing CallGraphNode at a function that already exists");
+  FunctionMapTy::iterator I = FunctionMap.find(From);
+  I->second->F = const_cast<Function*>(To);
+  FunctionMap[To] = I->second;
+  FunctionMap.erase(I);
+}
+
 // getOrInsertFunction - This method is identical to calling operator[], but
 // it will insert a new CallGraphNode for the specified function if one does
 // not already exist.
@@ -272,7 +283,6 @@ void CallGraphNode::removeCallEdgeFor(CallSite CS) {
     }
   }
 }
-
 
 // removeAnyCallEdgeTo - This method removes any call edges from this node to
 // the specified callee function.  This takes more time to execute than

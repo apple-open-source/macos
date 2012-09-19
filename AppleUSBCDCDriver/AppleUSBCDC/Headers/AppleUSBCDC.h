@@ -72,6 +72,7 @@ public:
     bool			checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
     bool			checkWMC(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
     bool			checkDMM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
+	bool			checkMBIM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
     virtual bool	confirmDriver(UInt8 subClass, UInt8 dataInterface);
 	virtual bool	confirmControl(UInt8 subClass, IOUSBInterface *CInterface);
 

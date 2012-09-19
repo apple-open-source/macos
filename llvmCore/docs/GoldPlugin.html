@@ -2,12 +2,13 @@
                       "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>LLVM gold plugin</title>
   <link rel="stylesheet" href="llvm.css" type="text/css">
 </head>
 <body>
       
-<div class="doc_title">LLVM gold plugin</div>
+<h1>LLVM gold plugin</h1>
 <ol>
   <li><a href="#introduction">Introduction</a></li>
   <li><a href="#build">How to build it</a></li>
@@ -21,9 +22,9 @@
 <div class="doc_author">Written by Nick Lewycky</div>
 
 <!--=========================================================================-->
-<div class="doc_section"><a name="introduction">Introduction</a></div>
+<h2><a name="introduction">Introduction</a></h2>
 <!--=========================================================================-->
-<div class="doc_text">
+<div>
   <p>Building with link time optimization requires cooperation from the
 system linker. LTO support on Linux systems requires that you use
 the <a href="http://sourceware.org/binutils">gold linker</a> which supports
@@ -33,14 +34,14 @@ project.</p>
   <p>The LLVM gold plugin implements the
 <a href="http://gcc.gnu.org/wiki/whopr/driver">gold plugin interface</a>
 on top of
-<a href="http://llvm.org/docs/LinkTimeOptimization.html#lto">libLTO</a>.
+<a href="LinkTimeOptimization.html#lto">libLTO</a>.
 The same plugin can also be used by other tools such as <tt>ar</tt> and
 <tt>nm</tt>.
 </div>
 <!--=========================================================================-->
-<div class="doc_section"><a name="build">How to build it</a></div>
+<h2><a name="build">How to build it</a></h2>
 <!--=========================================================================-->
-<div class="doc_text">
+<div>
   <p>You need to have gold with plugin support and build the LLVMgold
 plugin. Check whether you have gold running <tt>/usr/bin/ld -v</tt>. It will
 report &#8220;GNU gold&#8221; or else &#8220GNU ld&#8221; if not. If you have
@@ -55,7 +56,7 @@ mkdir binutils
 cd binutils
 cvs -z 9 -d :pserver:anoncvs@sourceware.org:/cvs/src login
 <em>{enter "anoncvs" as the password}</em>
-cvs -z 9 -d :pserver:anoncvs@sourceware.org:/cvs/src co src
+cvs -z 9 -d :pserver:anoncvs@sourceware.org:/cvs/src co binutils
 mkdir build
 cd build
 ../src/configure --enable-gold --enable-plugins
@@ -72,37 +73,39 @@ placed.
 </ul>
 </div>
 <!--=========================================================================-->
-<div class="doc_section"><a name="usage">Usage</a></div>
+<h2><a name="usage">Usage</a></h2>
 <!--=========================================================================-->
-<div class="doc_text">
+<div>
+
   <p>The linker takes a <tt>-plugin</tt> option that points to the path of
   the plugin <tt>.so</tt> file. To find out what link command <tt>gcc</tt>
   would run in a given situation, run <tt>gcc -v <em>[...]</em></tt> and look
   for the line where it runs <tt>collect2</tt>. Replace that with
-  <tt>ld-new -plugin /path/to/libLLVMgold.so</tt> to test it out. Once you're
+  <tt>ld-new -plugin /path/to/LLVMgold.so</tt> to test it out. Once you're
   ready to switch to using gold, backup your existing <tt>/usr/bin/ld</tt>
   then replace it with <tt>ld-new</tt>.</p>
-  <p>You can produce bitcode files from <tt>llvm-gcc</tt> using
+
+  <p>You can produce bitcode files from <tt>clang</tt> using
   <tt>-emit-llvm</tt> or <tt>-flto</tt>, or the <tt>-O4</tt> flag which is
   synonymous with <tt>-O3 -flto</tt>.</p>
-  <p><tt>llvm-gcc</tt> has a <tt>-use-gold-plugin</tt> option which looks
-  for the gold plugin in the same directories as it looks for <tt>cc1</tt> and
-  passes the <tt>-plugin</tt> option to ld. It will not look for an alternate
-  linker, which is why you need gold to be the installed system linker in your
-  path.</p>
+
+  <p>Any of these flags will also cause <tt>clang</tt> to look for the
+  gold plugin in the <tt>lib</tt> directory under its prefix and pass the
+  <tt>-plugin</tt> option to <tt>ld</tt>. It will not look for an alternate
+  linker, which is why you need gold to be the installed system linker in
+  your path.</p>
+
   <p>If you want <tt>ar</tt> and <tt>nm</tt> to work seamlessly as well, install
-  <tt>libLLVMgold.so</tt> to <tt>/usr/lib/bfd-plugins</tt>. If you built your
+  <tt>LLVMgold.so</tt> to <tt>/usr/lib/bfd-plugins</tt>. If you built your
   own gold, be sure to install the <tt>ar</tt> and <tt>nm-new</tt> you built to
-  <tt>/usr/bin</tt>.
-  <p>
-</div>
+  <tt>/usr/bin</tt>.<p>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="example1">Example of link time optimization</a>
-</div>
+</h3>
 
-<div class="doc_text">
+<div>
   <p>The following example shows a worked example of the gold plugin mixing
   LLVM bitcode and native code.
 <pre class="doc_code">
@@ -138,35 +141,42 @@ void foo4(void) {
 }
 
 --- command lines ---
-$ llvm-gcc -flto a.c -c -o a.o              # &lt;-- a.o is LLVM bitcode file
-$ ar q a.a a.o                              # &lt;-- a.a is an archive with LLVM bitcode
-$ llvm-gcc b.c -c -o b.o                    # &lt;-- b.o is native object file
-$ llvm-gcc -use-gold-plugin a.a b.o -o main # &lt;-- link with LLVMgold plugin
+$ clang -flto a.c -c -o a.o      # &lt;-- a.o is LLVM bitcode file
+$ ar q a.a a.o                   # &lt;-- a.a is an archive with LLVM bitcode
+$ clang b.c -c -o b.o            # &lt;-- b.o is native object file
+$ clang -flto a.a b.o -o main    # &lt;-- link with LLVMgold plugin
 </pre>
+
   <p>Gold informs the plugin that foo3 is never referenced outside the IR,
   leading LLVM to delete that function. However, unlike in the
-  <a href="http://llvm.org/docs/LinkTimeOptimization.html#example1">libLTO
+  <a href="LinkTimeOptimization.html#example1">libLTO
   example</a> gold does not currently eliminate foo4.</p>
 </div>
 
+</div>
+
 <!--=========================================================================-->
-<div class="doc_section"><a name="lto_autotools">Quickstart for using LTO with autotooled projects</a></div>
+<h2>
+  <a name="lto_autotools">
+    Quickstart for using LTO with autotooled projects
+  </a>
+</h2>
 <!--=========================================================================-->
-<div class="doc_text">
-  <p>Once your system <tt>ld</tt>, <tt>ar</tt> and <tt>nm</tt> all support LLVM
-  bitcode, everything is in place for an easy to use LTO build of autotooled
-  projects:</p>
+<div>
+  <p>Once your system <tt>ld</tt>, <tt>ar</tt>, and <tt>nm</tt> all support LLVM
+     bitcode, everything is in place for an easy to use LTO build of autotooled
+     projects:</p>
+
   <ul>
-    <li>Follow the instructions <a href="#build">on how to build libLLVMgold.so</a>.</li>
+    <li>Follow the instructions <a href="#build">on how to build LLVMgold.so</a>.</li>
     <li>Install the newly built binutils to <tt>$PREFIX</tt></li>
-    <li>Copy <tt>Release/lib/libLLVMgold.so</tt> to
-    <tt>$PREFIX/libexec/gcc/x86_64-unknown-linux-gnu/4.2.1/</tt> and
-    <tt>$PREFIX/lib/bfd-plugins/</tt></li>
-    <li>Set environment variables (<tt>$PREFIX</tt> is where you installed llvm-gcc and
-    binutils):
-    <pre class="doc_code">
-export CC="$PREFIX/bin/llvm-gcc -use-gold-plugin"
-export CXX="$PREFIX/bin/llvm-g++ -use-gold-plugin"
+    <li>Copy <tt>Release/lib/LLVMgold.so</tt> to
+        <tt>$PREFIX/lib/bfd-plugins/</tt></li>
+    <li>Set environment variables (<tt>$PREFIX</tt> is where you installed clang and
+        binutils):
+<pre class="doc_code">
+export CC="$PREFIX/bin/clang -flto"
+export CXX="$PREFIX/bin/clang++ -flto"
 export AR="$PREFIX/bin/ar"
 export NM="$PREFIX/bin/nm"
 export RANLIB=/bin/true #ranlib is not needed, and doesn't support .bc files in .a
@@ -174,24 +184,28 @@ export CFLAGS="-O4"
 </pre>
      </li>
      <li>Or you can just set your path:
-    <pre class="doc_code">
+<pre class="doc_code">
 export PATH="$PREFIX/bin:$PATH"
-export CC="llvm-gcc -use-gold-plugin"
-export CXX="llvm-g++ -use-gold-plugin"
+export CC="clang -flto"
+export CXX="clang++ -flto"
 export RANLIB=/bin/true
 export CFLAGS="-O4"
-</pre>
-     </li>
-     <li>Configure &amp; build the project as usual: <tt>./configure &amp;&amp; make &amp;&amp; make check</tt> </li>
+</pre></li>
+     <li>Configure &amp; build the project as usual:
+<pre class="doc_code">
+% ./configure &amp;&amp; make &amp;&amp; make check
+</pre></li>
    </ul>
-   <p> The environment variable settings may work for non-autotooled projects
-   too, but you may need to set the <tt>LD</tt> environment variable as well.</p>
+
+   <p>The environment variable settings may work for non-autotooled projects
+      too, but you may need to set the <tt>LD</tt> environment variable as
+      well.</p>
 </div>
 
 <!--=========================================================================-->
-<div class="doc_section"><a name="licensing">Licensing</a></div>
+<h2><a name="licensing">Licensing</a></h2>
 <!--=========================================================================-->
-<div class="doc_text">
+<div>
   <p>Gold is licensed under the GPLv3. LLVMgold uses the interface file
 <tt>plugin-api.h</tt> from gold which means that the resulting LLVMgold.so
 binary is also GPLv3. This can still be used to link non-GPLv3 programs just
@@ -206,7 +220,7 @@ as much as gold could without the plugin.</p>
   <a href="http://validator.w3.org/check/referer"><img
   src="http://www.w3.org/Icons/valid-html401-blue" alt="Valid HTML 4.01"></a>
   <a href="mailto:nicholas@metrix.on.ca">Nick Lewycky</a><br>
-  <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
+  <a href="http://llvm.org/">The LLVM Compiler Infrastructure</a><br>
   Last modified: $Date: 2010-04-16 23:58:21 -0800 (Fri, 16 Apr 2010) $
 </address>
 </body>

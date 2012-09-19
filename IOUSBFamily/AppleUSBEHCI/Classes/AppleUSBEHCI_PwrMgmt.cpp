@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright Â© 1998-2011 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,7 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 //================================================================================================
 //
@@ -306,7 +305,7 @@ AppleUSBEHCI::ResumeUSBBus()
 			if (_badExpressCardAttached && ((int)_ExpressCardPort == (i+1)))
 			{
 				portStat |= (kEHCIPortSC_WKCNNT_E|kEHCIPortSC_WKDSCNNT_E);
-				_pEHCIRegisters->PortSC[i] = USBToHostLong(portStat);
+				_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
 				IOSync();
 			}
 
@@ -427,7 +426,7 @@ AppleUSBEHCI::SuspendUSBBus()
 			{
 				USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d had an ExpresCard in it",  this, i+1);
 				portStat &= ~(kEHCIPortSC_WKCNNT_E|kEHCIPortSC_WKDSCNNT_E);
-				_pEHCIRegisters->PortSC[i] = USBToHostLong(portStat);
+				_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
 				IOSync();
 			}
 			
@@ -492,6 +491,7 @@ AppleUSBEHCI::StopUSBBus()
     // clear run/stop
     usbcmd &= ~kEHCICMDRunStop;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
+    IOSync();
     _myBusState = kUSBBusStateReset;
     USBLog(5, "AppleUSBEHCI[%p]::StopUSBBus - HC halted",  this);
 }
@@ -521,6 +521,7 @@ AppleUSBEHCI::RestartUSBBus()
 	// set run/stop
     usbcmd |= kEHCICMDRunStop;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
+    IOSync();
     _myBusState = kUSBBusStateRunning;
     USBLog(5, "AppleUSBEHCI[%p]::RestartUSBBus - HC restarted",  this);
 }
@@ -541,7 +542,12 @@ AppleUSBEHCI::SaveControllerStateForSleep(void)
 	
 	USBLog(5, "AppleUSBEHCI[%p]::SaveControllerStateForSleep - suspending the bus",  this);
 	
-	// Make sure that we have the USB Bus running before we go into suspend
+    for (int port=0; port < _rootHubNumPorts; port++)
+    {
+        USBLog(6, "AppleUSBEHCI[%p]::SaveControllerStateForSleep   Bus 0x%x, portSC[%d] = 0x%x", this, (uint32_t)_busNumber, port, USBToHostLong(_pEHCIRegisters->PortSC[port]));
+    }
+	
+    // Make sure that we have the USB Bus running before we go into suspend
 	if (_myBusState < kUSBBusStateRunning)
 	{
 		USBLog(5, "AppleUSBEHCI[%p]::SaveControllerStateForSleep - _myBusState < kUSBBusStateRunning -  restarting USB before suspending", this);
@@ -555,6 +561,7 @@ AppleUSBEHCI::SaveControllerStateForSleep(void)
 	printAsyncQueue(7, "SaveControllerStateForSleep", true, false);
 
 	_myBusState = kUSBBusStateSuspended;
+
 
 	showRegisters(7, "-SaveControllerStateForSleep");
 	return kIOReturnSuccess;
@@ -585,6 +592,7 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 	
 	showRegisters(7, "+RestoreControllerStateFromSleep");
 
+
 	if (_errataBits & kErrataNECIncompleteWrite)
 	{
 		FixupNECControllerConfigRegisters();
@@ -602,6 +610,8 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 		for (port=0; port < _rootHubNumPorts; port++)
 		{
 			UInt32	portSC = USBToHostLong(_pEHCIRegisters->PortSC[port]);
+            USBLog(6, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep   Bus 0x%x, portSC[%d] = 0x%x", this, (uint32_t)_busNumber, (int)port, (uint32_t) portSC);
+            
 			if (portSC & kEHCIPortSC_ConnectChange)
 			{
 				if (portSC & kEHCIPortSC_Enabled)
@@ -610,6 +620,7 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 					portSC = getPortSCForWriting(_pEHCIRegisters, port+1);
 					portSC &= ~kEHCIPortSC_Enabled;
 					_pEHCIRegisters->PortSC[port] = HostToUSBLong(portSC);
+                    IOSync();
 				}
 				else
 				{
@@ -649,6 +660,7 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 				portSC = getPortSCForWriting(_pEHCIRegisters, port+1);
 				portSC &= ~kEHCIPortSC_Enabled;
 				_pEHCIRegisters->PortSC[port] = HostToUSBLong(portSC);
+                IOSync();
 			}
 		}
 	}
@@ -706,7 +718,6 @@ AppleUSBEHCI::ResetControllerState(void)
 			return kIOReturnInternalError;
 		}
 		
-
 		asyncListAddr = _pEHCIRegisters->AsyncListAddr;
 		if (asyncListAddr == kEHCIInvalidRegisterValue)
 		{
@@ -885,26 +896,30 @@ AppleUSBEHCI::WakeControllerFromDoze(void)
 
 	RestartUSBBus();
 
-	// check to see if we have a pending resume on any port and if so, wait for 20ms
-	for (port = 0; port < _rootHubNumPorts; port++)
-	{
-		UInt32		portStatus = USBToHostLong(_pEHCIRegisters->PortSC[port]);
-		if (portStatus & kEHCIPortSC_Resume)
-		{
-			USBLog(5, "AppleUSBEHCI[%p]::WakeControllerFromDoze - port %d appears to be resuming from a remote wakeup", this, (int)port+1);
-			_rhPortBeingResumed[port] = true;
-			somePortNeedsToResume = true;
-		}
+    // 10632196 - only check the port status bits if we are going to ON in case there is a remote wakeup
+    // otherwise if someone is trying to remote wakeup, it will get picked up by the power manager later
+    if (_powerStateChangingTo > kUSBPowerStateSleep)
+    {
+        // check to see if we have a pending resume on any port and if so, wait for 20ms
+        for (port = 0; port < _rootHubNumPorts; port++)
+        {
+            UInt32		portStatus = USBToHostLong(_pEHCIRegisters->PortSC[port]);
+            if (portStatus & kEHCIPortSC_Resume)
+            {
+                USBLog(5, "AppleUSBEHCI[%p]::WakeControllerFromDoze - port %d appears to be resuming from a remote wakeup", this, (int)port+1);
+                _rhPortBeingResumed[port] = true;
+                somePortNeedsToResume = true;
+            }
+        }
+        
+        if ( somePortNeedsToResume )
+        {
+            // Now, wait the 20ms for the resume and then call RHResumeAllPorts to finish
+            IOSleep(20);
+            
+            RHCompleteResumeOnAllPorts();
+        }
 	}
-	
-	if ( somePortNeedsToResume )
-	{
-		// Now, wait the 20ms for the resume and then call RHResumeAllPorts to finish
-		IOSleep(20);
-		
-		RHCompleteResumeOnAllPorts();
-	}
-	
 	return kIOReturnSuccess;
 }
 
@@ -947,7 +962,7 @@ AppleUSBEHCI::EnableInterruptsFromController(bool enable)
 				USBLog(2, "AppleUSBEHCI[%p]::EnableInterruptsFromController - Port Change int unexpectedly armed in USBIntr register", this);
 			}
 		}
-		USBLog(5, "AppleUSBEHCI[%p]::EnableInterruptsFromController - enabling interrupts, USBIntr(%p) _savedUSBIntr(%p)", this, (void*)_pEHCIRegisters->USBIntr, (void*)HostToUSBLong(_savedUSBIntr));
+		USBLog(5, "AppleUSBEHCI[%p]::EnableInterruptsFromController - enabling interrupts, USBIntr(%p) _savedUSBIntr(%p)", this, (void*)_pEHCIRegisters->USBIntr, (void*)USBToHostLong(_savedUSBIntr));
 		_pEHCIRegisters->USBIntr = _savedUSBIntr;
 		IOSync();
 		_savedUSBIntr = 0;
@@ -1010,7 +1025,7 @@ AppleUSBEHCI::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long
 	USBTrace( kUSBTEHCI, kTPEHCIPowerState, (uintptr_t)this, stateNumber, 0, 2);
 
 	USBLog(5, "AppleUSBEHCI[%p]::powerStateDidChangeTo - stateNumber(%d)", this, (int)stateNumber);
-	//Â¥Â¥Â¥ LastRootHubPortStatusChanged(true);
+	//¥¥¥ LastRootHubPortStatusChanged(true);
 	
 	// if we are changing TO doze and FROM sleep, then we need to OR in the root hub port change bit into the saved interrupts
 	// otherwise, when the superclass restores the interrupts, it will replace it

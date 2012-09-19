@@ -23,7 +23,7 @@
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Host.h"
+#include "llvm/Support/Host.h"
 #include <memory>
 using namespace llvm;
 
@@ -56,22 +56,22 @@ void BugDriver::setNewProgram(Module *M) {
 /// getPassesString - Turn a list of passes into a string which indicates the
 /// command line options that must be passed to add the passes.
 ///
-std::string llvm::getPassesString(const std::vector<const PassInfo*> &Passes) {
+std::string llvm::getPassesString(const std::vector<std::string> &Passes) {
   std::string Result;
   for (unsigned i = 0, e = Passes.size(); i != e; ++i) {
     if (i) Result += " ";
     Result += "-";
-    Result += Passes[i]->getPassArgument();
+    Result += Passes[i];
   }
   return Result;
 }
 
-BugDriver::BugDriver(const char *toolname, bool as_child, bool find_bugs,
+BugDriver::BugDriver(const char *toolname, bool find_bugs,
                      unsigned timeout, unsigned memlimit, bool use_valgrind,
                      LLVMContext& ctxt)
   : Context(ctxt), ToolName(toolname), ReferenceOutputFile(OutputFile),
     Program(0), Interpreter(0), SafeInterpreter(0), gcc(0),
-    run_as_child(as_child), run_find_bugs(find_bugs), Timeout(timeout), 
+    run_find_bugs(find_bugs), Timeout(timeout),
     MemoryLimit(memlimit), UseValgrind(use_valgrind) {}
 
 BugDriver::~BugDriver() {
@@ -87,7 +87,7 @@ Module *llvm::ParseInputFile(const std::string &Filename,
   SMDiagnostic Err;
   Module *Result = ParseIRFile(Filename, Err, Ctxt);
   if (!Result)
-    Err.Print("bugpoint", errs());
+    Err.print("bugpoint", errs());
 
   // If we don't have an override triple, use the first one to configure
   // bugpoint, or use the host triple if none provided.
@@ -96,8 +96,8 @@ Module *llvm::ParseInputFile(const std::string &Filename,
       Triple TheTriple(Result->getTargetTriple());
 
       if (TheTriple.getTriple().empty())
-        TheTriple.setTriple(sys::getHostTriple());
-        
+        TheTriple.setTriple(sys::getDefaultTargetTriple());
+
       TargetTriple.setTriple(TheTriple.getTriple());
     }
 
@@ -118,26 +118,24 @@ bool BugDriver::addSources(const std::vector<std::string> &Filenames) {
   // Load the first input file.
   Program = ParseInputFile(Filenames[0], Context);
   if (Program == 0) return true;
-    
-  if (!run_as_child)
-    outs() << "Read input file      : '" << Filenames[0] << "'\n";
+
+  outs() << "Read input file      : '" << Filenames[0] << "'\n";
 
   for (unsigned i = 1, e = Filenames.size(); i != e; ++i) {
     std::auto_ptr<Module> M(ParseInputFile(Filenames[i], Context));
     if (M.get() == 0) return true;
 
-    if (!run_as_child)
-      outs() << "Linking in input file: '" << Filenames[i] << "'\n";
+    outs() << "Linking in input file: '" << Filenames[i] << "'\n";
     std::string ErrorMessage;
-    if (Linker::LinkModules(Program, M.get(), &ErrorMessage)) {
+    if (Linker::LinkModules(Program, M.get(), Linker::DestroySource,
+                            &ErrorMessage)) {
       errs() << ToolName << ": error linking in '" << Filenames[i] << "': "
              << ErrorMessage << '\n';
       return true;
     }
   }
 
-  if (!run_as_child)
-    outs() << "*** All input ok\n";
+  outs() << "*** All input ok\n";
 
   // All input files read successfully!
   return false;
@@ -149,30 +147,22 @@ bool BugDriver::addSources(const std::vector<std::string> &Filenames) {
 /// variables are set up from command line arguments.
 ///
 bool BugDriver::run(std::string &ErrMsg) {
-  // The first thing to do is determine if we're running as a child. If we are,
-  // then what to do is very narrow. This form of invocation is only called
-  // from the runPasses method to actually run those passes in a child process.
-  if (run_as_child) {
-    // Execute the passes
-    return runPassesAsChild(PassesToRun);
-  }
-  
   if (run_find_bugs) {
     // Rearrange the passes and apply them to the program. Repeat this process
     // until the user kills the program or we find a bug.
     return runManyPasses(PassesToRun, ErrMsg);
   }
 
-  // If we're not running as a child, the first thing that we must do is 
-  // determine what the problem is. Does the optimization series crash the 
-  // compiler, or does it produce illegal code?  We make the top-level 
-  // decision by trying to run all of the passes on the the input program, 
-  // which should generate a bitcode file.  If it does generate a bitcode 
-  // file, then we know the compiler didn't crash, so try to diagnose a 
+  // If we're not running as a child, the first thing that we must do is
+  // determine what the problem is. Does the optimization series crash the
+  // compiler, or does it produce illegal code?  We make the top-level
+  // decision by trying to run all of the passes on the the input program,
+  // which should generate a bitcode file.  If it does generate a bitcode
+  // file, then we know the compiler didn't crash, so try to diagnose a
   // miscompilation.
   if (!PassesToRun.empty()) {
     outs() << "Running selected passes on program to test for crash: ";
-    if (runPasses(PassesToRun))
+    if (runPasses(Program, PassesToRun))
       return debugOptimizerCrash();
   }
 
@@ -205,13 +195,13 @@ bool BugDriver::run(std::string &ErrMsg) {
   // Make sure the reference output file gets deleted on exit from this
   // function, if appropriate.
   sys::Path ROF(ReferenceOutputFile);
-  FileRemover RemoverInstance(ROF, CreatedOutput && !SaveTemps);
+  FileRemover RemoverInstance(ROF.str(), CreatedOutput && !SaveTemps);
 
   // Diff the output of the raw program against the reference output.  If it
-  // matches, then we assume there is a miscompilation bug and try to 
+  // matches, then we assume there is a miscompilation bug and try to
   // diagnose it.
   outs() << "*** Checking the code generator...\n";
-  bool Diff = diffProgram("", "", false, &Error);
+  bool Diff = diffProgram(Program, "", "", false, &Error);
   if (!Error.empty()) {
     errs() << Error;
     return debugCodeGeneratorCrash(ErrMsg);

@@ -29,8 +29,11 @@
 #include "reqparser.h"
 #include "renum.h"
 #include "csdatabase.h"
+#include "drmaker.h"
+#include "csutilities.h"
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
+#include <Security/SecCertificate.h>
 #include <vector>
 
 namespace Security {
@@ -171,10 +174,9 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	: CFDictionary(parameters, errSecCSBadDictionaryFormat)
 {
 	// the signer may be an identity or null
-	if (CFTypeRef signer = get<CFTypeRef>(kSecCodeSignerIdentity))
-		if (CFGetTypeID(signer) == SecIdentityGetTypeID() || signer == kCFNull)
-			state.mSigner = SecIdentityRef(signer);
-		else
+	state.mSigner = SecIdentityRef(get<CFTypeRef>(kSecCodeSignerIdentity));
+	if (state.mSigner)
+		if (CFGetTypeID(state.mSigner) != SecIdentityGetTypeID() && !CFEqual(state.mSigner, kCFNull))
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
 
 	// the flags need some augmentation
@@ -186,19 +188,20 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	
 	// digest algorithms are specified as a numeric code
 	if (CFNumberRef digestAlgorithm = get<CFNumberRef>(kSecCodeSignerDigestAlgorithm))
-		state.mDigestAlgorithm = cfNumber<long>(digestAlgorithm);
+		state.mDigestAlgorithm = cfNumber<unsigned int>(digestAlgorithm);
 
 	if (CFNumberRef cmsSize = get<CFNumberRef>(CFSTR("cmssize")))
 		state.mCMSSize = cfNumber<size_t>(cmsSize);
 	else
-		state.mCMSSize = 5000;	// likely big enough
+		state.mCMSSize = 9000;	// likely big enough
 
 	// signing time can be a CFDateRef or null
-	if (CFTypeRef time = get<CFTypeRef>(kSecCodeSignerSigningTime))
+	if (CFTypeRef time = get<CFTypeRef>(kSecCodeSignerSigningTime)) {
 		if (CFGetTypeID(time) == CFDateGetTypeID() || time == kCFNull)
 			state.mSigningTime = CFDateRef(time);
 		else
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
+	}
 	
 	if (CFStringRef ident = get<CFStringRef>(kSecCodeSignerIdentifier))
 		state.mIdentifier = cfString(ident);
@@ -223,7 +226,7 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	state.mPageSize = get<CFNumberRef>(kSecCodeSignerPageSize);
 	
 	// detached can be (destination) file URL or (mutable) Data to be appended-to
-	if (state.mDetached = get<CFTypeRef>(kSecCodeSignerDetached)) {
+	if ((state.mDetached = get<CFTypeRef>(kSecCodeSignerDetached))) {
 		CFTypeID type = CFGetTypeID(state.mDetached);
 		if (type != CFURLGetTypeID() && type != CFDataGetTypeID() && type != CFNullGetTypeID())
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
@@ -237,6 +240,21 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	state.mEntitlementData = get<CFDataRef>(kSecCodeSignerEntitlements);
 	
 	state.mSDKRoot = get<CFURLRef>(kSecCodeSignerSDKRoot);
+    
+	if (CFBooleanRef timestampRequest = get<CFBooleanRef>(kSecCodeSignerRequireTimestamp)) {
+		state.mWantTimeStamp = timestampRequest == kCFBooleanTrue;
+	} else {	// pick default
+		state.mWantTimeStamp = false;
+		if (state.mSigner && state.mSigner != SecIdentityRef(kCFNull)) {
+			CFRef<SecCertificateRef> signerCert;
+			MacOSError::check(SecIdentityCopyCertificate(state.mSigner, &signerCert.aref()));
+			if (certificateHasField(signerCert, devIdLeafMarkerOID))
+				state.mWantTimeStamp = true;
+		}
+	}
+	state.mTimestampAuthentication = get<SecIdentityRef>(kSecCodeSignerTimestampAuthentication);
+	state.mTimestampService = get<CFURLRef>(kSecCodeSignerTimestampServer);
+	state.mNoTimeStampCerts = getBool(kSecCodeSignerTimestampOmitCertificates);
 }
 
 

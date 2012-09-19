@@ -2582,6 +2582,494 @@ ac_config_headers="$ac_config_headers expat_config.h"
 
 
 
+# libtool.m4 - Configure libtool for the host system. -*-Autoconf-*-
+## Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007,
+## 2008  Free Software Foundation, Inc.
+## Originally by Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
+##
+## This file is free software; the Free Software Foundation gives
+## unlimited permission to copy and/or distribute it, with or without
+## modifications, as long as this notice is preserved.
+
+# serial 52 AC_PROG_LIBTOOL
+
+
+# AC_PROVIDE_IFELSE(MACRO-NAME, IF-PROVIDED, IF-NOT-PROVIDED)
+# -----------------------------------------------------------
+# If this macro is not defined by Autoconf, define it here.
+
+
+
+# AC_PROG_LIBTOOL
+# ---------------
+# AC_PROG_LIBTOOL
+
+
+# _AC_PROG_LIBTOOL
+# ----------------
+# _AC_PROG_LIBTOOL
+
+
+# AC_LIBTOOL_SETUP
+# ----------------
+# AC_LIBTOOL_SETUP
+
+
+# _LT_AC_SYS_COMPILER
+# -------------------
+# _LT_AC_SYS_COMPILER
+
+
+# _LT_CC_BASENAME(CC)
+# -------------------
+# Calculate cc_basename.  Skip known compiler wrappers and cross-prefix.
+
+
+
+# _LT_COMPILER_BOILERPLATE
+# ------------------------
+# Check for compiler boilerplate output or warnings with
+# the simple compiler test code.
+# _LT_COMPILER_BOILERPLATE
+
+
+# _LT_LINKER_BOILERPLATE
+# ----------------------
+# Check for linker boilerplate output or warnings with
+# the simple link test code.
+# _LT_LINKER_BOILERPLATE
+
+# _LT_REQUIRED_DARWIN_CHECKS
+# --------------------------
+# Check for some things on darwin
+
+
+# _LT_AC_SYS_LIBPATH_AIX
+# ----------------------
+# Links a minimal program and checks the executable
+# for the system default hardcoded library path. In most cases,
+# this is /usr/lib:/lib, but when the MPI compilers are used
+# the location of the communication and MPI libs are included too.
+# If we don't find anything, use the default library path according
+# to the aix ld manual.
+# _LT_AC_SYS_LIBPATH_AIX
+
+
+# _LT_AC_SHELL_INIT(ARG)
+# ----------------------
+# _LT_AC_SHELL_INIT
+
+
+# _LT_AC_PROG_ECHO_BACKSLASH
+# --------------------------
+# Add some code to the start of the generated configure script which
+# will find an echo command which doesn't interpret backslashes.
+# _LT_AC_PROG_ECHO_BACKSLASH
+
+
+# _LT_AC_LOCK
+# -----------
+# _LT_AC_LOCK
+
+
+# AC_LIBTOOL_COMPILER_OPTION(MESSAGE, VARIABLE-NAME, FLAGS,
+#		[OUTPUT-FILE], [ACTION-SUCCESS], [ACTION-FAILURE])
+# ----------------------------------------------------------------
+# Check whether the given compiler option works
+# AC_LIBTOOL_COMPILER_OPTION
+
+
+# AC_LIBTOOL_LINKER_OPTION(MESSAGE, VARIABLE-NAME, FLAGS,
+#                          [ACTION-SUCCESS], [ACTION-FAILURE])
+# ------------------------------------------------------------
+# Check whether the given compiler option works
+# AC_LIBTOOL_LINKER_OPTION
+
+
+# AC_LIBTOOL_SYS_MAX_CMD_LEN
+# --------------------------
+# AC_LIBTOOL_SYS_MAX_CMD_LEN
+
+
+# _LT_AC_CHECK_DLFCN
+# ------------------
+# _LT_AC_CHECK_DLFCN
+
+
+# _LT_AC_TRY_DLOPEN_SELF (ACTION-IF-TRUE, ACTION-IF-TRUE-W-USCORE,
+#                           ACTION-IF-FALSE, ACTION-IF-CROSS-COMPILING)
+# ---------------------------------------------------------------------
+# _LT_AC_TRY_DLOPEN_SELF
+
+
+# AC_LIBTOOL_DLOPEN_SELF
+# ----------------------
+# AC_LIBTOOL_DLOPEN_SELF
+
+
+# AC_LIBTOOL_PROG_CC_C_O([TAGNAME])
+# ---------------------------------
+# Check to see if options -c and -o are simultaneously supported by compiler
+# AC_LIBTOOL_PROG_CC_C_O
+
+
+# AC_LIBTOOL_SYS_HARD_LINK_LOCKS([TAGNAME])
+# -----------------------------------------
+# Check to see if we can do hard links to lock some files if needed
+# AC_LIBTOOL_SYS_HARD_LINK_LOCKS
+
+
+# AC_LIBTOOL_OBJDIR
+# -----------------
+# AC_LIBTOOL_OBJDIR
+
+
+# AC_LIBTOOL_PROG_LD_HARDCODE_LIBPATH([TAGNAME])
+# ----------------------------------------------
+# Check hardcoding attributes.
+# AC_LIBTOOL_PROG_LD_HARDCODE_LIBPATH
+
+
+# AC_LIBTOOL_SYS_LIB_STRIP
+# ------------------------
+# AC_LIBTOOL_SYS_LIB_STRIP
+
+
+# AC_LIBTOOL_SYS_DYNAMIC_LINKER
+# -----------------------------
+# PORTME Fill in your ld.so characteristics
+# AC_LIBTOOL_SYS_DYNAMIC_LINKER
+
+
+# _LT_AC_TAGCONFIG
+# ----------------
+# _LT_AC_TAGCONFIG
+
+
+# AC_LIBTOOL_DLOPEN
+# -----------------
+# enable checks for dlopen support
+# AC_LIBTOOL_DLOPEN
+
+
+# AC_LIBTOOL_WIN32_DLL
+# --------------------
+# declare package support for building win32 DLLs
+# AC_LIBTOOL_WIN32_DLL
+
+
+# AC_ENABLE_SHARED([DEFAULT])
+# ---------------------------
+# implement the --enable-shared flag
+# DEFAULT is either `yes' or `no'.  If omitted, it defaults to `yes'.
+# AC_ENABLE_SHARED
+
+
+# AC_DISABLE_SHARED
+# -----------------
+# set the default shared flag to --disable-shared
+# AC_DISABLE_SHARED
+
+
+# AC_ENABLE_STATIC([DEFAULT])
+# ---------------------------
+# implement the --enable-static flag
+# DEFAULT is either `yes' or `no'.  If omitted, it defaults to `yes'.
+# AC_ENABLE_STATIC
+
+
+# AC_DISABLE_STATIC
+# -----------------
+# set the default static flag to --disable-static
+# AC_DISABLE_STATIC
+
+
+# AC_ENABLE_FAST_INSTALL([DEFAULT])
+# ---------------------------------
+# implement the --enable-fast-install flag
+# DEFAULT is either `yes' or `no'.  If omitted, it defaults to `yes'.
+# AC_ENABLE_FAST_INSTALL
+
+
+# AC_DISABLE_FAST_INSTALL
+# -----------------------
+# set the default to --disable-fast-install
+# AC_DISABLE_FAST_INSTALL
+
+
+# AC_LIBTOOL_PICMODE([MODE])
+# --------------------------
+# implement the --with-pic flag
+# MODE is either `yes' or `no'.  If omitted, it defaults to `both'.
+# AC_LIBTOOL_PICMODE
+
+
+# AC_PROG_EGREP
+# -------------
+# This is predefined starting with Autoconf 2.54, so this conditional
+# definition can be removed once we require Autoconf 2.54 or later.
+
+
+
+# AC_PATH_TOOL_PREFIX
+# -------------------
+# find a file program which can recognize shared library
+# AC_PATH_TOOL_PREFIX
+
+
+# AC_PATH_MAGIC
+# -------------
+# find a file program which can recognize a shared library
+# AC_PATH_MAGIC
+
+
+# AC_PROG_LD
+# ----------
+# find the pathname to the GNU or non-GNU linker
+# AC_PROG_LD
+
+
+# AC_PROG_LD_GNU
+# --------------
+# AC_PROG_LD_GNU
+
+
+# AC_PROG_LD_RELOAD_FLAG
+# ----------------------
+# find reload flag for linker
+#   -- PORTME Some linkers may need a different reload flag.
+# AC_PROG_LD_RELOAD_FLAG
+
+
+# AC_DEPLIBS_CHECK_METHOD
+# -----------------------
+# how to check for library dependencies
+#  -- PORTME fill in with the dynamic library characteristics
+# AC_DEPLIBS_CHECK_METHOD
+
+
+# AC_PROG_NM
+# ----------
+# find the pathname to a BSD-compatible name lister
+# AC_PROG_NM
+
+
+# AC_CHECK_LIBM
+# -------------
+# check for math library
+# AC_CHECK_LIBM
+
+
+# AC_LIBLTDL_CONVENIENCE([DIRECTORY])
+# -----------------------------------
+# sets LIBLTDL to the link flags for the libltdl convenience library and
+# LTDLINCL to the include flags for the libltdl header and adds
+# --enable-ltdl-convenience to the configure arguments.  Note that
+# AC_CONFIG_SUBDIRS is not called here.  If DIRECTORY is not provided,
+# it is assumed to be `libltdl'.  LIBLTDL will be prefixed with
+# '${top_builddir}/' and LTDLINCL will be prefixed with '${top_srcdir}/'
+# (note the single quotes!).  If your package is not flat and you're not
+# using automake, define top_builddir and top_srcdir appropriately in
+# the Makefiles.
+# AC_LIBLTDL_CONVENIENCE
+
+
+# AC_LIBLTDL_INSTALLABLE([DIRECTORY])
+# -----------------------------------
+# sets LIBLTDL to the link flags for the libltdl installable library and
+# LTDLINCL to the include flags for the libltdl header and adds
+# --enable-ltdl-install to the configure arguments.  Note that
+# AC_CONFIG_SUBDIRS is not called here.  If DIRECTORY is not provided,
+# and an installed libltdl is not found, it is assumed to be `libltdl'.
+# LIBLTDL will be prefixed with '${top_builddir}/'# and LTDLINCL with
+# '${top_srcdir}/' (note the single quotes!).  If your package is not
+# flat and you're not using automake, define top_builddir and top_srcdir
+# appropriately in the Makefiles.
+# In the future, this macro may have to be called after AC_PROG_LIBTOOL.
+# AC_LIBLTDL_INSTALLABLE
+
+
+# AC_LIBTOOL_CXX
+# --------------
+# enable support for C++ libraries
+# AC_LIBTOOL_CXX
+
+
+# _LT_AC_LANG_CXX
+# ---------------
+# _LT_AC_LANG_CXX
+
+# _LT_AC_PROG_CXXCPP
+# ------------------
+# _LT_AC_PROG_CXXCPP
+
+# AC_LIBTOOL_F77
+# --------------
+# enable support for Fortran 77 libraries
+# AC_LIBTOOL_F77
+
+
+# _LT_AC_LANG_F77
+# ---------------
+# _LT_AC_LANG_F77
+
+
+# AC_LIBTOOL_GCJ
+# --------------
+# enable support for GCJ libraries
+# AC_LIBTOOL_GCJ
+
+
+# _LT_AC_LANG_GCJ
+# ---------------
+# _LT_AC_LANG_GCJ
+
+
+# AC_LIBTOOL_RC
+# -------------
+# enable support for Windows resource files
+# AC_LIBTOOL_RC
+
+
+# AC_LIBTOOL_LANG_C_CONFIG
+# ------------------------
+# Ensure that the configuration vars for the C compiler are
+# suitably defined.  Those variables are subsequently used by
+# AC_LIBTOOL_CONFIG to write the compiler configuration to `libtool'.
+
+# AC_LIBTOOL_LANG_C_CONFIG
+
+
+# AC_LIBTOOL_LANG_CXX_CONFIG
+# --------------------------
+# Ensure that the configuration vars for the C compiler are
+# suitably defined.  Those variables are subsequently used by
+# AC_LIBTOOL_CONFIG to write the compiler configuration to `libtool'.
+
+# AC_LIBTOOL_LANG_CXX_CONFIG
+
+# AC_LIBTOOL_POSTDEP_PREDEP([TAGNAME])
+# ------------------------------------
+# Figure out "hidden" library dependencies from verbose
+# compiler output when linking a shared library.
+# Parse the compiler output and extract the necessary
+# objects, libraries and library flags.
+# AC_LIBTOOL_POSTDEP_PREDEP
+
+# AC_LIBTOOL_LANG_F77_CONFIG
+# --------------------------
+# Ensure that the configuration vars for the C compiler are
+# suitably defined.  Those variables are subsequently used by
+# AC_LIBTOOL_CONFIG to write the compiler configuration to `libtool'.
+
+# AC_LIBTOOL_LANG_F77_CONFIG
+
+
+# AC_LIBTOOL_LANG_GCJ_CONFIG
+# --------------------------
+# Ensure that the configuration vars for the C compiler are
+# suitably defined.  Those variables are subsequently used by
+# AC_LIBTOOL_CONFIG to write the compiler configuration to `libtool'.
+
+# AC_LIBTOOL_LANG_GCJ_CONFIG
+
+
+# AC_LIBTOOL_LANG_RC_CONFIG
+# -------------------------
+# Ensure that the configuration vars for the Windows resource compiler are
+# suitably defined.  Those variables are subsequently used by
+# AC_LIBTOOL_CONFIG to write the compiler configuration to `libtool'.
+
+# AC_LIBTOOL_LANG_RC_CONFIG
+
+
+# AC_LIBTOOL_CONFIG([TAGNAME])
+# ----------------------------
+# If TAGNAME is not passed, then create an initial libtool script
+# with a default configuration from the untagged config vars.  Otherwise
+# add code to config.status for appending the configuration named by
+# TAGNAME from the matching tagged config vars.
+# AC_LIBTOOL_CONFIG
+
+
+# AC_LIBTOOL_PROG_COMPILER_NO_RTTI([TAGNAME])
+# -------------------------------------------
+# AC_LIBTOOL_PROG_COMPILER_NO_RTTI
+
+
+# AC_LIBTOOL_SYS_GLOBAL_SYMBOL_PIPE
+# ---------------------------------
+ # AC_LIBTOOL_SYS_GLOBAL_SYMBOL_PIPE
+
+
+# AC_LIBTOOL_PROG_COMPILER_PIC([TAGNAME])
+# ---------------------------------------
+
+
+
+# AC_LIBTOOL_PROG_LD_SHLIBS([TAGNAME])
+# ------------------------------------
+# See if the linker supports building shared libraries.
+# AC_LIBTOOL_PROG_LD_SHLIBS
+
+
+# _LT_AC_FILE_LTDLL_C
+# -------------------
+# Be careful that the start marker always follows a newline.
+# _LT_AC_FILE_LTDLL_C
+
+
+# _LT_AC_TAGVAR(VARNAME, [TAGNAME])
+# ---------------------------------
+
+
+
+# old names
+
+
+
+
+
+
+
+
+# This is just to silence aclocal about the macro not being used
+
+
+
+
+
+
+
+# Cheap backport of AS_EXECUTABLE_P and required macros
+# from Autoconf 2.59; we should not use $as_executable_p directly.
+
+# _AS_TEST_PREPARE
+# ----------------
+# _AS_TEST_PREPARE
+
+# AS_EXECUTABLE_P
+# ---------------
+# Check whether a file is executable.
+# AS_EXECUTABLE_P
+
+############################################################
+# NOTE: This macro has been submitted for inclusion into   #
+#  GNU Autoconf as AC_PROG_SED.  When it is available in   #
+#  a released version of Autoconf we should remove this    #
+#  macro and use it instead.                               #
+############################################################
+# LT_AC_PROG_SED
+# --------------
+# Check for a fully-functional sed program, that truncates
+# as few characters as possible.  Prefer GNU sed if found.
+
+
+
+
+
+
+
 
 # Make sure we can run config.sub.
 $SHELL "$ac_aux_dir/config.sub" sun4 >/dev/null 2>&1 ||
@@ -4162,7 +4650,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4165 "configure"' > conftest.$ac_ext
+  echo '#line 4653 "configure"' > conftest.$ac_ext
   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -6736,11 +7224,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:6739: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7227: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:6743: \$? = $ac_status" >&5
+   echo "$as_me:7231: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -7026,11 +7514,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7029: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7517: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:7033: \$? = $ac_status" >&5
+   echo "$as_me:7521: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -7130,11 +7618,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7133: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7621: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:7137: \$? = $ac_status" >&5
+   echo "$as_me:7625: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -9157,7 +9645,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 9160 "configure"
+#line 9648 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -9257,7 +9745,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 9260 "configure"
+#line 9748 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11602,11 +12090,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:11605: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:12093: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:11609: \$? = $ac_status" >&5
+   echo "$as_me:12097: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -11706,11 +12194,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:11709: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:12197: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:11713: \$? = $ac_status" >&5
+   echo "$as_me:12201: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -13291,11 +13779,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:13294: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:13782: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:13298: \$? = $ac_status" >&5
+   echo "$as_me:13786: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -13395,11 +13883,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:13398: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:13886: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:13402: \$? = $ac_status" >&5
+   echo "$as_me:13890: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -15562,11 +16050,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15565: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16053: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:15569: \$? = $ac_status" >&5
+   echo "$as_me:16057: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -15852,11 +16340,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15855: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16343: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:15859: \$? = $ac_status" >&5
+   echo "$as_me:16347: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -15956,11 +16444,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15959: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16447: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:15963: \$? = $ac_status" >&5
+   echo "$as_me:16451: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized

@@ -111,7 +111,15 @@ public:
 	T & operator * () const		{ _check(); return *ptr; }
 
 protected:
-	void release() { if (ptr && ptr->unref() == 0) delete ptr; }
+	void release()
+    {
+        if (ptr && ptr->unref() == 0)
+        {
+            delete ptr;
+            ptr = NULL;
+        }
+    }
+	
 	void setPointer(T *p) { if (p) p->ref(); release(); ptr = p; }
 	
 	void _check() const { }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,17 +99,23 @@ private:
 // An interpretation context
 //
 class Requirement::Context {
-public:
-	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const CodeDirectory *dir)
-		: certs(certChain), info(infoDict), entitlements(entitlementDict), directory(dir) { }
-	
-	const CFArrayRef certs;						// certificate chain
-	const CFDictionaryRef info;					// Info.plist
-	const CFDictionaryRef entitlements;			// entitlement plist
-	const CodeDirectory * const directory;		// CodeDirectory
+protected:
+	Context()
+		: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL) { }
 
-	SecCertificateRef cert(int ix) const;		// get a cert from the cert chain
-	unsigned int certCount() const;				// length of cert chain
+public:
+	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict,
+			const std::string &ident, const CodeDirectory *dir)
+		: certs(certChain), info(infoDict), entitlements(entitlementDict), identifier(ident), directory(dir) { }
+
+	CFArrayRef certs;								// certificate chain
+	CFDictionaryRef info;							// Info.plist
+	CFDictionaryRef entitlements;					// entitlement plist
+	std::string identifier;						// signing identifier
+	const CodeDirectory *directory;				// CodeDirectory
+
+	SecCertificateRef cert(int ix) const;			// get a cert from the cert chain (NULL if not found)
+	unsigned int certCount() const;				// length of cert chain (including root)
 };
 
 
@@ -176,21 +182,6 @@ enum MatchOperation {
 // We keep Requirement groups in SuperBlobs, indexed by SecRequirementType
 //
 typedef SuperBlob<0xfade0c01> Requirements;
-
-
-//
-// A helper to deal with the magic merger logic of internal requirements
-//
-class InternalRequirements : public Requirements::Maker {
-public:
-	InternalRequirements() : mReqs(NULL) { }
-	~InternalRequirements() { ::free((void *)mReqs); }
-	void operator () (const Requirements *given, const Requirements *defaulted);
-	operator const Requirements * () const { return mReqs; }
-
-private:
-	const Requirements *mReqs;
-};
 
 
 //

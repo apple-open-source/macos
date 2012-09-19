@@ -121,11 +121,11 @@ private:
         OSSet *                 clientSet;
         IOService *             seizedClient;
         AbsoluteTime            eventDeadline;
-        IONotifier *            publishNotify;
+        IONotifier *            publishDisplayNotify;
         OSArray *               inputInterruptElementArray;
-		bool                    performTickle;
+        bool                    performTickle;
         bool                    performWakeTickle;
-		IOHIDInterface *        interfaceNub;
+        IOHIDInterface *        interfaceNub;
         IOHIDElementPrivate *   rollOverElement;
         OSArray *               hierarchElements;
     };
@@ -173,8 +173,14 @@ private:
     IOBufferMemoryDescriptor * createMemoryForElementValues();
 
     
-    static bool _publishNotificationHandler( void * target, 
-				void * ref, IOService * newService, IONotifier * notifier );
+    static bool _publishDisplayNotificationHandler(void * target, 
+                                                   void * ref, 
+                                                   IOService * newService, 
+                                                   IONotifier * notifier );
+    static bool _publishDeviceNotificationHandler(void * target, 
+                                                  void * refCon, 
+                                                  IOService * newService, 
+                                                  IONotifier * notifier );
     
 protected:
 

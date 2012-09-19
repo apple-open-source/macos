@@ -221,6 +221,7 @@ const CFStringRef kSecCodeInfoChangedFiles =	CFSTR("changed-files");
 const CFStringRef kSecCodeInfoCMS =				CFSTR("cms");
 const CFStringRef kSecCodeInfoDesignatedRequirement = CFSTR("designated-requirement");
 const CFStringRef kSecCodeInfoEntitlements =	CFSTR("entitlements");
+const CFStringRef kSecCodeInfoEntitlementsDict =	CFSTR("entitlements-dict");
 const CFStringRef kSecCodeInfoFormat =			CFSTR("format");
 const CFStringRef kSecCodeInfoDigestAlgorithm =	CFSTR("digest-algorithm");
 const CFStringRef kSecCodeInfoIdentifier =		CFSTR("identifier");
@@ -232,6 +233,7 @@ const CFStringRef kSecCodeInfoRequirementData =	CFSTR("requirement-data");
 const CFStringRef kSecCodeInfoSource =			CFSTR("source");
 const CFStringRef kSecCodeInfoStatus =			CFSTR("status");
 const CFStringRef kSecCodeInfoTime =			CFSTR("signing-time");
+const CFStringRef kSecCodeInfoTimestamp =		CFSTR("signing-timestamp");
 const CFStringRef kSecCodeInfoTrust =			CFSTR("trust");
 const CFStringRef kSecCodeInfoUnique =			CFSTR("unique");
 
@@ -257,8 +259,7 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flag
 	
 	if (flags & kSecCSDynamicInformation)
 		if (SecPointer<SecCode> dcode = SecStaticCode::optionalDynamic(codeRef))
-			info = cfmake<CFDictionaryRef>("{+%O,%O=%u}", info.get(),
-				kSecCodeInfoStatus, dcode->status());
+			info.take(cfmake<CFDictionaryRef>("{+%O,%O=%u}", info.get(), kSecCodeInfoStatus, dcode->status()));
 	
 	CodeSigning::Required(infoRef) = info.yield();
 	

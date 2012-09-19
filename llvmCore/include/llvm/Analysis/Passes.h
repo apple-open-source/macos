@@ -59,7 +59,7 @@ namespace llvm {
 
   //===--------------------------------------------------------------------===//
   //
-  // createBasicAliasAnalysisPass - This pass implements the default alias
+  // createBasicAliasAnalysisPass - This pass implements the stateless alias
   // analysis.
   //
   ImmutablePass *createBasicAliasAnalysisPass();
@@ -81,11 +81,25 @@ namespace llvm {
 
   //===--------------------------------------------------------------------===//
   //
+  // createTypeBasedAliasAnalysisPass - This pass implements metadata-based
+  // type-based alias analysis.
+  //
+  ImmutablePass *createTypeBasedAliasAnalysisPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createObjCARCAliasAnalysisPass - This pass implements ObjC-ARC-based
+  // alias analysis.
+  //
+  ImmutablePass *createObjCARCAliasAnalysisPass();
+
+  //===--------------------------------------------------------------------===//
+  //
   // createProfileLoaderPass - This pass loads information from a profile dump
   // file.
   //
   ModulePass *createProfileLoaderPass();
-  extern const PassInfo *ProfileLoaderPassID;
+  extern char &ProfileLoaderPassID;
 
   //===--------------------------------------------------------------------===//
   //
@@ -99,13 +113,35 @@ namespace llvm {
   // instead of loading it from a previous run.
   //
   FunctionPass *createProfileEstimatorPass();
-  extern const PassInfo *ProfileEstimatorPassID;
+  extern char &ProfileEstimatorPassID;
 
   //===--------------------------------------------------------------------===//
   //
   // createProfileVerifierPass - This pass verifies profiling information.
   //
   FunctionPass *createProfileVerifierPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createPathProfileLoaderPass - This pass loads information from a path
+  // profile dump file.
+  //
+  ModulePass *createPathProfileLoaderPass();
+  extern char &PathProfileLoaderPassID;
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createNoPathProfileInfoPass - This pass implements the default
+  // "no path profile".
+  //
+  ImmutablePass *createNoPathProfileInfoPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createPathProfileVerifierPass - This pass verifies path profiling
+  // information.
+  //
+  ModulePass *createPathProfileVerifierPass();
 
   //===--------------------------------------------------------------------===//
   //
@@ -130,12 +166,6 @@ namespace llvm {
 
   //===--------------------------------------------------------------------===//
   //
-  // createLiveValuesPass - This creates an instance of the LiveValues pass.
-  //
-  FunctionPass *createLiveValuesPass();
-  
-  //===--------------------------------------------------------------------===//
-  //
   /// createLazyValueInfoPass - This creates an instance of the LazyValueInfo
   /// pass.
   FunctionPass *createLazyValueInfoPass();
@@ -146,7 +176,7 @@ namespace llvm {
   // LoopDependenceAnalysis pass.
   //
   LoopPass *createLoopDependenceAnalysisPass();
-  
+
   // Minor pass prototypes, allowing us to expose them through bugpoint and
   // analyze.
   FunctionPass *createInstCountPass();
@@ -154,8 +184,22 @@ namespace llvm {
   // print debug info intrinsics in human readable form
   FunctionPass *createDbgInfoPrinterPass();
 
+  //===--------------------------------------------------------------------===//
+  //
+  // createRegionInfoPass - This pass finds all single entry single exit regions
+  // in a function and builds the region hierarchy.
+  //
+  FunctionPass *createRegionInfoPass();
+
   // Print module-level debug info metadata in human-readable form.
   ModulePass *createModuleDebugInfoPrinterPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createMemDepPrinter - This pass exhaustively collects all memdep
+  // information and prints it with -analyze.
+  //
+  FunctionPass *createMemDepPrinter();
 }
 
 #endif

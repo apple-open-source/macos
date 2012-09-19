@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: check-tool.c,v 1.39.104.2 2010-09-07 23:46:37 tbox Exp $ */
+/* $Id: check-tool.c,v 1.39.104.2 2010/09/07 23:46:37 tbox Exp $ */
 
 /*! \file */
 

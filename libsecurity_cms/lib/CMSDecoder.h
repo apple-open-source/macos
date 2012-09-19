@@ -304,6 +304,56 @@ OSStatus CMSDecoderCopyContent(
 	CFDataRef			*contentOut)			/* RETURNED */
     __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
+/*
+ * Obtain the signing time of signer 'signerIndex' of a CMS message, if
+ * present. This is an unauthenticate time, although it is part of the
+ * signed attributes of the message.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. 
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
+ */
+OSStatus CMSDecoderCopySignerSigningTime(
+       CMSDecoderRef           cmsDecoder,
+       size_t                          signerIndex,
+       CFAbsoluteTime      *signingTime)                       /* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
+/*
+ * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
+ * present. This timestamp is an authenticated timestamp provided by
+ * a timestamping authority.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. 
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
+ */
+OSStatus CMSDecoderCopySignerTimestamp(
+       CMSDecoderRef           cmsDecoder,
+       size_t                          signerIndex,
+       CFAbsoluteTime      *timestamp)                 /* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
+/*
+ * Obtain an array of the certificates in a timestamp response. Elements of the 
+ * returned array are SecCertificateRefs. The caller must CFRelease the returned
+ * array. This timestamp is an authenticated timestamp provided by
+ * a timestamping authority.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. It returns
+ * errSecItemNotFound if no certificates were found.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
+ */
+OSStatus CMSDecoderCopySignerTimestampCertificates(
+	CMSDecoderRef		cmsDecoder,
+	size_t				signerIndex,            /* usually 0 */
+	CFArrayRef          *certificateRefs)       /* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
 #ifdef __cplusplus
 }
 #endif

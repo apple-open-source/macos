@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@
 #include <IOKit/storage/IODVDBlockStorageDevice.h>
 #include <IOKit/storage/IODVDTypes.h>
 
-/*!
+/*
  * @defined kIODVDBlockStorageDriverClass
  * @abstract
  * kIODVDBlockStorageDriverClass is the name of the IODVDBlockStorageDriver class.
@@ -50,7 +50,7 @@
 
 class IODVDBlockStorageDevice;
 
-/*!
+/*
  * @class
  * IODVDBlockStorageDriver : public IOCDBlockStorageDriver
  * @abstract
@@ -118,7 +118,7 @@ public:
 
     /* End of IOCDBlockStorageDriver overrides. */
 
-    /*!
+    /*
      * @function reportKey
      * @abstract
      * Get key info from the DVD drive.
@@ -139,7 +139,7 @@ public:
     virtual IOReturn	reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
                                         const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat);
 
-    /*!
+    /*
      * @function sendKey
      * @abstract
      * Send key info to the DVD drive.
@@ -158,7 +158,7 @@ public:
     virtual IOReturn	sendKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
                                         const UInt8 agid,const DVDKeyFormat keyFormat);
 
-    /*!
+    /*
      * @function readStructure
      * @abstract
      * Get control structures from the DVD media.

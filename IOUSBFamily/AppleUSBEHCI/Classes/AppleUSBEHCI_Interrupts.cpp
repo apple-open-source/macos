@@ -171,6 +171,7 @@ AppleUSBEHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
 bool 
 AppleUSBEHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source)
 {
+#pragma unused (source)
     register AppleUSBEHCI	*controller = (AppleUSBEHCI *)owner;
     bool					result = true;
 	
@@ -203,7 +204,7 @@ AppleUSBEHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
 bool 
 AppleUSBEHCI::FilterInterrupt(int index)
 {
-    
+#pragma unused (index)
     register UInt32			activeInterrupts;
     register UInt32			enabledInterrupts;
 	UInt32					statusClearBits = 0;

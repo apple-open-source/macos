@@ -31,6 +31,7 @@
 #include <sys/mount.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/mman.h>
 #include <copyfile.h>
 #include <sandbox.h>
@@ -821,6 +822,8 @@ AtomicTempFile::commit()
 
 		copyfile_state_free(s);
 		// END <rdar://problem/6991037>
+
+		::utimes(oldPath, NULL);
 
 		if (::rename(oldPath, newPath) == -1)
 		{

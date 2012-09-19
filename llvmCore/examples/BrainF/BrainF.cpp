@@ -54,10 +54,10 @@ void BrainF::header(LLVMContext& C) {
 
   //Function prototypes
 
-  //declare void @llvm.memset.i32(i8 *, i8, i32, i32)
-  const Type *Tys[] = { Type::getInt32Ty(C) };
+  //declare void @llvm.memset.p0i8.i32(i8 *, i8, i32, i32, i1)
+  Type *Tys[] = { Type::getInt8PtrTy(C), Type::getInt32Ty(C) };
   Function *memset_func = Intrinsic::getDeclaration(module, Intrinsic::memset,
-                                                    Tys, 1);
+                                                    Tys);
 
   //declare i32 @getchar()
   getchar_func = cast<Function>(module->
@@ -80,25 +80,26 @@ void BrainF::header(LLVMContext& C) {
   //%arr = malloc i8, i32 %d
   ConstantInt *val_mem = ConstantInt::get(C, APInt(32, memtotal));
   BasicBlock* BB = builder->GetInsertBlock();
-  const Type* IntPtrTy = IntegerType::getInt32Ty(C);
-  const Type* Int8Ty = IntegerType::getInt8Ty(C);
+  Type* IntPtrTy = IntegerType::getInt32Ty(C);
+  Type* Int8Ty = IntegerType::getInt8Ty(C);
   Constant* allocsize = ConstantExpr::getSizeOf(Int8Ty);
   allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
   ptr_arr = CallInst::CreateMalloc(BB, IntPtrTy, Int8Ty, allocsize, val_mem, 
                                    NULL, "arr");
   BB->getInstList().push_back(cast<Instruction>(ptr_arr));
 
-  //call void @llvm.memset.i32(i8 *%arr, i8 0, i32 %d, i32 1)
+  //call void @llvm.memset.p0i8.i32(i8 *%arr, i8 0, i32 %d, i32 1, i1 0)
   {
     Value *memset_params[] = {
       ptr_arr,
       ConstantInt::get(C, APInt(8, 0)),
       val_mem,
-      ConstantInt::get(C, APInt(32, 1))
+      ConstantInt::get(C, APInt(32, 1)),
+      ConstantInt::get(C, APInt(1, 0))
     };
 
     CallInst *memset_call = builder->
-      CreateCall(memset_func, memset_params, array_endof(memset_params));
+      CreateCall(memset_func, memset_params);
     memset_call->setTailCall(false);
   }
 
@@ -161,8 +162,7 @@ void BrainF::header(LLVMContext& C) {
       };
 
       Constant *msgptr = ConstantExpr::
-        getGetElementPtr(aberrormsg, gep_params,
-                         array_lengthof(gep_params));
+        getGetElementPtr(aberrormsg, gep_params);
 
       Value *puts_params[] = {
         msgptr
@@ -170,7 +170,7 @@ void BrainF::header(LLVMContext& C) {
 
       CallInst *puts_call =
         CallInst::Create(puts_func,
-                         puts_params, array_endof(puts_params),
+                         puts_params,
                          "", aberrorbb);
       puts_call->setTailCall(false);
     }
@@ -228,7 +228,7 @@ void BrainF::readloop(PHINode *phi, BasicBlock *oldbb, BasicBlock *testbb,
           };
           CallInst *putchar_call = builder->
             CreateCall(putchar_func,
-                       putchar_params, array_endof(putchar_params));
+                       putchar_params);
           putchar_call->setTailCall(false);
         }
         break;
@@ -293,8 +293,7 @@ void BrainF::readloop(PHINode *phi, BasicBlock *oldbb, BasicBlock *testbb,
           // Make part of PHI instruction now, wait until end of loop to finish
           PHINode *phi_0 =
             PHINode::Create(PointerType::getUnqual(IntegerType::getInt8Ty(C)),
-                            headreg, testbb);
-          phi_0->reserveOperandSpace(2);
+                            2, headreg, testbb);
           phi_0->addIncoming(curhead, bb_0);
           curhead = phi_0;
 
@@ -448,8 +447,8 @@ void BrainF::readloop(PHINode *phi, BasicBlock *oldbb, BasicBlock *testbb,
 
       //%head.%d = phi i8 *[%head.%d, %main.%d]
       PHINode *phi_1 = builder->
-        CreatePHI(PointerType::getUnqual(IntegerType::getInt8Ty(C)), headreg);
-      phi_1->reserveOperandSpace(1);
+        CreatePHI(PointerType::getUnqual(IntegerType::getInt8Ty(C)), 1,
+                  headreg);
       phi_1->addIncoming(head_0, testbb);
       curhead = phi_1;
     }

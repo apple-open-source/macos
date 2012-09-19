@@ -170,16 +170,6 @@ public:
   void setMetadata(unsigned KindID, MDNode *Node);
   void setMetadata(const char *Kind, MDNode *Node);
 
-  /// setDbgMetadata - This is just an optimized helper function that is
-  /// equivalent to setMetadata("dbg", Node);
-  void setDbgMetadata(MDNode *Node);
-  
-  /// getDbgMetadata - This is just an optimized helper function that is
-  /// equivalent to calling getMetadata("dbg").
-  MDNode *getDbgMetadata() const {
-    return DbgLoc.getAsMDNode(getContext());
-  }
-
   /// setDebugLoc - Set the debug location information for this instruction.
   void setDebugLoc(const DebugLoc &Loc) { DbgLoc = Loc; }
   
@@ -199,7 +189,7 @@ private:
   void getAllMetadataImpl(SmallVectorImpl<std::pair<unsigned,MDNode*> > &)const;
   void getAllMetadataOtherThanDebugLocImpl(SmallVectorImpl<std::pair<unsigned,
                                            MDNode*> > &) const;
-  void removeAllMetadata();
+  void clearMetadataHashEntries();
 public:
   //===--------------------------------------------------------------------===//
   // Predicates and helper methods.
@@ -210,11 +200,10 @@ public:
   ///
   ///   Associative operators satisfy:  x op (y op z) === (x op y) op z
   ///
-  /// In LLVM, the Add, Mul, And, Or, and Xor operators are associative, when
-  /// not applied to floating point types.
+  /// In LLVM, the Add, Mul, And, Or, and Xor operators are associative.
   ///
-  bool isAssociative() const { return isAssociative(getOpcode(), getType()); }
-  static bool isAssociative(unsigned op, const Type *Ty);
+  bool isAssociative() const { return isAssociative(getOpcode()); }
+  static bool isAssociative(unsigned op);
 
   /// isCommutative - Return true if the instruction is commutative:
   ///
@@ -233,6 +222,13 @@ public:
   /// mayReadFromMemory - Return true if this instruction may read memory.
   ///
   bool mayReadFromMemory() const;
+
+  /// mayReadOrWriteMemory - Return true if this instruction may read or
+  /// write memory.
+  ///
+  bool mayReadOrWriteMemory() const {
+    return mayReadFromMemory() || mayWriteToMemory();
+  }
 
   /// mayThrow - Return true if this instruction may throw an exception.
   ///
@@ -376,9 +372,9 @@ protected:
     return getSubclassDataFromValue() & ~HasMetadataBit;
   }
   
-  Instruction(const Type *Ty, unsigned iType, Use *Ops, unsigned NumOps,
+  Instruction(Type *Ty, unsigned iType, Use *Ops, unsigned NumOps,
               Instruction *InsertBefore = 0);
-  Instruction(const Type *Ty, unsigned iType, Use *Ops, unsigned NumOps,
+  Instruction(Type *Ty, unsigned iType, Use *Ops, unsigned NumOps,
               BasicBlock *InsertAtEnd);
   virtual Instruction *clone_impl() const = 0;
   

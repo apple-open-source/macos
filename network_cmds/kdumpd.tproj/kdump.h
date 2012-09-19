@@ -56,6 +56,9 @@
 
 #ifndef _KDUMP_H_
 #define	_KDUMP_H_
+#include <netinet/ip_var.h>
+#include <netinet/udp.h>
+#include <netinet/udp_var.h>
 
 /* Mac OS X kernel core dump server, based on the BSD trivial file
  * transfer protocol server (FreeBSD distribution), with several
@@ -64,7 +67,7 @@
  */
 
 #define	SEGSIZE		512		/* data segment size */
-
+#define MAXIMUM_KDP_PKTSIZE (16384)
 /*
  * Packet types.
  */
@@ -83,7 +86,7 @@ struct	kdumphdr {
 		unsigned int tu_code;	/* error code */
 		char	tu_stuff[1];	/* request packet stuff */
 	} th_u;
-	char	th_data[1];		/* data or error string */
+	char	th_data[0];		/* data or error string */
 }__attribute__((packed));
 
 #define	th_block	th_u.tu_block
@@ -102,5 +105,10 @@ struct	kdumphdr {
 #define	EBADID		5		/* unknown transfer ID */
 #define	EEXISTS		6		/* file already exists */
 #define	ENOUSER		7		/* no such user */
+
+#define DEBUG 0
+#define WRITE_DEBUG 0
+#define KDUMPD_DEBUG_LEVEL LOG_ALERT
+#define KDP_LARGE_CRASHDUMP_PKT_SIZE (1440 - sizeof(struct udpiphdr))
 
 #endif

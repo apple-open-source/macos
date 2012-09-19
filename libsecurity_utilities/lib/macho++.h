@@ -67,8 +67,7 @@ public:
 	friend bool operator < (const Architecture &a1, const Architecture &a2)
 	{ return _Pair(a1) < _Pair(a2); }
 	
-	bool matches(const Architecture &templ) const
-	{ return first == templ.first && (second == templ.second || templ.second == 0 || templ.second == CPU_SUBTYPE_MULTIPLE); }
+	bool matches(const Architecture &templ) const;
 
 public:
 	static Architecture local();
@@ -107,6 +106,7 @@ public:
 	const char *string(const load_command *cmd, const lc_str &str) const;
 
 	const linkedit_data_command *findCodeSignature() const;
+	const linkedit_data_command *findLibraryDependencies() const;
 	
 	size_t signingOffset() const;	// starting offset of CS section, or 0 if none
 	size_t signingLength() const;	// length of CS section, or 0 if none

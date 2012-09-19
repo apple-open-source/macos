@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -164,17 +164,17 @@ typedef struct
     user64_addr_t buffer;
 } dk_bd_read_track_info_64_t;
 
-#define DKIOCBDREADSTRUCTURE32 _IOW('d', 160, dk_bd_read_structure_32_t)
-#define DKIOCBDREADSTRUCTURE64 _IOW('d', 160, dk_bd_read_structure_64_t)
-#define DKIOCBDREPORTKEY32     _IOW('d', 161, dk_bd_report_key_32_t)
-#define DKIOCBDREPORTKEY64     _IOW('d', 161, dk_bd_report_key_64_t)
-#define DKIOCBDSENDKEY32       _IOW('d', 162, dk_bd_send_key_32_t)
-#define DKIOCBDSENDKEY64       _IOW('d', 162, dk_bd_send_key_64_t)
+#define DKIOCBDREADSTRUCTURE32   _IOW('d', 160, dk_bd_read_structure_32_t)
+#define DKIOCBDREADSTRUCTURE64   _IOW('d', 160, dk_bd_read_structure_64_t)
+#define DKIOCBDREPORTKEY32       _IOW('d', 161, dk_bd_report_key_32_t)
+#define DKIOCBDREPORTKEY64       _IOW('d', 161, dk_bd_report_key_64_t)
+#define DKIOCBDSENDKEY32         _IOW('d', 162, dk_bd_send_key_32_t)
+#define DKIOCBDSENDKEY64         _IOW('d', 162, dk_bd_send_key_64_t)
 
-#define DKIOCBDREADDISCINFO32  _IOWR('d', 164, dk_bd_read_disc_info_32_t)
-#define DKIOCBDREADDISCINFO64  _IOWR('d', 164, dk_bd_read_disc_info_64_t)
-#define DKIOCBDREADTRACKINFO32 _IOWR('d', 165, dk_bd_read_track_info_32_t)
-#define DKIOCBDREADTRACKINFO64 _IOWR('d', 165, dk_bd_read_track_info_64_t)
+#define DKIOCBDREADDISCINFO32    _IOWR('d', 164, dk_bd_read_disc_info_32_t)
+#define DKIOCBDREADDISCINFO64    _IOWR('d', 164, dk_bd_read_disc_info_64_t)
+#define DKIOCBDREADTRACKINFO32   _IOWR('d', 165, dk_bd_read_track_info_32_t)
+#define DKIOCBDREADTRACKINFO64   _IOWR('d', 165, dk_bd_read_track_info_64_t)
 
 static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
 {

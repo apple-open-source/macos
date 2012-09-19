@@ -78,5 +78,6 @@
 
 - (NSString *)descriptionForName:(NSString*)name;
 - (NSString *)description;
+- (NSMutableDictionary *)dictionaryVersionOfMe;
 
 @end

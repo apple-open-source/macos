@@ -21,8 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <Security/Security.h>
-#include <Security/CodeSigning.h>
 #include <Security/SecAssessment.h>
+#include <Security/SecRequirement.h>
 #include <getopt.h>
 #include <syslog.h>
 #include <libgen.h>
@@ -153,6 +153,11 @@ void doUpdate(xpc_object_t msg, xpc_object_t reply)
 	CFRef<CFDictionaryRef> context = makeCFDictionaryFrom(contextData, length);
 
 	CFErrorRef errors = NULL;
-	if (!SecAssessmentUpdate(target, flags | kSecAssessmentFlagDirect, context, &errors))
+	if (CFRef<CFDictionaryRef> result = SecAssessmentCopyUpdate(target, flags | kSecAssessmentFlagDirect, context, &errors)) {
+		CFRef<CFDataRef> resultData = makeCFData(result.get());
+		xpc_dictionary_set_data(reply, "result", CFDataGetBytePtr(resultData), CFDataGetLength(resultData));
+	} else {
 		xpc_dictionary_set_int64(reply, "error", CFErrorGetCode(errors));
+		CFRelease(errors);
+	}
 }

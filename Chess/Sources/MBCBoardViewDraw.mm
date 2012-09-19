@@ -814,8 +814,7 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	bool	    horizontal		= 
 		fabs(fCurMouse.x-fOrigMouse.x) > fabs(fCurMouse.y-fOrigMouse.y);
-	const float	kUserSpaceScale	= [[self superview] convertSizeToBacking:NSMakeSize(1, 1)].width;
-	const float	kScale			= kUserSpaceScale;
+	const float	kScale			= 1.0f;
 	const float	kCircleSize		= 10.0f*kScale;
 	const float	kArrowClearance	= 15.0f*kScale;
 	const float	kArrowLength	= 30.0f*kScale;

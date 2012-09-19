@@ -69,7 +69,7 @@ void DIEAbbrev::Emit(AsmPrinter *AP) const {
     // Emit attribute type.
     // FIXME: Doing work even in non-asm-verbose runs.
     AP->EmitULEB128(AttrData.getAttribute(),
-                              dwarf::AttributeString(AttrData.getAttribute()));
+                    dwarf::AttributeString(AttrData.getAttribute()));
 
     // Emit form type.
     // FIXME: Doing work even in non-asm-verbose runs.
@@ -201,6 +201,7 @@ void DIEInteger::EmitValue(AsmPrinter *Asm, unsigned Form) const {
   case dwarf::DW_FORM_data8: Size = 8; break;
   case dwarf::DW_FORM_udata: Asm->EmitULEB128(Integer); return;
   case dwarf::DW_FORM_sdata: Asm->EmitSLEB128(Integer); return;
+  case dwarf::DW_FORM_addr:  Size = Asm->getTargetData().getPointerSize(); break;
   default: llvm_unreachable("DIE Value form not supported yet");
   }
   Asm->OutStreamer.EmitIntValue(Integer, Size, 0/*addrspace*/);
@@ -221,6 +222,7 @@ unsigned DIEInteger::SizeOf(AsmPrinter *AP, unsigned Form) const {
   case dwarf::DW_FORM_data8: return sizeof(int64_t);
   case dwarf::DW_FORM_udata: return MCAsmInfo::getULEB128Size(Integer);
   case dwarf::DW_FORM_sdata: return MCAsmInfo::getSLEB128Size(Integer);
+  case dwarf::DW_FORM_addr:  return AP->getTargetData().getPointerSize();
   default: llvm_unreachable("DIE Value form not supported yet"); break;
   }
   return 0;
@@ -228,26 +230,8 @@ unsigned DIEInteger::SizeOf(AsmPrinter *AP, unsigned Form) const {
 
 #ifndef NDEBUG
 void DIEInteger::print(raw_ostream &O) {
-  O << "Int: " << (int64_t)Integer
-    << format("  0x%llx", (unsigned long long)Integer);
-}
-#endif
-
-//===----------------------------------------------------------------------===//
-// DIEString Implementation
-//===----------------------------------------------------------------------===//
-
-/// EmitValue - Emit string value.
-///
-void DIEString::EmitValue(AsmPrinter *AP, unsigned Form) const {
-  AP->OutStreamer.EmitBytes(Str, /*addrspace*/0);
-  // Emit nul terminator.
-  AP->OutStreamer.EmitIntValue(0, 1, /*addrspace*/0);
-}
-
-#ifndef NDEBUG
-void DIEString::print(raw_ostream &O) {
-  O << "Str: \"" << Str << "\"";
+  O << "Int: " << (int64_t)Integer << "  0x";
+  O.write_hex(Integer);
 }
 #endif
 
@@ -265,6 +249,7 @@ void DIELabel::EmitValue(AsmPrinter *AP, unsigned Form) const {
 ///
 unsigned DIELabel::SizeOf(AsmPrinter *AP, unsigned Form) const {
   if (Form == dwarf::DW_FORM_data4) return 4;
+  if (Form == dwarf::DW_FORM_strp) return 4;
   return AP->getTargetData().getPointerSize();
 }
 
@@ -288,6 +273,7 @@ void DIEDelta::EmitValue(AsmPrinter *AP, unsigned Form) const {
 ///
 unsigned DIEDelta::SizeOf(AsmPrinter *AP, unsigned Form) const {
   if (Form == dwarf::DW_FORM_data4) return 4;
+  if (Form == dwarf::DW_FORM_strp) return 4;
   return AP->getTargetData().getPointerSize();
 }
 

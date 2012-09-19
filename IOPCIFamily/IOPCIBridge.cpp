@@ -58,6 +58,8 @@ extern "C"
 
 #define kMSIFreeCountKey    "MSIFree"
 
+// #define DEADTEST	"UPS2"
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 const IORegistryPlane * gIOPCIACPIPlane;
@@ -126,6 +128,12 @@ uint32_t gIOPCIFlags = 0
 enum
 {
     kTunnelEnable = 0x00000001,
+};
+
+enum
+{
+	// data link change, hot plug, presence detect change
+	kSlotControlEnables = ((1 << 12) | (1 << 5) | (1 << 3))
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -341,17 +349,29 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     uint16_t      control = device->configRead16(msi + 2);
     IORangeScalar rangeStart;
     uint32_t      message[3];
+	uint32_t      vendorProd = device->savedConfig[kIOPCIConfigVendorID >> 2];
+	uint32_t      revIDClass = device->savedConfig[kIOPCIConfigRevisionID >> 2];
 
     // pci2pci bridges get none or one for hotplug
-    if (0x0604 == device->configRead16(kIOPCIConfigClassCode + 1))
+    if (0x0604 == (revIDClass >> 16))
 	{
-		if (device->getProperty(kIOPCIHotPlugKey)
-			|| device->getProperty(kIOPCILinkChangeKey)
-			|| device->getProperty(kIOPCITunnelLinkChangeKey))
+		bool tunnelLink = (0 != device->getProperty(kIOPCITunnelLinkChangeKey));
+		if (tunnelLink 
+		    || device->getProperty(kIOPCIHotPlugKey)
+			|| device->getProperty(kIOPCILinkChangeKey))
 		{
 			// hot plug bridge, but use legacy if avail
 			uint8_t line = device->configRead8(kIOPCIConfigInterruptLine);
-			if ((line == 0) || (line == 0xFF))
+			if (tunnelLink)
+			{
+				tunnelLink =   (0x15138086 != vendorProd)
+							&& (0x151a8086 != vendorProd)
+							&& (0x151b8086 != vendorProd)
+							&& ((0x15478086 != vendorProd) || ((revIDClass & 0xff) > 1));
+				DLOG("tunnel bridge 0x%08x, %d, msi %d\n", 
+						vendorProd, (revIDClass & 0xff), tunnelLink);
+			}
+			if (tunnelLink || (line == 0) || (line == 0xFF))
 			{
 				// no legacy ints, need one MSI
 				numVectors = 1;
@@ -694,6 +714,7 @@ OSMetaClassDefineReservedUnused(IOPCIBridge, 31);
 #define fNeedProbe                      reserved->needProbe
 #define fBridgeMSI						reserved->bridgeMSI
 #define fLinkControlWithPM				reserved->linkControlWithPM
+#define fPMAssertion					reserved->pmAssertion
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // stub driver has two power states, off and on
@@ -937,7 +958,7 @@ static void IOPCILogDevice(const char * log, IOPCIDevice * device)
 	
 	len = sizeof(pathBuf);
 	if (device->getPath( pathBuf, &len, gIOServicePlane))
-		DLOG("%s : %s\n", log, pathBuf);
+		DLOG("%s : ints(%d) %s\n", log, ml_get_interrupts_enabled(), pathBuf);
     DLOG("        0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
     for (offset = 0; offset < 256; offset++)
     {
@@ -954,9 +975,12 @@ static void IOPCILogDevice(const char * log, IOPCIDevice * device)
 IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
                                        IOOptionBits options )
 {
+	IOReturn ret;
     UInt32   flags;
     void *   p3 = (void *) 3;
+	uint32_t data;
     int      i;
+	bool     ok;
 
     if (!device->savedConfig)
         return (kIOReturnNotReady);
@@ -1041,6 +1065,21 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
         (*configShadow(device)->handler)(configShadow(device)->handlerRef, 
                                          kIOMessageDeviceHasPoweredOff, device, 3);
     }
+
+	if (kIOPCIConfigShadowHotplug & configShadow(device)->flags)
+	{
+		data = device->configRead32(kIOPCIConfigVendorID);
+#ifdef DEADTEST
+		if (!strcmp(DEADTEST, device->getName())) data = 0xFFFFFFFF;
+#endif
+		ok = (data && (data != 0xFFFFFFFF));
+		if (!ok)
+		{
+			DLOG("saveDeviceState kill device %s\n", device->getName());
+			ret = configOp(device, kConfigOpKill, 0);
+			configShadow(device)->flags &= ~kIOPCIConfigShadowValid;
+		}
+	}
 
     IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
 
@@ -2459,6 +2498,8 @@ bool IOPCI2PCIBridge::filterInterrupt( IOFilterInterruptEventSource * source)
 //	DLOG("%s: filterInterrupt\n", 
 //		reserved->logName);
 
+	if (!reserved->powerState)
+		return (false);
 	if (reserved->noDevice)
 		return (false);
 	ret = checkLink();
@@ -2558,6 +2599,12 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source, int count
 
 	if (fNeedProbe)
 	{
+		if (kIOPMUndefinedDriverAssertionID == fPMAssertion)
+		{
+			fPMAssertion = getPMRootDomain()->createPMAssertion(
+								kIOPMDriverAssertionCPUBit, kIOPMDriverAssertionLevelOn,
+								this, "com.apple.iokit.iopcifamily");
+		}
         bridgeDevice->kernelRequestProbe(kIOPCIProbeOptionLinkInt | kIOPCIProbeOptionNeedsScan);
 		fTimerProbeES->setTimeoutMS(probeTimeMS);
 	}
@@ -2570,6 +2617,11 @@ void IOPCI2PCIBridge::timerProbe(IOTimerEventSource * es)
         fNeedProbe = false;
         DLOG("%s: probe\n", reserved->logName);
         bridgeDevice->kernelRequestProbe(kIOPCIProbeOptionDone);
+		if (kIOPMUndefinedDriverAssertionID != fPMAssertion)
+		{
+			getPMRootDomain()->releasePMAssertion(fPMAssertion);
+			fPMAssertion = kIOPMUndefinedDriverAssertionID;
+		}
     }
 }
 
@@ -2581,6 +2633,7 @@ bool IOPCI2PCIBridge::start( IOService * provider )
     if (reserved == 0) return (false);
 
     bzero(reserved, sizeof(ExpansionData));
+	fPMAssertion = kIOPMUndefinedDriverAssertionID;
     
 	snprintf(reserved->logName, sizeof(reserved->logName), "%s(%u:%u:%u)(%u-%u)", 
 			 bridgeDevice->getName(), PCI_ADDRESS_TUPLE(bridgeDevice), firstBusNum(), lastBusNum());
@@ -2645,21 +2698,24 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
     return (super::configure(provider));
 }
 
-enum
-{
-	// data link change, hot plug, presence detect change
-	kSlotControlEnables = ((1 << 12) | (1 << 5) | (1 << 3))
-};
-
 void IOPCI2PCIBridge::startHotPlug(IOService * provider)
 {
 	IOReturn ret;
     do
     {
 		int interruptType;
-		ret =  bridgeDevice->getInterruptType(0, &interruptType);
-		if ((kIOReturnSuccess == ret) && (kIOInterruptTypePCIMessaged & interruptType))
-			fBridgeMSI = true;
+		int intIdx = 1;
+		for (intIdx = 1; intIdx >= 0; intIdx--)
+		{
+			ret = bridgeDevice->getInterruptType(intIdx, &interruptType);
+			if (kIOReturnSuccess == ret)
+			{
+				fBridgeMSI = (0 != (kIOInterruptTypePCIMessaged & interruptType));
+				break;
+			}
+		}
+        if (kIOReturnSuccess != ret)
+            break;
 
         fBridgeInterruptSource = IOFilterInterruptEventSource::filterInterruptEventSource(
                       this,
@@ -2667,7 +2723,7 @@ void IOPCI2PCIBridge::startHotPlug(IOService * provider)
                                             this, &IOPCI2PCIBridge::handleInterrupt),
                       OSMemberFunctionCast(IOFilterInterruptEventSource::Filter,
                                             this, &IOPCI2PCIBridge::filterInterrupt),
-                      provider, 0);
+                      provider, intIdx);
         if (!fBridgeInterruptSource)
             break;
 
@@ -2811,6 +2867,11 @@ IOReturn IOPCI2PCIBridge::saveDeviceState(IOPCIDevice * device,
 	else
 		configShadow(bridgeDevice)->flags &= ~kIOPCIConfigShadowSleepReset;
 
+    if (device->getProperty(gIOPCITunnelledKey) || device->getProperty(kIOPCIEjectableKey))
+		configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowHotplug;
+	else
+		configShadow(bridgeDevice)->flags &= ~kIOPCIConfigShadowHotplug;
+
 	return super::saveDeviceState(device, options);
 }
 
@@ -2837,6 +2898,11 @@ void IOPCI2PCIBridge::stop( IOService * provider )
 			fTimerProbeES->release();
 			fTimerProbeES = 0;
 		}
+		if (kIOPMUndefinedDriverAssertionID != fPMAssertion)
+		{
+			getPMRootDomain()->releasePMAssertion(fPMAssertion);
+			fPMAssertion = kIOPMUndefinedDriverAssertionID;
+		}
     }
 }
 
@@ -2851,6 +2917,10 @@ void IOPCI2PCIBridge::saveBridgeState( void )
 
     for (cnt = 0; cnt < kIOPCIBridgeRegs; cnt++)
     {
+#ifdef DEADTEST
+		if (!strcmp(DEADTEST, bridgeDevice->getName())) bridgeState[cnt] = 0xFFFFFFFF;
+		else
+#endif
         bridgeState[cnt] = bridgeDevice->configRead32(cnt * 4);
     }
 }

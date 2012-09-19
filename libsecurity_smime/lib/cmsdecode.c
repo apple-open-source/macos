@@ -725,3 +725,4 @@ SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
 loser:
     return result;
 }
+

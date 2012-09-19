@@ -163,7 +163,7 @@ void CFMDiskRep::readSigningData()
 		if (fd.read(&sentinel, sizeof(sentinel), fd.fileSize() - sizeof(Sentinel)) == sizeof(Sentinel))
 			if (sentinel.magic == EmbeddedSignatureBlob::typeMagic) {
 				mSigningOffset = sentinel.offset;
-				if (mSigningData = EmbeddedSignatureBlob::readBlob(fd, mSigningOffset))
+				if ((mSigningData = EmbeddedSignatureBlob::readBlob(fd, mSigningOffset)))
 					secdebug("cfmrep", "%zd signing bytes in %d blob(s) from %s(CFM)",
 						mSigningData->length(), mSigningData->count(),
 						mainExecutablePath().c_str());

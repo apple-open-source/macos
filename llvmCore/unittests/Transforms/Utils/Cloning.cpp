@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 #include "llvm/Argument.h"
+#include "llvm/Constant.h"
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -123,7 +124,7 @@ TEST_F(CloneInstruction, Inbounds) {
   Constant *Z = Constant::getNullValue(Type::getInt32Ty(context));
   std::vector<Value *> ops;
   ops.push_back(Z);
-  GetElementPtrInst *GEP = GetElementPtrInst::Create(V, ops.begin(), ops.end());
+  GetElementPtrInst *GEP = GetElementPtrInst::Create(V, ops);
   EXPECT_FALSE(this->clone(GEP)->isInBounds());
 
   GEP->setIsInBounds();

@@ -839,6 +839,7 @@
 "Internet Postage 3-Part" = "Internet Postage 3-Part";
 "Internet Postage 3-Part - 2 1/4 x 7\"" = "Internet Postage 3-Part - 2 1/4 x 7\"";
 "Internet Printing Protocol" = "Internet Printing Protocol";
+"Invalid printer command \"%s\"." = "Invalid printer command \"%s\".";
 "JCL" = "JCL";
 "JIS B0" = "JIS B0";
 "JIS B1" = "JIS B1";
@@ -1198,6 +1199,7 @@
 "Unable to change printer-is-shared attribute:" = "Unable to change printer-is-shared attribute:";
 "Unable to change printer:" = "Unable to change printer:";
 "Unable to change server settings:" = "Unable to change server settings:";
+"Unable to configure printer options." = "Unable to configure printer options.";
 "Unable to connect to host." = "Unable to connect to host.";
 "Unable to contact printer, queuing on next printer in class." = "Unable to contact printer, queuing on next printer in class.";
 "Unable to copy 64-bit CUPS printer driver files (%d)." = "Unable to copy 64-bit CUPS printer driver files (%d).";

@@ -26,7 +26,7 @@ bool LoadAssemblyInto(Module *M, const char *assembly) {
     NULL != ParseAssemblyString(assembly, M, Error, M->getContext());
   std::string errMsg;
   raw_string_ostream os(errMsg);
-  Error.Print("", os);
+  Error.print("", os);
   EXPECT_TRUE(success) << os.str();
   return success;
 }
@@ -64,6 +64,9 @@ void createModule2(LLVMContext &Context2, Module *&M2, Function *&FooF2) {
                    "} ");
   FooF2 = M2->getFunction("foo2");
 }
+
+// ARM tests disabled pending fix for PR10783.
+#if !defined(__arm__)
 
 TEST(MultiJitTest, EagerMode) {
   LLVMContext Context1;
@@ -160,5 +163,6 @@ TEST(MultiJitTest, JitPool) {
   EXPECT_EQ((intptr_t)getPointerToNamedFunction("getPointerToNamedFunction"),
             (intptr_t)&getPointerToNamedFunction);
 }
+#endif  // !defined(__arm__)
 
 }  // anonymous namespace

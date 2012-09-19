@@ -2,36 +2,39 @@
                       "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>LLVM Testing Infrastructure Guide</title>
   <link rel="stylesheet" href="llvm.css" type="text/css">
 </head>
 <body>
       
-<div class="doc_title">
+<h1>
   LLVM Testing Infrastructure Guide
-</div>
+</h1>
 
 <ol>
   <li><a href="#overview">Overview</a></li>
   <li><a href="#requirements">Requirements</a></li>
   <li><a href="#org">LLVM testing infrastructure organization</a>
     <ul>
-      <li><a href="#dejagnu">DejaGNU tests</a></li>
+      <li><a href="#regressiontests">Regression tests</a></li>
       <li><a href="#testsuite">Test suite</a></li>
+      <li><a href="#debuginfotests">Debugging Information tests</a></li>
     </ul>
   </li>
   <li><a href="#quick">Quick start</a>
     <ul>
-      <li><a href="#quickdejagnu">DejaGNU tests</a></li>
+      <li><a href="#quickregressiontests">Regression tests</a></li>
       <li><a href="#quicktestsuite">Test suite</a></li>
+      <li><a href="#quickdebuginfotests">Debugging Information tests</a></li>
    </ul>
   </li>
-  <li><a href="#dgstructure">DejaGNU structure</a>
+  <li><a href="#rtstructure">Regression test structure</a>
     <ul>
-      <li><a href="#dgcustom">Writing new DejaGNU tests</a></li>
+      <li><a href="#rtcustom">Writing new regression tests</a></li>
       <li><a href="#FileCheck">The FileCheck utility</a></li>
-      <li><a href="#dgvars">Variables and substitutions</a></li>
-      <li><a href="#dgfeatures">Other features</a></li>
+      <li><a href="#rtvars">Variables and substitutions</a></li>
+      <li><a href="#rtfeatures">Other features</a></li>
    </ul>
   </li>
   <li><a href="#testsuitestructure">Test suite structure</a></li>
@@ -40,78 +43,65 @@
       <li><a href="#testsuiteexternal">Configuring External Tests</a></li>
       <li><a href="#testsuitetests">Running different tests</a></li>
       <li><a href="#testsuiteoutput">Generating test output</a></li>
-      <li><a href="#testsuitecustom">Writing custom tests for llvm-test</a></li>
+      <li><a href="#testsuitecustom">Writing custom tests for test-suite</a></li>
    </ul>
   </li>
-  <li><a href="#nightly">Running the nightly tester</a></li>
 </ol>
 
 <div class="doc_author">
-  <p>Written by John T. Criswell, <a
-  href="http://llvm.x10sys.com/rspencer">Reid Spencer</a>, and Tanya Lattner</p>
+  <p>Written by John T. Criswell, Daniel Dunbar, Reid Spencer, and Tanya Lattner</p>
 </div>
 
 <!--=========================================================================-->
-<div class="doc_section"><a name="overview">Overview</a></div>
+<h2><a name="overview">Overview</a></h2>
 <!--=========================================================================-->
 
-<div class="doc_text">
+<div>
 
-<p>This document is the reference manual for the LLVM testing infrastructure. It documents
-the structure of the LLVM testing infrastructure, the tools needed to use it,
-and how to add and run tests.</p>
-
-</div>
-
-<!--=========================================================================-->
-<div class="doc_section"><a name="requirements">Requirements</a></div>
-<!--=========================================================================-->
-
-<div class="doc_text">
-
-<p>In order to use the LLVM testing infrastructure, you will need all of the software
-required to build LLVM, plus the following:</p>
-
-<dl>
-<dt><a href="http://www.gnu.org/software/dejagnu/">DejaGNU</a></dt>
-<dd>The Feature and Regressions tests are organized and run by DejaGNU.</dd>
-<dt><a href="http://expect.nist.gov/">Expect</a></dt>
-<dd>Expect is required by DejaGNU.</dd>
-<dt><a href="http://www.tcl.tk/software/tcltk/">tcl</a></dt>
-<dd>Tcl is required by DejaGNU. </dd>
-</dl>
+<p>This document is the reference manual for the LLVM testing infrastructure. It
+documents the structure of the LLVM testing infrastructure, the tools needed to
+use it, and how to add and run tests.</p>
 
 </div>
 
 <!--=========================================================================-->
-<div class="doc_section"><a name="org">LLVM testing infrastructure organization</a></div>
+<h2><a name="requirements">Requirements</a></h2>
 <!--=========================================================================-->
 
-<div class="doc_text">
+<div>
 
-<p>The LLVM testing infrastructure contains two major categories of tests: code
-fragments and whole programs. Code fragments are referred to as the "DejaGNU
-tests" and are in the <tt>llvm</tt> module in subversion under the
-<tt>llvm/test</tt> directory. The whole programs tests are referred to as the
-"Test suite" and are in the <tt>test-suite</tt> module in subversion.
+<p>In order to use the LLVM testing infrastructure, you will need all of the
+software required to build LLVM, as well
+as <a href="http://python.org">Python</a> 2.4 or later.</p>
+
+</div>
+
+<!--=========================================================================-->
+<h2><a name="org">LLVM testing infrastructure organization</a></h2>
+<!--=========================================================================-->
+
+<div>
+
+<p>The LLVM testing infrastructure contains two major categories of tests:
+regression tests and whole programs. The regression tests are contained inside
+the LLVM repository itself under <tt>llvm/test</tt> and are expected to always
+pass -- they should be run before every commit. The whole programs tests are
+referred to as the "LLVM test suite" and are in the <tt>test-suite</tt> module
+in subversion.
 </p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="dejagnu">DejaGNU tests</a></div>
+<h3><a name="regressiontests">Regression tests</a></h3>
 <!-- _______________________________________________________________________ -->
 
-<div class="doc_text">
+<div>
 
-<p>Code fragments are small pieces of code that test a specific
-feature of LLVM or trigger a specific bug in LLVM.  They are usually
-written in LLVM assembly language, but can be written in other
-languages if the test targets a particular language front end (and the
-appropriate <tt>--with-llvmgcc</tt> options were used
-at <tt>configure</tt> time of the <tt>llvm</tt> module). These tests
-are driven by the DejaGNU testing framework, which is hidden behind a
-few simple makefiles.</p>
+<p>The regression tests are small pieces of code that test a specific feature of
+LLVM or trigger a specific bug in LLVM.  They are usually written in LLVM
+assembly language, but can be written in other languages if the test targets a
+particular language front end (and the appropriate <tt>--with-llvmgcc</tt>
+options were used at <tt>configure</tt> time of the <tt>llvm</tt> module). These
+tests are driven by the 'lit' testing tool, which is part of LLVM.</p>
 
 <p>These code fragments are not complete programs. The code generated
 from them is never executed to determine correct behavior.</p>
@@ -128,10 +118,10 @@ application or benchmark.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="testsuite">Test suite</a></div>
+<h3><a name="testsuite">Test suite</a></h3>
 <!-- _______________________________________________________________________ -->
 
-<div class="doc_text">
+<div>
 
 <p>The test suite contains whole programs, which are pieces of
 code which can be compiled and linked into a stand-alone program that can be
@@ -152,29 +142,48 @@ generates code.</p>
 
 </div>
 
+<!-- _______________________________________________________________________ -->
+<h3><a name="debuginfotests">Debugging Information tests</a></h3>
+<!-- _______________________________________________________________________ -->
+
+<div>
+
+<p>The test suite contains tests to check quality of debugging information.
+The test are written in C based languages or in LLVM assembly language. </p>
+
+<p>These tests are compiled and run under a debugger. The debugger output
+is checked to validate of debugging information. See README.txt in the 
+test suite for more information . This test suite is located in the 
+<tt>debuginfo-tests</tt> Subversion module. </p>
+
+</div>
+
+</div>
+
 <!--=========================================================================-->
-<div class="doc_section"><a name="quick">Quick start</a></div>
+<h2><a name="quick">Quick start</a></h2>
 <!--=========================================================================-->
 
-<div class="doc_text">
+<div>
 
-  <p>The tests are located in two separate Subversion modules. The
-  DejaGNU tests are in the main "llvm" module under the directory 
+  <p>The tests are located in two separate Subversion modules. The regressions
+  tests are in the main "llvm" module under the directory
   <tt>llvm/test</tt> (so you get these tests for free with the main llvm tree).
   The more comprehensive test suite that includes whole 
 programs in C and C++ is in the <tt>test-suite</tt> module. This module should
 be checked out to the <tt>llvm/projects</tt> directory (don't use another name
-then the default "test-suite", for then the test suite will be run every time
+than the default "test-suite", for then the test suite will be run every time
 you run <tt>make</tt> in the main <tt>llvm</tt> directory).
 When you <tt>configure</tt> the <tt>llvm</tt> module, 
 the <tt>test-suite</tt> directory will be automatically configured. 
 Alternatively, you can configure the <tt>test-suite</tt> module manually.</p>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="quickdejagnu">DejaGNU tests</a></div>
+<h3><a name="quickregressiontests">Regression tests</a></h3>
+<div>
 <!-- _______________________________________________________________________ -->
-<p>To run all of the simple tests in LLVM using DejaGNU, use the master Makefile
- in the <tt>llvm/test</tt> directory:</p>
+<p>To run all of the LLVM regression tests, use master Makefile in
+ the <tt>llvm/test</tt> directory:</p>
 
 <div class="doc_code">
 <pre>
@@ -190,26 +199,14 @@ Alternatively, you can configure the <tt>test-suite</tt> module manually.</p>
 </pre>
 </div>
 
-<p>To run only a subdirectory of tests in <tt>llvm/test</tt> using DejaGNU (ie.
-Transforms), just set the TESTSUITE variable to the path of the
-subdirectory (relative to <tt>llvm/test</tt>):</p>
+<p>If you have <a href="http://clang.llvm.org/">Clang</a> checked out and built,
+you can run the LLVM and Clang tests simultaneously using:</p>
+
+<p>or</p>
 
 <div class="doc_code">
 <pre>
-% gmake TESTSUITE=Transforms check
-</pre>
-</div>
-
-<p><b>Note: If you are running the tests with <tt>objdir != subdir</tt>, you
-must have run the complete testsuite before you can specify a
-subdirectory.</b></p>
-
-<p>To run only a single test, set <tt>TESTONE</tt> to its path (relative to
-<tt>llvm/test</tt>) and make the <tt>check-one</tt> target:</p>
-
-<div class="doc_code">
-<pre>
-% gmake TESTONE=Feature/basictest.ll check-one
+% gmake check-all
 </pre>
 </div>
 
@@ -222,9 +219,34 @@ subdirectory.</b></p>
 </pre>
 </div>
 
+<p>To run individual tests or subsets of tests, you can use the 'llvm-lit'
+script which is built as part of LLVM. For example, to run the
+'Integer/BitCast.ll' test by itself you can run:</p>
+
+<div class="doc_code">
+<pre>
+% llvm-lit ~/llvm/test/Integer/BitCast.ll 
+</pre>
+</div>
+
+<p>or to run all of the ARM CodeGen tests:</p>
+
+<div class="doc_code">
+<pre>
+% llvm-lit ~/llvm/test/CodeGen/ARM
+</pre>
+</div>
+
+<p>For more information on using the 'lit' tool, see 'llvm-lit --help' or the
+'lit' man page.</p>
+
+</div>
+
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="quicktestsuite">Test suite</a></div>
+<h3><a name="quicktestsuite">Test suite</a></h3>
 <!-- _______________________________________________________________________ -->
+
+<div>
 
 <p>To run the comprehensive test suite (tests that compile and execute whole 
 programs), first checkout and setup the <tt>test-suite</tt> module:</p>
@@ -239,7 +261,7 @@ programs), first checkout and setup the <tt>test-suite</tt> module:</p>
 </div>
 
 <p>where <tt>$LLVM_GCC_DIR</tt> is the directory where
-you <em>installed</em> llvm-gcc, not it's src or obj
+you <em>installed</em> llvm-gcc, not its src or obj
 dir. The <tt>--with-llvmgccdir</tt> option assumes that
 the <tt>llvm-gcc-4.2</tt> module was configured with
 <tt>--program-prefix=llvm-</tt>, and therefore that the C and C++
@@ -274,12 +296,36 @@ that subdirectory.</p>
 
 </div>
 
+<!-- _______________________________________________________________________ -->
+<h3><a name="quickdebuginfotests">Debugging Information tests</a></h3>
+<div>
+<!-- _______________________________________________________________________ -->
+<div>
+
+<p> To run debugging information tests simply checkout the tests inside
+clang/test directory. </p>
+
+<div class="doc_code">
+<pre>
+%cd clang/test
+% svn co http://llvm.org/svn/llvm-project/debuginfo-tests/trunk debuginfo-tests
+</pre>
+</div>
+
+<p> These tests are already set up to run as part of clang regression tests.</p>
+
+</div>
+
+</div>
+
+</div>
+
 <!--=========================================================================-->
-<div class="doc_section"><a name="dgstructure">DejaGNU structure</a></div>
+<h2><a name="rtstructure">Regression test structure</a></h2>
 <!--=========================================================================-->
-<div class="doc_text">
-  <p>The LLVM DejaGNU tests are driven by DejaGNU together with GNU Make and are
-  located in the <tt>llvm/test</tt> directory.
+<div>
+  <p>The LLVM regression tests are driven by 'lit' and are located in
+  the <tt>llvm/test</tt> directory.
 
   <p>This directory contains a large array of small tests
   that exercise various features of LLVM and to ensure that regressions do not
@@ -299,30 +345,29 @@ that subdirectory.</p>
     <li><tt>Verifier</tt>: tests the IR verifier.</li>
   </ul>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="dgcustom">Writing new DejaGNU tests</a></div>
+<h3><a name="rtcustom">Writing new regression tests</a></h3>
 <!-- _______________________________________________________________________ -->
-<div class="doc_text">
-  <p>The DejaGNU structure is very simple, but does require some information to 
-  be set. This information is gathered via <tt>configure</tt> and is written 
-  to a file, <tt>site.exp</tt> in <tt>llvm/test</tt>. The <tt>llvm/test</tt> 
-  Makefile does this work for you.</p>
+<div>
+  <p>The regression test structure is very simple, but does require some
+  information to be set. This information is gathered via <tt>configure</tt> and
+  is written to a file, <tt>lit.site.cfg</tt>
+  in <tt>llvm/test</tt>. The <tt>llvm/test</tt> Makefile does this work for
+  you.</p>
 
-  <p>In order for DejaGNU to work, each directory of tests must have a 
-  <tt>dg.exp</tt> file. DejaGNU looks for this file to determine how to run the
-  tests. This file is just a Tcl script and it can do anything you want, but 
-  we've standardized it for the LLVM regression tests. If you're adding a
+  <p>In order for the regression tests to work, each directory of tests must
+  have a <tt>dg.exp</tt> file. Lit looks for this file to determine how to
+  run the tests. This file is just a Tcl script and it can do anything you want,
+  but we've standardized it for the LLVM regression tests. If you're adding a
   directory of tests, just copy <tt>dg.exp</tt> from another directory to get
-  running. The standard <tt>dg.exp</tt> simply loads a Tcl 
-  library (<tt>test/lib/llvm.exp</tt>) and calls the <tt>llvm_runtests</tt> 
-  function defined in that library with a list of file names to run. The names 
-  are obtained by using Tcl's glob command.  Any directory that contains only
+  running. The standard <tt>dg.exp</tt> simply loads a Tcl library
+  (<tt>test/lib/llvm.exp</tt>) and calls the <tt>llvm_runtests</tt> function
+  defined in that library with a list of file names to run. The names are
+  obtained by using Tcl's glob command.  Any directory that contains only
   directories does not need the <tt>dg.exp</tt> file.</p>
 
-  <p>The <tt>llvm-runtests</tt> function lookas at each file that is passed to
-  it and gathers any lines together that match "RUN:". This are the "RUN" lines
+  <p>The <tt>llvm-runtests</tt> function looks at each file that is passed to
+  it and gathers any lines together that match "RUN:". These are the "RUN" lines
   that specify how the test is to be run. So, each test script must contain
   RUN lines if it is to do anything. If there are no RUN lines, the
   <tt>llvm-runtests</tt> function will issue an error and the test will
@@ -338,6 +383,11 @@ that subdirectory.</p>
   directly by the Tcl <tt>exec</tt> command. They are never executed by a 
   shell. Consequently the syntax differs from normal shell script syntax in a 
   few ways.  You can specify as many RUN lines as needed.</p>
+
+  <p>lit performs substitution on each RUN line to replace LLVM tool
+  names with the full paths to the executable built for each tool (in
+  $(LLVM_OBJ_ROOT)/$(BuildMode)/bin).  This ensures that lit does not
+  invoke any stray LLVM tools in the user's path during testing.</p>
 
   <p>Each RUN line is executed on its own, distinct from other lines unless
   its last character is <tt>\</tt>. This continuation character causes the RUN
@@ -379,7 +429,8 @@ that subdirectory.</p>
 
   <p>There are some quoting rules that you must pay attention to when writing
   your RUN lines. In general nothing needs to be quoted. Tcl won't strip off any
-  ' or " so they will get passed to the invoked program. For example:</p>
+  quote characters so they will get passed to the invoked program. For
+  example:</p>
 
 <div class="doc_code">
 <pre>
@@ -449,10 +500,10 @@ negatives).</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="FileCheck">The FileCheck utility</a></div>
+<h3><a name="FileCheck">The FileCheck utility</a></h3>
 <!-- _______________________________________________________________________ -->
 
-<div class="doc_text">
+<div>
 
 <p>A powerful feature of the RUN: lines is that it allows any arbitrary commands
    to be executed as part of the test harness.  While standard (portable) unix
@@ -518,13 +569,12 @@ is a "subl" in between those labels.  If it existed somewhere else in the file,
 that would not count: "grep subl" matches if subl exists anywhere in the
 file.</p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a 
-name="FileCheck-check-prefix">The FileCheck -check-prefix option</a></div>
+<h4>
+  <a name="FileCheck-check-prefix">The FileCheck -check-prefix option</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>The FileCheck -check-prefix option allows multiple test configurations to be
 driven from one .ll file.  This is useful in many circumstances, for example,
@@ -555,13 +605,14 @@ both 32-bit and 64-bit code generation.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a 
-name="FileCheck-CHECK-NEXT">The "CHECK-NEXT:" directive</a></div>
+<h4>
+  <a name="FileCheck-CHECK-NEXT">The "CHECK-NEXT:" directive</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>Sometimes you want to match lines and would like to verify that matches
-happen on exactly consequtive lines with no other lines in between them.  In
+happen on exactly consecutive lines with no other lines in between them.  In
 this case, you can use CHECK: and CHECK-NEXT: directives to specify this.  If
 you specified a custom check prefix, just use "&lt;PREFIX&gt;-NEXT:".  For
 example, something like this works as you'd expect:</p>
@@ -595,10 +646,11 @@ directive in a file.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a 
-name="FileCheck-CHECK-NOT">The "CHECK-NOT:" directive</a></div>
+<h4>
+  <a name="FileCheck-CHECK-NOT">The "CHECK-NOT:" directive</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>The CHECK-NOT: directive is used to verify that a string doesn't occur
 between two matches (or the first match and the beginning of the file).  For
@@ -625,10 +677,11 @@ define i8 @coerce_offset0(i32 %V, i32* %P) {
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a 
-name="FileCheck-Matching">FileCheck Pattern Matching Syntax</a></div>
+<h4>
+  <a name="FileCheck-Matching">FileCheck Pattern Matching Syntax</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>The CHECK: and CHECK-NOT: directives both take a pattern to match.  For most
 uses of FileCheck, fixed string matching is perfectly sufficient.  For some
@@ -657,10 +710,11 @@ braces explicitly from the input, you can use something ugly like
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a 
-name="FileCheck-Variables">FileCheck Variables</a></div>
+<h4>
+  <a name="FileCheck-Variables">FileCheck Variables</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>It is often useful to match a pattern and then verify that it occurs again
 later in the file.  For codegen tests, this can be useful to allow any register,
@@ -695,11 +749,12 @@ define two separate CHECK lines that match on the same line.
 
 </div>
 
+</div>
+
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="dgvars">Variables and
-substitutions</a></div>
+<h3><a name="rtvars">Variables and substitutions</a></h3>
 <!-- _______________________________________________________________________ -->
-<div class="doc_text">
+<div>
   <p>With a RUN line there are a number of substitutions that are permitted. In
   general, any Tcl variable that is available in the <tt>substitute</tt> 
   function (in <tt>test/lib/llvm.exp</tt>) can be substituted into a RUN line.
@@ -744,36 +799,9 @@ substitutions</a></div>
     you need multiple temporaries. This is useful as the destination of some
     redirected output.</dd>
 
-    <dt><b>llvmlibsdir</b> (%llvmlibsdir)</dt>
-    <dd>The directory where the LLVM libraries are located.</dd>
-
     <dt><b>target_triplet</b> (%target_triplet)</dt>
     <dd>The target triplet that corresponds to the current host machine (the one
     running the test cases). This should probably be called "host".<dd>
-
-    <dt><b>llvmgcc</b> (%llvmgcc)</dt>
-    <dd>The full path to the <tt>llvm-gcc</tt> executable as specified in the
-    configured LLVM environment</dd>
-
-    <dt><b>llvmgxx</b> (%llvmgxx)</dt>
-    <dd>The full path to the <tt>llvm-gxx</tt> executable as specified in the
-    configured LLVM environment</dd>
-
-    <dt><b>gccpath</b></dt>
-    <dd>The full path to the C compiler used to <i>build </i> LLVM. Note that 
-    this might not be gcc.</dd>
-
-    <dt><b>gxxpath</b></dt>
-    <dd>The full path to the C++ compiler used to <i>build </i> LLVM. Note that 
-    this might not be g++.</dd>
-
-    <dt><b>compile_c</b> (%compile_c)</dt>
-    <dd>The full command line used to compile LLVM C source  code. This has all 
-    the configured -I, -D and optimization options.</dd>
-
-    <dt><b>compile_cxx</b> (%compile_cxx)</dt>
-    <dd>The full command used to compile LLVM C++ source  code. This has 
-    all the configured -I, -D and optimization options.</dd>
 
     <dt><b>link</b> (%link)</dt> 
     <dd>This full link command used to link LLVM executables. This has all the
@@ -792,9 +820,9 @@ substitutions</a></div>
 </div>
   
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection"><a name="dgfeatures">Other Features</a></div>
+<h3><a name="rtfeatures">Other Features</a></h3>
 <!-- _______________________________________________________________________ -->
-<div class="doc_text">
+<div>
   <p>To make RUN line writing easier, there are several shell scripts located
   in the <tt>llvm/test/Scripts</tt> directory. This directory is in the PATH
   when running tests, so you can just call these scripts using their name. For
@@ -818,7 +846,7 @@ substitutions</a></div>
   <p>Sometimes it is necessary to mark a test case as "expected fail" or XFAIL.
   You can easily mark a test as XFAIL just by including <tt>XFAIL: </tt> on a
   line near the top of the file. This signals that the test case should succeed
-  if the test fails. Such test cases are counted separately by DejaGnu. To
+  if the test fails. Such test cases are counted separately by the testing tool. To
   specify an expected fail, use the XFAIL keyword in the comments of the test
   program followed by a colon and one or more regular expressions (separated by
   a comma). The regular expressions allow you to XFAIL the test conditionally by
@@ -849,12 +877,13 @@ substitutions</a></div>
 
 </div>
 
+</div>
+
 <!--=========================================================================-->
-<div class="doc_section"><a name="testsuitestructure">Test suite
-Structure</a></div>
+<h2><a name="testsuitestructure">Test suite Structure</a></h2>
 <!--=========================================================================-->
 
-<div class="doc_text">
+<div>
 
 <p>The <tt>test-suite</tt> module contains a number of programs that can be compiled 
 with LLVM and executed. These programs are compiled using the native compiler
@@ -870,34 +899,34 @@ want tested and run <tt>gmake</tt> there. Alternatively, you can run a different
 test using the <tt>TEST</tt> variable to change what tests or run on the
 selected programs (see below for more info).</p>
 
-<p>In addition for testing correctness, the <tt>llvm-test</tt> directory also
+<p>In addition for testing correctness, the <tt>test-suite</tt> directory also
 performs timing tests of various LLVM optimizations.  It also records
 compilation times for the compilers and the JIT.  This information can be
 used to compare the effectiveness of LLVM's optimizations and code
 generation.</p>
 
-<p><tt>llvm-test</tt> tests are divided into three types of tests: MultiSource,
+<p><tt>test-suite</tt> tests are divided into three types of tests: MultiSource,
 SingleSource, and External.</p> 
 
 <ul>
-<li><tt>llvm-test/SingleSource</tt>
+<li><tt>test-suite/SingleSource</tt>
 <p>The SingleSource directory contains test programs that are only a single 
 source file in size.  These are usually small benchmark programs or small 
 programs that calculate a particular value.  Several such programs are grouped 
 together in each directory.</p></li>
 
-<li><tt>llvm-test/MultiSource</tt>
+<li><tt>test-suite/MultiSource</tt>
 <p>The MultiSource directory contains subdirectories which contain entire 
 programs with multiple source files.  Large benchmarks and whole applications 
 go here.</p></li>
 
-<li><tt>llvm-test/External</tt>
+<li><tt>test-suite/External</tt>
 <p>The External directory contains Makefiles for building code that is external
 to (i.e., not distributed with) LLVM.  The most prominent members of this
 directory are the SPEC 95 and SPEC 2000 benchmark suites. The <tt>External</tt>
 directory does not contain these actual tests, but only the Makefiles that know
 how to properly compile these programs from somewhere else. The presence and
-location of these external programs is configured by the llvm-test
+location of these external programs is configured by the test-suite
 <tt>configure</tt> script.</p></li>
 </ul>
 
@@ -906,9 +935,10 @@ benchmarks, regression tests, code that is strange grammatically, etc.  These
 organizations should be relatively self explanatory.</p>
 
 <p>Some tests are known to fail.  Some are bugs that we have not fixed yet;
-others are features that we haven't added yet (or may never add).  In DejaGNU,
-the result for such tests will be XFAIL (eXpected FAILure).  In this way, you
-can tell the difference between an expected and unexpected failure.</p>
+others are features that we haven't added yet (or may never add).  In the
+regression tests, the result for such tests will be XFAIL (eXpected FAILure).
+In this way, you can tell the difference between an expected and unexpected
+failure.</p>
 
 <p>The tests in the test suite have no such feature at this time. If the
 test passes, only warnings and other miscellaneous output will be generated.  If
@@ -918,10 +948,10 @@ will help you separate benign warnings from actual test failures.</p>
 </div>
 
 <!--=========================================================================-->
-<div class="doc_section"><a name="testsuiterun">Running the test suite</a></div>
+<h2><a name="testsuiterun">Running the test suite</a></h2>
 <!--=========================================================================-->
 
-<div class="doc_text">
+<div>
 
 <p>First, all tests are executed within the LLVM object directory tree.  They
 <i>are not</i> executed inside of the LLVM source tree. This is because the
@@ -976,14 +1006,13 @@ test suite creates temporary files during execution.</p>
 have the suite checked out and configured, you don't need to do it again (unless
 the test code or configure script changes).</p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection">
-<a name="testsuiteexternal">Configuring External Tests</a></div>
+<h3>
+  <a name="testsuiteexternal">Configuring External Tests</a>
+</h3>
 <!-- _______________________________________________________________________ -->
 
-<div class="doc_text">
+<div>
 <p>In order to run the External tests in the <tt>test-suite</tt>
   module, you must specify <i>--with-externals</i>.  This
   must be done during the <em>re-configuration</em> step (see above),
@@ -1011,10 +1040,11 @@ the test code or configure script changes).</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection">
-<a name="testsuitetests">Running different tests</a></div>
+<h3>
+  <a name="testsuitetests">Running different tests</a>
+</h3>
 <!-- _______________________________________________________________________ -->
-<div class="doc_text">
+<div>
 <p>In addition to the regular "whole program" tests, the <tt>test-suite</tt>
 module also provides a mechanism for compiling the programs in different ways.
 If the variable TEST is defined on the <tt>gmake</tt> command line, the test system will
@@ -1034,10 +1064,11 @@ LLVM.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection">
-<a name="testsuiteoutput">Generating test output</a></div>
+<h3>
+  <a name="testsuiteoutput">Generating test output</a>
+</h3>
 <!-- _______________________________________________________________________ -->
-<div class="doc_text">
+<div>
   <p>There are a number of ways to run the tests and generate output. The most
   simple one is simply running <tt>gmake</tt> with no arguments. This will
   compile and run all programs in the tree using a number of different methods
@@ -1065,11 +1096,12 @@ LLVM.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsection">
-<a name="testsuitecustom">Writing custom tests for the test suite</a></div>
+<h3>
+  <a name="testsuitecustom">Writing custom tests for the test suite</a>
+</h3>
 <!-- _______________________________________________________________________ -->
 
-<div class="doc_text">
+<div>
 
 <p>Assuming you can run the test suite, (e.g. "<tt>gmake TEST=nightly report</tt>"
 should work), it is really easy to run optimizations or code generator
@@ -1083,9 +1115,9 @@ many times it triggers.  First thing you should do is add an LLVM
 will tally counts of things you care about.</p>
 
 <p>Following this, you can set up a test and a report that collects these and
-formats them for easy viewing.  This consists of two files, an
+formats them for easy viewing.  This consists of two files, a
 "<tt>test-suite/TEST.XXX.Makefile</tt>" fragment (where XXX is the name of your
-test) and an "<tt>llvm-test/TEST.XXX.report</tt>" file that indicates how to
+test) and a "<tt>test-suite/TEST.XXX.report</tt>" file that indicates how to
 format the output into a table.  There are many example reports of various
 levels of sophistication included with the test suite, and the framework is very
 general.</p>
@@ -1135,64 +1167,6 @@ example reports that can do fancy stuff.</p>
 
 </div>
 
-<!--=========================================================================-->
-<div class="doc_section"><a name="nightly">Running the nightly tester</a></div>
-<!--=========================================================================-->
-
-<div class="doc_text">
-
-<p>
-The <a href="http://llvm.org/nightlytest/">LLVM Nightly Testers</a>
-automatically check out an LLVM tree, build it, run the "nightly" 
-program test (described above), run all of the DejaGNU tests, 
-delete the checked out tree, and then submit the results to 
-<a href="http://llvm.org/nightlytest/">http://llvm.org/nightlytest/</a>. 
-After test results are submitted to 
-<a href="http://llvm.org/nightlytest/">http://llvm.org/nightlytest/</a>,
-they are processed and displayed on the tests page. An email to 
-<a href="http://lists.cs.uiuc.edu/pipermail/llvm-testresults/">
-llvm-testresults@cs.uiuc.edu</a> summarizing the results is also generated. 
-This testing scheme is designed to ensure that programs don't break as well 
-as keep track of LLVM's progress over time.</p>
-
-<p>If you'd like to set up an instance of the nightly tester to run on your 
-machine, take a look at the comments at the top of the 
-<tt>utils/NewNightlyTest.pl</tt> file. If you decide to set up a nightly tester 
-please choose a unique nickname and invoke <tt>utils/NewNightlyTest.pl</tt> 
-with the "-nickname [yournickname]" command line option. 
-
-<p>You can create a shell script to encapsulate the running of the script.
-The optimized x86 Linux nightly test is run from just such a script:</p>
-
-<div class="doc_code">
-<pre>
-#!/bin/bash
-BASE=/proj/work/llvm/nightlytest
-export BUILDDIR=$BASE/build 
-export WEBDIR=$BASE/testresults 
-export LLVMGCCDIR=/proj/work/llvm/cfrontend/install
-export PATH=/proj/install/bin:$LLVMGCCDIR/bin:$PATH
-export LD_LIBRARY_PATH=/proj/install/lib
-cd $BASE
-cp /proj/work/llvm/llvm/utils/NewNightlyTest.pl .
-nice ./NewNightlyTest.pl -nice -release -verbose -parallel -enable-linscan \
-   -nickname NightlyTester -noexternals &gt; output.log 2&gt;&amp;1 
-</pre>
-</div>
-
-<p>It is also possible to specify the the location your nightly test results
-are submitted. You can do this by passing the command line option
-"-submit-server [server_address]" and "-submit-script [script_on_server]" to
-<tt>utils/NewNightlyTest.pl</tt>. For example, to submit to the llvm.org 
-nightly test results page, you would invoke the nightly test script with 
-"-submit-server llvm.org -submit-script /nightlytest/NightlyTestAccept.cgi". 
-If these options are not specified, the nightly test script sends the results 
-to the llvm.org nightly test results page.</p>
-
-<p>Take a look at the <tt>NewNightlyTest.pl</tt> file to see what all of the
-flags and strings do.  If you start running the nightly tests, please let us
-know. Thanks!</p>
-
 </div>
 
 <!-- *********************************************************************** -->
@@ -1204,9 +1178,9 @@ know. Thanks!</p>
   <a href="http://validator.w3.org/check/referer"><img
   src="http://www.w3.org/Icons/valid-html401-blue" alt="Valid HTML 4.01"></a>
 
-  John T. Criswell, Reid Spencer, and Tanya Lattner<br>
-  <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
+  John T. Criswell, Daniel Dunbar, Reid Spencer, and Tanya Lattner<br>
+  <a href="http://llvm.org/">The LLVM Compiler Infrastructure</a><br>
+  Last modified: $Date$
 </address>
 </body>
 </html>

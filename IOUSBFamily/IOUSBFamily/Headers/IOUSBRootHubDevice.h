@@ -26,6 +26,16 @@
 
 #include <IOKit/usb/IOUSBHubDevice.h>
 
+#ifdef SUPPORTS_SS_USB
+typedef struct 
+{
+	UInt32 request;
+	void   *data;
+}RHCommandHeader;
+
+typedef RHCommandHeader*	RHCommandHeaderPtr;
+#endif
+
 /*!
  @class IOUSBRootHubDevice
  @abstract The object representing the Root Hub simulation.
@@ -43,7 +53,9 @@ private:
 	
     struct ExpansionData 
 	{
-		IOService *		_IOResourcesEntry;
+		IOService *		X_IOResourcesEntry;						// deprecated
+		UInt8			_myControllerSpeed;
+		bool			_builtInController;
 	};
     ExpansionData *_expansionData;
 
@@ -94,5 +106,5 @@ public:
 	virtual void			SendExtraPowerMessage(UInt32 type, UInt32 returnedPower);
 };
 
-#endif /* _IOKIT_IOUSBROOTHUBDEVICE_H */
+#endif
 

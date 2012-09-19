@@ -14,6 +14,7 @@ Extra_CC_Flags         = -fno-common -DENABLE_DTRACE
 GnuNoBuild             = YES
 GnuAfterInstall        = post-install install-manpage install-plist install-sample install-irbrc install-rails-placeholder install-dtrace-sample install-xray-template
 Extra_Configure_Flags  = --enable-pthread --enable-shared --prefix=/System/Library/Frameworks/Ruby.framework/Versions/$(VERSION)/usr --with-sitedir=/Library/Ruby/Site
+Extra_Configure_Environment = CC="xcrun cc"
  
 # [gs]etcontext() functions are broken
 Extra_Configure_Flags += ac_cv_func_getcontext=no ac_cv_func_setcontext=no
@@ -33,7 +34,7 @@ EXTRAS_DIR = $(SRCROOT)/extras
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.8.7-p357
+AEP_Version    = 1.8.7-p358
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -115,7 +116,7 @@ post-install:
 #	sh $(EXTRAS_DIR)/test_framework.sh $(FWS_DIR) || exit 1
 	# rdar://problem/8937160
 	$(CHMOD) -h 0755 $(FW_VERSION_DIR)/usr/lib/libruby.dylib
-	codesign -s - $(FW_DIR)
+#	codesign -s - $(FW_DIR)
 
 install-manpage:
 	$(INSTALL_FILE) $(SRCROOT)/irb.1 $(DSTROOT)$(MANDIR)/man1

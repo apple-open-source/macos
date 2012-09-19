@@ -28,6 +28,7 @@
 #import "IORegDetailOutlineViewNode.h"
 #import "IORegInfoGatherer.h"
 #import "OutlineViewAdditions.h"
+#import "ExtensionSelector.h"
 
 @interface IORegistryController : NSObject <IORegGathererListener>
 {

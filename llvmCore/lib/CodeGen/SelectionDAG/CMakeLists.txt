@@ -1,5 +1,4 @@
 add_llvm_library(LLVMSelectionDAG
-  CallingConvLower.cpp
   DAGCombiner.cpp
   FastISel.cpp
   FunctionLoweringInfo.cpp
@@ -12,8 +11,7 @@ add_llvm_library(LLVMSelectionDAG
   LegalizeVectorOps.cpp
   LegalizeVectorTypes.cpp
   ScheduleDAGFast.cpp
-  ScheduleDAGList.cpp
-  ScheduleDAGRRList.cpp
+ ScheduleDAGRRList.cpp
   ScheduleDAGSDNodes.cpp
   SelectionDAG.cpp
   SelectionDAGBuilder.cpp
@@ -23,4 +21,12 @@ add_llvm_library(LLVMSelectionDAG
   TargetSelectionDAGInfo.cpp
   )
 
-target_link_libraries (LLVMSelectionDAG LLVMAnalysis LLVMAsmPrinter LLVMCodeGen)
+add_llvm_library_dependencies(LLVMSelectionDAG
+  LLVMAnalysis
+  LLVMCodeGen
+  LLVMCore
+  LLVMMC
+  LLVMSupport
+  LLVMTarget
+  LLVMTransformUtils
+  )

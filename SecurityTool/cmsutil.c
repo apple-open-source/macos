@@ -54,6 +54,7 @@
 #include <Security/SecCmsSignedData.h>
 #include <Security/SecCmsSignerInfo.h>
 #include <Security/SecSMIME.h>
+#include <Security/tsaSupport.h>
 
 #include <Security/oidsalg.h>
 #include <Security/SecPolicy.h>
@@ -395,6 +396,8 @@ struct signOptionsStr {
     Boolean smimeProfile;
     Boolean detached;
     SECOidTag hashAlgTag;
+    Boolean wantTimestamping;
+    char *timestampingURL;
 };
 
 struct envelopeOptionsStr {
@@ -695,6 +698,12 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
         SEC_CHECK(SecCmsSignerInfoAddSMIMECaps(signerinfo),
                   "cannot add SMIMECaps attribute");
 
+    if (signOptions->wantTimestamping)
+    {
+        CFErrorRef error = NULL;
+        SecCmsMessageSetTSAContext(cmsg, SecCmsTSAGetDefaultContext(&error));
+    }
+    
     if (!signOptions->encryptionKeyPreferenceNick)
     {
         /* check signing cert for fitness as encryption cert */
@@ -1102,7 +1111,7 @@ int cms_util(int argc, char **argv)
     encryptOptions.keysize = -1;
     
     // Parse command line arguments
-    while ((ch = getopt(argc, argv, "CDEGH:N:OPSTY:Z:c:de:h:i:k:no:p:r:su:v")) != -1)
+    while ((ch = getopt(argc, argv, "CDEGH:N:OPSTY:Z:c:de:h:i:k:no:p:r:su:vt:")) != -1)
     {
         switch (ch)
         {
@@ -1316,6 +1325,11 @@ int cms_util(int argc, char **argv)
         }
         case 'v':
             cms_verbose = 1;
+            break;
+        case 't':
+            if (optarg)
+                signOptions.timestampingURL = strdup(optarg);
+            signOptions.wantTimestamping = true;
             break;
         default:
             result = 2; /* Trigger usage message. */

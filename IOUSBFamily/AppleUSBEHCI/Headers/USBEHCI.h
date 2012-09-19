@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -207,32 +207,35 @@ enum{
 enum
 {
 	// Endpoint Characteristics - see EHCI spec table 3-19
-	kEHCIEDFlags_FA			= EHCIBitRange (0,  6),
-	kEHCIEDFlags_FAPhase		= EHCIBitRangePhase (0, 6),
-	kEHCIEDFlags_EN			= EHCIBitRange (8, 11),
-	kEHCIEDFlags_ENPhase		= EHCIBitRangePhase (8, 11),
-	kEHCIEDFlags_S			= EHCIBitRange (12, 13),
-	kEHCIEDFlags_SPhase		= EHCIBitRangePhase (12, 13),
-	kEHCIEDFlags_MPS		= EHCIBitRange (16, 26),
-	kEHCIEDFlags_MPSPhase		= EHCIBitRangePhase (16, 26),
-
-	kEHCIEDFlags_C			= EHCIBitRange (27, 27),
-	kEHCIEDFlags_CPhase		= EHCIBitRangePhase (27, 27),
-	kEHCIEDFlags_H			= EHCIBitRange (15, 15),
-	kEHCIEDFlags_HPhase		= EHCIBitRangePhase (15, 15),
-	kEHCIEDFlags_DTC		= EHCIBitRange (14, 14),
-	kEHCIEDFlags_DTCPhase		= EHCIBitRangePhase (14, 14),
+	kEHCIEDFlags_FA                 = EHCIBitRange (0,  6),
+	kEHCIEDFlags_FAPhase            = EHCIBitRangePhase (0, 6),
+    kEHCIEDFlags_I                  = EHCIBitRange(7, 7),
+    kEHCIEDFlags_IPhase             = EHCIBitRangePhase(7, 7),
+	kEHCIEDFlags_EN                 = EHCIBitRange (8, 11),
+	kEHCIEDFlags_ENPhase            = EHCIBitRangePhase (8, 11),
+	kEHCIEDFlags_S                  = EHCIBitRange (12, 13),
+	kEHCIEDFlags_SPhase             = EHCIBitRangePhase (12, 13),
+	kEHCIEDFlags_DTC                = EHCIBitRange (14, 14),
+	kEHCIEDFlags_DTCPhase           = EHCIBitRangePhase (14, 14),
+	kEHCIEDFlags_H                  = EHCIBitRange (15, 15),
+	kEHCIEDFlags_HPhase             = EHCIBitRangePhase (15, 15),
+	kEHCIEDFlags_MPS                = EHCIBitRange (16, 26),
+	kEHCIEDFlags_MPSPhase           = EHCIBitRangePhase (16, 26),
+	kEHCIEDFlags_C                  = EHCIBitRange (27, 27),
+	kEHCIEDFlags_CPhase             = EHCIBitRangePhase (27, 27),
+    kEHCIEDFlags_RL                 = EHCIBitRange(28, 31),
+    kEHCIEDFlags_RLPhase            = EHCIBitRangePhase(28, 31),
 
 	// Endpoint capabilities - see EHCI spec table 3-20 
-	kEHCIEDSplitFlags_Mult		= EHCIBitRange (30, 31),
-	kEHCIEDSplitFlags_MultPhase	= EHCIBitRangePhase (30, 31),
-	kEHCIEDSplitFlags_Port		= EHCIBitRange (23, 29),
-	kEHCIEDSplitFlags_PortPhase	= EHCIBitRangePhase (23, 29),
-	kEHCIEDSplitFlags_HubAddr	= EHCIBitRange (16, 22),
+	kEHCIEDSplitFlags_Mult          = EHCIBitRange (30, 31),
+	kEHCIEDSplitFlags_MultPhase     = EHCIBitRangePhase (30, 31),
+	kEHCIEDSplitFlags_Port          = EHCIBitRange (23, 29),
+	kEHCIEDSplitFlags_PortPhase     = EHCIBitRangePhase (23, 29),
+	kEHCIEDSplitFlags_HubAddr       = EHCIBitRange (16, 22),
 	kEHCIEDSplitFlags_HubAddrPhase	= EHCIBitRangePhase (16, 22),
-	kEHCIEDSplitFlags_CMask		= EHCIBitRange (8, 15),
+	kEHCIEDSplitFlags_CMask         = EHCIBitRange (8, 15),
 	kEHCIEDSplitFlags_CMaskPhase	= EHCIBitRangePhase (8, 15),
-	kEHCIEDSplitFlags_SMask		= EHCIBitRange (0, 7),
+	kEHCIEDSplitFlags_SMask         = EHCIBitRange (0, 7),
 	kEHCIEDSplitFlags_SMaskPhase	= EHCIBitRangePhase (0, 7),
 
 	kEHCIUniqueNumNoDirMask				= kEHCIEDFlags_EN | kEHCIEDFlags_FA,
@@ -308,6 +311,8 @@ enum
 	kEHCI_ITDBuf_MPSPhase		= EHCIBitRangePhase (0, 10),
 	kEHCI_ITDBuf_Mult		= EHCIBitRange (0, 1),
 	kEHCI_ITDBuf_MultPhase		= EHCIBitRangePhase (0, 1),
+    
+    kEHCI_ITDMaxPhysicalPages   = 7,                            // because 8 * 3K = 24K = 5 full pages and 2 partials (worst case)
 
     // split Isoc section (Figure 3-5)
 	// route flags
@@ -584,6 +589,25 @@ enum {
     kEHCI_USBLEGSUP_BIOSOwned = kEHCIBit16,
     kEHCI_USBLEGSUP_OSOwned   = kEHCIBit24
 };
+
+/*!
+ @defined EHCI Test Mode
+ @discussion  Definitions to put the EHCI controller in different modes to verify signal quality.
+ */
+enum
+{
+	kEHCITestMode_Off		= 0,
+	kEHCITestMode_J_State	= 1,
+	kEHCITestMode_K_State 	= 2,
+	kEHCITestMode_SE0_NAK	= 3,
+	kEHCITestMode_Packet	= 4,
+	kEHCITestMode_ForceEnable	= 5,
+	kEHCITestMode_Start		= 10,
+	kEHCITestMode_End		= 11
+#ifdef SUPPORTS_SS_USB
+#endif
+};
+
 
 
 #define kEHCIInvalidRegisterValue	0xFFFFFFFF				// if a register returns this value, the controller is likely gone

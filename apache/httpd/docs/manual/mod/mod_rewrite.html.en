@@ -393,9 +393,10 @@ Result:
 
                   <dt><code>REQUEST_URI</code></dt>
 
-                  <dd>The resource requested in the HTTP request
-                  line. (In the example above, this would be
-                  "/index.html".)</dd>
+                  <dd>The path component of the requested URI,
+                  such as "/index.html".  This notably excludes the
+                  query string which is available as as its own variable
+                  named <code>QUERY_STRING</code>.</dd>
 
                   <dt><code>REQUEST_FILENAME</code></dt>
 
@@ -1157,7 +1158,7 @@ and automatically <em>added</em> after any relative (not starting with a
 slash or protocol name) substitution encounters the end of a rule set.  
 See the <code class="directive"><a href="#rewritebase">RewriteBase</a></code> 
 directive for more information regarding what prefix will be added back to 
-relative substutions.</li>
+relative substitions.</li>
 
 <li> If you wish to match against the full URL-path in a per-directory 
 (htaccess) RewriteRule, use the <code>%{REQUEST_URI}</code> variable in
@@ -1204,7 +1205,10 @@ cannot use <code>$N</code> in the substitution string!
         <dt>file-system path</dt>
 
         <dd>Designates the location on the file-system of the resource
-        to be delivered to the client.</dd>
+        to be delivered to the client.  Substitutions are only
+        treated as a file-system path when the rule is configured in 
+        server (virtualhost) context and the first component of the
+        path in the substitution is exists in the file-system</dd>
 
         <dt>URL-path</dt> 
 
@@ -1267,15 +1271,17 @@ cannot use <code>$N</code> in the substitution string!
       <code>RewriteMap</code> directive and are explained there.
       These three types of variables are expanded in the order above.</p>
 
-      <p>As already mentioned, all rewrite rules are
-      applied to the <em>Substitution</em> (in the order in which 
-      they are defined
-      in the config file). The URL is <strong>completely
+      <p>Rewrite rules are a applied to the results of previous rewrite
+      rules, in the order in which they are defined in the config file.
+      The URL is  <strong>completely
       replaced</strong> by the <em>Substitution</em> and the
       rewriting process continues until all rules have been applied,
       or it is explicitly terminated by a
-      <code><strong>L</strong></code> flag.</p>
-
+      <a href="../rewrite/flags.html#flag_l"><code><strong>L</strong></code> flag</a>,
+      or other flag which implies immediate termination, such as
+      <code><strong>END</strong></code> or
+      <code><strong>F</strong></code>.</p>
+ 
      <div class="note"><h3>Modifying the Query String</h3>
       <p>By default, the query string is passed through unchanged. You
       can, however, create URLs in the substitution string containing
@@ -1507,6 +1513,6 @@ directive.</p>
 <p><span>Available Languages: </span><a href="../en/mod/mod_rewrite.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_rewrite.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

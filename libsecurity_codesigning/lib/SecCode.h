@@ -318,6 +318,10 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		actual Designated Requirement of the code.
 	@constant kSecCodeInfoEntitlements A CFData containing the embedded entitlement
 		blob of the code, if any.
+	@constant kSecCodeInfoEntitlementsDict A CFDictionary containing the embedded entitlements
+		of the code if it has entitlements and they are in standard dictionary form.
+		Absent if the code has no entitlements, or they are in a different format (in which
+		case, see kSecCodeInfoEntitlements).
 	@constant kSecCodeInfoFormat A CFString characterizing the type and format of
 		the code. Suitable for display to a (knowledeable) user.
 	@constant kSecCodeInfoDigestAlgorithm A CFNumber indicating the kind of cryptographic
@@ -352,6 +356,10 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		it. Nobody certifies that this was really the date the code was signed; however,
 		you do know that this is the date the signer wanted you to see.
 		Ad-hoc signatures have no CMS and thus never have secured signing dates.
+	@constant kSecCodeInfoTimestamp A CFDate describing the signing date as (securely)
+		certified by a timestamp authority service. This time cannot be falsified by the
+		signer; you trust the timestamp authority's word on this.
+		Ad-hoc signatures have no CMS and thus never have secured signing dates.
 	@constant kSecCodeInfoTrust The (retained) SecTrust object the system uses to
 		evaluate the validity of the code's signature. You may use the SecTrust API
 		to extract detailed information, particularly for reasons why certificate
@@ -364,6 +372,8 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		This is currently the SHA-1 hash of the code's CodeDirectory. However, future
 		versions of the system may use a different algorithm for newly signed code.
 		Already-signed code not change the reported value in this case.
+	@constant kSecCodeSignerFlags A CFNumber with the dynamic state of the object.
+		Contants are defined by the type SecCodeSignatureFlags.
  */
 enum {
 	kSecCSInternalInformation = 1 << 0,
@@ -379,6 +389,7 @@ extern const CFStringRef kSecCodeInfoChangedFiles;	/* Content */
 extern const CFStringRef kSecCodeInfoCMS;			/* Signing */
 extern const CFStringRef kSecCodeInfoDesignatedRequirement; /* Requirement */
 extern const CFStringRef kSecCodeInfoEntitlements;	/* Requirement */
+extern const CFStringRef kSecCodeInfoEntitlementsDict; /* Requirement */
 extern const CFStringRef kSecCodeInfoFormat;		/* generic */
 extern const CFStringRef kSecCodeInfoDigestAlgorithm; /* generic */
 extern const CFStringRef kSecCodeInfoIdentifier;	/* generic */
@@ -390,8 +401,10 @@ extern const CFStringRef kSecCodeInfoRequirementData; /* Requirement */
 extern const CFStringRef kSecCodeInfoSource;		/* generic */
 extern const CFStringRef kSecCodeInfoStatus;		/* Dynamic */
 extern const CFStringRef kSecCodeInfoTime;			/* Signing */
+extern const CFStringRef kSecCodeInfoTimestamp;		/* Signing */
 extern const CFStringRef kSecCodeInfoTrust;			/* Signing */
 extern const CFStringRef kSecCodeInfoUnique;		/* generic */
+extern const CFStringRef kSecCodeSignerFlags;		/* dynamic */
 
 OSStatus SecCodeCopySigningInformation(SecStaticCodeRef code, SecCSFlags flags,
 	CFDictionaryRef *information);

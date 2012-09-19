@@ -21,6 +21,7 @@
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/Support/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CallSite.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -221,7 +222,7 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
     const TargetData *TD = TLI.getTargetData();
     gep_type_iterator GTI = gep_type_begin(AddrInst);
     for (unsigned i = 1, e = AddrInst->getNumOperands(); i != e; ++i, ++GTI) {
-      if (const StructType *STy = dyn_cast<StructType>(*GTI)) {
+      if (StructType *STy = dyn_cast<StructType>(*GTI)) {
         const StructLayout *SL = TD->getStructLayout(STy);
         unsigned Idx =
           cast<ConstantInt>(AddrInst->getOperand(i))->getZExtValue();
@@ -379,31 +380,13 @@ bool AddressingModeMatcher::MatchAddr(Value *Addr, unsigned Depth) {
 /// return false.
 static bool IsOperandAMemoryOperand(CallInst *CI, InlineAsm *IA, Value *OpVal,
                                     const TargetLowering &TLI) {
-  std::vector<InlineAsm::ConstraintInfo>
-  Constraints = IA->ParseConstraints();
-  
-  unsigned ArgNo = 1;   // ArgNo - The operand of the CallInst.
-  for (unsigned i = 0, e = Constraints.size(); i != e; ++i) {
-    TargetLowering::AsmOperandInfo OpInfo(Constraints[i]);
-    
-    // Compute the value type for each operand.
-    switch (OpInfo.Type) {
-      case InlineAsm::isOutput:
-        if (OpInfo.isIndirect)
-          OpInfo.CallOperandVal = CI->getOperand(ArgNo++);
-        break;
-      case InlineAsm::isInput:
-        OpInfo.CallOperandVal = CI->getOperand(ArgNo++);
-        break;
-      case InlineAsm::isClobber:
-        // Nothing to do.
-        break;
-    }
+  TargetLowering::AsmOperandInfoVector TargetConstraints = TLI.ParseConstraints(ImmutableCallSite(CI));
+  for (unsigned i = 0, e = TargetConstraints.size(); i != e; ++i) {
+    TargetLowering::AsmOperandInfo &OpInfo = TargetConstraints[i];
     
     // Compute the constraint code and ConstraintType to use.
-    TLI.ComputeConstraintToUse(OpInfo, SDValue(),
-                             OpInfo.ConstraintType == TargetLowering::C_Memory);
-    
+    TLI.ComputeConstraintToUse(OpInfo, SDValue());
+
     // If this asm operand is our Value*, and if it isn't an indirect memory
     // operand, we can't fold it!
     if (OpInfo.CallOperandVal == OpVal &&
@@ -411,7 +394,7 @@ static bool IsOperandAMemoryOperand(CallInst *CI, InlineAsm *IA, Value *OpVal,
          !OpInfo.isIndirect))
       return false;
   }
-  
+
   return true;
 }
 
@@ -450,7 +433,7 @@ static bool FindAllMemoryUses(Instruction *I,
     
     if (CallInst *CI = dyn_cast<CallInst>(U)) {
       InlineAsm *IA = dyn_cast<InlineAsm>(CI->getCalledValue());
-      if (IA == 0) return true;
+      if (!IA) return true;
       
       // If this is a memory operand, we're cool, otherwise bail out.
       if (!IsOperandAMemoryOperand(CI, IA, I, TLI))
@@ -574,7 +557,7 @@ IsProfitableToFoldIntoAddressingMode(Instruction *I, ExtAddrMode &AMBefore,
     Value *Address = User->getOperand(OpNo);
     if (!Address->getType()->isPointerTy())
       return false;
-    const Type *AddressAccessTy =
+    Type *AddressAccessTy =
       cast<PointerType>(Address->getType())->getElementType();
     
     // Do a match against the root of this address, ignoring profitability. This
@@ -585,7 +568,7 @@ IsProfitableToFoldIntoAddressingMode(Instruction *I, ExtAddrMode &AMBefore,
                                   MemoryInst, Result);
     Matcher.IgnoreProfitability = true;
     bool Success = Matcher.MatchAddr(Address, 0);
-    Success = Success; assert(Success && "Couldn't select *anything*?");
+    (void)Success; assert(Success && "Couldn't select *anything*?");
 
     // If the match didn't cover I, then it won't be shared by it.
     if (std::find(MatchedAddrModeInsts.begin(), MatchedAddrModeInsts.end(),

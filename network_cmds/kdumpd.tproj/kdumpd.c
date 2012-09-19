@@ -55,11 +55,13 @@ static const char copyright[] =
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 
 #include <netinet/in.h>
 #include "kdump.h"
 #include <arpa/inet.h>
 
+#include <stdint.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -76,15 +78,16 @@ static const char copyright[] =
 
 #include "kdumpsubs.h"
 
-#define	TIMEOUT		5
+#define	TIMEOUT		2
 
 int	peer;
 int	rexmtval = TIMEOUT;
-int	maxtimeout = 10*TIMEOUT;
+int	maxtimeout = 25 * TIMEOUT;
 
 #define	PKTSIZE	SEGSIZE+6
-char	buf[PKTSIZE];
-char	ackbuf[PKTSIZE];
+
+char	buf[MAXIMUM_KDP_PKTSIZE];
+char	ackbuf[MAXIMUM_KDP_PKTSIZE];
 struct	sockaddr_in from;
 socklen_t fromlen;
 
@@ -109,11 +112,14 @@ static int	ipchroot;
 static char *errtomsg __P((int));
 static void  nak __P((int));
 static char * __P(verifyhost(struct sockaddr_in *));
+uint32_t kdp_crashdump_pkt_size = (SEGSIZE + (sizeof(struct kdumphdr)));
+uint32_t kdp_crashdump_seg_size = SEGSIZE;
 
 #define KDP_FEATURE_MASK_STRING		"features"
-enum	{KDP_FEATURE_LARGE_CRASHDUMPS = 1};
-uint32_t	kdp_crashdump_feature_mask;
-uint32_t	kdp_feature_large_crashdumps;
+enum	{KDP_FEATURE_LARGE_CRASHDUMPS = 1, KDP_FEATURE_LARGE_PKT_SIZE = 2};
+
+uint32_t kdp_crashdump_feature_mask;
+uint32_t kdp_feature_large_crashdumps, kdp_feature_large_packets;
 
 int
 main(argc, argv)
@@ -355,8 +361,15 @@ again:
 	if (strncmp(KDP_FEATURE_MASK_STRING, cp, sizeof(KDP_FEATURE_MASK_STRING)) == 0) {
 		kdp_crashdump_feature_mask = ntohl(*(uint32_t *) (cp + sizeof(KDP_FEATURE_MASK_STRING)));
 		kdp_feature_large_crashdumps = kdp_crashdump_feature_mask & KDP_FEATURE_LARGE_CRASHDUMPS;
-		syslog(LOG_INFO, "Received feature mask %s:%hx", cp, kdp_crashdump_feature_mask);
-	}
+		kdp_feature_large_packets = kdp_crashdump_feature_mask & KDP_FEATURE_LARGE_PKT_SIZE;
+
+		if (kdp_feature_large_packets) {
+			kdp_crashdump_pkt_size = KDP_LARGE_CRASHDUMP_PKT_SIZE;
+			kdp_crashdump_seg_size = kdp_crashdump_pkt_size - sizeof(struct kdumphdr);
+		}
+		syslog(KDUMPD_DEBUG_LEVEL, "Received feature mask %s:0x%x", cp, kdp_crashdump_feature_mask);
+	} else
+		syslog(KDUMPD_DEBUG_LEVEL, "Unable to locate feature mask, mode: %s", mode);
 	
 	for (pf = formats; pf->f_mode; pf++)
 		if (strcmp(pf->f_mode, mode) == 0)
@@ -367,7 +380,7 @@ again:
 	}
 	ecode = (*pf->f_validate)(&filename, tp->th_opcode);
 	if (logging) {
-		syslog(LOG_INFO, "%s: %s request for %s: %s", verifyhost(&from),
+		syslog(KDUMPD_DEBUG_LEVEL, "%s: %s request for %s: %s", verifyhost(&from),
 			tp->th_opcode == WRQ ? "write" : "read",
 			filename, errtomsg(ecode));
 	}
@@ -420,7 +433,7 @@ validate_access(char **filep, int mode)
     return (errno);
 
 
-  fd = open(filename, O_WRONLY|O_CREAT|O_TRUNC);
+  fd = open(filename, O_RDWR|O_CREAT|O_TRUNC , S_IRUSR | S_IWUSR);
 
   if (fd < 0)
     return (errno + 100);
@@ -456,7 +469,6 @@ justquit()
 	exit(0);
 }
 
-
 /*
  * Receive a file.
  */
@@ -477,7 +489,7 @@ recvfile(pf)
 	do {
 send_seek_ack:	timeout = 0;
 		if (block == 0)
-			ap->th_opcode = htons((u_short)ACK | (kdp_feature_large_crashdumps << 8));
+			ap->th_opcode = htons((u_short)ACK | ((kdp_feature_large_crashdumps | kdp_feature_large_packets)  << 8));
 		else
 			ap->th_opcode = htons((u_short)ACK);
 		ap->th_block = htonl((unsigned int)block);
@@ -496,7 +508,7 @@ send_ack:
 		write_behind(file, pf->f_convert);
 		for ( ; ; ) {
 			alarm(rexmtval);
-			n = recv(peer, dp, PKTSIZE, 0);
+			n = recv(peer, dp, kdp_crashdump_pkt_size, 0);
 			alarm(0);
 			if (n < 0) {            /* really? */
 				syslog(LOG_ERR, "read: %m");
@@ -504,8 +516,13 @@ send_ack:
 			}
 			dp->th_opcode = ntohs((u_short)dp->th_opcode);
 			dp->th_block = ntohl((unsigned int)dp->th_block);
+#if	DEBUG
+			syslog(KDUMPD_DEBUG_LEVEL, "Received packet type %u, block %u\n", (unsigned)dp->th_opcode, (unsigned)dp->th_block);
+#endif
+			
 			if (dp->th_opcode == ERROR)
 				goto abort;
+			
 			if (dp->th_opcode == KDP_EOF)
 			  {
 			    syslog (LOG_ERR, "Received last panic dump packet");
@@ -520,16 +537,14 @@ send_ack:
 
 				if (kdp_feature_large_crashdumps) {
 					crashdump_offset = OSSwapBigToHostInt64((*(uint64_t *)dp->th_data));
-#if	DEBUG					
-					syslog(LOG_INFO, "Large offset");
-#endif					
 				}
 				else {
 				bcopy (dp->th_data, &tempoff, sizeof(unsigned int));
 				crashdump_offset = ntohl(tempoff);
 				}
+
 #if	DEBUG
-				syslog(LOG_INFO, "Seeking to offset 0x%llx\n", crashdump_offset);
+				syslog(KDUMPD_DEBUG_LEVEL, "Seeking to offset 0x%llx\n", crashdump_offset);
 #endif
 				errno = 0;
 				lseek(fileno (file), crashdump_offset, SEEK_SET);
@@ -540,11 +555,11 @@ send_ack:
 			      }
 			    (void) synchnet(peer);
 			    if (dp->th_block == (block-1))
-			      {
-				syslog (LOG_DAEMON|LOG_ERR, "Retransmitting seek ack - current block %hu, received block %hu", block, dp->th_block);
-				goto send_ack;          /* rexmit */
-			      }
-			  }
+			    {
+				    syslog (LOG_DAEMON|LOG_ERR, "Retransmitting seek ack - current block %u, received block %u", block, dp->th_block);
+				    goto send_ack;          /* rexmit */
+			    }
+			}
 
 			if (dp->th_opcode == DATA) {
 				if (dp->th_block == block) {
@@ -554,14 +569,16 @@ send_ack:
 				(void) synchnet(peer);
 				if (dp->th_block == (block-1))
 				  {
-				    syslog (LOG_DAEMON|LOG_ERR, "Retransmitting ack - current block %hu, received block %hu", block, dp->th_block);
+				    syslog (LOG_DAEMON|LOG_ERR, "Retransmitting ack - current block %u, received block %u", block, dp->th_block);
 				    goto send_ack;          /* rexmit */
 				  }
 				else
-				  syslog (LOG_DAEMON|LOG_ERR, "Not retransmitting ack - current block %hu, received block %hu", block, dp->th_block);
+				  syslog (LOG_DAEMON|LOG_ERR, "Not retransmitting ack - current block %u, received block %u", block, dp->th_block);
 			}
 		}
-
+#if DEBUG
+		syslog(KDUMPD_DEBUG_LEVEL, "Writing block sized %u, current offset 0x%llx\n", n - 6, ftello(file));
+#endif
 		size = writeit(file, &dp, n - 6, pf->f_convert);
 		if (size != (n-6)) {                    /* ahem */
 			if (size < 0) nak(errno + 100);

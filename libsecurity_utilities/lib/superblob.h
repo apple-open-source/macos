@@ -44,7 +44,8 @@ public:
 
 	// access by index number
 	Type type(unsigned n) const { assert(n < mCount); return mIndex[n].type; }
-	const BlobCore *blob(unsigned n) const { assert(n < mCount); return at<const BlobCore>(mIndex[n].offset); }
+	const BlobCore *blob(unsigned n) const
+		{ assert(n < mCount); return mIndex[n].offset ? at<const BlobCore>(mIndex[n].offset) : NULL; }
 	template <class BlobType>
 	const BlobType *blob(unsigned n) const { return BlobType::specific(blob(n)); }
 
@@ -69,6 +70,7 @@ inline bool SuperBlobCore<_BlobType, _magic, _Type>::validateBlob(size_t maxSize
 		return false;
 	for (const Index *ix = mIndex + count - 1; ix >= mIndex; ix--) {
 		Offset offset = ix->offset;
+		if (offset)																		// if non-null
 		if (offset < ixLimit														// offset not too small
 			|| offset + sizeof(BlobCore) > this->length()							// fits Blob header (including length field)
 			|| offset + at<const BlobCore>(offset)->length() > this->length())		// fits entire blob
@@ -91,15 +93,15 @@ const BlobCore *SuperBlobCore<_BlobType, _magic, _Type>::find(Type type) const
 {
 	for (unsigned slot = 0; slot < mCount; slot++)
 		if (mIndex[slot].type == type)
-			return at<const BlobCore>(mIndex[slot].offset);
+			return mIndex[slot].offset ? at<const BlobCore>(mIndex[slot].offset) : NULL;
 	return NULL;	// not found
 }
 
 
 //
 // A SuperBlob::Maker simply assembles multiple Blobs into a single, indexed
-// super-blob. Just add() sub-Blobs by type and call build() to get
-// the result, malloc'ed. A Maker is not reusable.
+// super-blob. Just add() sub-Blobs by type and call make() to get
+// the result, malloc'ed. A Maker is not resettable.
 // Maker can repeatedly make SuperBlobs from the same (cached) inputs.
 // It can also tell you how big its output will be, given established contents
 // plus (optional) additional sizes of blobs yet to come.
@@ -124,6 +126,14 @@ public:
 	void add(Type type, BlobCore *blob);		// takes ownership of blob
 	void add(const _BlobType *blobs);			// copies all blobs
 	void add(const Maker &maker);				// ditto
+	
+	bool contains(Type type) const				// see if we have this type already
+		{ return mPieces.find(type) != mPieces.end(); }
+	BlobCore *get(Type type) const
+		{
+			typename BlobMap::const_iterator it = mPieces.find(type);
+			return (it == mPieces.end()) ? NULL : it->second;
+		}
 	
 	size_t size(size_t size1 = 0, ...) const;	// size with optional additional blob sizes
 	_BlobType *make() const;					// create (malloc) and return SuperBlob

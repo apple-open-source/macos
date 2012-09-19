@@ -11,15 +11,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPURegisterNames.h"
 #include "SPUInstrInfo.h"
 #include "SPUInstrBuilder.h"
 #include "SPUTargetMachine.h"
-#include "SPUGenInstrInfo.inc"
+#include "SPUHazardRecognizers.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/MC/MCContext.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
+
+#define GET_INSTRINFO_CTOR
+#include "SPUGenInstrInfo.inc"
 
 using namespace llvm;
 
@@ -49,153 +53,19 @@ namespace {
 }
 
 SPUInstrInfo::SPUInstrInfo(SPUTargetMachine &tm)
-  : TargetInstrInfoImpl(SPUInsts, sizeof(SPUInsts)/sizeof(SPUInsts[0])),
+  : SPUGenInstrInfo(SPU::ADJCALLSTACKDOWN, SPU::ADJCALLSTACKUP),
     TM(tm),
     RI(*TM.getSubtargetImpl(), *this)
 { /* NOP */ }
 
-bool
-SPUInstrInfo::isMoveInstr(const MachineInstr& MI,
-                          unsigned& sourceReg,
-                          unsigned& destReg,
-                          unsigned& SrcSR, unsigned& DstSR) const {
-  SrcSR = DstSR = 0;  // No sub-registers.
-
-  switch (MI.getOpcode()) {
-  default:
-    break;
-  case SPU::ORIv4i32:
-  case SPU::ORIr32:
-  case SPU::ORHIv8i16:
-  case SPU::ORHIr16:
-  case SPU::ORHIi8i16:
-  case SPU::ORBIv16i8:
-  case SPU::ORBIr8:
-  case SPU::ORIi16i32:
-  case SPU::ORIi8i32:
-  case SPU::AHIvec:
-  case SPU::AHIr16:
-  case SPU::AIv4i32:
-    assert(MI.getNumOperands() == 3 &&
-           MI.getOperand(0).isReg() &&
-           MI.getOperand(1).isReg() &&
-           MI.getOperand(2).isImm() &&
-           "invalid SPU ORI/ORHI/ORBI/AHI/AI/SFI/SFHI instruction!");
-    if (MI.getOperand(2).getImm() == 0) {
-      sourceReg = MI.getOperand(1).getReg();
-      destReg = MI.getOperand(0).getReg();
-      return true;
-    }
-    break;
-  case SPU::AIr32:
-    assert(MI.getNumOperands() == 3 &&
-           "wrong number of operands to AIr32");
-    if (MI.getOperand(0).isReg() &&
-        MI.getOperand(1).isReg() &&
-        (MI.getOperand(2).isImm() &&
-         MI.getOperand(2).getImm() == 0)) {
-      sourceReg = MI.getOperand(1).getReg();
-      destReg = MI.getOperand(0).getReg();
-      return true;
-    }
-    break;
-  case SPU::LRr8:
-  case SPU::LRr16:
-  case SPU::LRr32:
-  case SPU::LRf32:
-  case SPU::LRr64:
-  case SPU::LRf64:
-  case SPU::LRr128:
-  case SPU::LRv16i8:
-  case SPU::LRv8i16:
-  case SPU::LRv4i32:
-  case SPU::LRv4f32:
-  case SPU::LRv2i64:
-  case SPU::LRv2f64:
-  case SPU::ORv16i8_i8:
-  case SPU::ORv8i16_i16:
-  case SPU::ORv4i32_i32:
-  case SPU::ORv2i64_i64:
-  case SPU::ORv4f32_f32:
-  case SPU::ORv2f64_f64:
-  case SPU::ORi8_v16i8:
-  case SPU::ORi16_v8i16:
-  case SPU::ORi32_v4i32:
-  case SPU::ORi64_v2i64:
-  case SPU::ORf32_v4f32:
-  case SPU::ORf64_v2f64:
-/*
-  case SPU::ORi128_r64:
-  case SPU::ORi128_f64:
-  case SPU::ORi128_r32:
-  case SPU::ORi128_f32:
-  case SPU::ORi128_r16:
-  case SPU::ORi128_r8:
-*/
-  case SPU::ORi128_vec:
-/*
-  case SPU::ORr64_i128:
-  case SPU::ORf64_i128:
-  case SPU::ORr32_i128:
-  case SPU::ORf32_i128:
-  case SPU::ORr16_i128:
-  case SPU::ORr8_i128:
-*/
-  case SPU::ORvec_i128:
-/*
-  case SPU::ORr16_r32:
-  case SPU::ORr8_r32:
-  case SPU::ORf32_r32:
-  case SPU::ORr32_f32:
-  case SPU::ORr32_r16:
-  case SPU::ORr32_r8:
-  case SPU::ORr16_r64:
-  case SPU::ORr8_r64:
-  case SPU::ORr64_r16:
-  case SPU::ORr64_r8:
-*/
-  case SPU::ORr64_r32:
-  case SPU::ORr32_r64:
-  case SPU::ORf32_r32:
-  case SPU::ORr32_f32:
-  case SPU::ORf64_r64:
-  case SPU::ORr64_f64: {
-    assert(MI.getNumOperands() == 2 &&
-           MI.getOperand(0).isReg() &&
-           MI.getOperand(1).isReg() &&
-           "invalid SPU OR<type>_<vec> or LR instruction!");
-    if (MI.getOperand(0).getReg() == MI.getOperand(1).getReg()) {
-      sourceReg = MI.getOperand(1).getReg();
-      destReg = MI.getOperand(0).getReg();
-      return true;
-    }
-    break;
-  }
-  case SPU::ORv16i8:
-  case SPU::ORv8i16:
-  case SPU::ORv4i32:
-  case SPU::ORv2i64:
-  case SPU::ORr8:
-  case SPU::ORr16:
-  case SPU::ORr32:
-  case SPU::ORr64:
-  case SPU::ORr128:
-  case SPU::ORf32:
-  case SPU::ORf64:
-    assert(MI.getNumOperands() == 3 &&
-           MI.getOperand(0).isReg() &&
-           MI.getOperand(1).isReg() &&
-           MI.getOperand(2).isReg() &&
-           "invalid SPU OR(vec|r32|r64|gprc) instruction!");
-    if (MI.getOperand(1).getReg() == MI.getOperand(2).getReg()) {
-      sourceReg = MI.getOperand(1).getReg();
-      destReg = MI.getOperand(0).getReg();
-      return true;
-    }
-    break;
-  }
-
-  return false;
+/// CreateTargetHazardRecognizer - Return the hazard recognizer to use for
+/// this target when scheduling the DAG.
+ScheduleHazardRecognizer *SPUInstrInfo::CreateTargetHazardRecognizer(
+  const TargetMachine *TM,
+  const ScheduleDAG *DAG) const {
+  const TargetInstrInfo *TII = TM->getInstrInfo();
+  assert(TII && "No InstrInfo?");
+  return new SPUHazardRecognizer(*TII);
 }
 
 unsigned
@@ -251,40 +121,18 @@ SPUInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
   return 0;
 }
 
-bool SPUInstrInfo::copyRegToReg(MachineBasicBlock &MBB,
-                                   MachineBasicBlock::iterator MI,
-                                   unsigned DestReg, unsigned SrcReg,
-                                   const TargetRegisterClass *DestRC,
-                                   const TargetRegisterClass *SrcRC,
-                                   DebugLoc DL) const
+void SPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                               MachineBasicBlock::iterator I, DebugLoc DL,
+                               unsigned DestReg, unsigned SrcReg,
+                               bool KillSrc) const
 {
   // We support cross register class moves for our aliases, such as R3 in any
   // reg class to any other reg class containing R3.  This is required because
   // we instruction select bitconvert i64 -> f64 as a noop for example, so our
   // types have no specific meaning.
 
-  if (DestRC == SPU::R8CRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRr8), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::R16CRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRr16), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::R32CRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRr32), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::R32FPRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRf32), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::R64CRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRr64), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::R64FPRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRf64), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::GPRCRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRr128), DestReg).addReg(SrcReg);
-  } else if (DestRC == SPU::VECREGRegisterClass) {
-    BuildMI(MBB, MI, DL, get(SPU::LRv16i8), DestReg).addReg(SrcReg);
-  } else {
-    // Attempt to copy unknown/unsupported register class!
-    return false;
-  }
-
-  return true;
+  BuildMI(MBB, I, DL, get(SPU::LRr128), DestReg)
+    .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
 void
@@ -295,7 +143,7 @@ SPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                   const TargetRegisterInfo *TRI) const
 {
   unsigned opc;
-  bool isValidFrameIdx = (FrameIdx < SPUFrameInfo::maxFrameOffset());
+  bool isValidFrameIdx = (FrameIdx < SPUFrameLowering::maxFrameOffset());
   if (RC == SPU::GPRCRegisterClass) {
     opc = (isValidFrameIdx ? SPU::STQDr128 : SPU::STQXr128);
   } else if (RC == SPU::R64CRegisterClass) {
@@ -330,7 +178,7 @@ SPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                    const TargetRegisterInfo *TRI) const
 {
   unsigned opc;
-  bool isValidFrameIdx = (FrameIdx < SPUFrameInfo::maxFrameOffset());
+  bool isValidFrameIdx = (FrameIdx < SPUFrameLowering::maxFrameOffset());
   if (RC == SPU::GPRCRegisterClass) {
     opc = (isValidFrameIdx ? SPU::LQDr128 : SPU::LQXr128);
   } else if (RC == SPU::R64CRegisterClass) {
@@ -354,88 +202,6 @@ SPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   DebugLoc DL;
   if (MI != MBB.end()) DL = MI->getDebugLoc();
   addFrameReference(BuildMI(MBB, MI, DL, get(opc), DestReg), FrameIdx);
-}
-
-//! Return true if the specified load or store can be folded
-bool
-SPUInstrInfo::canFoldMemoryOperand(const MachineInstr *MI,
-                                   const SmallVectorImpl<unsigned> &Ops) const {
-  if (Ops.size() != 1) return false;
-
-  // Make sure this is a reg-reg copy.
-  unsigned Opc = MI->getOpcode();
-
-  switch (Opc) {
-  case SPU::ORv16i8:
-  case SPU::ORv8i16:
-  case SPU::ORv4i32:
-  case SPU::ORv2i64:
-  case SPU::ORr8:
-  case SPU::ORr16:
-  case SPU::ORr32:
-  case SPU::ORr64:
-  case SPU::ORf32:
-  case SPU::ORf64:
-    if (MI->getOperand(1).getReg() == MI->getOperand(2).getReg())
-      return true;
-    break;
-  }
-
-  return false;
-}
-
-/// foldMemoryOperand - SPU, like PPC, can only fold spills into
-/// copy instructions, turning them into load/store instructions.
-MachineInstr *
-SPUInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
-                                    MachineInstr *MI,
-                                    const SmallVectorImpl<unsigned> &Ops,
-                                    int FrameIndex) const
-{
-  if (Ops.size() != 1) return 0;
-
-  unsigned OpNum = Ops[0];
-  unsigned Opc = MI->getOpcode();
-  MachineInstr *NewMI = 0;
-
-  switch (Opc) {
-  case SPU::ORv16i8:
-  case SPU::ORv8i16:
-  case SPU::ORv4i32:
-  case SPU::ORv2i64:
-  case SPU::ORr8:
-  case SPU::ORr16:
-  case SPU::ORr32:
-  case SPU::ORr64:
-  case SPU::ORf32:
-  case SPU::ORf64:
-    if (OpNum == 0) {  // move -> store
-      unsigned InReg = MI->getOperand(1).getReg();
-      bool isKill = MI->getOperand(1).isKill();
-      bool isUndef = MI->getOperand(1).isUndef();
-      if (FrameIndex < SPUFrameInfo::maxFrameOffset()) {
-        MachineInstrBuilder MIB = BuildMI(MF, MI->getDebugLoc(),
-                                          get(SPU::STQDr32));
-
-        MIB.addReg(InReg, getKillRegState(isKill) | getUndefRegState(isUndef));
-        NewMI = addFrameReference(MIB, FrameIndex);
-      }
-    } else {           // move -> load
-      unsigned OutReg = MI->getOperand(0).getReg();
-      bool isDead = MI->getOperand(0).isDead();
-      bool isUndef = MI->getOperand(0).isUndef();
-      MachineInstrBuilder MIB = BuildMI(MF, MI->getDebugLoc(), get(Opc));
-
-      MIB.addReg(OutReg, RegState::Define | getDeadRegState(isDead) |
-                 getUndefRegState(isUndef));
-      Opc = (FrameIndex < SPUFrameInfo::maxFrameOffset())
-        ? SPU::STQDr32 : SPU::STQXr32;
-      NewMI = addFrameReference(MIB, FrameIndex);
-    break;
-  }
-  }
-
-  return NewMI;
 }
 
 //! Branch analysis
@@ -518,9 +284,22 @@ SPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
   return true;
 }
 
+// search MBB for branch hint labels and branch hit ops
+static void removeHBR( MachineBasicBlock &MBB) {
+  for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end(); ++I){
+    if (I->getOpcode() == SPU::HBRA ||
+        I->getOpcode() == SPU::HBR_LABEL){
+      I=MBB.erase(I);
+      if (I == MBB.end())
+        break;
+    }
+  }
+}
+
 unsigned
 SPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator I = MBB.end();
+  removeHBR(MBB);
   if (I == MBB.begin())
     return 0;
   --I;
@@ -551,42 +330,87 @@ SPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   return 2;
 }
 
+/** Find the optimal position for a hint branch instruction in a basic block.
+ * This should take into account:
+ *   -the branch hint delays
+ *   -congestion of the memory bus
+ *   -dual-issue scheduling (i.e. avoid insertion of nops)
+ * Current implementation is rather simplistic.
+ */
+static MachineBasicBlock::iterator findHBRPosition(MachineBasicBlock &MBB)
+{
+   MachineBasicBlock::iterator J = MBB.end();
+	for( int i=0; i<8; i++) {
+		if( J == MBB.begin() ) return J;
+		J--;
+	}
+	return J;
+}
+
 unsigned
 SPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                            MachineBasicBlock *FBB,
-                           const SmallVectorImpl<MachineOperand> &Cond) const {
-  // FIXME this should probably have a DebugLoc argument
-  DebugLoc dl;
+                           const SmallVectorImpl<MachineOperand> &Cond,
+                           DebugLoc DL) const {
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&
          "SPU branch conditions have two components!");
 
+  MachineInstrBuilder MIB;
+  //TODO: make a more accurate algorithm.
+  bool haveHBR = MBB.size()>8;
+  
+  removeHBR(MBB);
+  MCSymbol *branchLabel = MBB.getParent()->getContext().CreateTempSymbol();
+  // Add a label just before the branch
+  if (haveHBR)
+    MIB = BuildMI(&MBB, DL, get(SPU::HBR_LABEL)).addSym(branchLabel);
+
   // One-way branch.
   if (FBB == 0) {
     if (Cond.empty()) {
       // Unconditional branch
-      MachineInstrBuilder MIB = BuildMI(&MBB, dl, get(SPU::BR));
+      MIB = BuildMI(&MBB, DL, get(SPU::BR));
       MIB.addMBB(TBB);
 
       DEBUG(errs() << "Inserted one-way uncond branch: ");
       DEBUG((*MIB).dump());
+
+      // basic blocks have just one branch so it is safe to add the hint a its
+      if (haveHBR) {
+        MIB = BuildMI( MBB, findHBRPosition(MBB), DL, get(SPU::HBRA));
+        MIB.addSym(branchLabel);
+        MIB.addMBB(TBB);
+      }	
     } else {
       // Conditional branch
-      MachineInstrBuilder  MIB = BuildMI(&MBB, dl, get(Cond[0].getImm()));
+      MIB = BuildMI(&MBB, DL, get(Cond[0].getImm()));
       MIB.addReg(Cond[1].getReg()).addMBB(TBB);
+
+      if (haveHBR) {
+        MIB = BuildMI(MBB, findHBRPosition(MBB), DL, get(SPU::HBRA));
+        MIB.addSym(branchLabel);
+        MIB.addMBB(TBB);
+      }	
 
       DEBUG(errs() << "Inserted one-way cond branch:   ");
       DEBUG((*MIB).dump());
     }
     return 1;
   } else {
-    MachineInstrBuilder MIB = BuildMI(&MBB, dl, get(Cond[0].getImm()));
-    MachineInstrBuilder MIB2 = BuildMI(&MBB, dl, get(SPU::BR));
+    MIB = BuildMI(&MBB, DL, get(Cond[0].getImm()));
+    MachineInstrBuilder MIB2 = BuildMI(&MBB, DL, get(SPU::BR));
 
     // Two-way Conditional Branch.
     MIB.addReg(Cond[1].getReg()).addMBB(TBB);
     MIB2.addMBB(FBB);
+
+    if (haveHBR) {
+      MIB = BuildMI( MBB, findHBRPosition(MBB), DL, get(SPU::HBRA));
+      MIB.addSym(branchLabel);
+      MIB.addMBB(FBB);
+    }	
 
     DEBUG(errs() << "Inserted conditional branch:    ");
     DEBUG((*MIB).dump());

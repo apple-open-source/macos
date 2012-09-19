@@ -54,9 +54,9 @@ if (cref->logfile) {                                    \
 #endif
 
 
-#if IOGRAPHICSTYPES_REV < 33
+#if IOGRAPHICSTYPES_REV < 12
 
-enum { kDisplayModeAcceleratorBackedFlag = 0x00400000 };
+enum { kDisplayModeValidateAgainstDisplay = 0x00002000 };
 
 #endif
 

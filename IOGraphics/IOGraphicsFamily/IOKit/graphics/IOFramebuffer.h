@@ -815,6 +815,11 @@ public:
     virtual IOReturn getNotificationSemaphore( IOSelect interruptType,
                                                semaphore_t * semaphore );
 
+	IOReturn setBackingFramebuffer(const IOPixelInformation * info,
+									uint32_t bufferCount,
+									void * mappedAddress[]);
+	IOReturn switchBackingFramebuffer(uint32_t bufferIndex);
+
 /*  non WL clients apis
 */
     IOReturn setAttributeExt( IOSelect attribute, uintptr_t value );

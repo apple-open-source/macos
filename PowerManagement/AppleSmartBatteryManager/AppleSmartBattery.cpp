@@ -131,6 +131,12 @@ static const OSSymbol *_ManufacturerDataSym =
                         OSSymbol::withCString("ManufacturerData");
 static const OSSymbol *_PFStatusSym =
                         OSSymbol::withCString("PermanentFailureStatus");
+static const OSSymbol *_DesignCycleCount9CSym =
+                        OSSymbol::withCString("DesignCycleCount9C");
+static const OSSymbol *_PackReserveSym =
+                        OSSymbol::withCString("PackReserve");
+static const OSSymbol *_OperationStatusSym =
+                        OSSymbol::withCString("OperationStatus");
 
 /* _SerialNumberSym represents the manufacturer's 16-bit serial number in
     numeric format.
@@ -157,6 +163,8 @@ static const OSSymbol *_HardwareSerialSym =
 
 static const OSSymbol *_ChargeStatusSym =
                       OSSymbol::withCString(kIOPMPSBatteryChargeStatusKey);
+
+static uint8_t          gReadingExtendedCmd = 0;
 
 #define super IOPMPowerSource
 
@@ -895,21 +903,22 @@ bool AppleSmartBattery::transactionCompletion(
         fRebootPolling = false;
     }
 
-    /*
-     * Retry a failed transaction
-     */
     if (transaction)
     {
         uint32_t delay_for = 0;
 
         transaction_status = transaction->status;
 
-        BattLog("transaction state = 0x%02x; status = 0x%02x; word = %02x.%02x\n",
-                next_state, transaction->status,
-                transaction->receiveData[1], transaction->receiveData[0]);
-
         delay_for = this->transactionCompletion_requiresRetryGetMicroSec(transaction);
 
+        BattLog("transaction state=0x%02x status=0x%02x; word=%02x.%02x delay_us=%d\n",
+                next_state, transaction->status,
+                transaction->receiveData[1], transaction->receiveData[0],
+                delay_for);
+
+        /*
+         * Retry a failed transaction
+         */
         if (0 != delay_for)
         {
             // The transaction failed. We'll delay for a bit,
@@ -942,7 +951,7 @@ bool AppleSmartBattery::transactionCompletion(
     } else {
         val16 = 0;
     }
-
+    
     switch(next_state)
     {
         case kTransactionRestart:
@@ -1105,6 +1114,7 @@ bool AppleSmartBattery::transactionCompletion(
                 return true;
             }
 
+            gReadingExtendedCmd = kBExtendedPFStatusCmd;
             writeWordAsync(kSMBusBatteryAddr, kBManufacturerAccessCmd, kBExtendedPFStatusCmd);
 
             break;
@@ -1113,8 +1123,8 @@ bool AppleSmartBattery::transactionCompletion(
         case (kWriteIndicatorBit | kBManufacturerAccessCmd):
             if (transaction_success)
             {
-            // We successfully wrote 0x53 to register 0x0; meaning we can now
-            // read from register 0x0 to get out the permanent failure status.
+                // We successfully wrote 0x53 or 0x54 to register 0x0; meaning we can now
+                // read from register 0x0 to get out the permanent failure status.
                 readWordAsync(kSMBusBatteryAddr, kBManufacturerAccessCmd);
             }
 
@@ -1123,31 +1133,45 @@ bool AppleSmartBattery::transactionCompletion(
         /************ Finish read battery permanent failure status register ****************/
         case kBManufacturerAccessCmd:
 
-            if(transaction_status)
+            num = NULL;
+            if (transaction_success)
                 num = OSNumber::withNumber((unsigned long long)val16, (int)32);
             else
                 num = OSNumber::withNumber((unsigned long long)0, (int)32);
 
-            if (num)
+            if (gReadingExtendedCmd == kBExtendedPFStatusCmd)
             {
-                setPSProperty(_PFStatusSym, num);
+                if (num) {
+                    setPSProperty(_PFStatusSym, num);
+                }
+
+                gReadingExtendedCmd = kBExtendedOperationStatusCmd;
+                writeWordAsync(kSMBusBatteryAddr, kBManufacturerAccessCmd, kBExtendedOperationStatusCmd);
+            } else 
+            {
+                if (num && (gReadingExtendedCmd == kBExtendedOperationStatusCmd))
+                {
+                    setPSProperty(_OperationStatusSym, num);
+                }
+                
+                // The battery read state machine may fork at this stage.
+                if (kNewBatteryPath == fMachinePath) {
+                    /* Following this path reads:
+                     manufacturer info; serial number; device name; design capacity; etc.
+                     This path re-joins the main path at RemainingCapacity.
+                     */
+                    readBlockAsync(kSMBusBatteryAddr, kBManufactureNameCmd);
+                } else {
+                    /* This path continues reading the normal battery settings that change during regular use.
+                     Implies (fMachinePath == kExistingBatteryPath)
+                     */
+                    readWordAsync(kSMBusBatteryAddr, kBRemainingCapacityCmd);
+                }
+            }
+            
+            if (num) {
                 num->release();
             }
-
-            // The battery read state machine may fork at this stage.
-            if (kNewBatteryPath == fMachinePath) {
-                /* Following this path reads:
-                 manufacturer info; serial number; device name; design capacity; etc.
-                 This path re-joins the main path at RemainingCapacity.
-                 */
-                readBlockAsync(kSMBusBatteryAddr, kBManufactureNameCmd);
-            } else {
-                /* This path continues reading the normal battery settings that change during regular use.
-                 Implies (fMachinePath == kExistingBatteryPath)
-                 */
-                readWordAsync(kSMBusBatteryAddr, kBRemainingCapacityCmd);
-            }
-
             break;
 
         /************ Only executed in ReadForNewBatteryPath ****************/
@@ -1244,7 +1268,7 @@ bool AppleSmartBattery::transactionCompletion(
         /************ Only executed in ReadForNewBatteryPath ****************/
         case kBAppleHardwareSerialCmd:
 
-            if( kIOSMBusStatusOK == transaction_status )
+            if (transaction_success)
             {
                 // Expect transaction->receiveData to contain a NULL-terminated
                 // 12+ character ASCII string.
@@ -1264,12 +1288,48 @@ bool AppleSmartBattery::transactionCompletion(
 
         /************ Only executed in ReadForNewBatteryPath ****************/
         case kBDesignCapacityCmd:
-            num = OSNumber::withNumber(val16, 16);
-            if (num) {
-                properties->setObject(_DesignCapacitySym, num);
-                num->release();
+            if (transaction_success) {
+                num = OSNumber::withNumber(val16, 16);
+                if (num) {
+                    properties->setObject(_DesignCapacitySym, num);
+                    num->release();
+                }
+            } else {
+                properties->removeObject(_DesignCapacitySym);
             }
 
+            readWordAsync(kSMBusBatteryAddr, kBPackReserveCmd);
+            break;
+
+        /************ Only executed in ReadForNewBatteryPath ****************/
+
+        case kBPackReserveCmd:
+            if (transaction_success) {
+                num = OSNumber::withNumber(val16, 16);
+                if (num) {
+                    properties->setObject(_PackReserveSym, num);
+                    num->release();
+                }
+            } else {
+                properties->removeObject(_PackReserveSym);
+            }
+                    
+            readWordAsync(kSMBusBatteryAddr, kBDesignCycleCount9CCmd);
+            break;
+            
+        /************ Only executed in ReadForNewBatteryPath ****************/
+
+        case kBDesignCycleCount9CCmd:
+            if( transaction_success )
+            {
+                num = OSNumber::withNumber(val16, 16);
+                if (num) {
+                    setPSProperty(_DesignCycleCount9CSym, num);
+                    num->release();
+                }
+            } else {
+                properties->removeObject(_DesignCycleCount9CSym);
+            }
             readWordAsync(kSMBusBatteryAddr, kBRemainingCapacityCmd);
             break;
 
@@ -1392,15 +1452,11 @@ bool AppleSmartBattery::transactionCompletion(
             readWordAsync(kSMBusBatteryAddr, kBReadCellVoltage1Cmd);
             break;
 
+            
         case kBReadCellVoltage4Cmd:
         case kBReadCellVoltage3Cmd:
         case kBReadCellVoltage2Cmd:
         case kBReadCellVoltage1Cmd:
-
-            if (transaction_success)
-            {
-                val16 = 0;
-            }
 
             // Executed for first of 4
             if (kBReadCellVoltage1Cmd == next_state) {

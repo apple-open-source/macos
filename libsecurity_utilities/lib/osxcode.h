@@ -88,7 +88,7 @@ public:
 	string identifier() const		{ return cfString(CFBundleGetIdentifier(cfBundle())); }
 	CFTypeRef infoPlistItem(const char *name) const;	// not retained
 
-	string resourcePath() const		{ return cfString(CFBundleCopyResourcesDirectoryURL(cfBundle()), true); }
+	string resourcePath() const		{ return cfStringRelease(CFBundleCopyResourcesDirectoryURL(cfBundle())); }
 	string resource(const char *name, const char *type, const char *subdir = NULL);
 	void resources(vector<string> &paths, const char *type, const char *subdir = NULL);
 	

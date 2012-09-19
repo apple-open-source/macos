@@ -33,6 +33,7 @@
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBControllerV2.h>
+#include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "USBTracepoints.h"
@@ -460,44 +461,104 @@ IOReturn IOUSBControllerV2::OpenPipe(USBDeviceAddress address, UInt8 speed,
 }
 
 
+#ifdef SUPPORTS_SS_USB
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  25);
+IOReturn IOUSBControllerV2::OpenSSPipe(USBDeviceAddress address, UInt8 speed,
+									 Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurst)
+{
+    return _commandGate->runAction(DoCreateEP, (void *)(UInt32)address,
+								   (void *)(UInt32)speed, endpoint, (void *)(maxStreams+(maxBurst << 16)));
+}
+#endif
 
 IOReturn 
 IOUSBControllerV2::DoCreateEP(OSObject *owner,
 							  void *arg0, void *arg1,
 							  void *arg2, void *arg3)
-{
-#pragma unused (arg3)
+{	
     IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
     UInt8 address = (UInt8)(uintptr_t)arg0;
     UInt8 speed = (UInt8)(uintptr_t)arg1;
     Endpoint *endpoint = (Endpoint *)arg2;
+#ifdef SUPPORTS_SS_USB
+	UInt32 maxStreams = ((UInt32)(uintptr_t)arg3) & 0xffff;
+	UInt32 maxBurst = ((UInt32)(uintptr_t)arg3) >> 16;
+#else
+#pragma unused(arg3)
+#endif
     IOReturn err;
 	
     USBLog(5,"%s[%p]::DoCreateEP, high speed ancestor hub:%d, port:%d", me->getName(), me, me->_highSpeedHub[address], me->_highSpeedPort[address]);
 
 	USBTrace_Start( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, me->_highSpeedHub[address], me->_highSpeedPort[address], endpoint->transferType );
+
+#ifdef SUPPORTS_SS_USB
+	IOUSBControllerV3		*me3 = OSDynamicCast(IOUSBControllerV3, owner);
+    if(me3 == NULL)
+    {
+        if( (maxBurst != 0) || (maxStreams != 0) )
+        {
+            USBLog(1,"%s[%p]::DoCreateEP, SuperSpeed create EP, but controller doesn't support it. maxStreams: %d, maxBurst: %d", me->getName(), me, (int)maxStreams, (int)maxBurst);
+            return kIOReturnUnsupported;
+        }
+    }
+#endif
 	
 	switch (endpoint->transferType)
     {
         case kUSBInterrupt:
-            err = me->UIMCreateInterruptEndpoint(address,
-												 endpoint->number,
-												 endpoint->direction,
-												 speed,
-												 endpoint->maxPacketSize,
-												 endpoint->interval,
-												 me->_highSpeedHub[address],
-												 me->_highSpeedPort[address]);
+#ifdef SUPPORTS_SS_USB
+            if(maxBurst == 0)
+            {
+#endif
+                err = me->UIMCreateInterruptEndpoint(address,
+                                                     endpoint->number,
+                                                     endpoint->direction,
+                                                     speed,
+                                                     endpoint->maxPacketSize,
+                                                     endpoint->interval,
+                                                     me->_highSpeedHub[address],
+                                                     me->_highSpeedPort[address]);
+ #ifdef SUPPORTS_SS_USB
+          }
+            else
+            {
+                err = me3->UIMCreateSSInterruptEndpoint(address,
+                                                     endpoint->number,
+                                                     endpoint->direction,
+                                                     speed,
+                                                     endpoint->maxPacketSize,
+                                                     endpoint->interval,
+                                                     maxBurst);
+            }
+#endif
             break;
 			
         case kUSBBulk:
-            err = me->UIMCreateBulkEndpoint(address,
-											endpoint->number,
-											endpoint->direction,
-											speed,
-											endpoint->maxPacketSize,
-											me->_highSpeedHub[address],
-											me->_highSpeedPort[address]);
+#ifdef SUPPORTS_SS_USB
+			if( (maxStreams == 0) && (maxBurst == 0) )
+			{
+#endif
+				err = me->UIMCreateBulkEndpoint(address,
+												endpoint->number,
+												endpoint->direction,
+												speed,
+												endpoint->maxPacketSize,
+												me->_highSpeedHub[address],
+												me->_highSpeedPort[address]);
+#ifdef SUPPORTS_SS_USB
+			}
+			else
+			{
+				err = me3->UIMCreateSSBulkEndpoint(address,
+												endpoint->number,
+												endpoint->direction,
+												speed,
+												endpoint->maxPacketSize,
+												maxStreams,
+                                                maxBurst);	
+			}
+#endif
             break;
 			
         case kUSBControl:
@@ -543,14 +604,29 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 
 			}
 
-
-			err = me->UIMCreateIsochEndpoint(address,
-											 endpoint->number,
-											 endpoint->maxPacketSize,
-											 endpoint->direction,
-											 me->_highSpeedHub[address],
-											 me->_highSpeedPort[address],
-											 endpoint->interval);
+#ifdef SUPPORTS_SS_USB
+            if(maxBurst == 0)
+            {
+#endif
+                err = me->UIMCreateIsochEndpoint(address,
+                                                 endpoint->number,
+                                                 endpoint->maxPacketSize,
+                                                 endpoint->direction,
+                                                 me->_highSpeedHub[address],
+                                                 me->_highSpeedPort[address],
+                                                 endpoint->interval);
+#ifdef SUPPORTS_SS_USB
+            }
+            else
+            {
+                err = me3->UIMCreateSSIsochEndpoint(address,
+                                                 endpoint->number,
+                                                 endpoint->maxPacketSize,
+                                                 endpoint->direction,
+                                                 endpoint->interval,
+                                                 maxBurst);
+            }
+#endif
 			break;
 		  }
 
@@ -561,6 +637,18 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
     }
 
 	USBTrace_End( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, err, 0, 0 );	
+	
+#ifdef SUPPORTS_SS_USB
+	if ( err == kIOUSBEndpointCountExceeded )
+	{
+		USBLog(1, "%s[%p]::DoCreateEP - Received a kIOUSBEndpointCountExceeded, Address: %d, Speed: %d:  Endpoint: (0x%x, 0x%x, 0x%x, 0x%x)", me->getName(), me, address, speed,
+			   (uint32_t) endpoint->number,
+			   (uint32_t) endpoint->direction,
+			   (uint32_t) endpoint->maxPacketSize,
+			   (uint32_t) endpoint->interval);
+		IOLog("The USB device at USB Address %d might not work correctly because the controller driver has reached a hardware limit on the number of endpoints", address);
+	}
+#endif
 	
     return (err);
 }
@@ -576,9 +664,44 @@ IOUSBControllerV2::CreateDevice(	IOUSBDevice 		*newDevice,
 									USBDeviceAddress	hub,
 									int					port)
 {
-    USBLog(5,"%s[%p]::CreateDevice, new method called with hub:%d, port:%d", getName(), this, hub, port);
+    USBLog(5,"%s[%p]::CreateDevice, new method called with speed : %d hub:%d, port:%d", getName(), this, speed, hub, port);
     
-    if (speed != kUSBDeviceSpeedHigh)
+#ifdef SUPPORTS_SS_USB
+	if( deviceAddress > kUSBMaxDevices )
+	{
+		USBLog(5,"%s[%p]::CreateDevice, returning kIOReturnInvalid with address: %d speed : %d hub:%d, port:%d", getName(), this, deviceAddress, speed, hub, port);
+		return kIOReturnInvalid;
+	}
+    
+    if ( speed < kUSBDeviceSpeedHigh )
+    {
+		if ( (hub == kXHCISSRootHubAddress) or (hub == kXHCIUSB2RootHubAddress) )
+		{
+            _highSpeedHub[deviceAddress] = hub;
+            _highSpeedPort[deviceAddress] = port;
+		}
+		else
+		{
+			if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
+			{
+				_highSpeedHub[deviceAddress] = hub;
+				_highSpeedPort[deviceAddress] = port;
+			}
+			else
+			{
+				_highSpeedHub[deviceAddress] = _highSpeedHub[hub];
+				_highSpeedPort[deviceAddress] = _highSpeedPort[hub];
+			}
+		}
+    }
+    else
+    {
+        _highSpeedHub[deviceAddress] = 0;
+        _highSpeedPort[deviceAddress] = 0;
+    }
+	
+#else
+	if (speed != kUSBDeviceSpeedHigh)
     {
         if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
         {
@@ -596,6 +719,7 @@ IOUSBControllerV2::CreateDevice(	IOUSBDevice 		*newDevice,
         _highSpeedHub[deviceAddress] = 0;
         _highSpeedPort[deviceAddress] = 0;
     }
+#endif
 	
     USBLog(5,"%s[%p]::CreateDevice, high speed ancestor hub:%d, port:%d",getName(), this, _highSpeedHub[deviceAddress], _highSpeedPort[deviceAddress]);
     
@@ -607,9 +731,43 @@ IOUSBControllerV2::CreateDevice(	IOUSBDevice 		*newDevice,
 IOReturn 
 IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDeviceAddress hub, int port)
 {
-    USBLog(5,"%s[%p]::ConfigureDeviceZero, new method called with hub:%d, port:%d", getName(), this, hub, port);
+    USBLog(5,"%s[%p]::ConfigureDeviceZero, new method called with speed : %d, hub:%d, port:%d", getName(), this, speed, hub, port);
 	
-    if (speed != kUSBDeviceSpeedHigh)
+#ifdef SUPPORTS_SS_USB
+	if( hub > kXHCIUSB2RootHubAddress )
+	{
+		USBLog(5,"%s[%p]::ConfigureDeviceZero, returning kIOReturnInvalid with speed : %d hub:%d, port:%d", getName(), this, speed, hub, port);
+		return kIOReturnInvalid;
+	}
+	
+    if ( speed < kUSBDeviceSpeedHigh )
+    {
+		if ( (hub == kXHCISSRootHubAddress) or (hub == kXHCIUSB2RootHubAddress) )
+		{
+            _highSpeedHub[0] = hub;
+            _highSpeedPort[0] = port;
+		}
+		else
+		{
+			if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
+			{
+				_highSpeedHub[0] = hub;
+				_highSpeedPort[0] = port;
+			}
+			else
+			{
+				_highSpeedHub[0] = _highSpeedHub[hub];
+				_highSpeedPort[0] = _highSpeedPort[hub];
+			}
+		}
+    }
+    else
+    {
+        _highSpeedHub[0] = 0;
+        _highSpeedPort[0] = 0;
+    }
+#else
+	if (speed != kUSBDeviceSpeedHigh)
     {
         if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
         {
@@ -627,7 +785,7 @@ IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDevi
         _highSpeedHub[0] = 0;
         _highSpeedPort[0] = 0;
     }
-	
+#endif
     USBLog(5, "%s[%p]::CreateDevice, high speed ancestor hub:%d, port:%d", getName(), this, _highSpeedHub[0], _highSpeedPort[0]);
     
     return (super::ConfigureDeviceZero(maxPacketSize, speed));
@@ -648,7 +806,7 @@ IOUSBControllerV2::DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, v
 	
     USBLog(5,"%s[%p]::DOHSHubMaintenance, command: %d, flags: %d", me->getName(), me, (uint32_t)command, (uint32_t)flags);
 	
-    multi = ((flags & kUSBHSHubFlagsMultiTT) != 0);
+    multi = ((flags & kUSBHSHubFlagsMultiTTMask) != 0);
     me->_v2ExpansionData->_multiTT[highSpeedHub] = multi;
     USBLog(3,"%s[%p]::DOHSHubMaintenance hub at %d is multiTT:%d", me->getName(), me, highSpeedHub, (uint32_t)me->_v2ExpansionData->_multiTT[highSpeedHub]);
 	
@@ -835,6 +993,9 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     command->SetRequest(0);            	// Not a device request
     command->SetAddress(address);
     command->SetEndpoint(endpoint->number);
+#ifdef SUPPORTS_SS_USB
+    command->SetStreamID(0);
+#endif
     command->SetDirection(kUSBIn);
     command->SetType(endpoint->transferType);
     command->SetBuffer(buffer);
@@ -899,8 +1060,6 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 	
     return err;
 }
-
-
 
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  8);
@@ -998,7 +1157,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  13);
 void
 IOUSBControllerV2::PutTDonToDoList(IOUSBControllerIsochEndpoint* pED, IOUSBControllerIsochListElement *pTD)
 {
-    USBLog(7, "AppleUSBEHCI[%p]::PutTDonToDoList - pED (%p) pTD (%p) frameNumber(%Lx)", this, pED, pTD, pTD->_frameNumber);
+    USBLog(7, "AppleUSBEHCI[%p]::PutTDonToDoList - pED (%p) pTD (%p) frameNumber(%qx)", this, pED, pTD, pTD->_frameNumber);
     // Link TD into todo list
     if (pED->toDoList == NULL)
     {
@@ -1032,7 +1191,7 @@ IOUSBControllerV2::GetTDfromToDoList(IOUSBControllerIsochEndpoint* pED)
 			pED->toDoList = pED->toDoEnd = NULL;
 		else
 			pED->toDoList = OSDynamicCast(IOUSBControllerIsochListElement, pTD->_logicalNext);
-		// USBLog(7, "AppleUSBEHCI[%p]::GetTDfromToDoList - pED (%p) pTD (%p) frameNumber(%Lx)", this, pED, pTD, pTD->_frameNumber);
+		// USBLog(7, "AppleUSBEHCI[%p]::GetTDfromToDoList - pED (%p) pTD (%p) frameNumber(%qx)", this, pED, pTD, pTD->_frameNumber);
 		pED->onToDoList--;
     }
     return pTD;
@@ -1209,11 +1368,10 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 	uint32_t							busFunctEP;
 	
     USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue (%p)", this, pEP);
-	
 	_commandGate->runAction(GatedGetTDfromDoneQueue, pEP, &pTD);
 	
 	USBTrace_Start( kUSBTController, kTPControllerReturnIsochDoneQueue, (uintptr_t)this, (uintptr_t)pEP, (uintptr_t)pTD, 0 );
-	
+    
     if (pTD)
     {
 		pFrames = pTD->_pFrames;
@@ -1251,6 +1409,7 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 																pHandler, pTD->_completion.target, pTD->_completion.parameter, (void*)pEP->accumulatedStatus, USBStringFromReturn(pEP->accumulatedStatus), pFrames, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			
 			USBTrace( kUSBTController, kTPControllerReturnIsochDoneQueue, (uint32_t)busFunctEP, (uintptr_t)pHandler, (uint32_t)pEP->accumulatedStatus, 5);
+                        
 			(*pHandler) (pTD->_completion.target,  pTD->_completion.parameter, pEP->accumulatedStatus, pFrames);
 			
 			_activeIsochTransfers--;
@@ -1327,10 +1486,335 @@ IOUSBControllerV2::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *the
 }
 
 
+#ifdef SUPPORTS_SS_USB
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  23);
+IOReturn 
+IOUSBControllerV2::ReadStream(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
+{
+    IOReturn			err = kIOReturnSuccess;
+    IOUSBCommand *		command = NULL;
+	IODMACommand *		dmaCommand = NULL;
+    IOUSBCompletion 	nullCompletion;
+    int					i;
+	bool				isSyncTransfer = false;
+    
+    USBLog(7, "%s[%p]::Read - reqCount = %qd", getName(), this, (uint64_t)reqCount);
+    
+    // Validate its a inny pipe and that there is a buffer
+    if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
+    {
+        USBLog(2, "%s[%p]::Read - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+		return kIOReturnBadArgument;
+    }
+    
+    if ((endpoint->transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
+    {
+        USBLog(2, "%s[%p]::Read - Pipe is NOT kUSBBulk (%d) AND specified a timeout (%d, %d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->transferType, (uint32_t)noDataTimeout, (uint32_t)completionTimeout, kIOReturnBadArgument);
+		return kIOReturnBadArgument; // timeouts only on bulk pipes
+    }
+    
+    // Validate the completion
+    if (!completion)
+    {
+        USBLog(2, "%s[%p]::Read - No Completion routine.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
+		return kIOReturnNoCompletion;
+    }
+    
+    // Validate the command gate
+    if (!_commandGate)
+    {
+        USBLog(1, "%s[%p]::Read - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, kIOReturnInternalError, 0, 1 );
+		return kIOReturnInternalError;
+    }
+    
+    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
+	{
+		isSyncTransfer = true;
+		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
+		if ( _workLoop->onThread() )
+		{
+            USBError(1,"IOUSBController(%s)[%p]::Read sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+		}
+	}
+	
+	
+    // allocate the command
+    command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+	
+    // If we couldn't get a command, increase the allocation and try again
+    //
+    if ( command == NULL )
+    {
+        IncreaseCommandPool();
+        
+        command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+        if ( command == NULL )
+        {
+            USBLog(1,"%s[%p]::Read Could not get a IOUSBCommand",getName(),this);
+            return kIOReturnNoResources;
+        }
+    }
+	
+	if (reqCount)
+	{
+		IOMemoryDescriptor		*memDesc;
+        
+		dmaCommand = command->GetDMACommand();
+		
+		if (!dmaCommand)
+		{
+			USBLog(1, "%s[%p]::Read - no DMA COMMAND", getName(), this);
+			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, kIOReturnNoResources, 0, 2 );
+            err = kIOReturnNoResources;
+		}
+		else
+		{
+            
+			memDesc = (IOMemoryDescriptor*)dmaCommand->getMemoryDescriptor();
+			if (memDesc)
+			{
+				USBLog(1, "%s[%p]::Read - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+				USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 3 );
+				dmaCommand->clearMemoryDescriptor();
+			}
+			USBLog(7, "%s[%p]::Read - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
+			err = dmaCommand->setMemoryDescriptor(buffer);
+			if (err)
+			{
+				USBLog(1, "%s[%p]::Read - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
+				USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, err, 0, 5 );
+			}
+		}
+	}
+    
+	if (!err)
+	{
+        
+		command->SetIsSyncTransfer(isSyncTransfer);
+		command->SetUseTimeStamp(false);
+		command->SetSelector(READ);
+		command->SetRequest(0);            	// Not a device request
+		command->SetAddress(address);
+		command->SetEndpoint(endpoint->number);
+		command->SetDirection(kUSBIn);
+		command->SetType(endpoint->transferType);
+		command->SetBuffer(buffer);
+		command->SetReqCount(reqCount);
+		command->SetClientCompletion(*completion);
+		command->SetNoDataTimeout(noDataTimeout);
+		command->SetCompletionTimeout(completionTimeout);
+		command->SetMultiTransferTransaction(false);
+		command->SetFinalTransferInTransaction(false);
+        command->SetStreamID(streamID);
+		for (i=0; i < 10; i++)
+			command->SetUIMScratch(i, 0);
+		
+		nullCompletion.target = (void *) NULL;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) NULL;
+		command->SetDisjointCompletion(nullCompletion);
+		
+		err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
+		if (!err)
+		{			
+			err = _commandGate->runAction(DoIOTransfer, command);
+		}
+	}
+    
+	// 7455477: handle and and all errors which may have occured above
+	// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( isSyncTransfer || (kIOReturnSuccess != err) )
+	{
+		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
+		
+		if (!isSyncTransfer)
+		{
+			USBLog(2, "%s[%p]::Read - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
+		}
+		
+		if (memDesc)
+		{
+			USBLog(7, "%s[%p]::Read - sync xfer or err return - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		nullCompletion = command->GetDisjointCompletion();
+		if (nullCompletion.action)
+		{
+			USBLog(2, "%s[%p]::Read - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
+		}
+		_freeUSBCommandPool->returnCommand(command);
+	}
+	
+	return err;
+}
 
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  24);
+IOReturn 
+IOUSBControllerV2::WriteStream(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
+{
+    IOReturn				err = kIOReturnSuccess;
+    IOUSBCommand *			command = NULL;
+	IODMACommand *			dmaCommand = NULL;
+    IOUSBCompletion			nullCompletion;
+    int						i;
+	bool					isSyncTransfer = false;
+	
+    USBLog(7, "%s[%p]::Write - reqCount = %qd", getName(), this, (uint64_t)reqCount);
+    
+    // Validate its a outty pipe and that we have a buffer
+    if ((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
+    {
+        USBLog(5, "%s[%p]::Write - direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+		return kIOReturnBadArgument;
+    }
+	
+    if ((endpoint->transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
+    {
+        USBLog(5, "%s[%p]::Write - Pipe is NOT kUSBBulk (%d) AND specified a timeout (%d, %d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->transferType, (uint32_t)noDataTimeout, (uint32_t)completionTimeout, kIOReturnBadArgument);
+		return kIOReturnBadArgument;							// timeouts only on bulk pipes
+    }
+	
+    // Validate the command gate
+    if (!_commandGate)
+    {
+        USBLog(5, "%s[%p]::Write - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		return kIOReturnInternalError;
+    }
+	
+    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
+	{
+		isSyncTransfer = true;
+		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
+		if ( _workLoop->onThread() )
+		{
+            USBError(1,"IOUSBController(%s)[%p]::Write sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+		}
+	}
+	
+	
+    // allocate the command
+    command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+    
+    // If we couldn't get a command, increase the allocation and try again
+    //
+    if ( command == NULL )
+    {
+        IncreaseCommandPool();
+        
+        command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+        if ( command == NULL )
+        {
+            USBLog(3,"%s[%p]::Write Could not get a IOUSBCommand",getName(),this);
+            return kIOReturnNoResources;
+        }
+    }
+	
+	// 7455477: from this point forward, we have the command object, and we need to be careful to put it back if there is an error..
+	if (reqCount)
+	{
+		IOMemoryDescriptor	*memDesc;
+		
+		dmaCommand = command->GetDMACommand();
+		
+		if (!dmaCommand)
+		{
+			USBLog(1, "%s[%p]::Write - no DMA COMMAND", getName(), this);
+			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, kIOReturnNoResources, 0, 1 );
+            err = kIOReturnNoResources;
+		}
+		else
+		{
+			memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
+			if (memDesc)
+			{
+				USBLog(1, "%s[%p]::Write - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+				USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 2 );
+				dmaCommand->clearMemoryDescriptor();
+			}
+			USBLog(7, "%s[%p]::Write - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
+			err = dmaCommand->setMemoryDescriptor(buffer);
+			if (err)
+			{
+				USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, err, 0, 4 );
+				USBLog(1, "%s[%p]::Write - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
+			}
+		}
+		
+	}
+	
+	if (!err)
+	{
+		command->SetIsSyncTransfer(isSyncTransfer);
+		command->SetUseTimeStamp(false);
+		command->SetSelector(WRITE);
+		command->SetRequest(0);            // Not a device request
+		command->SetAddress(address);
+		command->SetEndpoint(endpoint->number);
+		command->SetDirection(kUSBOut);
+		command->SetType(endpoint->transferType);
+		command->SetBuffer(buffer);
+		command->SetReqCount(reqCount);
+		command->SetClientCompletion(*completion);
+		command->SetNoDataTimeout(noDataTimeout); 
+		command->SetCompletionTimeout(completionTimeout);
+		command->SetMultiTransferTransaction(false);
+		command->SetFinalTransferInTransaction(false);
+		command->SetStreamID(streamID);
+		for (i=0; i < 10; i++)
+			command->SetUIMScratch(i, 0);
+		
+		nullCompletion.target = (void *) NULL;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) NULL;
+		command->SetDisjointCompletion(nullCompletion);
+		
+		err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
+		if (!err)
+		{			
+			err = _commandGate->runAction(DoIOTransfer, command);
+		}
+	}
+	
+	// 7455477: handle and and all errors which may have occured above
+	// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( isSyncTransfer || (kIOReturnSuccess != err) )
+	{
+		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
+		
+		if (!isSyncTransfer)
+		{
+			USBLog(2, "%s[%p]::Write - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
+		}
+		
+		if (memDesc)
+		{
+			USBLog(7, "%s[%p]::Write - General error (%p) - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, (void*)err, memDesc, dmaCommand);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		nullCompletion = command->GetDisjointCompletion();
+		if (nullCompletion.action)
+		{
+			USBLog(2, "%s[%p]::Write - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
+		}
+		_freeUSBCommandPool->returnCommand(command);
+	}
+	
+    return err;
+}
+#else
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  23);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  24);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  25);
+#endif
+
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  26);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  27);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  28);

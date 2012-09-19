@@ -15,7 +15,7 @@
 #ifndef LLVM_SUPPORT_TIMER_H
 #define LLVM_SUPPORT_TIMER_H
 
-#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DataTypes.h"
 #include "llvm/ADT/StringRef.h"
 #include <cassert>
 #include <string>
@@ -150,8 +150,10 @@ public:
 /// is primarily used for debugging and for hunting performance problems.
 ///
 struct NamedRegionTimer : public TimeRegion {
-  explicit NamedRegionTimer(StringRef Name);
-  explicit NamedRegionTimer(StringRef Name, StringRef GroupName);
+  explicit NamedRegionTimer(StringRef Name,
+                            bool Enabled = true);
+  explicit NamedRegionTimer(StringRef Name, StringRef GroupName,
+                            bool Enabled = true);
 };
 
 

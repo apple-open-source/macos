@@ -73,7 +73,8 @@ FunctionPass *createAggressiveDCEPass();
 // ScalarReplAggregates - Break up alloca's of aggregates into multiple allocas
 // if possible.
 //
-FunctionPass *createScalarReplAggregatesPass(signed Threshold = -1);
+FunctionPass *createScalarReplAggregatesPass(signed Threshold = -1,
+                                             bool UseDomTree = true);
 
 //===----------------------------------------------------------------------===//
 //
@@ -111,6 +112,8 @@ Pass *createLICMPass();
 //
 Pass *createLoopStrengthReducePass(const TargetLowering *TLI = 0);
 
+Pass *createGlobalMergePass(const TargetLowering *TLI = 0);
+
 //===----------------------------------------------------------------------===//
 //
 // LoopUnswitch - This pass is a simple loop unswitching pass.
@@ -119,9 +122,15 @@ Pass *createLoopUnswitchPass(bool OptimizeForSize = false);
 
 //===----------------------------------------------------------------------===//
 //
+// LoopInstSimplify - This pass simplifies instructions in a loop's body.
+//
+Pass *createLoopInstSimplifyPass();
+
+//===----------------------------------------------------------------------===//
+//
 // LoopUnroll - This pass is a simple loop unrolling pass.
 //
-Pass *createLoopUnrollPass();
+Pass *createLoopUnrollPass(int Threshold = -1, int Count = -1, int AllowPartial = -1);
 
 //===----------------------------------------------------------------------===//
 //
@@ -131,11 +140,10 @@ Pass *createLoopRotatePass();
 
 //===----------------------------------------------------------------------===//
 //
-// LoopIndexSplit - This pass divides loop's iteration range by spliting loop
-// such that each individual loop is executed efficiently.
+// LoopIdiom - This pass recognizes and replaces idioms in loops.
 //
-Pass *createLoopIndexSplitPass();
-
+Pass *createLoopIdiomPass();
+  
 //===----------------------------------------------------------------------===//
 //
 // PromoteMemoryToRegister - This pass is used to promote memory references to
@@ -149,7 +157,6 @@ Pass *createLoopIndexSplitPass();
 //   ret i32 %Y
 //
 FunctionPass *createPromoteMemoryToRegisterPass();
-extern const PassInfo *const PromoteMemoryToRegisterID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -158,7 +165,7 @@ extern const PassInfo *const PromoteMemoryToRegisterID;
 // hacking easier.
 //
 FunctionPass *createDemoteRegisterToMemoryPass();
-extern const PassInfo *const DemoteRegisterToMemoryID;
+extern char &DemoteRegisterToMemoryID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -168,13 +175,6 @@ extern const PassInfo *const DemoteRegisterToMemoryID;
 // For example:  4 + (x + 5)  ->  x + (4 + 5)
 //
 FunctionPass *createReassociatePass();
-
-//===----------------------------------------------------------------------===//
-//
-// TailDuplication - Eliminate unconditional branches through controlled code
-// duplication, creating simpler CFG structures.
-//
-FunctionPass *createTailDuplicationPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -202,7 +202,7 @@ FunctionPass *createCFGSimplificationPass();
 // (set, immediate dominators, tree, and frontier) information.
 //
 FunctionPass *createBreakCriticalEdgesPass();
-extern const PassInfo *const BreakCriticalEdgesID;
+extern char &BreakCriticalEdgesID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -213,7 +213,7 @@ extern const PassInfo *const BreakCriticalEdgesID;
 //   AU.addRequiredID(LoopSimplifyID);
 //
 Pass *createLoopSimplifyPass();
-extern const PassInfo *const LoopSimplifyID;
+extern char &LoopSimplifyID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -228,7 +228,7 @@ FunctionPass *createTailCallEliminationPass();
 // chained binary branch instructions.
 //
 FunctionPass *createLowerSwitchPass();
-extern const PassInfo *const LowerSwitchID;
+extern char &LowerSwitchID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -243,7 +243,7 @@ extern const PassInfo *const LowerSwitchID;
 FunctionPass *createLowerInvokePass(const TargetLowering *TLI = 0);
 FunctionPass *createLowerInvokePass(const TargetLowering *TLI,
                                     bool useExpensiveEHSupport);
-extern const PassInfo *const LowerInvokePassID;
+extern char &LowerInvokePassID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -258,8 +258,15 @@ FunctionPass *createBlockPlacementPass();
 // optimizations.
 //
 Pass *createLCSSAPass();
-extern const PassInfo *const LCSSAID;
+extern char &LCSSAID;
 
+//===----------------------------------------------------------------------===//
+//
+// EarlyCSE - This pass performs a simple and fast CSE pass over the dominator
+// tree.
+//
+FunctionPass *createEarlyCSEPass();
+  
 //===----------------------------------------------------------------------===//
 //
 // GVN - This pass performs global value numbering and redundant load 
@@ -289,12 +296,6 @@ FunctionPass *createSimplifyLibCallsPass();
 
 //===----------------------------------------------------------------------===//
 //
-/// createSimplifyHalfPowrLibCallsPass - This is an experimental pass that
-/// optimizes specific half_pow functions.
-FunctionPass *createSimplifyHalfPowrLibCallsPass();
-
-//===----------------------------------------------------------------------===//
-//
 // CodeGenPrepare - This pass prepares a function for instruction selection.
 //
 FunctionPass *createCodeGenPreparePass(const TargetLowering *TLI = 0);
@@ -304,22 +305,8 @@ FunctionPass *createCodeGenPreparePass(const TargetLowering *TLI = 0);
 // InstructionNamer - Give any unnamed non-void instructions "tmp" names.
 //
 FunctionPass *createInstructionNamerPass();
-extern const PassInfo *const InstructionNamerID;
+extern char &InstructionNamerID;
   
-//===----------------------------------------------------------------------===//
-//
-// SSI - This pass converts instructions to Static Single Information form
-// on demand.
-//
-FunctionPass *createSSIPass();
-
-//===----------------------------------------------------------------------===//
-//
-// SSI - This pass converts every non-void instuction to Static Single
-// Information form.
-//
-FunctionPass *createSSIEverythingPass();
-
 //===----------------------------------------------------------------------===//
 //
 // GEPSplitter - Split complex GEPs into simple ones
@@ -328,15 +315,54 @@ FunctionPass *createGEPSplitterPass();
 
 //===----------------------------------------------------------------------===//
 //
-// ABCD - Elimination of Array Bounds Checks on Demand
-//
-FunctionPass *createABCDPass();
-
-//===----------------------------------------------------------------------===//
-//
 // Sink - Code Sinking
 //
 FunctionPass *createSinkingPass();
+
+//===----------------------------------------------------------------------===//
+//
+// LowerAtomic - Lower atomic intrinsics to non-atomic form
+//
+Pass *createLowerAtomicPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ValuePropagation - Propagate CFG-derived value information
+//
+Pass *createCorrelatedValuePropagationPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ObjCARCExpand - ObjC ARC preliminary simplifications.
+//
+Pass *createObjCARCExpandPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ObjCARCContract - Late ObjC ARC cleanups.
+//
+Pass *createObjCARCContractPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ObjCARCOpt - ObjC ARC optimization.
+//
+Pass *createObjCARCOptPass();
+
+//===----------------------------------------------------------------------===//
+//
+// InstructionSimplifier - Remove redundant instructions.
+//
+FunctionPass *createInstructionSimplifierPass();
+extern char &InstructionSimplifierID;
+
+
+//===----------------------------------------------------------------------===//
+//
+// LowerExpectIntriniscs - Removes llvm.expect intrinsics and creates
+// "block_weights" metadata.
+FunctionPass *createLowerExpectIntrinsicPass();
+
 
 } // End llvm namespace
 

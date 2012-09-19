@@ -363,9 +363,9 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         // Do not use standardized errata bits yet
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
 		
-		if (_errataBits & kErrataDontUseCompanionController)
+		if (_v3ExpansionData->_onThunderbolt || (_errataBits & kErrataDontUseCompanionController))
 		{
-			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
+			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - Thunderbolt and companion controllers disallowed. Not initializing", this);
             return kIOReturnUnsupported;
 		}
 		
@@ -783,6 +783,7 @@ AppleUSBUHCI::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime)
 IOReturn
 AppleUSBUHCI::GatedGetFrameNumberWithTime(OSObject *owner, void* arg0, void* arg1, void* arg2, void* arg3)
 {
+#pragma unused (arg2, arg3)
 	AppleUSBUHCI		*me = (AppleUSBUHCI*)owner;
 	UInt64				*frameNumber = (UInt64*)arg0;
 	AbsoluteTime		*theTime = (AbsoluteTime*)arg1;
@@ -1109,11 +1110,11 @@ AppleUSBUHCI::scavengeAnIsochTD(AppleUHCIIsochTransferDescriptor *pTD)
 		{
 			if ( pTD->frStatus == kIOReturnUnderrun )
 			{
-				USBLog(7, "AppleUSBUHCI[%p]::scavengeAnIsochTD - frStatus is %p - _frameNumber %Ld - _frameIndex %d", this, (void*)pTD->frStatus, pTD->_frameNumber, (int)pTD->_frameIndex);
+				USBLog(7, "AppleUSBUHCI[%p]::scavengeAnIsochTD - frStatus is %p - _frameNumber %qd - _frameIndex %d", this, (void*)pTD->frStatus, pTD->_frameNumber, (int)pTD->_frameIndex);
 			}
 			else
 			{
-				USBLog(3, "AppleUSBUHCI[%p]::scavengeAnIsochTD - frStatus is %p - _frameNumber %Ld - _frameIndex %d", this, (void*)pTD->frStatus, pTD->_frameNumber, (int)pTD->_frameIndex);
+				USBLog(3, "AppleUSBUHCI[%p]::scavengeAnIsochTD - frStatus is %p - _frameNumber %qd - _frameIndex %d", this, (void*)pTD->frStatus, pTD->_frameNumber, (int)pTD->_frameIndex);
 			}
 
 		}

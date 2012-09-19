@@ -125,6 +125,7 @@ AppleUSBUHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 IOReturn
 AppleUSBUHCI::SetRootHubDescriptor(OSData *buffer)
 {
+#pragma unused (buffer)
     USBLog(3,"AppleUSBUHCI[%p]: unimplemented set root hub descriptor", this); 
     return(kIOReturnSuccess); 
 }
@@ -453,6 +454,7 @@ AppleUSBUHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 port)
 IOReturn
 AppleUSBUHCI::GetRootHubPortState(UInt8 *state, UInt16 port)
 {
+#pragma unused (state, port)
     USBLog(5,"AppleUSBUHCI[%p]::GetRootHubPortState", this);
     return(kIOReturnSuccess);
 }
@@ -473,6 +475,7 @@ AppleUSBUHCI::SetHubAddress(UInt16 functionNumber)
 void
 AppleUSBUHCI::UIMRootHubStatusChange(bool abort)
 {
+#pragma unused (abort)
 	USBLog(1, "AppleUSBUHCI[%p]::UIMRootHubStatusChange - calling obsolete method UIMRootHubStatusChange(bool)", this);
 }
 
@@ -1135,6 +1138,7 @@ AppleUSBUHCI::RHResumePortTimer(UInt32 port)
 IOReturn
 AppleUSBUHCI::RHResumePortCompletionEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
+#pragma unused (param2, param3, param4)
     AppleUSBUHCI				*me = OSDynamicCast(AppleUSBUHCI, target);
     UInt32						port = (uintptr_t)param1;
 	

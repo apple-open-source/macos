@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2004,2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFDate.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -147,6 +148,9 @@ OSStatus SecKeychainSearchCreateForCertificateByEmail(CFTypeRef keychainOrArray,
 
 /* Convenience function for generating digests; should be moved elsewhere. */
 CSSM_RETURN SecDigestGetData(CSSM_ALGORITHMS alg, CSSM_DATA* digest, const CSSM_DATA* data);
+
+/* Return true iff certificate is valid as of verifyTime. */
+bool SecCertificateIsValidX(SecCertificateRef certificate, CFAbsoluteTime verifyTime);
 
 /* NOT EXPORTED YET; copied from SecurityInterface but could be useful in the future.
 CSSM_CSP_HANDLE	SecGetAppleCSPHandle();

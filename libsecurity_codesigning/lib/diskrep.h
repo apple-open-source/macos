@@ -194,10 +194,12 @@ public:
 	std::string mainExecutablePath()		{ return mOriginal->mainExecutablePath(); }
 	CFURLRef canonicalPath()				{ return mOriginal->canonicalPath(); }
 	std::string resourcesRootPath()			{ return mOriginal->resourcesRootPath(); }
+	void adjustResources(ResourceBuilder &builder) { return mOriginal->adjustResources(builder); }
 	Universal *mainExecutableImage()		{ return mOriginal->mainExecutableImage(); }
 	size_t signingBase()					{ return mOriginal->signingBase(); }
 	size_t signingLimit()					{ return mOriginal->signingLimit(); }
 	std::string format()					{ return mOriginal->format(); }
+	CFArrayRef modifiedFiles()				{ return mOriginal->modifiedFiles(); }
 	UnixPlusPlus::FileDesc &fd()			{ return mOriginal->fd(); }
 	void flush()							{ return mOriginal->flush(); }
 	

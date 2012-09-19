@@ -861,7 +861,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55030;
+				CURRENT_PROJECT_VERSION = 55030.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -909,7 +909,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 55030;
+				CURRENT_PROJECT_VERSION = 55030.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DEBUGGING_SYMBOLS = default;
@@ -952,7 +952,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55030;
+				CURRENT_PROJECT_VERSION = 55030.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
@@ -997,7 +997,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 55030;
+				CURRENT_PROJECT_VERSION = 55030.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;

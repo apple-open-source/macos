@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #define CFRUNLOOP_NEW_API 1
 
 #include <TargetConditionals.h>
@@ -39,10 +40,6 @@ __BEGIN_DECLS
 #include <mach/mach.h>
 #include <IOKit/iokitmig.h>
 __END_DECLS
-
-#ifndef IOUSBLIBDEBUG
-    #define IOUSBLIBDEBUG		0
-#endif
 
 #if IOUSBLIBDEBUG
 	#define __STDC_FORMAT_MACROS 1
@@ -123,7 +120,11 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
 #endif
 	
 	DEBUGPRINT("IOUSBInterfaceClass[%p]::IOUSBInterfaceClass\n", this);
+#ifdef SUPPORTS_SS_USB
+    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV500;
+#else
     fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV300;
+#endif
     fUSBInterface.obj = this;
 }
 
@@ -196,7 +197,11 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID220)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID245)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID300)
-             || CFEqual(uuid, kIOUSBInterfaceInterfaceID) )
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID)
+#ifdef SUPPORTS_SS_USB
+			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID500)
+			 )
+#endif
     {
         *ppv = &fUSBInterface;
         addRef();
@@ -239,6 +244,7 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
 IOReturn 
 IOUSBInterfaceClass::probe(CFDictionaryRef propertyTable, io_service_t inService, SInt32 *order)
 {
+#pragma unused (propertyTable, order)
     DEBUGPRINT("IOUSBInterfaceClass[%p]::probe\n", this);
     if (!inService || !IOObjectConformsTo(inService, "IOUSBInterface"))
         return kIOReturnBadArgument;
@@ -252,6 +258,7 @@ IOUSBInterfaceClass::probe(CFDictionaryRef propertyTable, io_service_t inService
 IOReturn 
 IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
 {
+#pragma unused (propertyTable)
     IOReturn			res;
     uint64_t			output[1];
     uint32_t			len = 1;
@@ -1501,6 +1508,71 @@ IOUSBInterfaceClass::GetPipeProperties(UInt8 pipeRef, UInt8 *direction, UInt8 *n
 }
 
 
+#ifdef SUPPORTS_SS_USB
+IOReturn 
+IOUSBInterfaceClass::GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 *number, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval)
+{
+    uint64_t			output[8];
+    uint64_t			input[1];
+    uint32_t			outLen = 8;
+    IOReturn			ret = kIOReturnSuccess;
+    
+    DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetPipePropertiesV2\n", this);
+	
+    ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	
+	output[0] = 0;
+	output[1] = 0;
+	output[2] = 0;
+	output[3] = 0;
+	output[4] = 0;
+	output[5] = 0;
+	output[6] = 0;
+	output[7] = 0;
+	
+	ret = IOConnectCallScalarMethod( fConnection, kUSBInterfaceUserClientGetPipePropertiesV2,  input, 1, output, &outLen);
+    if (ret == kIOReturnSuccess)
+    {
+		*direction			= (UInt8) output[0];
+		*number				= (UInt8) output[1];
+		*transferType		= (UInt8) output[2];
+		*maxPacketSize		= (UInt16) output[3];
+		*interval			= (UInt8) output[4];
+		*maxBurst			= (UInt8) output[5];
+		*mult				= (UInt8) output[6];
+		*bytesPerInterval	= (UInt16) output[7];
+    }
+	else
+	{
+		*direction			= 0;
+		*number				= 0;
+		*transferType		= 0;
+		*maxPacketSize		= 0;
+		*interval			= 0;
+		*maxBurst			= 0;
+		*mult				= 0;
+		*bytesPerInterval	= 0;
+	}
+	
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	if ( ret != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBInterfaceClass[%p]::GetPipePropertiesV2 returning 0x%x\n", this, ret);
+	}
+	
+    DEBUGPRINT("-IOUSBInterfaceClass[%p]::GetPipePropertiesV2 err = 0x%x, pipeRef: %d, direction %d, number: %d, transferType: %d, mps: 0x%x, interval: %d, maxBurst: %d, mult: %d, bytesPerInterval: %d\n",
+			   this, ret, pipeRef, *direction, *number, *transferType, *maxPacketSize, *interval, *maxBurst, *mult, *bytesPerInterval);
+    return ret;
+}
+#endif
+
 IOReturn
 IOUSBInterfaceClass::GetPipeStatus(UInt8 pipeRef)
 {
@@ -2601,7 +2673,8 @@ IOUSBInterfaceClass::FindNextAssociatedDescriptor(const void * currentDescriptor
 IOUSBDescriptorHeader *
 IOUSBInterfaceClass::FindNextAltInterface(const void * currentDescriptor, IOUSBFindInterfaceRequest *request)
 {
-    return NULL;
+#pragma unused (currentDescriptor, request)
+   return NULL;
 }
 
 
@@ -2620,8 +2693,13 @@ IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBInterfaceStruct300 
-IOUSBInterfaceClass::sUSBInterfaceInterfaceV300 = {
+#ifdef SUPPORTS_SS_USB
+IOUSBInterfaceStruct500 
+IOUSBInterfaceClass::sUSBInterfaceInterfaceV500 = {
+#else
+	IOUSBInterfaceStruct300 
+	IOUSBInterfaceClass::sUSBInterfaceInterfaceV300 = {
+#endif
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -2687,7 +2765,11 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV300 = {
     &IOUSBInterfaceClass::interfaceFindNextAssociatedDescriptor,
     &IOUSBInterfaceClass::interfaceFindNextAltInterface,
     // ---------- new with 3.0.0
-    &IOUSBInterfaceClass::interfaceGetBusFrameNumberWithTime
+    &IOUSBInterfaceClass::interfaceGetBusFrameNumberWithTime,
+#ifdef SUPPORTS_SS_USB
+    // ---------- new with 5.0.0
+    &IOUSBInterfaceClass::interfaceGetPipePropertiesV2
+#endif
 };
 
 
@@ -2960,4 +3042,13 @@ IOUSBInterfaceClass::interfaceFindNextAltInterface( void *self, const void *curr
 IOReturn
 IOUSBInterfaceClass::interfaceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime)
     { return getThis(self)->GetBusFrameNumberWithTime(frame, atTime); }
+#ifdef SUPPORTS_SS_USB
+//--------------- added in 5.0.0
+IOReturn
+IOUSBInterfaceClass::interfaceGetPipePropertiesV2(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *address, UInt8 *attributes, 
+												UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval)
+{ return getThis(self)->GetPipePropertiesV2(pipeRef, direction, address, attributes, maxpacketSize, interval, maxBurst, mult, bytesPerInterval); }
+#endif
+
+
 

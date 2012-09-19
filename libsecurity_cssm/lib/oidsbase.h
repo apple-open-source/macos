@@ -388,6 +388,20 @@ representation is implied */
 #define APPLE_EXTENSION_AAI_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
 
 /*
+ *  Apple Apple ID Intermediate Marker (New subCA, no longer shared with push notification server cert issuer 
+ *
+ *  appleCertificateExtensionAppleIDIntermediate ::= 
+ *    { appleCertificateExtensionIntermediateMarker 7 }                                
+ *    { 1 2 840 113635 100 6 2 7 }
+ *
+ *  shared intermediate OID is APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID
+ *  Apple Apple ID Intermediate Marker
+ *  Same as APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 on iOS
+*/
+#define APPLE_EXTENSION_APPLEID_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 7
+#define APPLE_EXTENSION_APPLEID_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+
+/*
  * Marker for the AppleID Sharing Certificate
  * appleID OBJECT IDENTIFIER ::= 
  *		{ appleExtendedKeyUsage 7}

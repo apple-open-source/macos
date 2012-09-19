@@ -659,6 +659,12 @@ apu_has_ldapssl_client_init
 ldap_ssl_h
 lber_h
 ldap_h
+LDADD_crypto_nss
+apu_have_nss
+PKG_CONFIG
+apu_have_crypto
+LDADD_crypto_openssl
+apu_have_openssl
 EGREP
 GREP
 CPP
@@ -741,6 +747,9 @@ enable_option_checking
 enable_layout
 with_apr
 with_apr_iconv
+with_crypto
+with_openssl
+with_nss
 with_lber
 with_ldap_include
 with_ldap_lib
@@ -1384,8 +1393,8 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-layout=LAYOUT
-  --disable-util-dso      disable DSO build of modular components (dbd, dbm,
-                          ldap)
+  --disable-util-dso      disable DSO build of modular components (crypto,
+                          dbd, dbm, ldap)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1393,6 +1402,9 @@ Optional Packages:
   --with-apr=PATH         prefix for installed APR or the full path to
                              apr-config
   --with-apr-iconv=DIR    relative path to apr-iconv source
+  --with-crypto           enable crypto support
+  --with-openssl=DIR      specify location of OpenSSL
+  --with-nss=DIR          specify location of NSS
   --with-lber=library     lber library to use
   --with-ldap-include=path  path to ldap include files with trailing slash
   --with-ldap-lib=path    path to ldap lib file
@@ -1795,6 +1807,45 @@ $as_echo "$ac_res" >&6; }
   eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
 
 } # ac_fn_c_check_header_compile
+
+# ac_fn_c_check_decl LINENO SYMBOL VAR
+# ------------------------------------
+# Tests whether SYMBOL is declared, setting cache variable VAR accordingly.
+ac_fn_c_check_decl ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $2 is declared" >&5
+$as_echo_n "checking whether $2 is declared... " >&6; }
+if { as_var=$3; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+#ifndef $2
+  (void) $2;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  eval "$3=yes"
+else
+  eval "$3=no"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
+
+} # ac_fn_c_check_decl
 
 # ac_fn_c_check_func LINENO FUNC VAR
 # ----------------------------------
@@ -2237,6 +2288,14 @@ fi
 ac_config_guess="$SHELL $ac_aux_dir/config.guess"  # Please don't use this var.
 ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
 ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
+
+
+
+
+
+
+
+
 
 
 
@@ -4604,6 +4663,1942 @@ fi
 
 done
 
+
+
+  apu_have_crypto=0
+
+  old_libs="$LIBS"
+  old_cppflags="$CPPFLAGS"
+  old_ldflags="$LDFLAGS"
+
+
+# Check whether --with-crypto was given.
+if test "${with_crypto+set}" = set; then :
+  withval=$with_crypto;
+    if test "$withval" = "yes"; then
+
+  apu_have_openssl=0
+  openssl_have_headers=0
+  openssl_have_libs=0
+
+  old_libs="$LIBS"
+  old_cppflags="$CPPFLAGS"
+  old_ldflags="$LDFLAGS"
+
+
+# Check whether --with-openssl was given.
+if test "${with_openssl+set}" = set; then :
+  withval=$with_openssl;
+    if test "$withval" = "yes"; then
+      for ac_header in openssl/x509.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/x509.h" "ac_cv_header_openssl_x509_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_x509_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_X509_H 1
+_ACEOF
+ openssl_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for BN_init in -lcrypto" >&5
+$as_echo_n "checking for BN_init in -lcrypto... " >&6; }
+if test "${ac_cv_lib_crypto_BN_init+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char BN_init ();
+int
+main ()
+{
+return BN_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_crypto_BN_init=yes
+else
+  ac_cv_lib_crypto_BN_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_BN_init" >&5
+$as_echo "$ac_cv_lib_crypto_BN_init" >&6; }
+if test "x$ac_cv_lib_crypto_BN_init" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_accept in -lssl" >&5
+$as_echo_n "checking for SSL_accept in -lssl... " >&6; }
+if test "${ac_cv_lib_ssl_SSL_accept+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl -lcrypto $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SSL_accept ();
+int
+main ()
+{
+return SSL_accept ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ssl_SSL_accept=yes
+else
+  ac_cv_lib_ssl_SSL_accept=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_accept" >&5
+$as_echo "$ac_cv_lib_ssl_SSL_accept" >&6; }
+if test "x$ac_cv_lib_ssl_SSL_accept" = x""yes; then :
+  openssl_have_libs=1
+fi
+
+fi
+
+      if test "$openssl_have_headers" != "0" && test "$openssl_have_libs" != "0"; then
+        apu_have_openssl=1
+      fi
+    elif test "$withval" = "no"; then
+      apu_have_openssl=0
+    else
+
+      openssl_CPPFLAGS="-I$withval/include"
+      openssl_LDFLAGS="-L$withval/lib "
+
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$openssl_CPPFLAGS\""
+    CPPFLAGS="$openssl_CPPFLAGS"
+  else
+    apr_addto_bugger="$openssl_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$openssl_LDFLAGS\""
+    LDFLAGS="$openssl_LDFLAGS"
+  else
+    apr_addto_bugger="$openssl_LDFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for openssl in $withval" >&5
+$as_echo "$as_me: checking for openssl in $withval" >&6;}
+      for ac_header in openssl/x509.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/x509.h" "ac_cv_header_openssl_x509_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_x509_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_X509_H 1
+_ACEOF
+ openssl_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for BN_init in -lcrypto" >&5
+$as_echo_n "checking for BN_init in -lcrypto... " >&6; }
+if test "${ac_cv_lib_crypto_BN_init+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char BN_init ();
+int
+main ()
+{
+return BN_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_crypto_BN_init=yes
+else
+  ac_cv_lib_crypto_BN_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_BN_init" >&5
+$as_echo "$ac_cv_lib_crypto_BN_init" >&6; }
+if test "x$ac_cv_lib_crypto_BN_init" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_accept in -lssl" >&5
+$as_echo_n "checking for SSL_accept in -lssl... " >&6; }
+if test "${ac_cv_lib_ssl_SSL_accept+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl -lcrypto $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SSL_accept ();
+int
+main ()
+{
+return SSL_accept ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ssl_SSL_accept=yes
+else
+  ac_cv_lib_ssl_SSL_accept=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_accept" >&5
+$as_echo "$ac_cv_lib_ssl_SSL_accept" >&6; }
+if test "x$ac_cv_lib_ssl_SSL_accept" = x""yes; then :
+  openssl_have_libs=1
+fi
+
+fi
+
+      if test "$openssl_have_headers" != "0" && test "$openssl_have_libs" != "0"; then
+        apu_have_openssl=1
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$withval/lib\""
+    APRUTIL_LDFLAGS="-L$withval/lib"
+  else
+    apr_addto_bugger="-L$withval/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$withval/include\""
+    APRUTIL_INCLUDES="-I$withval/include"
+  else
+    apr_addto_bugger="-I$withval/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+      fi
+
+      if test "$apu_have_openssl" != "1"; then
+        for ac_header in openssl/x509.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/x509.h" "ac_cv_header_openssl_x509_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_x509_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_X509_H 1
+_ACEOF
+ openssl_have_headers=1
+fi
+
+done
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for BN_init in -lcrypto" >&5
+$as_echo_n "checking for BN_init in -lcrypto... " >&6; }
+if test "${ac_cv_lib_crypto_BN_init+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char BN_init ();
+int
+main ()
+{
+return BN_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_crypto_BN_init=yes
+else
+  ac_cv_lib_crypto_BN_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_BN_init" >&5
+$as_echo "$ac_cv_lib_crypto_BN_init" >&6; }
+if test "x$ac_cv_lib_crypto_BN_init" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_accept in -lssl" >&5
+$as_echo_n "checking for SSL_accept in -lssl... " >&6; }
+if test "${ac_cv_lib_ssl_SSL_accept+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl -lcrypto $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SSL_accept ();
+int
+main ()
+{
+return SSL_accept ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ssl_SSL_accept=yes
+else
+  ac_cv_lib_ssl_SSL_accept=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_accept" >&5
+$as_echo "$ac_cv_lib_ssl_SSL_accept" >&6; }
+if test "x$ac_cv_lib_ssl_SSL_accept" = x""yes; then :
+  openssl_have_libs=1
+fi
+
+fi
+
+        if test "$openssl_have_headers" != "0" && test "$openssl_have_libs" != "0"; then
+          apu_have_openssl=1
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$withval/lib\""
+    APRUTIL_LDFLAGS="-L$withval/lib"
+  else
+    apr_addto_bugger="-L$withval/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$withval/include\""
+    APRUTIL_INCLUDES="-I$withval/include"
+  else
+    apr_addto_bugger="-I$withval/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+        fi
+      fi
+
+      ac_fn_c_check_decl "$LINENO" "EVP_PKEY_CTX_new" "ac_cv_have_decl_EVP_PKEY_CTX_new" "#include <openssl/evp.h>
+"
+if test "x$ac_cv_have_decl_EVP_PKEY_CTX_new" = x""yes; then :
+  ac_have_decl=1
+else
+  ac_have_decl=0
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_EVP_PKEY_CTX_NEW $ac_have_decl
+_ACEOF
+
+
+    fi
+
+else
+
+    apu_have_openssl=0
+
+fi
+
+
+
+
+      if test "$apu_have_openssl" = "1"; then
+    LDADD_crypto_openssl="$openssl_LDFLAGS -lssl -lcrypto"
+    apu_have_crypto=1
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for const input buffers in OpenSSL" >&5
+$as_echo_n "checking for const input buffers in OpenSSL... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <openssl/rsa.h>
+int
+main ()
+{
+ const unsigned char * buf;
+          unsigned char * outbuf;
+          RSA rsa;
+
+                RSA_private_decrypt(1,
+                                                        buf,
+                                                        outbuf,
+                                                        &rsa,
+                                                        RSA_PKCS1_PADDING);
+
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define CRYPTO_OPENSSL_CONST_BUFFERS 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+  fi
+
+
+
+  LIBS="$old_libs"
+  CPPFLAGS="$old_cppflags"
+  LDFLAGS="$old_ldflags"
+
+
+  apu_have_nss=0
+  nss_have_headers=0
+  nss_have_libs=0
+
+  old_libs="$LIBS"
+  old_cppflags="$CPPFLAGS"
+  old_ldflags="$LDFLAGS"
+
+
+# Check whether --with-nss was given.
+if test "${with_nss+set}" = set; then :
+  withval=$with_nss;
+
+    if test "$withval" = "yes"; then
+      if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_PKG_CONFIG+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_path_PKG_CONFIG"; then
+  ac_pt_PKG_CONFIG=$PKG_CONFIG
+  # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_ac_pt_PKG_CONFIG+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $ac_pt_PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_ac_pt_PKG_CONFIG="$ac_pt_PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_ac_pt_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+ac_pt_PKG_CONFIG=$ac_cv_path_ac_pt_PKG_CONFIG
+if test -n "$ac_pt_PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_pt_PKG_CONFIG" >&5
+$as_echo "$ac_pt_PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+  if test "x$ac_pt_PKG_CONFIG" = x; then
+    PKG_CONFIG=""
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    PKG_CONFIG=$ac_pt_PKG_CONFIG
+  fi
+else
+  PKG_CONFIG="$ac_cv_path_PKG_CONFIG"
+fi
+
+      if test -n "$PKG_CONFIG"; then
+        nss_CPPFLAGS=`$PKG_CONFIG --cflags-only-I nss`
+        nss_LDFLAGS=`$PKG_CONFIG --libs nss`
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$nss_CPPFLAGS\""
+    CPPFLAGS="$nss_CPPFLAGS"
+  else
+    apr_addto_bugger="$nss_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$nss_LDFLAGS\""
+    LDFLAGS="$nss_LDFLAGS"
+  else
+    apr_addto_bugger="$nss_LDFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+      for ac_header in prerror.h nss/nss.h nss.h nss/pk11pub.h pk11pub.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+eval as_val=\$$as_ac_Header
+   if test "x$as_val" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+ nss_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PR_Initialize in -lnspr4" >&5
+$as_echo_n "checking for PR_Initialize in -lnspr4... " >&6; }
+if test "${ac_cv_lib_nspr4_PR_Initialize+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnspr4  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PR_Initialize ();
+int
+main ()
+{
+return PR_Initialize ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nspr4_PR_Initialize=yes
+else
+  ac_cv_lib_nspr4_PR_Initialize=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nspr4_PR_Initialize" >&5
+$as_echo "$ac_cv_lib_nspr4_PR_Initialize" >&6; }
+if test "x$ac_cv_lib_nspr4_PR_Initialize" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PK11_CreatePBEV2AlgorithmID in -lnss3" >&5
+$as_echo_n "checking for PK11_CreatePBEV2AlgorithmID in -lnss3... " >&6; }
+if test "${ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnss3 -lnspr4 $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PK11_CreatePBEV2AlgorithmID ();
+int
+main ()
+{
+return PK11_CreatePBEV2AlgorithmID ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=yes
+else
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&5
+$as_echo "$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&6; }
+if test "x$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" = x""yes; then :
+  nss_have_libs=1
+fi
+
+fi
+
+      if test "$nss_have_headers" != "0" && test "$nss_have_libs" != "0"; then
+        apu_have_nss=1
+      fi
+    elif test "$withval" = "no"; then
+      apu_have_nss=0
+    elif test "x$withval" != "x"; then
+
+      nss_CPPFLAGS="-I$withval/include/nss -I$withval/include/nss3 -I$withval/include/nspr -I$withval/include/nspr4 -I$withval/include -I$withval/../public"
+      nss_LDFLAGS="-L$withval/lib "
+
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$nss_CPPFLAGS\""
+    CPPFLAGS="$nss_CPPFLAGS"
+  else
+    apr_addto_bugger="$nss_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$nss_LDFLAGS\""
+    LDFLAGS="$nss_LDFLAGS"
+  else
+    apr_addto_bugger="$nss_LDFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for nss in $withval" >&5
+$as_echo "$as_me: checking for nss in $withval" >&6;}
+      for ac_header in prerror.h nss/nss.h nss.h nss/pk11pub.h pk11pub.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+eval as_val=\$$as_ac_Header
+   if test "x$as_val" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+ nss_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PR_Initialize in -lnspr4" >&5
+$as_echo_n "checking for PR_Initialize in -lnspr4... " >&6; }
+if test "${ac_cv_lib_nspr4_PR_Initialize+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnspr4  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PR_Initialize ();
+int
+main ()
+{
+return PR_Initialize ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nspr4_PR_Initialize=yes
+else
+  ac_cv_lib_nspr4_PR_Initialize=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nspr4_PR_Initialize" >&5
+$as_echo "$ac_cv_lib_nspr4_PR_Initialize" >&6; }
+if test "x$ac_cv_lib_nspr4_PR_Initialize" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PK11_CreatePBEV2AlgorithmID in -lnss3" >&5
+$as_echo_n "checking for PK11_CreatePBEV2AlgorithmID in -lnss3... " >&6; }
+if test "${ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnss3 -lnspr4 $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PK11_CreatePBEV2AlgorithmID ();
+int
+main ()
+{
+return PK11_CreatePBEV2AlgorithmID ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=yes
+else
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&5
+$as_echo "$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&6; }
+if test "x$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" = x""yes; then :
+  nss_have_libs=1
+fi
+
+fi
+
+      if test "$nss_have_headers" != "0" && test "$nss_have_libs" != "0"; then
+        apu_have_nss=1
+      fi
+
+    fi
+    if test "$apu_have_nss" != "0"; then
+
+  if test "x$APRUTIL_PRIV_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_PRIV_INCLUDES to \"$nss_CPPFLAGS\""
+    APRUTIL_PRIV_INCLUDES="$nss_CPPFLAGS"
+  else
+    apr_addto_bugger="$nss_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_PRIV_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_PRIV_INCLUDES"
+        APRUTIL_PRIV_INCLUDES="$APRUTIL_PRIV_INCLUDES $i"
+      fi
+    done
+  fi
+
+    fi
+
+else
+
+    apu_have_nss=0
+
+fi
+
+
+
+
+      if test "$apu_have_nss" = "1"; then
+    LDADD_crypto_nss="$nss_LDFLAGS -lnspr4 -lnss3"
+    apu_have_crypto=1
+  fi
+
+
+
+  LIBS="$old_libs"
+  CPPFLAGS="$old_cppflags"
+  LDFLAGS="$old_ldflags"
+
+          fi
+
+else
+
+      apu_have_crypto=0
+
+fi
+
+
+
+
+
+
+  apu_have_openssl=0
+  openssl_have_headers=0
+  openssl_have_libs=0
+
+  old_libs="$LIBS"
+  old_cppflags="$CPPFLAGS"
+  old_ldflags="$LDFLAGS"
+
+
+# Check whether --with-openssl was given.
+if test "${with_openssl+set}" = set; then :
+  withval=$with_openssl;
+    if test "$withval" = "yes"; then
+      for ac_header in openssl/x509.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/x509.h" "ac_cv_header_openssl_x509_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_x509_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_X509_H 1
+_ACEOF
+ openssl_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for BN_init in -lcrypto" >&5
+$as_echo_n "checking for BN_init in -lcrypto... " >&6; }
+if test "${ac_cv_lib_crypto_BN_init+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char BN_init ();
+int
+main ()
+{
+return BN_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_crypto_BN_init=yes
+else
+  ac_cv_lib_crypto_BN_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_BN_init" >&5
+$as_echo "$ac_cv_lib_crypto_BN_init" >&6; }
+if test "x$ac_cv_lib_crypto_BN_init" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_accept in -lssl" >&5
+$as_echo_n "checking for SSL_accept in -lssl... " >&6; }
+if test "${ac_cv_lib_ssl_SSL_accept+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl -lcrypto $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SSL_accept ();
+int
+main ()
+{
+return SSL_accept ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ssl_SSL_accept=yes
+else
+  ac_cv_lib_ssl_SSL_accept=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_accept" >&5
+$as_echo "$ac_cv_lib_ssl_SSL_accept" >&6; }
+if test "x$ac_cv_lib_ssl_SSL_accept" = x""yes; then :
+  openssl_have_libs=1
+fi
+
+fi
+
+      if test "$openssl_have_headers" != "0" && test "$openssl_have_libs" != "0"; then
+        apu_have_openssl=1
+      fi
+    elif test "$withval" = "no"; then
+      apu_have_openssl=0
+    else
+
+      openssl_CPPFLAGS="-I$withval/include"
+      openssl_LDFLAGS="-L$withval/lib "
+
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$openssl_CPPFLAGS\""
+    CPPFLAGS="$openssl_CPPFLAGS"
+  else
+    apr_addto_bugger="$openssl_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$openssl_LDFLAGS\""
+    LDFLAGS="$openssl_LDFLAGS"
+  else
+    apr_addto_bugger="$openssl_LDFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for openssl in $withval" >&5
+$as_echo "$as_me: checking for openssl in $withval" >&6;}
+      for ac_header in openssl/x509.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/x509.h" "ac_cv_header_openssl_x509_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_x509_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_X509_H 1
+_ACEOF
+ openssl_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for BN_init in -lcrypto" >&5
+$as_echo_n "checking for BN_init in -lcrypto... " >&6; }
+if test "${ac_cv_lib_crypto_BN_init+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char BN_init ();
+int
+main ()
+{
+return BN_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_crypto_BN_init=yes
+else
+  ac_cv_lib_crypto_BN_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_BN_init" >&5
+$as_echo "$ac_cv_lib_crypto_BN_init" >&6; }
+if test "x$ac_cv_lib_crypto_BN_init" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_accept in -lssl" >&5
+$as_echo_n "checking for SSL_accept in -lssl... " >&6; }
+if test "${ac_cv_lib_ssl_SSL_accept+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl -lcrypto $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SSL_accept ();
+int
+main ()
+{
+return SSL_accept ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ssl_SSL_accept=yes
+else
+  ac_cv_lib_ssl_SSL_accept=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_accept" >&5
+$as_echo "$ac_cv_lib_ssl_SSL_accept" >&6; }
+if test "x$ac_cv_lib_ssl_SSL_accept" = x""yes; then :
+  openssl_have_libs=1
+fi
+
+fi
+
+      if test "$openssl_have_headers" != "0" && test "$openssl_have_libs" != "0"; then
+        apu_have_openssl=1
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$withval/lib\""
+    APRUTIL_LDFLAGS="-L$withval/lib"
+  else
+    apr_addto_bugger="-L$withval/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$withval/include\""
+    APRUTIL_INCLUDES="-I$withval/include"
+  else
+    apr_addto_bugger="-I$withval/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+      fi
+
+      if test "$apu_have_openssl" != "1"; then
+        for ac_header in openssl/x509.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "openssl/x509.h" "ac_cv_header_openssl_x509_h" "$ac_includes_default"
+if test "x$ac_cv_header_openssl_x509_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_X509_H 1
+_ACEOF
+ openssl_have_headers=1
+fi
+
+done
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for BN_init in -lcrypto" >&5
+$as_echo_n "checking for BN_init in -lcrypto... " >&6; }
+if test "${ac_cv_lib_crypto_BN_init+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char BN_init ();
+int
+main ()
+{
+return BN_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_crypto_BN_init=yes
+else
+  ac_cv_lib_crypto_BN_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_BN_init" >&5
+$as_echo "$ac_cv_lib_crypto_BN_init" >&6; }
+if test "x$ac_cv_lib_crypto_BN_init" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_accept in -lssl" >&5
+$as_echo_n "checking for SSL_accept in -lssl... " >&6; }
+if test "${ac_cv_lib_ssl_SSL_accept+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl -lcrypto $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SSL_accept ();
+int
+main ()
+{
+return SSL_accept ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ssl_SSL_accept=yes
+else
+  ac_cv_lib_ssl_SSL_accept=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_accept" >&5
+$as_echo "$ac_cv_lib_ssl_SSL_accept" >&6; }
+if test "x$ac_cv_lib_ssl_SSL_accept" = x""yes; then :
+  openssl_have_libs=1
+fi
+
+fi
+
+        if test "$openssl_have_headers" != "0" && test "$openssl_have_libs" != "0"; then
+          apu_have_openssl=1
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$withval/lib\""
+    APRUTIL_LDFLAGS="-L$withval/lib"
+  else
+    apr_addto_bugger="-L$withval/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$withval/include\""
+    APRUTIL_INCLUDES="-I$withval/include"
+  else
+    apr_addto_bugger="-I$withval/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+        fi
+      fi
+
+      ac_fn_c_check_decl "$LINENO" "EVP_PKEY_CTX_new" "ac_cv_have_decl_EVP_PKEY_CTX_new" "#include <openssl/evp.h>
+"
+if test "x$ac_cv_have_decl_EVP_PKEY_CTX_new" = x""yes; then :
+  ac_have_decl=1
+else
+  ac_have_decl=0
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_EVP_PKEY_CTX_NEW $ac_have_decl
+_ACEOF
+
+
+    fi
+
+else
+
+    apu_have_openssl=0
+
+fi
+
+
+
+
+      if test "$apu_have_openssl" = "1"; then
+    LDADD_crypto_openssl="$openssl_LDFLAGS -lssl -lcrypto"
+    apu_have_crypto=1
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for const input buffers in OpenSSL" >&5
+$as_echo_n "checking for const input buffers in OpenSSL... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <openssl/rsa.h>
+int
+main ()
+{
+ const unsigned char * buf;
+          unsigned char * outbuf;
+          RSA rsa;
+
+                RSA_private_decrypt(1,
+                                                        buf,
+                                                        outbuf,
+                                                        &rsa,
+                                                        RSA_PKCS1_PADDING);
+
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define CRYPTO_OPENSSL_CONST_BUFFERS 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+  fi
+
+
+
+  LIBS="$old_libs"
+  CPPFLAGS="$old_cppflags"
+  LDFLAGS="$old_ldflags"
+
+
+  apu_have_nss=0
+  nss_have_headers=0
+  nss_have_libs=0
+
+  old_libs="$LIBS"
+  old_cppflags="$CPPFLAGS"
+  old_ldflags="$LDFLAGS"
+
+
+# Check whether --with-nss was given.
+if test "${with_nss+set}" = set; then :
+  withval=$with_nss;
+
+    if test "$withval" = "yes"; then
+      if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_PKG_CONFIG+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_path_PKG_CONFIG"; then
+  ac_pt_PKG_CONFIG=$PKG_CONFIG
+  # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_ac_pt_PKG_CONFIG+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $ac_pt_PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_ac_pt_PKG_CONFIG="$ac_pt_PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_ac_pt_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+ac_pt_PKG_CONFIG=$ac_cv_path_ac_pt_PKG_CONFIG
+if test -n "$ac_pt_PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_pt_PKG_CONFIG" >&5
+$as_echo "$ac_pt_PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+  if test "x$ac_pt_PKG_CONFIG" = x; then
+    PKG_CONFIG=""
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    PKG_CONFIG=$ac_pt_PKG_CONFIG
+  fi
+else
+  PKG_CONFIG="$ac_cv_path_PKG_CONFIG"
+fi
+
+      if test -n "$PKG_CONFIG"; then
+        nss_CPPFLAGS=`$PKG_CONFIG --cflags-only-I nss`
+        nss_LDFLAGS=`$PKG_CONFIG --libs nss`
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$nss_CPPFLAGS\""
+    CPPFLAGS="$nss_CPPFLAGS"
+  else
+    apr_addto_bugger="$nss_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$nss_LDFLAGS\""
+    LDFLAGS="$nss_LDFLAGS"
+  else
+    apr_addto_bugger="$nss_LDFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+      for ac_header in prerror.h nss/nss.h nss.h nss/pk11pub.h pk11pub.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+eval as_val=\$$as_ac_Header
+   if test "x$as_val" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+ nss_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PR_Initialize in -lnspr4" >&5
+$as_echo_n "checking for PR_Initialize in -lnspr4... " >&6; }
+if test "${ac_cv_lib_nspr4_PR_Initialize+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnspr4  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PR_Initialize ();
+int
+main ()
+{
+return PR_Initialize ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nspr4_PR_Initialize=yes
+else
+  ac_cv_lib_nspr4_PR_Initialize=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nspr4_PR_Initialize" >&5
+$as_echo "$ac_cv_lib_nspr4_PR_Initialize" >&6; }
+if test "x$ac_cv_lib_nspr4_PR_Initialize" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PK11_CreatePBEV2AlgorithmID in -lnss3" >&5
+$as_echo_n "checking for PK11_CreatePBEV2AlgorithmID in -lnss3... " >&6; }
+if test "${ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnss3 -lnspr4 $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PK11_CreatePBEV2AlgorithmID ();
+int
+main ()
+{
+return PK11_CreatePBEV2AlgorithmID ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=yes
+else
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&5
+$as_echo "$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&6; }
+if test "x$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" = x""yes; then :
+  nss_have_libs=1
+fi
+
+fi
+
+      if test "$nss_have_headers" != "0" && test "$nss_have_libs" != "0"; then
+        apu_have_nss=1
+      fi
+    elif test "$withval" = "no"; then
+      apu_have_nss=0
+    elif test "x$withval" != "x"; then
+
+      nss_CPPFLAGS="-I$withval/include/nss -I$withval/include/nss3 -I$withval/include/nspr -I$withval/include/nspr4 -I$withval/include -I$withval/../public"
+      nss_LDFLAGS="-L$withval/lib "
+
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$nss_CPPFLAGS\""
+    CPPFLAGS="$nss_CPPFLAGS"
+  else
+    apr_addto_bugger="$nss_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$nss_LDFLAGS\""
+    LDFLAGS="$nss_LDFLAGS"
+  else
+    apr_addto_bugger="$nss_LDFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for nss in $withval" >&5
+$as_echo "$as_me: checking for nss in $withval" >&6;}
+      for ac_header in prerror.h nss/nss.h nss.h nss/pk11pub.h pk11pub.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+eval as_val=\$$as_ac_Header
+   if test "x$as_val" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+ nss_have_headers=1
+fi
+
+done
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PR_Initialize in -lnspr4" >&5
+$as_echo_n "checking for PR_Initialize in -lnspr4... " >&6; }
+if test "${ac_cv_lib_nspr4_PR_Initialize+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnspr4  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PR_Initialize ();
+int
+main ()
+{
+return PR_Initialize ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nspr4_PR_Initialize=yes
+else
+  ac_cv_lib_nspr4_PR_Initialize=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nspr4_PR_Initialize" >&5
+$as_echo "$ac_cv_lib_nspr4_PR_Initialize" >&6; }
+if test "x$ac_cv_lib_nspr4_PR_Initialize" = x""yes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PK11_CreatePBEV2AlgorithmID in -lnss3" >&5
+$as_echo_n "checking for PK11_CreatePBEV2AlgorithmID in -lnss3... " >&6; }
+if test "${ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lnss3 -lnspr4 $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char PK11_CreatePBEV2AlgorithmID ();
+int
+main ()
+{
+return PK11_CreatePBEV2AlgorithmID ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=yes
+else
+  ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&5
+$as_echo "$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" >&6; }
+if test "x$ac_cv_lib_nss3_PK11_CreatePBEV2AlgorithmID" = x""yes; then :
+  nss_have_libs=1
+fi
+
+fi
+
+      if test "$nss_have_headers" != "0" && test "$nss_have_libs" != "0"; then
+        apu_have_nss=1
+      fi
+
+    fi
+    if test "$apu_have_nss" != "0"; then
+
+  if test "x$APRUTIL_PRIV_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_PRIV_INCLUDES to \"$nss_CPPFLAGS\""
+    APRUTIL_PRIV_INCLUDES="$nss_CPPFLAGS"
+  else
+    apr_addto_bugger="$nss_CPPFLAGS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_PRIV_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_PRIV_INCLUDES"
+        APRUTIL_PRIV_INCLUDES="$APRUTIL_PRIV_INCLUDES $i"
+      fi
+    done
+  fi
+
+    fi
+
+else
+
+    apu_have_nss=0
+
+fi
+
+
+
+
+      if test "$apu_have_nss" = "1"; then
+    LDADD_crypto_nss="$nss_LDFLAGS -lnspr4 -lnss3"
+    apu_have_crypto=1
+  fi
+
+
+
+  LIBS="$old_libs"
+  CPPFLAGS="$old_cppflags"
+  LDFLAGS="$old_ldflags"
 
 
 
@@ -10386,9 +12381,7 @@ else
 
   int main(int argc, const char *const *argv) {
 
-    int tmp = ldap_set_rebind_proc((LDAP *)0, (LDAP_REBIND_PROC *)0, (void *)0);
-    /* use tmp to suppress the warning */
-    tmp=0;
+    ldap_set_rebind_proc((LDAP *)0, (LDAP_REBIND_PROC *)0, (void *)0);
 
      return 0; }
 _ACEOF
@@ -34349,6 +36342,8 @@ $as_echo "$apu_cv_aprdso" >&6; }
 
      # Statically link the drivers:
      objs=
+     test $apu_have_openssl = 1 && objs="$objs crypto/apr_crypto_openssl.lo"
+     test $apu_have_nss = 1 && objs="$objs crypto/apr_crypto_nss.lo"
      test $apu_have_oracle = 1 && objs="$objs dbd/apr_dbd_oracle.lo"
      test $apu_have_pgsql = 1 && objs="$objs dbd/apr_dbd_pgsql.lo"
      test $apu_have_mysql = 1 && objs="$objs dbd/apr_dbd_mysql.lo"
@@ -34378,9 +36373,11 @@ $as_echo "$apu_cv_aprdso" >&6; }
        done
      fi
 
+     APRUTIL_LIBS="$APRUTIL_LIBS $LDADD_crypto_openssl $LDADD_crypto_nss"
      APRUTIL_LIBS="$APRUTIL_LIBS $LDADD_dbd_pgsql $LDADD_dbd_sqlite2 $LDADD_dbd_sqlite3 $LDADD_dbd_oracle $LDADD_dbd_mysql $LDADD_dbd_freetds $LDADD_dbd_odbc"
      APRUTIL_LIBS="$APRUTIL_LIBS $LDADD_dbm_db $LDADD_dbm_gdbm $LDADD_dbm_ndbm"
      APRUTIL_LIBS="$APRUTIL_LIBS $LDADD_ldap"
+     APRUTIL_EXPORT_LIBS="$APRUTIL_EXPORT_LIBS $LDADD_crypto_openssl $LDADD_crypto_nss"
      APRUTIL_EXPORT_LIBS="$APRUTIL_EXPORT_LIBS $LDADD_dbd_pgsql $LDADD_dbd_sqlite2 $LDADD_dbd_sqlite3 $LDADD_dbd_oracle $LDADD_dbd_mysql $LDADD_dbd_freetds $LDADD_dbd_odbc"
      APRUTIL_EXPORT_LIBS="$APRUTIL_EXPORT_LIBS $LDADD_dbm_db $LDADD_dbm_gdbm $LDADD_dbm_ndbm"
      APRUTIL_EXPORT_LIBS="$APRUTIL_EXPORT_LIBS $LDADD_ldap"
@@ -34389,6 +36386,8 @@ $as_echo "$apu_cv_aprdso" >&6; }
 
      # Build the drivers as loadable modules:
      dsos=
+     test $apu_have_openssl = 1 && dsos="$dsos crypto/apr_crypto_openssl.la"
+     test $apu_have_nss = 1 && dsos="$dsos crypto/apr_crypto_nss.la"
      test $apu_have_oracle = 1 && dsos="$dsos dbd/apr_dbd_oracle.la"
      test $apu_have_pgsql = 1 && dsos="$dsos dbd/apr_dbd_pgsql.la"
      test $apu_have_mysql = 1 && dsos="$dsos dbd/apr_dbd_mysql.la"

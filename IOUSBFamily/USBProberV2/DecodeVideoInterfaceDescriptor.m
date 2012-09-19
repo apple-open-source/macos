@@ -22,7 +22,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #import "DecodeVideoInterfaceDescriptor.h"
 
 
@@ -56,6 +55,9 @@
     auto IOUSBVDC_UncompressedDiscreteFrameDescriptor * pUncompressedDiscreteFrameDesc = NULL;
 	auto IOUSBVDC_StillImageFrameDescriptor * pVSStillImageFrameDesc = NULL;
 	auto IOUSBVDC_DVFormatDescriptor * pDVFormatDesc = NULL;
+	auto IOUSBVDC_FrameBasedFormatDescriptor * pFrameBasedFormatDesc = NULL;
+	auto IOUSBVDC_FrameBasedFrameDescriptor * pFrameBasedFrameDesc = NULL;
+	auto IOUSBVDC_DiscreteFrameBasedFrameDescriptor *	pFrameBasedDiscreteFrameDesc = NULL;
 	
     UInt16					i, j;
     UInt8					*p;
@@ -176,6 +178,15 @@
             case VS_FRAME_VENDOR:
                 sprintf((char *)buf, "VDC (Streaming) Vendor-specific Frame Descriptor");
                 break;
+            case VS_FORMAT_FRAME_BASED:
+                sprintf((char *)buf, "VDC (Streaming) Frame-Based Format Descriptor");
+                break;
+            case VS_FRAME_FRAME_BASED:
+                sprintf((char *)buf, "VDC (Streaming) Frame-Based Frame Descriptor");
+                break;
+            case VS_FORMAT_STREAM_BASED:
+                sprintf((char *)buf, "VDC (Streaming) Stream-Based Frame Descriptor");
+                break;
             default:
                 sprintf((char *)buf, "Unknown SC_VIDEOSTREAMING SubType Descriptor");
         }
@@ -210,12 +221,12 @@
                 {
                     sprintf((char *)buf, "%1x%1x.%1x%1c", (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, MapNumberToVersion((i>>0)&0x000f));
                 }
-					else
-					{
-						sprintf((char *)buf, "%1x%1x.%1x%1c", (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, (i>>0)&0x000f);
-					}
-                    
-					[thisDevice addProperty:"Specification Version Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				else
+				{
+					sprintf((char *)buf, "%1x%1x.%1x%1c", (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, (i>>0)&0x000f);
+				}
+				
+				[thisDevice addProperty:"Specification Version Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 sprintf((char *)buf, "%u", Swap16(&pVideoControlHeader->wTotalLength) );
 				
@@ -232,7 +243,7 @@
                     sprintf((char *)buf, "%u", *p );
                     [thisDevice addProperty:"Video Interface Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-					break;
+				break;
 				
             case VC_INPUT_TERMINAL:
                 pVideoInTermDesc = (IOUSBVCInputTerminalDescriptor *)desc;
@@ -241,16 +252,16 @@
                 [thisDevice addProperty:"Terminal ID" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 switch ( Swap16(&pVideoInTermDesc->wTerminalType) )
-                {
-                    case TT_VENDOR_SPECIFIC: 	s="USB vendor specific"; break;
-                    case TT_STREAMING: 		s="USB streaming"; break;
-                    case ITT_VENDOR_SPECIFIC: 	s="Vendor Specific Input Terminal"; break;
-                    case ITT_CAMERA: 		s="Camera Sensor"; break;
-                    case ITT_MEDIA_TRANSPORT_UNIT: 	s="Sequential Media"; break;
-                    default: 				s="Invalid Input Terminal Type";
-                }
-					
-					sprintf((char *)buf, 	"0x%x (%s)", pVideoInTermDesc->wTerminalType, s );
+			{
+				case TT_VENDOR_SPECIFIC: 	s="USB vendor specific"; break;
+				case TT_STREAMING: 		s="USB streaming"; break;
+				case ITT_VENDOR_SPECIFIC: 	s="Vendor Specific Input Terminal"; break;
+				case ITT_CAMERA: 		s="Camera Sensor"; break;
+				case ITT_MEDIA_TRANSPORT_UNIT: 	s="Sequential Media"; break;
+				default: 				s="Invalid Input Terminal Type";
+			}
+				
+				sprintf((char *)buf, 	"0x%x (%s)", pVideoInTermDesc->wTerminalType, s );
                 [thisDevice addProperty:"Input Terminal Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 if ( !pVideoInTermDesc->bAssocTerminal )
@@ -266,136 +277,136 @@
                     sprintf((char *)buf, "%u [NONE]", pVideoInTermDesc->iTerminal );
                     [thisDevice addProperty:"Input Terminal String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-                    else
-                    {
-                        [thisDevice addStringProperty:"Input Terminal String:" fromStringIndex: (UInt8)pVideoInTermDesc->iTerminal fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
-                    }
-                    
-					if ( ITT_CAMERA == pVideoInTermDesc->wTerminalType )
+				else
+				{
+					[thisDevice addStringProperty:"Input Terminal String:" fromStringIndex: (UInt8)pVideoInTermDesc->iTerminal fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
+				}
+				
+				if ( ITT_CAMERA == pVideoInTermDesc->wTerminalType )
+				{
+					pCameraTermDesc = (IOUSBVCCameraTerminalDescriptor *)desc;
+					
+					sprintf((char *)buf, "%u", Swap16(&pCameraTermDesc->wObjectiveFocalLengthMin) );
+					[thisDevice addProperty:"Minimum Focal Length" withValue:buf atDepth:INTERFACE_LEVEL+1];
+					
+					sprintf((char *)buf, "%u", Swap16(&pCameraTermDesc->wObjectiveFocalLengthMax) );
+					[thisDevice addProperty:"Maximum Focal Length" withValue:buf atDepth:INTERFACE_LEVEL+1];
+					
+					sprintf((char *)buf, "%u", Swap16(&pCameraTermDesc->wOcularFocalLength) );
+					[thisDevice addProperty:"Ocular Focal Length" withValue:buf atDepth:INTERFACE_LEVEL+1];
+					
+					if ( pCameraTermDesc->bControlSize != 0 )
 					{
-						pCameraTermDesc = (IOUSBVCCameraTerminalDescriptor *)desc;
-						
-						sprintf((char *)buf, "%u", Swap16(&pCameraTermDesc->wObjectiveFocalLengthMin) );
-						[thisDevice addProperty:"Minimum Focal Length" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						
-						sprintf((char *)buf, "%u", Swap16(&pCameraTermDesc->wObjectiveFocalLengthMax) );
-						[thisDevice addProperty:"Maximum Focal Length" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						
-						sprintf((char *)buf, "%u", Swap16(&pCameraTermDesc->wOcularFocalLength) );
-						[thisDevice addProperty:"Ocular Focal Length" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						
-						if ( pCameraTermDesc->bControlSize != 0 )
-						{
-							sprintf((char *)buf, "Description");
-							[thisDevice addProperty:"Controls Supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						}
-						
-						strcpy((char *)buf, "");
-						
-						/*
-						 // Need to swap the following bmControls field
-						 //
-						 switch ( pCameraTermDesc->bControlSize)
-						 {
-							 case 1: break;
-							 case 2: Swap16(&pCameraTermDesc->bmControls); break;
-								 //case 3: Swap24(&pCameraTermDesc->bmControls); break;
-							 case 3:  break;
-							 case 4: Swap32(&pCameraTermDesc->bmControls); break;
-						 }
-						 */
-						
-						for (i = 0, p = &pCameraTermDesc->bmControls[0]; i < pCameraTermDesc->bControlSize; i++, p++ )
-						{
-							// For 1.0, only 19 bits are defined....
-							// p is pointing to the first byte of a little endian field.
-							//
-							// i = 0, p -> D0-D7
-							// i = 1, p -> D8-D15
-							// i = 2, p -> D16-D23
-							// i = 4, p -> D24-D31
-							//
-							if ( i > 2 )
-							{
-								sprintf((char *)buf, "Unknown");
-								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 0) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Scanning Mode");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Iris (Relative)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Reserved");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 1) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Auto Exposure Mode");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Zoom (Absolute)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Focus, Auto");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 2) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Auto Exposure Priority");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Zoom (Relative)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Privacy");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 3) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Exposure Time (Absolute)");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Pan (Absolute)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Reserved");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 4) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Exposure Time (Relative)");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Pan (Relative)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 5) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Focus (Absolute)");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Roll (Absolute)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 6) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Focus (Relative)");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Roll (Relative)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-							if ( (*p) & (1 << 7) )
-							{
-								if ( i == 0 ) 	sprintf((char *)buf, "Iris (Absolute)");
-								else if ( i == 1 ) 	sprintf((char *)buf, "Tilt (Absolute)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
-								if ( strcmp(buf,"") )
-									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
-							}
-							
-						}
+						sprintf((char *)buf, "Description");
+						[thisDevice addProperty:"Controls Supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
 					}
-					break;
+					
+					strcpy((char *)buf, "");
+					
+					/*
+					 // Need to swap the following bmControls field
+					 //
+					 switch ( pCameraTermDesc->bControlSize)
+					 {
+					 case 1: break;
+					 case 2: Swap16(&pCameraTermDesc->bmControls); break;
+					 //case 3: Swap24(&pCameraTermDesc->bmControls); break;
+					 case 3:  break;
+					 case 4: Swap32(&pCameraTermDesc->bmControls); break;
+					 }
+					 */
+					
+					for (i = 0, p = &pCameraTermDesc->bmControls[0]; i < pCameraTermDesc->bControlSize; i++, p++ )
+					{
+						// For 1.0, only 19 bits are defined....
+						// p is pointing to the first byte of a little endian field.
+						//
+						// i = 0, p -> D0-D7
+						// i = 1, p -> D8-D15
+						// i = 2, p -> D16-D23
+						// i = 4, p -> D24-D31
+						//
+						if ( i > 2 )
+						{
+							sprintf((char *)buf, "Unknown");
+							[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 0) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Scanning Mode");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Iris (Relative)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Reserved");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 1) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Auto Exposure Mode");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Zoom (Absolute)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Focus, Auto");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 2) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Auto Exposure Priority");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Zoom (Relative)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Privacy");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 3) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Exposure Time (Absolute)");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Pan (Absolute)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Reserved");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 4) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Exposure Time (Relative)");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Pan (Relative)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 5) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Focus (Absolute)");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Roll (Absolute)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 6) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Focus (Relative)");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Roll (Relative)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+						if ( (*p) & (1 << 7) )
+						{
+							if ( i == 0 ) 	sprintf((char *)buf, "Iris (Absolute)");
+							else if ( i == 1 ) 	sprintf((char *)buf, "Tilt (Absolute)");
+							else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
+							if ( strcmp(buf,"") )
+								[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						}
+						
+					}
+				}
+				break;
 				
             case VC_OUTPUT_TERMINAL:
                 pVideoOutTermDesc = (IOUSBVCOutputTerminalDescriptor *)desc;
@@ -404,16 +415,16 @@
                 [thisDevice addProperty:"Terminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 switch ( Swap16(&pVideoOutTermDesc->wTerminalType) )
-                {
-                    case TT_VENDOR_SPECIFIC: 	s="USB vendor specific"; break;
-                    case TT_STREAMING: 		s="USB streaming"; break;
-                    case OTT_VENDOR_SPECIFIC: 	s="USB vendor specific"; break;
-                    case OTT_DISPLAY: 		s="Generic Display"; break;
-                    case OTT_MEDIA_TRANSPORT_OUTPUT: 	s="Sequential Media Output Terminal"; break;
-                    default: 				s="Invalid Output Terminal Type";
-                }
-					
-					sprintf((char *)buf, 	"0x%x (%s)", pVideoOutTermDesc->wTerminalType, s );
+			{
+				case TT_VENDOR_SPECIFIC: 	s="USB vendor specific"; break;
+				case TT_STREAMING: 		s="USB streaming"; break;
+				case OTT_VENDOR_SPECIFIC: 	s="USB vendor specific"; break;
+				case OTT_DISPLAY: 		s="Generic Display"; break;
+				case OTT_MEDIA_TRANSPORT_OUTPUT: 	s="Sequential Media Output Terminal"; break;
+				default: 				s="Invalid Output Terminal Type";
+			}
+				
+				sprintf((char *)buf, 	"0x%x (%s)", pVideoOutTermDesc->wTerminalType, s );
                 [thisDevice addProperty:"Output Terminal Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 if ( !pVideoOutTermDesc->bAssocTerminal )
@@ -429,11 +440,11 @@
                     sprintf((char *)buf, "%u [NONE]", pVideoOutTermDesc->iTerminal );
                     [thisDevice addProperty:"Output Terminal String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-                    else
-                    {
-                        [thisDevice addStringProperty:"Output Terminal String:" fromStringIndex: (UInt8)pVideoOutTermDesc->iTerminal fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
-                    }
-					break;
+				else
+				{
+					[thisDevice addStringProperty:"Output Terminal String:" fromStringIndex: (UInt8)pVideoOutTermDesc->iTerminal fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
+				}
+				break;
 				
             case VC_SELECTOR_UNIT:
                 pSelectorUnitDesc = (IOUSBVCSelectorUnitDescriptor *)desc;
@@ -450,21 +461,21 @@
                     sprintf((char *)buf, "%u", *p );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-					
-					// Now, p will point to the IOUSBVCSelectorUnit2Descriptor
-					//
-					pSelectorUnit2Desc = (IOUSBVCSelectorUnit2Descriptor *) p;
+				
+				// Now, p will point to the IOUSBVCSelectorUnit2Descriptor
+				//
+				pSelectorUnit2Desc = (IOUSBVCSelectorUnit2Descriptor *) p;
                 if ( !pSelectorUnit2Desc->iSelector )
                 {
                     sprintf((char *)buf, "%u [NONE]", pSelectorUnit2Desc->iSelector );
                     [thisDevice addProperty:"Selector Unit String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-					else
-					{
-						[thisDevice addStringProperty:"Selector Unit String:" fromStringIndex: (UInt8)pSelectorUnit2Desc->iSelector fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
-					}
-                    
-					break;
+				else
+				{
+					[thisDevice addStringProperty:"Selector Unit String:" fromStringIndex: (UInt8)pSelectorUnit2Desc->iSelector fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
+				}
+				
+				break;
 				
             case VC_PROCESSING_UNIT:
                 pProcessingUnitDesc = ( IOUSBVCProcessingUnitDescriptor *) desc;
@@ -482,18 +493,18 @@
                     sprintf((char *)buf, "Description");
                     [thisDevice addProperty:"Controls Supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-					
-					strcpy((char *)buf, "");
+				
+				strcpy((char *)buf, "");
 				
                 /*
 				 // Need to swap the following bmControls field
 				 //
 				 switch ( pProcessingUnitDesc->bControlSize)
 				 {
-					 case 1: break;
-					 case 2: Swap16(&pProcessingUnitDesc->bmControls); break;
-					 case 3: Swap24(&pCameraTermDesc->bmControls); break;
-					 case 4: Swap32(&pProcessingUnitDesc->bmControls); break;
+				 case 1: break;
+				 case 2: Swap16(&pProcessingUnitDesc->bmControls); break;
+				 case 3: Swap24(&pCameraTermDesc->bmControls); break;
+				 case 4: Swap32(&pProcessingUnitDesc->bmControls); break;
 				 }
 				 */
                 
@@ -574,19 +585,19 @@
                     }
 					
                 }
-					
-					// At this point, p should be pointing to the iProcessing field:
-					pProcessingUnit2Desc = (IOUSBVCProcessingUnit2Descriptor *) p;
+				
+				// At this point, p should be pointing to the iProcessing field:
+				pProcessingUnit2Desc = (IOUSBVCProcessingUnit2Descriptor *) p;
                 if ( !pProcessingUnit2Desc->iProcessing )
                 {
                     sprintf((char *)buf, "%u [NONE]", pProcessingUnit2Desc->iProcessing );
                     [thisDevice addProperty:"Processing Unit String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-                    else
-                    {
-                        [thisDevice addStringProperty:"Selector Unit String:" fromStringIndex: (UInt8)pProcessingUnit2Desc->iProcessing fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
-                    }
-                    break;
+				else
+				{
+					[thisDevice addStringProperty:"Selector Unit String:" fromStringIndex: (UInt8)pProcessingUnit2Desc->iProcessing fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
+				}
+				break;
 				
             case VC_EXTENSION_UNIT:
                 sprintf((char *)buf, 	"%u", desc->bLength );
@@ -624,18 +635,18 @@
                     sprintf((char *)buf, "%u", *p );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-					
-					// Now, p points to the rest of the Extension Unit descriptor:
-					//
-					pExtensionUnit2Desc = ( IOUSBVCExtensionUnit2Descriptor *) p;
+				
+				// Now, p points to the rest of the Extension Unit descriptor:
+				//
+				pExtensionUnit2Desc = ( IOUSBVCExtensionUnit2Descriptor *) p;
 				
                 if ( pExtensionUnit2Desc->bControlSize != 0 )
                 {
                     sprintf((char *)buf, "Description");
                     [thisDevice addProperty:"Controls Supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-					
-					strcpy((char *)buf, "");
+				
+				strcpy((char *)buf, "");
                 for (i = 0, p = &pExtensionUnit2Desc->bmControls[0]; i < pExtensionUnit2Desc->bControlSize; i++, p++ )
                 {
                     // For 1.0, all bits are vendor specific:
@@ -644,19 +655,19 @@
                     [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
                 }
-					
-					// At this point, p should be pointing to the iProcessing field:
-					pExtensionUnit3Desc = ( IOUSBVCExtensionUnit3Descriptor *) p;
+				
+				// At this point, p should be pointing to the iProcessing field:
+				pExtensionUnit3Desc = ( IOUSBVCExtensionUnit3Descriptor *) p;
                 if ( !pExtensionUnit3Desc->iExtension )
                 {
                     sprintf((char *)buf, "%u [NONE]", pExtensionUnit3Desc->iExtension );
                     [thisDevice addProperty:"Processing Unit String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-                    else
-                    {
-                        [thisDevice addStringProperty:"Selector Unit String:" fromStringIndex: (UInt8)pExtensionUnit3Desc->iExtension fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
-                    }
-                    break;
+				else
+				{
+					[thisDevice addStringProperty:"Selector Unit String:" fromStringIndex: (UInt8)pExtensionUnit3Desc->iExtension fromDeviceInterface:deviceIntf atDepth:INTERFACE_LEVEL+1];
+				}
+				break;
             case VC_DESCRIPTOR_UNDEFINED:
             default:
                 [thisDevice addProperty:"Undefined Descriptor:" withValue:"" atDepth:INTERFACE_LEVEL+1];
@@ -685,22 +696,22 @@
 				
 				if (pVSInputHeaderDesc->bmInfo & 0x01)
 					[thisDevice addProperty:"" withValue:"Dynamic Format Change supported" atDepth:INTERFACE_LEVEL+2];
-					
-					if ( pVSInputHeaderDesc->bmInfo & 0xfe)
-						[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
-						
-                        sprintf((char *)buf, "%u", pVSInputHeaderDesc->bTerminalLink );
+				
+				if ( pVSInputHeaderDesc->bmInfo & 0xfe)
+					[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
+				
+				sprintf((char *)buf, "%u", pVSInputHeaderDesc->bTerminalLink );
 				[thisDevice addProperty:"bTerminalLink:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				switch (pVSInputHeaderDesc->bStillCaptureMethod)
-				{
-					case 0: s = "None"; break;
-					case 1: s = "Method 1"; break;
-					case 2: s = "Method 2"; break;
-					case 3: s = "Method 3"; break;
-					default: s = "Unknown Method";
-				}
-					sprintf((char *)buf, 	"%u (%s)", pVSInputHeaderDesc->bStillCaptureMethod, s );
+			{
+				case 0: s = "None"; break;
+				case 1: s = "Method 1"; break;
+				case 2: s = "Method 2"; break;
+				case 3: s = "Method 3"; break;
+				default: s = "Unknown Method";
+			}
+				sprintf((char *)buf, 	"%u (%s)", pVSInputHeaderDesc->bStillCaptureMethod, s );
 				[thisDevice addProperty:"bStillCaptureMethod:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				sprintf((char *)buf, "%s", pVSInputHeaderDesc->bTriggerSupport ? "1 (Supported)" : "0 (Not Supported)");
@@ -710,11 +721,11 @@
 				{
 					sprintf((char *)buf, "%s", pVSInputHeaderDesc->bTriggerUsage ? "1 (General Purpose)" : "(0) Initiate Still Image Capture");
 				}
-					else
-					{
-						sprintf((char *)buf, "%s", "Ignored because bTriggerSupport is 0");
-					}
-					[thisDevice addProperty:"bTriggerUsage" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				else
+				{
+					sprintf((char *)buf, "%s", "Ignored because bTriggerSupport is 0");
+				}
+				[thisDevice addProperty:"bTriggerUsage" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				sprintf((char *)buf, "0x%x", pVSInputHeaderDesc->bControlSize );
 				
@@ -794,7 +805,7 @@
 						
 					}
 				}
-					break;
+				break;
 			case VS_OUTPUT_HEADER:
 				pVSOutputHeaderDesc = (IOUSBVSOutputHeaderDescriptor *)desc;
 				
@@ -825,11 +836,11 @@
 				
 				if (pMJPEGFormatDesc->bmFlags & 0x01)
 					[thisDevice addProperty:"" withValue:"Fixed Sample Sizes Supported" atDepth:INTERFACE_LEVEL+2];
-					
-					if ( pMJPEGFormatDesc->bmFlags & 0xfe)
-						[thisDevice addProperty:"" withValue:"Unknown characteristics" atDepth:INTERFACE_LEVEL+2];
-						
-                        sprintf((char *)buf, "0x%x", pMJPEGFormatDesc->bDefaultFrameIndex);
+				
+				if ( pMJPEGFormatDesc->bmFlags & 0xfe)
+					[thisDevice addProperty:"" withValue:"Unknown characteristics" atDepth:INTERFACE_LEVEL+2];
+				
+				sprintf((char *)buf, "0x%x", pMJPEGFormatDesc->bDefaultFrameIndex);
 				[thisDevice addProperty:"bDefaultFrameIndex:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				sprintf((char *)buf, "0x%x", pMJPEGFormatDesc->bAspectRatioX);
@@ -858,27 +869,27 @@
 				
 				if (pMJPEGFormatDesc->bmInterlaceFlags & 0x08)
 					[thisDevice addProperty:"" withValue:"Reserved field used!" atDepth:INTERFACE_LEVEL+2];
-					
-					i = (pMJPEGFormatDesc->bmInterlaceFlags & 0x30) >> 4;
+				
+				i = (pMJPEGFormatDesc->bmInterlaceFlags & 0x30) >> 4;
 				switch (i)
-				{
-					case 0: s = "Field 1 only"; break;
-					case 1: s = "Field 2 only"; break;
-					case 2: s = "Regular pattern of fields 1 and 2"; break;
-					case 3: s = "Random pattern of fields 1 and 2"; break;
-				}
-					sprintf((char *)buf, 	"%s", s );
+			{
+				case 0: s = "Field 1 only"; break;
+				case 1: s = "Field 2 only"; break;
+				case 2: s = "Regular pattern of fields 1 and 2"; break;
+				case 3: s = "Random pattern of fields 1 and 2"; break;
+			}
+				sprintf((char *)buf, 	"%s", s );
 				[thisDevice addProperty:"Field Pattern" withValue:buf atDepth:INTERFACE_LEVEL+2];
 				
 				i = (pMJPEGFormatDesc->bmInterlaceFlags & 0xc0) >> 6;
 				switch (i)
-				{
-					case 0: s = "Bob only"; break;
-					case 1: s = "Weave only"; break;
-					case 2: s = "Bob or weave"; break;
-					case 3: s = "Unknown"; break;
-				}
-					sprintf((char *)buf, 	"%s", s );
+			{
+				case 0: s = "Bob only"; break;
+				case 1: s = "Weave only"; break;
+				case 2: s = "Bob or weave"; break;
+				case 3: s = "Unknown"; break;
+			}
+				sprintf((char *)buf, 	"%s", s );
 				[thisDevice addProperty:"Display Mode" withValue:buf atDepth:INTERFACE_LEVEL+2];
 				
 				if (pMJPEGFormatDesc->bCopyProtect == 1)
@@ -898,11 +909,11 @@
 				
 				if (pMJPEGFrameDesc->bmCapabilities & 0x01)
 					[thisDevice addProperty:"" withValue:"Still Image supported" atDepth:INTERFACE_LEVEL+2];
-					
-					if ( pMJPEGFrameDesc->bmCapabilities & 0xfe)
-						[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
-						
-						sprintf((char *)buf, "0x%x (%u)", Swap16(&pMJPEGFrameDesc->wWidth), pMJPEGFrameDesc->wWidth);
+				
+				if ( pMJPEGFrameDesc->bmCapabilities & 0xfe)
+					[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap16(&pMJPEGFrameDesc->wWidth), pMJPEGFrameDesc->wWidth);
 				[thisDevice addProperty:"wWidth:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				sprintf((char *)buf, "0x%x (%u)", Swap16(&pMJPEGFrameDesc->wHeight), pMJPEGFrameDesc->wHeight);
@@ -933,68 +944,68 @@
 					[thisDevice addProperty:"dwFrameIntervalStep:" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
 				}
-					else
+				else
+				{
+					// Need to recast as a IOUSBVDC_MJPEGDiscreteFrameDescriptor
+					//
+					pMJPEGDiscreteFrameDesc = (IOUSBVDC_MJPEGDiscreteFrameDescriptor *) pMJPEGFrameDesc;
+					sprintf((char *)buf, "%u", (pMJPEGDiscreteFrameDesc->bFrameIntervalType));
+					[thisDevice addProperty:"Discrete Frame Intervals supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
+					for (i = 0, t = &pMJPEGDiscreteFrameDesc->dwFrameInterval[0]; i < pMJPEGDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
 					{
-						// Need to recast as a IOUSBVDC_MJPEGDiscreteFrameDescriptor
-						//
-						pMJPEGDiscreteFrameDesc = (IOUSBVDC_MJPEGDiscreteFrameDescriptor *) pMJPEGFrameDesc;
-						sprintf((char *)buf, "%u", (pMJPEGDiscreteFrameDesc->bFrameIntervalType));
-						[thisDevice addProperty:"Discrete Frame Intervals supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						for (i = 0, t = &pMJPEGDiscreteFrameDesc->dwFrameInterval[0]; i < pMJPEGDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
-						{
-							UInt32 interval = *t;
-							sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
-							sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
-							[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
-						}
+						UInt32 interval = *t;
+						sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
+						sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
+						[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
 					}
-					break;
+				}
+				break;
 				
 			case VS_COLORFORMAT:
 				pColorFormatDesc = (IOUSBVDC_ColorFormatDescriptor *)desc;
 				
 				switch (pColorFormatDesc->bColorPrimaries)
-				{
-					case 0:  s = "Unspecified (Image characteristic unknown)"; break;
-					case 1:  s = "BT.709, sRGB (default)"; break;
-					case 2:  s = "BT.470-2(M)"; break;
-					case 3:  s = "BT.470-2(B,G)"; break;
-					case 4:  s = "SMPTE 170M"; break;
-					case 5:  s = "SMPTE 240M"; break;
-					default: s = "reserved"; break;
-				}
-					
-					sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bColorPrimaries, s);
+			{
+				case 0:  s = "Unspecified (Image characteristic unknown)"; break;
+				case 1:  s = "BT.709, sRGB (default)"; break;
+				case 2:  s = "BT.470-2(M)"; break;
+				case 3:  s = "BT.470-2(B,G)"; break;
+				case 4:  s = "SMPTE 170M"; break;
+				case 5:  s = "SMPTE 240M"; break;
+				default: s = "reserved"; break;
+			}
+				
+				sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bColorPrimaries, s);
 				[thisDevice addProperty:"Color Primaries:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				switch (pColorFormatDesc->bTransferCharacteristics)
-				{
-					case 0:  s = "Unspecified (Image characteristic unknown)"; break;
-					case 1:  s = "BT.709 (default)"; break;
-					case 2:  s = "BT.470-2(M)"; break;
-					case 3:  s = "BT.470-2(B,G)"; break;
-					case 4:  s = "SMPTE 170M"; break;
-					case 5:  s = "SMPTE 240M"; break;
-					case 6:  s = "Linear ( V = Lc)"; break;
-					case 7:  s = "sRGB (very similar to BT.709)"; break;
-					default: s = "reserved"; break;
-				}
-					
-					sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bTransferCharacteristics, s);
+			{
+				case 0:  s = "Unspecified (Image characteristic unknown)"; break;
+				case 1:  s = "BT.709 (default)"; break;
+				case 2:  s = "BT.470-2(M)"; break;
+				case 3:  s = "BT.470-2(B,G)"; break;
+				case 4:  s = "SMPTE 170M"; break;
+				case 5:  s = "SMPTE 240M"; break;
+				case 6:  s = "Linear ( V = Lc)"; break;
+				case 7:  s = "sRGB (very similar to BT.709)"; break;
+				default: s = "reserved"; break;
+			}
+				
+				sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bTransferCharacteristics, s);
 				[thisDevice addProperty:"Transfer Characteristics:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				switch (pColorFormatDesc->bMatrixCoefficients)
-				{
-					case 0:  s = "Unspecified (Image characteristic unknown)"; break;
-					case 1:  s = "BT.709"; break;
-					case 2:  s = "FCC"; break;
-					case 3:  s = "BT.470-2(B,G)"; break;
-					case 4:  s = "SMPTE 170M (BT.601, default)"; break;
-					case 5:  s = "SMPTE 240M"; break;
-					default: s = "reserved"; break;
-				}
-					
-					sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bMatrixCoefficients, s);
+			{
+				case 0:  s = "Unspecified (Image characteristic unknown)"; break;
+				case 1:  s = "BT.709"; break;
+				case 2:  s = "FCC"; break;
+				case 3:  s = "BT.470-2(B,G)"; break;
+				case 4:  s = "SMPTE 170M (BT.601, default)"; break;
+				case 5:  s = "SMPTE 240M"; break;
+				default: s = "reserved"; break;
+			}
+				
+				sprintf((char *) buf, "%u ( %s )", pColorFormatDesc->bMatrixCoefficients, s);
 				[thisDevice addProperty:"Matrix Coefficients:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				
@@ -1054,24 +1065,24 @@
 				
 				if (pUncompressedFormatDesc->bmInterlaceFlags & 0x08)
 					[thisDevice addProperty:"" withValue:"Reserved field used" atDepth:INTERFACE_LEVEL+2];
-					
-					switch ( pUncompressedFormatDesc->bmInterlaceFlags & 0x30 )
-					{
-						case 0: [thisDevice addProperty:"Field Pattern" withValue:"Field 1 only" atDepth:INTERFACE_LEVEL+2]; break;
-						case 1: [thisDevice addProperty:"Field Pattern" withValue:"Field 2 only" atDepth:INTERFACE_LEVEL+2]; break;
-						case 2: [thisDevice addProperty:"Field Pattern" withValue:"Regular pattern of fields 1 and 2" atDepth:INTERFACE_LEVEL+2]; break;
-						case 3: [thisDevice addProperty:"Field Pattern" withValue:"Random pattern of fields 1 and 2" atDepth:INTERFACE_LEVEL+2]; break;
-					}
-						
-						switch ( pUncompressedFormatDesc->bmInterlaceFlags & 0xc0 )
-						{
-							case 0: [thisDevice addProperty:"Display Mode" withValue:"Bob only" atDepth:INTERFACE_LEVEL+2]; break;
-							case 1: [thisDevice addProperty:"Display Mode" withValue:"Weave only" atDepth:INTERFACE_LEVEL+2]; break;
-							case 2: [thisDevice addProperty:"Display Mode" withValue:"Bob or Weave" atDepth:INTERFACE_LEVEL+2]; break;
-							case 3: [thisDevice addProperty:"Display Mode" withValue:"Undefined" atDepth:INTERFACE_LEVEL+2]; break;
-						}
-                        
-                        sprintf((char *)buf, "0x%x", pUncompressedFormatDesc->bCopyProtect);
+				
+				switch ( pUncompressedFormatDesc->bmInterlaceFlags & 0x30 )
+			{
+				case 0: [thisDevice addProperty:"Field Pattern" withValue:"Field 1 only" atDepth:INTERFACE_LEVEL+2]; break;
+				case 1: [thisDevice addProperty:"Field Pattern" withValue:"Field 2 only" atDepth:INTERFACE_LEVEL+2]; break;
+				case 2: [thisDevice addProperty:"Field Pattern" withValue:"Regular pattern of fields 1 and 2" atDepth:INTERFACE_LEVEL+2]; break;
+				case 3: [thisDevice addProperty:"Field Pattern" withValue:"Random pattern of fields 1 and 2" atDepth:INTERFACE_LEVEL+2]; break;
+			}
+				
+				switch ( pUncompressedFormatDesc->bmInterlaceFlags & 0xc0 )
+			{
+				case 0: [thisDevice addProperty:"Display Mode" withValue:"Bob only" atDepth:INTERFACE_LEVEL+2]; break;
+				case 1: [thisDevice addProperty:"Display Mode" withValue:"Weave only" atDepth:INTERFACE_LEVEL+2]; break;
+				case 2: [thisDevice addProperty:"Display Mode" withValue:"Bob or Weave" atDepth:INTERFACE_LEVEL+2]; break;
+				case 3: [thisDevice addProperty:"Display Mode" withValue:"Undefined" atDepth:INTERFACE_LEVEL+2]; break;
+			}
+				
+				sprintf((char *)buf, "0x%x", pUncompressedFormatDesc->bCopyProtect);
 				if (pUncompressedFormatDesc->bCopyProtect)
 					[thisDevice addProperty:"Copy Protection:" withValue:"Restrict Duplication" atDepth:INTERFACE_LEVEL+1];
 				else
@@ -1089,11 +1100,11 @@
 				
 				if (pUncompressedFrameDesc->bmCapabilities & 0x01)
 					[thisDevice addProperty:"" withValue:"Still Image supported" atDepth:INTERFACE_LEVEL+2];
-					
-					if ( pUncompressedFrameDesc->bmCapabilities & 0xfe)
-						[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
-						
-                        sprintf((char *)buf, "0x%x (%u)", Swap16(&pUncompressedFrameDesc->wWidth), pUncompressedFrameDesc->wWidth);
+				
+				if ( pUncompressedFrameDesc->bmCapabilities & 0xfe)
+					[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap16(&pUncompressedFrameDesc->wWidth), pUncompressedFrameDesc->wWidth);
 				[thisDevice addProperty:"wWidth:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				sprintf((char *)buf, "0x%x (%u)", Swap16(&pUncompressedFrameDesc->wHeight), pUncompressedFrameDesc->wHeight);
@@ -1125,27 +1136,27 @@
 					[thisDevice addProperty:"dwFrameIntervalStep (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
 				}
-					else
+				else
+				{
+					// Need to recast as a IOUSBVDC_UncompressedDiscreteFrameDescriptor
+					//
+					pUncompressedDiscreteFrameDesc = (IOUSBVDC_UncompressedDiscreteFrameDescriptor *) pUncompressedFrameDesc;
+					
+					sprintf((char *)buf, "0x%x", (pUncompressedDiscreteFrameDesc->bFrameIntervalType));
+					[thisDevice addProperty:"Discrete Frame Intervals supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
+					
+					for (i = 0, t = &pUncompressedDiscreteFrameDesc->dwFrameInterval[0]; i < pUncompressedDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
 					{
-						// Need to recast as a IOUSBVDC_UncompressedDiscreteFrameDescriptor
-						//
-						pUncompressedDiscreteFrameDesc = (IOUSBVDC_UncompressedDiscreteFrameDescriptor *) pUncompressedFrameDesc;
-						
-						sprintf((char *)buf, "0x%x", (pUncompressedDiscreteFrameDesc->bFrameIntervalType));
-						[thisDevice addProperty:"Discrete Frame Intervals supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						
-						for (i = 0, t = &pUncompressedDiscreteFrameDesc->dwFrameInterval[0]; i < pUncompressedDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
-						{
-							UInt32 interval = *t;
-							sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
-							sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
-							[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
-						}
+						UInt32 interval = *t;
+						sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
+						sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
+						[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
 					}
-					break;
+				}
+				break;
 				
 				
-				case VS_STILL_IMAGE_FRAME:
+			case VS_STILL_IMAGE_FRAME:
 				pVSStillImageFrameDesc = (IOUSBVDC_StillImageFrameDescriptor *)desc;
 				
 				sprintf((char *)buf, "0x%x", pVSStillImageFrameDesc->bEndpointAddress );
@@ -1180,7 +1191,7 @@
 				
 				break;
 				
-				case VS_FORMAT_DV:
+			case VS_FORMAT_DV:
 				pDVFormatDesc = (IOUSBVDC_DVFormatDescriptor *)desc;
 				
 				sprintf((char *)buf, "0x%x", pDVFormatDesc->bFormatIndex);
@@ -1188,14 +1199,14 @@
 				
 				sprintf((char *)buf, "0x%x (%u)", Swap32(&pDVFormatDesc->dwMaxVideoFrameBufferSize), pDVFormatDesc->dwMaxVideoFrameBufferSize);
 				[thisDevice addProperty:"dwMaxVideoFrameBufferSize (bytes):" withValue:buf atDepth:INTERFACE_LEVEL+1];
-								
+				
 				switch (pDVFormatDesc->bFormatType & 0x3)
-				{
-					case 0:  s = "SD-DV"; break;
-					case 1:  s = "SDL-DV"; break;
-					case 2:  s = "HD-DV"; break;
-					default: s = "reserved"; break;
-				}
+			{
+				case 0:  s = "SD-DV"; break;
+				case 1:  s = "SDL-DV"; break;
+				case 2:  s = "HD-DV"; break;
+				default: s = "reserved"; break;
+			}
 				
 				if (pDVFormatDesc->bFormatType & 0x80)
 				{
@@ -1207,9 +1218,154 @@
 				}
 				
 				[thisDevice addProperty:"DV Format:" withValue:buf atDepth:INTERFACE_LEVEL+1];
-
 				
 				break;
+
+			case VS_FORMAT_FRAME_BASED:
+				pFrameBasedFormatDesc = (IOUSBVDC_FrameBasedFormatDescriptor *)desc;
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bFormatIndex);
+				[thisDevice addProperty:"bFormatIndex:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bNumFrameDescriptors);
+				[thisDevice addProperty:"bNumFrameDescriptors:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				// Decode the GUID per section 2.9 of the FAQ
+				//
+				data1 = USBToHostLong(* (uint32_t *) &pFrameBasedFormatDesc->guidFormat[0]);
+				data2 = USBToHostWord(* (UInt16 *) &pFrameBasedFormatDesc->guidFormat[4]);
+				data3 = USBToHostWord(* (UInt16 *) &pFrameBasedFormatDesc->guidFormat[6]);
+				uuidLO = OSSwapBigToHostInt64(* (UInt64 *) &pFrameBasedFormatDesc->guidFormat[8]);
+				
+				
+				sprintf((char *)buf, 	"%8.8x-%4.4x-%4.4x-%4.4x-%12.12qx", data1, data2, data3, 
+						(uint32_t) ( (uuidLO & 0xffff000000000000ULL)>>48), (uuidLO & 0x0000FFFFFFFFFFFFULL) );
+				[thisDevice addProperty:"Format GUID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%u)", pFrameBasedFormatDesc->bBitsPerPixel,pFrameBasedFormatDesc->bBitsPerPixel);
+				[thisDevice addProperty:"bBitsPerPixel:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bDefaultFrameIndex);
+				[thisDevice addProperty:"bDefaultFrameIndex:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bAspectRatioX);
+				[thisDevice addProperty:"bAspectRatioX:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bAspectRatioY);
+				[thisDevice addProperty:"bAspectRatioY:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "(0x%x)", pFrameBasedFormatDesc->bmInterlaceFlags );
+				[thisDevice addProperty:"bmInterlaceFlags" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				if (pFrameBasedFormatDesc->bmInterlaceFlags & 0x01)
+					[thisDevice addProperty:"Interlace Stream or variable" withValue:"YES" atDepth:INTERFACE_LEVEL+2];
+				else
+					[thisDevice addProperty:"Interlace Stream or variable" withValue:"NO" atDepth:INTERFACE_LEVEL+2];
+				
+				if (pFrameBasedFormatDesc->bmInterlaceFlags & 0x02)
+					[thisDevice addProperty:"Fields per Frame" withValue:"1" atDepth:INTERFACE_LEVEL+2];
+				else
+					[thisDevice addProperty:"Fields per Frame" withValue:"2" atDepth:INTERFACE_LEVEL+2];
+				
+				if (pFrameBasedFormatDesc->bmInterlaceFlags & 0x04)
+					[thisDevice addProperty:"Field 1 First" withValue:"Yes" atDepth:INTERFACE_LEVEL+2];
+				else
+					[thisDevice addProperty:"Field 1 First" withValue:"No" atDepth:INTERFACE_LEVEL+2];
+				
+				if (pFrameBasedFormatDesc->bmInterlaceFlags & 0x08)
+					[thisDevice addProperty:"" withValue:"Reserved field used" atDepth:INTERFACE_LEVEL+2];
+				
+
+				switch ( pFrameBasedFormatDesc->bmInterlaceFlags & 0x30 )
+			{
+				case 0: [thisDevice addProperty:"Field Pattern" withValue:"Field 1 only" atDepth:INTERFACE_LEVEL+2]; break;
+				case 1: [thisDevice addProperty:"Field Pattern" withValue:"Field 2 only" atDepth:INTERFACE_LEVEL+2]; break;
+				case 2: [thisDevice addProperty:"Field Pattern" withValue:"Regular pattern of fields 1 and 2" atDepth:INTERFACE_LEVEL+2]; break;
+				case 3: [thisDevice addProperty:"Field Pattern" withValue:"Random pattern of fields 1 and 2" atDepth:INTERFACE_LEVEL+2]; break;
+			}
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bCopyProtect);
+				if (pFrameBasedFormatDesc->bCopyProtect)
+					[thisDevice addProperty:"Copy Protection:" withValue:"Restrict Duplication" atDepth:INTERFACE_LEVEL+1];
+				else
+					[thisDevice addProperty:"Copy Protection:" withValue:"No Restrictions" atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFormatDesc->bVariableSize);
+				[thisDevice addProperty:"bVariableSize:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				break;
+				
+			case VS_FRAME_FRAME_BASED:
+				pFrameBasedFrameDesc = (IOUSBVDC_FrameBasedFrameDescriptor *)desc;
+				
+				sprintf((char *)buf, "0x%x", pFrameBasedFrameDesc->bFrameIndex);
+				[thisDevice addProperty:"bFrameIndex:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "(0x%x)", pFrameBasedFrameDesc->bmCapabilities );
+				[thisDevice addProperty:"bmCapabilities " withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				if (pFrameBasedFrameDesc->bmCapabilities & 0x01)
+					[thisDevice addProperty:"" withValue:"Still Image supported" atDepth:INTERFACE_LEVEL+2];
+				
+				if (pFrameBasedFrameDesc->bmCapabilities & 0x02)
+					[thisDevice addProperty:"" withValue:"Fixed Frame Rate" atDepth:INTERFACE_LEVEL+2];
+				
+				if ( pFrameBasedFrameDesc->bmCapabilities & 0xfe)
+					[thisDevice addProperty:"" withValue:"Unknown capabilities" atDepth:INTERFACE_LEVEL+2];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap16(&pFrameBasedFrameDesc->wWidth), pFrameBasedFrameDesc->wWidth);
+				[thisDevice addProperty:"wWidth:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap16(&pFrameBasedFrameDesc->wHeight), pFrameBasedFrameDesc->wHeight);
+				[thisDevice addProperty:"wHeight:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pFrameBasedFrameDesc->dwMinBitRate), pFrameBasedFrameDesc->dwMinBitRate);
+				[thisDevice addProperty:"dwMinBitRate (bps):" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pFrameBasedFrameDesc->dwMaxBitRate), pFrameBasedFrameDesc->dwMaxBitRate);
+				[thisDevice addProperty:"dwMaxBitRate (bps):" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pFrameBasedFrameDesc->dwDefaultFrameInterval), (double) (pFrameBasedFrameDesc->dwDefaultFrameInterval / 10000));
+				[thisDevice addProperty:"dwDefaultFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pFrameBasedFrameDesc->dwBytesPerLine), pFrameBasedFrameDesc->dwBytesPerLine);
+				[thisDevice addProperty:"dwBytesPerLine:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				if (pFrameBasedFrameDesc->bFrameIntervalType == 0)
+				{
+					[thisDevice addProperty:"bFrameIntervalType:" withValue:"Continuous" atDepth:INTERFACE_LEVEL+1];
+					
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pFrameBasedFrameDesc->dwMinFrameInterval), (double ) (pFrameBasedFrameDesc->dwMinFrameInterval / 10000) );
+					[thisDevice addProperty:"dwMinFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
+					
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pFrameBasedFrameDesc->dwMaxFrameInterval),  (double ) (pFrameBasedFrameDesc->dwMaxFrameInterval / 10000) );
+					[thisDevice addProperty:"dwMaxFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
+					
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pFrameBasedFrameDesc->dwFrameIntervalStep),  (double ) (pFrameBasedFrameDesc->dwFrameIntervalStep / 10000) );
+					[thisDevice addProperty:"dwFrameIntervalStep (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
+					
+				}
+				else
+				{
+					// Need to recast as a IOUSBVDC_DiscreteFrameBasedFrameDescriptor
+					//
+					pFrameBasedDiscreteFrameDesc = (IOUSBVDC_DiscreteFrameBasedFrameDescriptor *) pFrameBasedFrameDesc;
+					
+					sprintf((char *)buf, "0x%x", (pFrameBasedDiscreteFrameDesc->bFrameIntervalType));
+					[thisDevice addProperty:"Discrete Frame Intervals supported" withValue:buf atDepth:INTERFACE_LEVEL+1];
+					
+					for (i = 0, t = &pFrameBasedDiscreteFrameDesc->dwFrameInterval[0]; i < pFrameBasedDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
+					{
+						UInt32 interval = *t;
+						sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
+						sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
+						[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
+					}
+				}
+
+				break;
+				
+				
 				// default:
 		}
 	}       

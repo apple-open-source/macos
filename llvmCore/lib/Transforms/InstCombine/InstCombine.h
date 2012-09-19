@@ -11,6 +11,8 @@
 #define INSTCOMBINE_INSTCOMBINE_H
 
 #include "InstCombineWorklist.h"
+#include "llvm/IntrinsicInst.h"
+#include "llvm/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/IRBuilder.h"
@@ -69,7 +71,6 @@ class LLVM_LIBRARY_VISIBILITY InstCombiner
                              : public FunctionPass,
                                public InstVisitor<InstCombiner, Instruction*> {
   TargetData *TD;
-  bool MustPreserveLCSSA;
   bool MadeIRChange;
 public:
   /// Worklist - All of the instructions that need to be simplified.
@@ -81,7 +82,9 @@ public:
   BuilderTy *Builder;
       
   static char ID; // Pass identification, replacement for typeid
-  InstCombiner() : FunctionPass(&ID), TD(0), Builder(0) {}
+  InstCombiner() : FunctionPass(ID), TD(0), Builder(0) {
+    initializeInstCombinerPass(*PassRegistry::getPassRegistry());
+  }
 
 public:
   virtual bool runOnFunction(Function &F);
@@ -101,7 +104,7 @@ public:
   //
   Instruction *visitAdd(BinaryOperator &I);
   Instruction *visitFAdd(BinaryOperator &I);
-  Value *OptimizePointerDifference(Value *LHS, Value *RHS, const Type *Ty);
+  Value *OptimizePointerDifference(Value *LHS, Value *RHS, Type *Ty);
   Instruction *visitSub(BinaryOperator &I);
   Instruction *visitFSub(BinaryOperator &I);
   Instruction *visitMul(BinaryOperator &I);
@@ -143,6 +146,8 @@ public:
                                               ConstantInt *RHS);
   Instruction *FoldICmpDivCst(ICmpInst &ICI, BinaryOperator *DivI,
                               ConstantInt *DivRHS);
+  Instruction *FoldICmpShrCst(ICmpInst &ICI, BinaryOperator *DivI,
+                              ConstantInt *DivRHS);
   Instruction *FoldICmpAddOpCst(ICmpInst &ICI, Value *X, ConstantInt *CI,
                                 ICmpInst::Predicate Pred, Value *TheAdd);
   Instruction *FoldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
@@ -178,7 +183,8 @@ public:
   Instruction *visitPHINode(PHINode &PN);
   Instruction *visitGetElementPtrInst(GetElementPtrInst &GEP);
   Instruction *visitAllocaInst(AllocaInst &AI);
-  Instruction *visitFree(Instruction &FI);
+  Instruction *visitMalloc(Instruction &FI);
+  Instruction *visitFree(CallInst &FI);
   Instruction *visitLoadInst(LoadInst &LI);
   Instruction *visitStoreInst(StoreInst &SI);
   Instruction *visitBranchInst(BranchInst &BI);
@@ -187,15 +193,16 @@ public:
   Instruction *visitExtractElementInst(ExtractElementInst &EI);
   Instruction *visitShuffleVectorInst(ShuffleVectorInst &SVI);
   Instruction *visitExtractValueInst(ExtractValueInst &EV);
+  Instruction *visitLandingPadInst(LandingPadInst &LI);
 
   // visitInstruction - Specify what to return for unhandled instructions...
   Instruction *visitInstruction(Instruction &I) { return 0; }
 
 private:
-  bool ShouldChangeType(const Type *From, const Type *To) const;
+  bool ShouldChangeType(Type *From, Type *To) const;
   Value *dyn_castNegVal(Value *V) const;
   Value *dyn_castFNegVal(Value *V) const;
-  const Type *FindElementAtOffset(const Type *Ty, int64_t Offset, 
+  Type *FindElementAtOffset(Type *Ty, int64_t Offset, 
                                   SmallVectorImpl<Value*> &NewIndices);
   Instruction *FoldOpIntoSelect(Instruction &Op, SelectInst *SI);
                                  
@@ -204,16 +211,17 @@ private:
   /// the cast can be eliminated by some other simple transformation, we prefer
   /// to do the simplification first.
   bool ShouldOptimizeCast(Instruction::CastOps opcode,const Value *V,
-                          const Type *Ty);
+                          Type *Ty);
 
   Instruction *visitCallSite(CallSite CS);
   Instruction *tryOptimizeCall(CallInst *CI, const TargetData *TD);
   bool transformConstExprCastCall(CallSite CS);
-  Instruction *transformCallThroughTrampoline(CallSite CS);
+  Instruction *transformCallThroughTrampoline(CallSite CS,
+                                              IntrinsicInst *Tramp);
   Instruction *transformZExtICmp(ICmpInst *ICI, Instruction &CI,
                                  bool DoXform = true);
+  Instruction *transformSExtICmp(ICmpInst *ICI, Instruction &CI);
   bool WillNotOverflowSignedAdd(Value *LHS, Value *RHS);
-  DbgDeclareInst *hasOneUsePlusDeclare(Value *V);
   Value *EmitGEPOffset(User *GEP);
 
 public:
@@ -228,7 +236,15 @@ public:
     Worklist.Add(New);
     return New;
   }
-      
+
+  // InsertNewInstWith - same as InsertNewInstBefore, but also sets the 
+  // debug loc.
+  //
+  Instruction *InsertNewInstWith(Instruction *New, Instruction &Old) {
+    New->setDebugLoc(Old.getDebugLoc());
+    return InsertNewInstBefore(New, Old);
+  }
+
   // ReplaceInstUsesWith - This method is to be used when an instruction is
   // found to be dead, replacable with another preexisting expression.  Here
   // we add all uses of I to the worklist, replace all uses of I with the new
@@ -242,7 +258,10 @@ public:
     // segment of unreachable code, so just clobber the instruction.
     if (&I == V) 
       V = UndefValue::get(I.getType());
-      
+
+    DEBUG(errs() << "IC: Replacing " << I << "\n"
+                    "    with " << *V << '\n');
+
     I.replaceAllUsesWith(V);
     return &I;
   }
@@ -283,9 +302,16 @@ public:
 
 private:
 
-  /// SimplifyCommutative - This performs a few simplifications for 
-  /// commutative operators.
-  bool SimplifyCommutative(BinaryOperator &I);
+  /// SimplifyAssociativeOrCommutative - This performs a few simplifications for
+  /// operators which are associative or commutative.
+  bool SimplifyAssociativeOrCommutative(BinaryOperator &I);
+
+  /// SimplifyUsingDistributiveLaws - This tries to simplify binary operations
+  /// which some other binary operation distributes over either by factorizing
+  /// out common terms (eg "(A*B)+(A*C)" -> "A*(B+C)") or expanding out if this
+  /// results in simplifications (eg: "A & (B | C) -> (A&B) | (A&C)" if this is
+  /// a win).  Returns the simplified value, or null if it didn't simplify.
+  Value *SimplifyUsingDistributiveLaws(BinaryOperator &I);
 
   /// SimplifyDemandedUseBits - Attempts to replace V with a simpler value
   /// based on the demanded bits.
@@ -309,10 +335,7 @@ private:
   // into the PHI (which is only possible if all operands to the PHI are
   // constants).
   //
-  // If AllowAggressive is true, FoldOpIntoPhi will allow certain transforms
-  // that would normally be unprofitable because they strongly encourage jump
-  // threading.
-  Instruction *FoldOpIntoPhi(Instruction &I, bool AllowAggressive = false);
+  Instruction *FoldOpIntoPhi(Instruction &I);
 
   // FoldPHIArgOpIntoPHI - If all operands to a PHI node are the same "unary"
   // operator and they all are only used by the PHI, PHI together their
@@ -337,11 +360,7 @@ private:
   Instruction *SimplifyMemSet(MemSetInst *MI);
 
 
-  Value *EvaluateInDifferentType(Value *V, const Type *Ty, bool isSigned);
-
-  unsigned GetOrEnforceKnownAlignment(Value *V,
-                                      unsigned PrefAlign = 0);
-
+  Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 };
 
       

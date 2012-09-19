@@ -171,7 +171,7 @@ static apr_status_t dbm_open_type(apr_dbm_type_t const* * vtable,
 #endif
     apr_snprintf(symname, sizeof(symname), "apr_dbm_type_%s", type);
 
-    rv = apu_dso_load(&symbol, modname, symname, pool);
+    rv = apu_dso_load(NULL, &symbol, modname, symname, pool);
     if (rv == APR_SUCCESS || rv == APR_EINIT) { /* previously loaded?!? */
         *vtable = symbol;
         if (usertype)

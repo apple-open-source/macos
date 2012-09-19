@@ -24,9 +24,10 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Format.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Mutex.h"
+#include "llvm/Support/Mutex.h"
 #include "llvm/ADT/StringExtras.h"
 #include <algorithm>
 #include <cstring>
@@ -44,7 +45,7 @@ Enabled("stats", cl::desc("Enable statistics output from program"));
 
 namespace {
 /// StatisticInfo - This class is used in a ManagedStatic so that it is created
-/// on demand (when the first statistic is bumped) and destroyed only when 
+/// on demand (when the first statistic is bumped) and destroyed only when
 /// llvm_shutdown is called.  We print statistics from the destructor.
 class StatisticInfo {
   std::vector<const Statistic*> Stats;
@@ -52,7 +53,7 @@ class StatisticInfo {
   friend void llvm::PrintStatistics(raw_ostream &OS);
 public:
   ~StatisticInfo();
-  
+
   void addStatistic(const Statistic *S) {
     Stats.push_back(S);
   }
@@ -71,7 +72,7 @@ void Statistic::RegisterStatistic() {
   if (!Initialized) {
     if (Enabled)
       StatInfo->addStatistic(this);
-    
+
     sys::MemoryFence();
     // Remember we have been registered.
     Initialized = true;
@@ -84,7 +85,7 @@ struct NameCompare {
   bool operator()(const Statistic *LHS, const Statistic *RHS) const {
     int Cmp = std::strcmp(LHS->getName(), RHS->getName());
     if (Cmp != 0) return Cmp < 0;
-    
+
     // Secondary key is the description.
     return std::strcmp(LHS->getDesc(), RHS->getDesc()) < 0;
   }
@@ -101,6 +102,10 @@ void llvm::EnableStatistics() {
   Enabled.setValue(true);
 }
 
+bool llvm::AreStatisticsEnabled() {
+  return Enabled;
+}
+
 void llvm::PrintStatistics(raw_ostream &OS) {
   StatisticInfo &Stats = *StatInfo;
 
@@ -112,7 +117,7 @@ void llvm::PrintStatistics(raw_ostream &OS) {
     MaxNameLen = std::max(MaxNameLen,
                           (unsigned)std::strlen(Stats.Stats[i]->getName()));
   }
-  
+
   // Sort the fields by name.
   std::stable_sort(Stats.Stats.begin(), Stats.Stats.end(), NameCompare());
 
@@ -120,16 +125,14 @@ void llvm::PrintStatistics(raw_ostream &OS) {
   OS << "===" << std::string(73, '-') << "===\n"
      << "                          ... Statistics Collected ...\n"
      << "===" << std::string(73, '-') << "===\n\n";
-  
+
   // Print all of the statistics.
-  for (size_t i = 0, e = Stats.Stats.size(); i != e; ++i) {
-    std::string CountStr = utostr(Stats.Stats[i]->getValue());
-    OS << std::string(MaxValLen-CountStr.size(), ' ')
-       << CountStr << " " << Stats.Stats[i]->getName()
-       << std::string(MaxNameLen-std::strlen(Stats.Stats[i]->getName()), ' ')
-       << " - " << Stats.Stats[i]->getDesc() << "\n";
-  }
-  
+  for (size_t i = 0, e = Stats.Stats.size(); i != e; ++i)
+    OS << format("%*u %-*s - %s\n",
+                 MaxValLen, Stats.Stats[i]->getValue(),
+                 MaxNameLen, Stats.Stats[i]->getName(),
+                 Stats.Stats[i]->getDesc());
+
   OS << '\n';  // Flush the output stream.
   OS.flush();
 

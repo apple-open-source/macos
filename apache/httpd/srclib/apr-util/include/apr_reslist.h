@@ -28,15 +28,10 @@
 #include "apr_errno.h"
 #include "apr_time.h"
 
-#if APR_HAS_THREADS
-
 /**
  * @defgroup APR_Util_RL Resource List Routines
  * @ingroup APR_Util
  * @{
- * @warning
- * <strong><em>Resource list data types and routines are only available when
- * threads are enabled (i.e. APR_HAS_THREADS is not zero).</em></strong>
  */
 
 #ifdef __cplusplus
@@ -64,6 +59,10 @@ typedef apr_status_t (*apr_reslist_constructor)(void **resource, void *params,
 typedef apr_status_t (*apr_reslist_destructor)(void *resource, void *params,
                                                apr_pool_t *pool);
 
+/* Cleanup order modes */
+#define APR_RESLIST_CLEANUP_DEFAULT  0       /**< default pool cleanup */
+#define APR_RESLIST_CLEANUP_FIRST    1       /**< use pool pre cleanup */
+
 /**
  * Create a new resource list with the following parameters:
  * @param reslist An address where the pointer to the new resource
@@ -83,15 +82,9 @@ typedef apr_status_t (*apr_reslist_destructor)(void *resource, void *params,
  * @param pool The pool from which to create this resource list. Also the
  *             same pool that is passed to the constructor and destructor
  *             routines.
- * @warning If you're creating a sub-pool of the pool passed into this
- *          function in your constructor, you will need to follow some rules
- *          when it comes to destruction of that sub-pool, as calling
- *          apr_pool_destroy() outright on it in your destructor may create
- *          double free situations. That is because by the time destructor is
- *          called, the sub-pool may have already been destroyed. This also
- *          means that in the destructor, memory from the sub-pool should be
- *          treated as invalid. For examples of how to do this correctly, see
- *          mod_dbd of Apache 2.2 and memcache support in APR Util 1.3.
+ * @remark If APR has been compiled without thread support, hmax will be
+ *         automatically set to 1 and values of min and smax will be forced to
+ *         1 for any non-zero value.
  */
 APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
                                              int min, int smax, int hmax,
@@ -151,13 +144,33 @@ APU_DECLARE(apr_uint32_t) apr_reslist_acquired_count(apr_reslist_t *reslist);
 APU_DECLARE(apr_status_t) apr_reslist_invalidate(apr_reslist_t *reslist,
                                                  void *resource);
 
+/**
+ * Perform routine maintenance on the resource list. This call
+ * may instantiate new resources or expire old resources.
+ * @param reslist The resource list.
+ */
+APU_DECLARE(apr_status_t) apr_reslist_maintain(apr_reslist_t *reslist);
+
+/**
+ * Set reslist cleanup order.
+ * @param reslist The resource list.
+ * @param mode Cleanup order mode
+ * <PRE>
+ *           APR_RESLIST_CLEANUP_DEFAULT  default pool cleanup order
+ *           APR_RESLIST_CLEANUP_FIRST    use pool pre cleanup
+ * </PRE>
+ * @remark If APR_RESLIST_CLEANUP_FIRST is used the destructors will
+ * be called before child pools of the pool used to create the reslist
+ * are destroyed. This allows to explicitly destroy the child pools
+ * inside reslist destructors.
+ */
+APU_DECLARE(void) apr_reslist_cleanup_order_set(apr_reslist_t *reslist,
+                                                apr_uint32_t mode);
 
 #ifdef __cplusplus
 }
 #endif
 
 /** @} */
-
-#endif  /* APR_HAS_THREADS */
 
 #endif  /* ! APR_RESLIST_H */

@@ -87,6 +87,21 @@ std::string Architecture::displayName() const
 
 
 //
+// Compare architectures.
+// This is asymmetrical; the second argument provides for some templating.
+//
+bool Architecture::matches(const Architecture &templ) const
+{
+	if (first != templ.first)
+		return false;	// main architecture mismatch
+	if (templ.second == CPU_SUBTYPE_MULTIPLE)
+		return true;	// subtype wildcard
+	// match subtypes, ignoring feature bits
+	return ((second ^ templ.second) & ~CPU_SUBTYPE_MASK) == 0;
+}
+
+
+//
 // MachOBase contains knowledge of the Mach-O object file format,
 // but abstracts from any particular sourcing. It must be subclassed,
 // and the subclass must provide the file header and commands area
@@ -327,6 +342,17 @@ size_t MachOBase::signingLength() const
 		return 0;
 }
 
+#ifndef LC_DYLIB_CODE_SIGN_DRS
+#define LC_DYLIB_CODE_SIGN_DRS 0x2B
+#endif
+
+const linkedit_data_command *MachOBase::findLibraryDependencies() const
+{
+	if (const load_command *cmd = findCommand(LC_DYLIB_CODE_SIGN_DRS))
+		return reinterpret_cast<const linkedit_data_command *>(cmd);
+	return NULL;		// not found
+}
+
 
 //
 // Return the signing-limit length for this Mach-O binary image.
@@ -557,9 +583,10 @@ void Universal::architectures(Architectures &archs)
 uint32_t Universal::typeOf(FileDesc fd)
 {
 	mach_header header;
+	int max_tries = 3;
 	if (fd.read(&header, sizeof(header), 0) != sizeof(header))
-		return false;
-	for (;;) {
+		return 0;
+	while (max_tries > 0) {
 		switch (header.magic) {
 		case MH_MAGIC:
 		case MH_MAGIC_64:
@@ -576,6 +603,7 @@ uint32_t Universal::typeOf(FileDesc fd)
 					LowLevelMemoryUtilities::increment<fat_arch>(&header, sizeof(fat_header));
 				if (fd.read(&header, sizeof(header), ntohl(arch1->offset)) != sizeof(header))
 					return 0;
+				max_tries--;
 				continue;
 			}
 		default:

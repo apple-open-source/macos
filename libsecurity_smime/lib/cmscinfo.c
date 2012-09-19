@@ -289,12 +289,15 @@ SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo)
 	case SEC_OID_PKCS7_ENCRYPTED_DATA:
 	case SEC_OID_PKCS7_ENVELOPED_DATA:
 	case SEC_OID_PKCS7_SIGNED_DATA:
-	    cinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
+            cinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
 	    if (cinfo == NULL) {
 		return NULL;
 	    }
 	    /* else recurse */
 	    break;
+        case SEC_OID_PKCS9_ID_CT_TSTInfo:
+	    /* end of recursion - every message has to have a data cinfo */
+	    return cinfo->rawContent; 
 	default:
 	    PORT_Assert(0);
 	    return NULL;

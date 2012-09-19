@@ -581,6 +581,12 @@ void IOFireWireDevice::free()
     {
 	    IORecursiveLockFree(fROMLock);
     }
+    
+    if ( fControl )
+    {
+        fControl->release();
+        fControl = NULL;
+    }
 	
 	IOFireWireNub::free();
 }

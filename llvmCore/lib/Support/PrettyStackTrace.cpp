@@ -8,15 +8,21 @@
 //===----------------------------------------------------------------------===//
 //
 // This file defines some helpful functions for dealing with the possibility of
-// Unix signals occuring while your program is running.
+// Unix signals occurring while your program is running.
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Config/config.h"     // Get autoconf configuration settings
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Signals.h"
-#include "llvm/System/ThreadLocal.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/ThreadLocal.h"
 #include "llvm/ADT/SmallString.h"
+
+#ifdef HAVE_CRASHREPORTERCLIENT_H
+#include <CrashReporterClient.h>
+#endif
+
 using namespace llvm;
 
 namespace llvm {
@@ -48,16 +54,25 @@ static void PrintCurStackTrace(raw_ostream &OS) {
   OS.flush();
 }
 
-// Integrate with crash reporter.
-#ifdef __APPLE__
-extern "C" const char *__crashreporter_info__;
-const char *__crashreporter_info__ = 0;
+// Integrate with crash reporter libraries.
+#if defined (__APPLE__) && HAVE_CRASHREPORTERCLIENT_H
+//  If any clients of llvm try to link to libCrashReporterClient.a themselves,
+//  only one crash info struct will be used.
+extern "C" {
+CRASH_REPORTER_CLIENT_HIDDEN 
+struct crashreporter_annotations_t gCRAnnotations 
+        __attribute__((section("__DATA," CRASHREPORTER_ANNOTATIONS_SECTION))) 
+        = { CRASHREPORTER_ANNOTATIONS_VERSION, 0, 0, 0, 0, 0, 0 };
+}
+#elif defined (__APPLE__) && HAVE_CRASHREPORTER_INFO
+static const char *__crashreporter_info__ = 0;
+asm(".desc ___crashreporter_info__, 0x10");
 #endif
 
 
 /// CrashHandler - This callback is run if a fatal signal is delivered to the
 /// process, it prints the pretty stack trace.
-static void CrashHandler(void *Cookie) {
+static void CrashHandler(void *) {
 #ifndef __APPLE__
   // On non-apple systems, just emit the crash stack trace to stderr.
   PrintCurStackTrace(errs());
@@ -71,7 +86,12 @@ static void CrashHandler(void *Cookie) {
   }
   
   if (!TmpStr.empty()) {
+#ifdef HAVE_CRASHREPORTERCLIENT_H
+    // Cast to void to avoid warning.
+    (void)CRSetCrashLogMessage(std::string(TmpStr.str()).c_str());
+#elif HAVE_CRASHREPORTER_INFO 
     __crashreporter_info__ = strdup(std::string(TmpStr.str()).c_str());
+#endif
     errs() << TmpStr.str();
   }
   
@@ -87,7 +107,7 @@ static bool RegisterCrashPrinter() {
 PrettyStackTraceEntry::PrettyStackTraceEntry() {
   // The first time this is called, we register the crash printer.
   static bool HandlerRegistered = RegisterCrashPrinter();
-  HandlerRegistered = HandlerRegistered;
+  (void)HandlerRegistered;
     
   // Link ourselves.
   NextEntry = PrettyStackTraceHead.get();
@@ -111,4 +131,3 @@ void PrettyStackTraceProgram::print(raw_ostream &OS) const {
     OS << ArgV[i] << ' ';
   OS << '\n';
 }
-

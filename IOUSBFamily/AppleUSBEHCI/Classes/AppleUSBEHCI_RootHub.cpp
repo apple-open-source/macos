@@ -29,6 +29,7 @@
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 
+
 #include "AppleUSBEHCI.h"
 #include "USBTracepoints.h"
 
@@ -119,7 +120,7 @@ AppleUSBEHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     hubDesc.powerOnToGood = 50;	// It don't tell us??
     hubDesc.hubCurrent = 0;
 	
-    numBytes = (hubDesc.numPorts + 1) / 8 + 1;
+    numBytes = (hubDesc.numPorts / 8) + 1;
     
 	// Set removable port flags -- we might have an AAPL property that tells us which ports
 	// are captive.  If we don't then we'll assume that all ports are removable
@@ -530,6 +531,7 @@ AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 IOReturn 
 AppleUSBEHCI::GetRootHubPortState(UInt8 *state, UInt16 port)
 {
+#pragma unused (state, port)
     USBLog(5,"AppleUSBEHCI[%p]::GetRootHubPortState for port %d",  this, port);
     return kIOReturnSuccess;
 }
@@ -553,7 +555,28 @@ getPortSCForWriting(EHCIRegistersPtr _pEHCIRegisters, short port)
 	
 }
 
+#ifdef SUPPORTS_SS_USB
 
+
+IOReturn 
+AppleUSBEHCI::EHCIMuxedPortDeviceDisconnected(char *muxMethod)
+{
+	IOReturn		status = kIOReturnSuccess;
+	if ( _xhciController )
+	{
+        USBLog(6, "AppleUSBEHCI[%p]::EHCIMuxedPortDeviceDisconnected found AppleUSBXHCI %p sending kIOUSBMessageMuxFromEHCIToXHCI method %s", this, _xhciController, muxMethod);
+        
+        status = _xhciController->message(kIOUSBMessageHubPortDeviceDisconnected, _device, (void*)muxMethod);
+    }
+    else
+    {
+        USBLog(1, "AppleUSBEHCI[%p]::EHCIMuxedPortDeviceDisconnected could not discover AppleUSBXHCI, dropping kIOUSBMessageMuxFromEHCIToXHCI message", this);
+    }
+
+	return status;
+}
+
+#endif
 
 IOReturn 
 AppleUSBEHCI::EHCIRootHubPower(bool on)
@@ -578,7 +601,7 @@ AppleUSBEHCI::EHCIRootHubResetChangeConnection(UInt16 port)
 	
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
     IOSync();
-	
+		
 	if (_errataBits & kErrataNECIncompleteWrite)
 	{
 		newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
@@ -694,6 +717,7 @@ AppleUSBEHCI::EHCIRootHubResetOverCurrentChange(UInt16 port)
 void 
 AppleUSBEHCI::waitForSOF(EHCIRegistersPtr pEHCIRegisters)
 {
+#pragma unused (pEHCIRegisters)
     IOSleep(1);
 }
 
@@ -756,7 +780,9 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		{
 			USBLog(1, "EHCI: Low speed device detected with no companion controller (bad hardware?)");
 		}
-		return kIOUSBDeviceNotHighSpeed;
+	
+		return kIOUSBDeviceTransferredToCompanion;
+
     }
 	
     value |= kEHCIPortSC_Reset;
@@ -871,8 +897,9 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		{
 			USBLog(1, "EHCI: Full speed device detected with no companion controller - probably a hub which failed to Chirp");
 		}
+		
         // Pretend the port doesn't exist.
-		return kIOUSBDeviceNotHighSpeed;
+		return kIOUSBDeviceTransferredToCompanion;
     }
     else
     {
@@ -887,6 +914,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		value |= kEHCIPortSC_WKDSCNNT_E;			// we need to set this bit in case this port was ever used by a companion controller
 		
 		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
+        IOSync();
     }
 	
     USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort done",  this);
@@ -1060,6 +1088,7 @@ AppleUSBEHCI::EHCIRootHubPortPower(UInt16 port, bool on)
 void
 AppleUSBEHCI::UIMRootHubStatusChange( bool abort )
 {
+#pragma unused (abort)
 	USBLog(1, "AppleUSBEHCI[%p]::UIMRootHubStatusChange - calling obsolete method UIMRootHubStatusChange(bool)", this);
 }
 
@@ -1350,6 +1379,7 @@ AppleUSBEHCI::RHResumePortTimer(UInt32 port)
 IOReturn
 AppleUSBEHCI::RHResumePortCompletionEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
+#pragma unused (param2, param3, param4)
     AppleUSBEHCI				*me = OSDynamicCast(AppleUSBEHCI, target);
     UInt32						port = (uintptr_t)param1;
 	

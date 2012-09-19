@@ -33,7 +33,7 @@
 /* 
  * Directory name component identifiers.
  */
-static const uint8
+static const uint8_t
 	OID_ObjectClass[]           		= { OID_ATTR_TYPE, 0 },
 	OID_AliasedEntryName[]      		= { OID_ATTR_TYPE, 1 },
 	OID_KnowledgeInformation[]  		= { OID_ATTR_TYPE, 2 },
@@ -107,87 +107,87 @@ static const uint8
 ;
 
 const CSSM_OID
-CSSMOID_ObjectClass        		= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_ObjectClass},
-CSSMOID_AliasedEntryName    	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_AliasedEntryName},
-CSSMOID_KnowledgeInformation	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_KnowledgeInformation},
-CSSMOID_CommonName          	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_CommonName},
-CSSMOID_Surname             	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Surname},
-CSSMOID_SerialNumber       		= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_SerialNumber},
-CSSMOID_CountryName         	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_CountryName},
-CSSMOID_LocalityName        	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_LocalityName},
-CSSMOID_StateProvinceName   	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_StateProvinceName},
+CSSMOID_ObjectClass        		= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_ObjectClass},
+CSSMOID_AliasedEntryName    	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_AliasedEntryName},
+CSSMOID_KnowledgeInformation	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_KnowledgeInformation},
+CSSMOID_CommonName          	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_CommonName},
+CSSMOID_Surname             	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Surname},
+CSSMOID_SerialNumber       		= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_SerialNumber},
+CSSMOID_CountryName         	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_CountryName},
+CSSMOID_LocalityName        	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_LocalityName},
+CSSMOID_StateProvinceName   	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_StateProvinceName},
 CSSMOID_CollectiveStateProvinceName
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveStateProvinceName},
-CSSMOID_StreetAddress       	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_StreetAddress},
-CSSMOID_CollectiveStreetAddress = { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveStreetAddress},
-CSSMOID_OrganizationName    	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_OrganizationName},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveStateProvinceName},
+CSSMOID_StreetAddress       	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_StreetAddress},
+CSSMOID_CollectiveStreetAddress = { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveStreetAddress},
+CSSMOID_OrganizationName    	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_OrganizationName},
 CSSMOID_CollectiveOrganizationName  
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveOrganizationName},
-CSSMOID_OrganizationalUnitName  = { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_OrganizationalUnitName},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveOrganizationName},
+CSSMOID_OrganizationalUnitName  = { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_OrganizationalUnitName},
 CSSMOID_CollectiveOrganizationalUnitName
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveOrganizationalUnitName},
-CSSMOID_Title              		= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Title},
-CSSMOID_Description        		= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Description},
-CSSMOID_SearchGuide         	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_SearchGuide},
-CSSMOID_BusinessCategory    	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_BusinessCategory},
-CSSMOID_PostalAddress       	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_PostalAddress},
-CSSMOID_CollectivePostalAddress = { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectivePostalAddress},
-CSSMOID_PostalCode          	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_PostalCode},
-CSSMOID_CollectivePostalCode	= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectivePostalCode},
-CSSMOID_PostOfficeBox       	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_PostOfficeBox},
-CSSMOID_CollectivePostOfficeBox = { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectivePostOfficeBox},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveOrganizationalUnitName},
+CSSMOID_Title              		= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Title},
+CSSMOID_Description        		= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Description},
+CSSMOID_SearchGuide         	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_SearchGuide},
+CSSMOID_BusinessCategory    	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_BusinessCategory},
+CSSMOID_PostalAddress       	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_PostalAddress},
+CSSMOID_CollectivePostalAddress = { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectivePostalAddress},
+CSSMOID_PostalCode          	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_PostalCode},
+CSSMOID_CollectivePostalCode	= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectivePostalCode},
+CSSMOID_PostOfficeBox       	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_PostOfficeBox},
+CSSMOID_CollectivePostOfficeBox = { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectivePostOfficeBox},
 CSSMOID_PhysicalDeliveryOfficeName  
-								= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_PhysicalDeliveryOfficeName},
+								= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_PhysicalDeliveryOfficeName},
 CSSMOID_CollectivePhysicalDeliveryOfficeName 
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectivePhysicalDeliveryOfficeName},
-CSSMOID_TelephoneNumber     	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_TelephoneNumber},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectivePhysicalDeliveryOfficeName},
+CSSMOID_TelephoneNumber     	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_TelephoneNumber},
 CSSMOID_CollectiveTelephoneNumber   
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveTelephoneNumber},
-CSSMOID_TelexNumber         	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_TelexNumber},
-CSSMOID_CollectiveTelexNumber   = { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveTelexNumber},
-CSSMOID_TelexTerminalIdentifier = { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_TelexTerminalIdentifier},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveTelephoneNumber},
+CSSMOID_TelexNumber         	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_TelexNumber},
+CSSMOID_CollectiveTelexNumber   = { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveTelexNumber},
+CSSMOID_TelexTerminalIdentifier = { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_TelexTerminalIdentifier},
 CSSMOID_CollectiveTelexTerminalIdentifier 
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveTelexTerminalIdentifier},
-CSSMOID_FacsimileTelephoneNumber= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_FacsimileTelephoneNumber},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveTelexTerminalIdentifier},
+CSSMOID_FacsimileTelephoneNumber= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_FacsimileTelephoneNumber},
 CSSMOID_CollectiveFacsimileTelephoneNumber
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveFacsimileTelephoneNumber},
-CSSMOID_X_121Address        	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_X_121Address},
-CSSMOID_InternationalISDNNumber = { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_InternationalISDNNumber},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveFacsimileTelephoneNumber},
+CSSMOID_X_121Address        	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_X_121Address},
+CSSMOID_InternationalISDNNumber = { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_InternationalISDNNumber},
 CSSMOID_CollectiveInternationalISDNNumber 
-								= { OID_ATTR_TYPE_LENGTH+2, (uint8 *)OID_CollectiveInternationalISDNNumber},
-CSSMOID_RegisteredAddress   	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_RegisteredAddress},
-CSSMOID_DestinationIndicator	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_DestinationIndicator},
-CSSMOID_PreferredDeliveryMethod = { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_PreferredDeliveryMethod},
-CSSMOID_PresentationAddress 	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_PresentationAddress},
+								= { OID_ATTR_TYPE_LENGTH+2, (uint8_t *)OID_CollectiveInternationalISDNNumber},
+CSSMOID_RegisteredAddress   	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_RegisteredAddress},
+CSSMOID_DestinationIndicator	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_DestinationIndicator},
+CSSMOID_PreferredDeliveryMethod = { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_PreferredDeliveryMethod},
+CSSMOID_PresentationAddress 	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_PresentationAddress},
 CSSMOID_SupportedApplicationContext 
-								= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_SupportedApplicationContext},
-CSSMOID_Member              	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Member},
-CSSMOID_Owner               	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Owner},
-CSSMOID_RoleOccupant        	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_RoleOccupant},
-CSSMOID_SeeAlso             	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_SeeAlso},
-CSSMOID_UserPassword        	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_UserPassword},
-CSSMOID_UserCertificate     	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_UserCertificate},
-CSSMOID_CACertificate       	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_CACertificate},
-CSSMOID_AuthorityRevocationList = { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_AuthorityRevocationList},
+								= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_SupportedApplicationContext},
+CSSMOID_Member              	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Member},
+CSSMOID_Owner               	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Owner},
+CSSMOID_RoleOccupant        	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_RoleOccupant},
+CSSMOID_SeeAlso             	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_SeeAlso},
+CSSMOID_UserPassword        	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_UserPassword},
+CSSMOID_UserCertificate     	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_UserCertificate},
+CSSMOID_CACertificate       	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_CACertificate},
+CSSMOID_AuthorityRevocationList = { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_AuthorityRevocationList},
 CSSMOID_CertificateRevocationList
-								= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_CertificateRevocationList},
-CSSMOID_CrossCertificatePair	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_CrossCertificatePair},
-CSSMOID_Name                	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Name},
-CSSMOID_GivenName           	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_GivenName},
-CSSMOID_Initials            	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_Initials},
-CSSMOID_GenerationQualifier 	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_GenerationQualifier},
-CSSMOID_UniqueIdentifier    	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_UniqueIdentifier},
-CSSMOID_DNQualifier         	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_DNQualifier},
-CSSMOID_EnhancedSearchGuide 	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_EnhancedSearchGuide},
-CSSMOID_ProtocolInformation 	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_ProtocolInformation},
-CSSMOID_DistinguishedName   	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_DistinguishedName},
-CSSMOID_UniqueMember        	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_UniqueMember},
-CSSMOID_HouseIdentifier     	= { OID_ATTR_TYPE_LENGTH+1, (uint8 *)OID_HouseIdentifier}
+								= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_CertificateRevocationList},
+CSSMOID_CrossCertificatePair	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_CrossCertificatePair},
+CSSMOID_Name                	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Name},
+CSSMOID_GivenName           	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_GivenName},
+CSSMOID_Initials            	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_Initials},
+CSSMOID_GenerationQualifier 	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_GenerationQualifier},
+CSSMOID_UniqueIdentifier    	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_UniqueIdentifier},
+CSSMOID_DNQualifier         	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_DNQualifier},
+CSSMOID_EnhancedSearchGuide 	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_EnhancedSearchGuide},
+CSSMOID_ProtocolInformation 	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_ProtocolInformation},
+CSSMOID_DistinguishedName   	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_DistinguishedName},
+CSSMOID_UniqueMember        	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_UniqueMember},
+CSSMOID_HouseIdentifier     	= { OID_ATTR_TYPE_LENGTH+1, (uint8_t *)OID_HouseIdentifier}
 ;
 
 
 /* From PKCS 9 */
-static const uint8
+static const uint8_t
 	OID_EmailAddress[]          = { OID_PKCS_9, 1 },
 	OID_UnstructuredName[]      = { OID_PKCS_9, 2 },
 	OID_ContentType[]           = { OID_PKCS_9, 3 },
@@ -200,18 +200,18 @@ static const uint8
 ;
 
 const CSSM_OID
-CSSMOID_EmailAddress        = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_EmailAddress},
-CSSMOID_UnstructuredName    = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_UnstructuredName},
-CSSMOID_ContentType         = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_ContentType},
-CSSMOID_MessageDigest       = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_MessageDigest},
-CSSMOID_SigningTime         = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_SigningTime},
-CSSMOID_CounterSignature    = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_CounterSignature},
-CSSMOID_ChallengePassword   = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_ChallengePassword},
-CSSMOID_UnstructuredAddress = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_UnstructuredAddress},
-CSSMOID_ExtendedCertificateAttributes = {OID_PKCS_9_LENGTH+1, (uint8 *)OID_ExtendedCertificateAttributes};
+CSSMOID_EmailAddress        = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_EmailAddress},
+CSSMOID_UnstructuredName    = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_UnstructuredName},
+CSSMOID_ContentType         = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_ContentType},
+CSSMOID_MessageDigest       = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_MessageDigest},
+CSSMOID_SigningTime         = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_SigningTime},
+CSSMOID_CounterSignature    = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_CounterSignature},
+CSSMOID_ChallengePassword   = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_ChallengePassword},
+CSSMOID_UnstructuredAddress = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_UnstructuredAddress},
+CSSMOID_ExtendedCertificateAttributes = {OID_PKCS_9_LENGTH+1, (uint8_t *)OID_ExtendedCertificateAttributes};
 
 /* PKIX */
-static const uint8
+static const uint8_t
 	OID_QT_CPS[]			= { OID_QT, 1 },
 	OID_QT_UNOTICE[]		= { OID_QT, 2 },
 	_OID_AD_OCSP[]			= { OID_AD_OCSP },
@@ -228,7 +228,7 @@ static const uint8
 ; 
 
 /* ETSI */
-static const uint8
+static const uint8_t
 	OID_ETSI_QCS_QC_COMPLICANCE[]	= { OID_ETSI_QCS, 1 },
 	OID_ETSI_QCS_QC_LIMIT_VALUE[]	= { OID_ETSI_QCS, 2 },
 	OID_ETSI_QCS_QC_RETENTION[]		= { OID_ETSI_QCS, 3 },
@@ -236,30 +236,30 @@ static const uint8
 ;
 
 const CSSM_OID
-CSSMOID_QT_CPS				= {OID_QT_LENGTH+1, (uint8 *)OID_QT_CPS},
-CSSMOID_QT_UNOTICE			= {OID_QT_LENGTH+1, (uint8 *)OID_QT_UNOTICE},
-CSSMOID_AD_OCSP				= {OID_AD_LENGTH+1, (uint8 *)_OID_AD_OCSP},
-CSSMOID_AD_CA_ISSUERS		= {OID_AD_LENGTH+1, (uint8 *)OID_AD_CA_ISSUERS},
-CSSMOID_AD_TIME_STAMPING	= {OID_AD_LENGTH+1, (uint8 *)OID_AD_TIME_STAMPING},
-CSSMOID_AD_CA_REPOSITORY	= {OID_AD_LENGTH+1, (uint8 *)OID_AD_CA_REPOSITORY},
-CSSMOID_PDA_DATE_OF_BIRTH	= {OID_PDA_LENGTH+1, (uint8 *)OID_PDA_DATE_OF_BIRTH},
-CSSMOID_PDA_PLACE_OF_BIRTH	= {OID_PDA_LENGTH+1, (uint8 *)OID_PDA_PLACE_OF_BIRTH},
-CSSMOID_PDA_GENDER			= {OID_PDA_LENGTH+1, (uint8 *)OID_PDA_GENDER},
-CSSMOID_PDA_COUNTRY_CITIZEN	= {OID_PDA_LENGTH+1, (uint8 *)OID_PDA_COUNTRY_CITIZEN},
-CSSMOID_PDA_COUNTRY_RESIDENCE = {OID_PDA_LENGTH+1, (uint8 *)OID_PDA_COUNTRY_RESIDENCE},
-CSSMOID_OID_QCS_SYNTAX_V1 	= {OID_QCS_LENGTH+1, (uint8 *)OID_QCS_SYNTAX_V1},
-CSSMOID_OID_QCS_SYNTAX_V2 	= {OID_QCS_LENGTH+1, (uint8 *)OID_QCS_SYNTAX_V2}
+CSSMOID_QT_CPS				= {OID_QT_LENGTH+1, (uint8_t *)OID_QT_CPS},
+CSSMOID_QT_UNOTICE			= {OID_QT_LENGTH+1, (uint8_t *)OID_QT_UNOTICE},
+CSSMOID_AD_OCSP				= {OID_AD_LENGTH+1, (uint8_t *)_OID_AD_OCSP},
+CSSMOID_AD_CA_ISSUERS		= {OID_AD_LENGTH+1, (uint8_t *)OID_AD_CA_ISSUERS},
+CSSMOID_AD_TIME_STAMPING	= {OID_AD_LENGTH+1, (uint8_t *)OID_AD_TIME_STAMPING},
+CSSMOID_AD_CA_REPOSITORY	= {OID_AD_LENGTH+1, (uint8_t *)OID_AD_CA_REPOSITORY},
+CSSMOID_PDA_DATE_OF_BIRTH	= {OID_PDA_LENGTH+1, (uint8_t *)OID_PDA_DATE_OF_BIRTH},
+CSSMOID_PDA_PLACE_OF_BIRTH	= {OID_PDA_LENGTH+1, (uint8_t *)OID_PDA_PLACE_OF_BIRTH},
+CSSMOID_PDA_GENDER			= {OID_PDA_LENGTH+1, (uint8_t *)OID_PDA_GENDER},
+CSSMOID_PDA_COUNTRY_CITIZEN	= {OID_PDA_LENGTH+1, (uint8_t *)OID_PDA_COUNTRY_CITIZEN},
+CSSMOID_PDA_COUNTRY_RESIDENCE = {OID_PDA_LENGTH+1, (uint8_t *)OID_PDA_COUNTRY_RESIDENCE},
+CSSMOID_OID_QCS_SYNTAX_V1 	= {OID_QCS_LENGTH+1, (uint8_t *)OID_QCS_SYNTAX_V1},
+CSSMOID_OID_QCS_SYNTAX_V2 	= {OID_QCS_LENGTH+1, (uint8_t *)OID_QCS_SYNTAX_V2}
 ;
 
 const CSSM_OID
 CSSMOID_ETSI_QCS_QC_COMPLIANCE 	= {OID_ETSI_QCS_LENGTH + 1,
-								  (uint8 *)OID_ETSI_QCS_QC_COMPLICANCE},
+								  (uint8_t *)OID_ETSI_QCS_QC_COMPLICANCE},
 CSSMOID_ETSI_QCS_QC_LIMIT_VALUE = {OID_ETSI_QCS_LENGTH + 1,
-								  (uint8 *)OID_ETSI_QCS_QC_LIMIT_VALUE},
+								  (uint8_t *)OID_ETSI_QCS_QC_LIMIT_VALUE},
 CSSMOID_ETSI_QCS_QC_RETENTION 	= {OID_ETSI_QCS_LENGTH + 1,
-								  (uint8 *)OID_ETSI_QCS_QC_COMPLICANCE},
+								  (uint8_t *)OID_ETSI_QCS_QC_COMPLICANCE},
 CSSMOID_ETSI_QCS_QC_SSCD		= {OID_ETSI_QCS_LENGTH + 1,
-								  (uint8 *)OID_ETSI_QCS_QC_COMPLICANCE}
+								  (uint8_t *)OID_ETSI_QCS_QC_COMPLICANCE}
 ;
 
 #define OID_PKCS12_BagTypes			OID_PKCS_12,10,1
@@ -270,7 +270,7 @@ CSSMOID_ETSI_QCS_QC_SSCD		= {OID_ETSI_QCS_LENGTH + 1,
 #define ID_PKCS9_CrlTypes			OID_PKCS_9, 23
 #define OID_PKCS9_CrlTypesLength	OID_PKCS_9_LENGTH+1
 
-static const uint8
+static const uint8_t
 	OID_PKCS7_Data[] = 						{ OID_PKCS_7, 1},	
 	OID_PKCS7_SignedData[] = 				{ OID_PKCS_7, 2},	
 	OID_PKCS7_EnvelopedData[] = 			{ OID_PKCS_7, 3},	
@@ -296,88 +296,122 @@ static const uint8
 	OID_PKCS12_safeContentsBag[] =			{ OID_PKCS12_BagTypes, 6}
 ;
 
+/*
+    -- ContentTypes
+    {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) ct(1)}
+    
+    -- Attributes
+    {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) aa(2)}
+    
+    -- eContentType for a time-stamp token
+
+    id-ct-TSTInfo  OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+    us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) ct(1) 4}
+
+    id-aa-timeStampToken OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+    us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) aa(2) 14 }
+*/
+
+#define ID_PKCS9_SMIME          OID_PKCS_9, 16
+#define OID_PKCS9_SMIMELength   OID_PKCS_9_LENGTH+1
+#define ID_PKCS9_CONTENT_TYPES  ID_PKCS9_SMIME, 1
+#define OID_PKCS9_CT_Length     OID_PKCS9_SMIMELength+1
+#define ID_PKCS9_ATTRIBUTES     ID_PKCS9_SMIME, 2
+#define OID_PKCS9_Attrs_Length  OID_PKCS9_SMIMELength+1
+
+static const uint8_t
+	OID_ID_CT_TSTInfo[]       = { ID_PKCS9_CONTENT_TYPES, 4 },
+	OID_TimeStampToken[]      = { ID_PKCS9_ATTRIBUTES, 14 };
+    
+const CSSM_OID 
+CSSMOID_PKCS9_Id_Ct_TSTInfo = {OID_PKCS9_CT_Length + 1,
+					  (uint8_t *)OID_ID_CT_TSTInfo },
+CSSMOID_PKCS9_TimeStampToken = {OID_PKCS9_Attrs_Length + 1,
+					  (uint8_t *)OID_TimeStampToken };
+
+
 const CSSM_OID 
 CSSMOID_PKCS7_Data = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_Data },
+					  (uint8_t *)OID_PKCS7_Data },
 CSSMOID_PKCS7_SignedData = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_SignedData },
+					  (uint8_t *)OID_PKCS7_SignedData },
 CSSMOID_PKCS7_EnvelopedData = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_EnvelopedData },
+					  (uint8_t *)OID_PKCS7_EnvelopedData },
 CSSMOID_PKCS7_SignedAndEnvelopedData = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_SignedAndEnvelopedData },
+					  (uint8_t *)OID_PKCS7_SignedAndEnvelopedData },
 CSSMOID_PKCS7_DigestedData = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_DigestedData },
+					  (uint8_t *)OID_PKCS7_DigestedData },
 CSSMOID_PKCS7_EncryptedData = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_EncryptedData },
+					  (uint8_t *)OID_PKCS7_EncryptedData },
 CSSMOID_PKCS7_DataWithAttributes = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_DataWithAttributes },
+					  (uint8_t *)OID_PKCS7_DataWithAttributes },
 CSSMOID_PKCS7_EncryptedPrivateKeyInfo = {OID_PKCS_7_LENGTH + 1,
-					  (uint8 *)OID_PKCS7_EncryptedPrivateKeyInfo },
+					  (uint8_t *)OID_PKCS7_EncryptedPrivateKeyInfo },
 					  
 CSSMOID_PKCS9_FriendlyName = {OID_PKCS_9_LENGTH + 1,
-						(uint8 *)OID_PKCS9_FriendlyName },
+						(uint8_t *)OID_PKCS9_FriendlyName },
 CSSMOID_PKCS9_LocalKeyId = {OID_PKCS_9_LENGTH + 1,
-						(uint8 *)OID_PKCS9_LocalKeyId },
+						(uint8_t *)OID_PKCS9_LocalKeyId },
 CSSMOID_PKCS9_CertTypes = {OID_PKCS_9_LENGTH + 1,
-						(uint8 *)OID_PKCS9_CertTypes },
+						(uint8_t *)OID_PKCS9_CertTypes },
 CSSMOID_PKCS9_CrlTypes = {OID_PKCS_9_LENGTH + 1,
-						(uint8 *)OID_PKCS9_CrlTypes },
+						(uint8_t *)OID_PKCS9_CrlTypes },
 CSSMOID_PKCS9_X509Certificate = {OID_PKCS9_CertTypesLength + 1,
-						(uint8 *)OID_PKCS9_X509Certificate },
+						(uint8_t *)OID_PKCS9_X509Certificate },
 CSSMOID_PKCS9_SdsiCertificate = {OID_PKCS9_CertTypesLength + 1,
-						(uint8 *)OID_PKCS9_SdsiCertificate },
+						(uint8_t *)OID_PKCS9_SdsiCertificate },
 CSSMOID_PKCS9_X509Crl = {OID_PKCS9_CrlTypesLength + 1,
-						(uint8 *)OID_PKCS9_X509Crl },
+						(uint8_t *)OID_PKCS9_X509Crl },
 	
 
 CSSMOID_PKCS12_keyBag = {OID_PKCS12_BagTypesLength + 1,
-					(uint8 *)OID_PKCS12_keyBag },
+					(uint8_t *)OID_PKCS12_keyBag },
 CSSMOID_PKCS12_shroudedKeyBag = {OID_PKCS12_BagTypesLength + 1,
-					(uint8 *)OID_PKCS12_shroundedKeyBag },
+					(uint8_t *)OID_PKCS12_shroundedKeyBag },
 CSSMOID_PKCS12_certBag = {OID_PKCS12_BagTypesLength + 1,
-					(uint8 *)OID_PKCS12_certBag },
+					(uint8_t *)OID_PKCS12_certBag },
 CSSMOID_PKCS12_crlBag = {OID_PKCS12_BagTypesLength + 1,
-					(uint8 *)OID_PKCS12_crlBag },
+					(uint8_t *)OID_PKCS12_crlBag },
 CSSMOID_PKCS12_secretBag = {OID_PKCS12_BagTypesLength + 1,
-					(uint8 *)OID_PKCS12_secretBag },
+					(uint8_t *)OID_PKCS12_secretBag },
 CSSMOID_PKCS12_safeContentsBag = {OID_PKCS12_BagTypesLength + 1,
-					(uint8 *)OID_PKCS12_safeContentsBag }
+					(uint8_t *)OID_PKCS12_safeContentsBag }
 
 ;
 
 /* Kerberos PKINIT CMS ContentInfo types */
 
-static const uint8
+static const uint8_t
 	OID_KERBv5_PKINIT_AUTH_DATA[]		= { OID_KERBv5_PKINIT, 1 },
 	OID_KERBv5_PKINIT_DH_KEY_DATA[]		= { OID_KERBv5_PKINIT, 2 },
 	OID_KERBv5_PKINIT_RKEY_DATA[]		= { OID_KERBv5_PKINIT, 3 };
 
 const CSSM_OID 
 CSSMOID_KERBv5_PKINIT_AUTH_DATA		= { OID_KERBv5_PKINIT_LEN + 1,
-										(uint8 *)OID_KERBv5_PKINIT_AUTH_DATA },
+										(uint8_t *)OID_KERBv5_PKINIT_AUTH_DATA },
 CSSMOID_KERBv5_PKINIT_DH_KEY_DATA	= { OID_KERBv5_PKINIT_LEN + 1,
-										(uint8 *)OID_KERBv5_PKINIT_DH_KEY_DATA },
+										(uint8_t *)OID_KERBv5_PKINIT_DH_KEY_DATA },
 CSSMOID_KERBv5_PKINIT_RKEY_DATA		= { OID_KERBv5_PKINIT_LEN + 1,
-										(uint8 *)OID_KERBv5_PKINIT_RKEY_DATA };
+										(uint8_t *)OID_KERBv5_PKINIT_RKEY_DATA };
 
 /*
  *	Additional OIDS for LDAP support
  */
 
-static const uint8
+static const uint8_t
 	OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_USERID_Data[] = {OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_USERID};
 	
 const CSSM_OID
 CSSMOID_UserID = {OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_USERID_LENGTH, OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_USERID_Data};
 
-static const uint8
+static const uint8_t
 	OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_DOMAINCOMPONENT_Data[] = {OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_DOMAINCOMPONENT};
 
 const CSSM_OID
 CSSMOID_DomainComponent = {OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_DOMAINCOMPONENT_LENGTH, OID_ITU_RFCDATA_2342_UCL_DIRECTORYPILOT_ATTRIBUTES_DOMAINCOMPONENT_Data};
 										
 /* ANSI X9.62 and Certicom elliptic curve OIDs */
-static const uint8 
+static const uint8_t 
 	OID_X9_62[]					= { OID_ANSI_X9_62 },
 	OID_X9_62_FieldType[]		= { OID_ANSI_X9_62_FIELD_TYPE },
 	OID_X9_62_PubKeyType[]		= { OID_ANSI_X9_62_PUBKEY_TYPE },
@@ -428,45 +462,45 @@ static const uint8
 ;
 
 const CSSM_OID 
-CSSMOID_X9_62			= {OID_ANSI_X9_42_LEN, (uint8 *)OID_X9_62 },
-CSSMOID_X9_62_FieldType = {OID_ANSI_X9_42_LEN+1, (uint8 *)OID_X9_62_FieldType },
-CSSMOID_X9_62_PubKeyType = {OID_ANSI_X9_42_LEN+1, (uint8 *)OID_X9_62_PubKeyType },
-CSSMOID_X9_62_EllCurve	= {OID_ANSI_X9_42_LEN+1, (uint8 *)OID_X9_62_EllCurve },
-CSSMOID_X9_62_C_TwoCurve = {OID_ANSI_X9_62_ELL_CURVE_LEN+1, (uint8 *)OID_X9_62_C_TwoCurve },
-CSSMOID_X9_62_PrimeCurve = {OID_ANSI_X9_62_ELL_CURVE_LEN+1, (uint8 *)OID_X9_62_PrimeCurve },
-CSSMOID_X9_62_SigType	= {OID_ANSI_X9_42_LEN+1, (uint8 *)OID_X9_62_SigType },
-CSSMOID_secp192r1	= {OID_ANSI_X9_62_ELL_CURVE_LEN+2, (uint8 *)OID_secp192r1 },
-CSSMOID_secp256r1	= {OID_ANSI_X9_62_ELL_CURVE_LEN+2, (uint8 *)OID_secp256r1 },
-CSSMOID_Certicom	= {OID_CERTICOM_LEN, (uint8 *)OID_Certicom },
-CSSMOID_CerticomEllCurve = {OID_CERTICOM_ELL_CURVE_LEN, (uint8 *)OID_CerticomEllCurve },
-CSSMOID_secp112r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp112r1 },
-CSSMOID_secp112r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp112r2 },
-CSSMOID_secp128r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp128r1 },
-CSSMOID_secp128r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp128r2 },
-CSSMOID_secp160k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp160k1 },
-CSSMOID_secp160r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp160r1 },
-CSSMOID_secp160r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp160r2 },
-CSSMOID_secp192k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp192k1 },
-CSSMOID_secp224k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp224k1 },
-CSSMOID_secp224r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp224r1 },
-CSSMOID_secp256k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp256k1 },
-CSSMOID_secp384r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp384r1 },
-CSSMOID_secp521r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_secp521r1 },
-CSSMOID_sect113r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect113r1 },
-CSSMOID_sect113r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect113r2 },
-CSSMOID_sect131r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect131r1 },
-CSSMOID_sect131r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect131r2 },
-CSSMOID_sect163k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect163k1 },
-CSSMOID_sect163r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect163r1 },
-CSSMOID_sect163r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect163r2 },
-CSSMOID_sect193r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect193r1 },
-CSSMOID_sect193r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect193r2 },
-CSSMOID_sect233k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect233k1 },
-CSSMOID_sect233r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect233r1 },
-CSSMOID_sect239k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect239k1 },
-CSSMOID_sect283k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect283k1 },
-CSSMOID_sect283r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect283r1 },
-CSSMOID_sect409k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect409k1 },
-CSSMOID_sect409r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect409r1 },
-CSSMOID_sect571k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect571k1 },
-CSSMOID_sect571r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8 *)OID_sect571r1 };
+CSSMOID_X9_62			= {OID_ANSI_X9_42_LEN, (uint8_t *)OID_X9_62 },
+CSSMOID_X9_62_FieldType = {OID_ANSI_X9_42_LEN+1, (uint8_t *)OID_X9_62_FieldType },
+CSSMOID_X9_62_PubKeyType = {OID_ANSI_X9_42_LEN+1, (uint8_t *)OID_X9_62_PubKeyType },
+CSSMOID_X9_62_EllCurve	= {OID_ANSI_X9_42_LEN+1, (uint8_t *)OID_X9_62_EllCurve },
+CSSMOID_X9_62_C_TwoCurve = {OID_ANSI_X9_62_ELL_CURVE_LEN+1, (uint8_t *)OID_X9_62_C_TwoCurve },
+CSSMOID_X9_62_PrimeCurve = {OID_ANSI_X9_62_ELL_CURVE_LEN+1, (uint8_t *)OID_X9_62_PrimeCurve },
+CSSMOID_X9_62_SigType	= {OID_ANSI_X9_42_LEN+1, (uint8_t *)OID_X9_62_SigType },
+CSSMOID_secp192r1	= {OID_ANSI_X9_62_ELL_CURVE_LEN+2, (uint8_t *)OID_secp192r1 },
+CSSMOID_secp256r1	= {OID_ANSI_X9_62_ELL_CURVE_LEN+2, (uint8_t *)OID_secp256r1 },
+CSSMOID_Certicom	= {OID_CERTICOM_LEN, (uint8_t *)OID_Certicom },
+CSSMOID_CerticomEllCurve = {OID_CERTICOM_ELL_CURVE_LEN, (uint8_t *)OID_CerticomEllCurve },
+CSSMOID_secp112r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp112r1 },
+CSSMOID_secp112r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp112r2 },
+CSSMOID_secp128r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp128r1 },
+CSSMOID_secp128r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp128r2 },
+CSSMOID_secp160k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp160k1 },
+CSSMOID_secp160r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp160r1 },
+CSSMOID_secp160r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp160r2 },
+CSSMOID_secp192k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp192k1 },
+CSSMOID_secp224k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp224k1 },
+CSSMOID_secp224r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp224r1 },
+CSSMOID_secp256k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp256k1 },
+CSSMOID_secp384r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp384r1 },
+CSSMOID_secp521r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_secp521r1 },
+CSSMOID_sect113r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect113r1 },
+CSSMOID_sect113r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect113r2 },
+CSSMOID_sect131r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect131r1 },
+CSSMOID_sect131r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect131r2 },
+CSSMOID_sect163k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect163k1 },
+CSSMOID_sect163r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect163r1 },
+CSSMOID_sect163r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect163r2 },
+CSSMOID_sect193r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect193r1 },
+CSSMOID_sect193r2 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect193r2 },
+CSSMOID_sect233k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect233k1 },
+CSSMOID_sect233r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect233r1 },
+CSSMOID_sect239k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect239k1 },
+CSSMOID_sect283k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect283k1 },
+CSSMOID_sect283r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect283r1 },
+CSSMOID_sect409k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect409k1 },
+CSSMOID_sect409r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect409r1 },
+CSSMOID_sect571k1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect571k1 },
+CSSMOID_sect571r1 = {OID_CERTICOM_ELL_CURVE_LEN+1, (uint8_t *)OID_sect571r1 };

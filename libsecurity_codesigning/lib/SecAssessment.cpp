@@ -126,6 +126,8 @@ const CFStringRef kSecAssessmentAssessmentAuthorityRow = CFSTR("assessment:autho
 const CFStringRef kSecAssessmentAssessmentAuthorityOverride = CFSTR("assessment:authority:override");
 const CFStringRef kSecAssessmentAssessmentFromCache = CFSTR("assessment:authority:cached");
 
+const CFStringRef kDisabledOverride = CFSTR("security disabled");
+
 const CFStringRef kSecAssessmentContextKeyCertificates = CFSTR("context:certificates");	// obsolete
 
 SecAssessmentRef SecAssessmentCreate(CFURLRef path,
@@ -134,13 +136,14 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 	CFErrorRef *errors)
 {
 	BEGIN_CSAPI
-	SYSPOLICY_ASSESS_API(cfString(path).c_str(), flags);
 	
 	if (flags & kSecAssessmentFlagAsynchronous)
 		MacOSError::throwMe(errSecCSUnimplemented);
 	
 	AuthorityType type = typeFor(context, kAuthorityExecute);
 	CFRef<CFMutableDictionaryRef> result = makeCFMutableDictionary();
+
+	SYSPOLICY_ASSESS_API(cfString(path).c_str(), int(type), flags);
 
 	try {
 		// check the object cache first unless caller denied that or we need extended processing
@@ -209,8 +212,9 @@ static void traceResult(SecAssessment &assessment, CFDictionaryRef result)
 			authority = cfString(auth);
 		else
 			authority = "no authority";
-		if (CFDictionaryGetValue(authdict, kSecAssessmentAssessmentAuthorityOverride))
-			overridden = true;
+		if (CFTypeRef override = CFDictionaryGetValue(authdict, kSecAssessmentAssessmentAuthorityOverride))
+			if (CFEqual(override, kDisabledOverride))
+				overridden = true;
 	}
 	
 	MessageTrace trace("com.apple.security.assessment.outcome", NULL);
@@ -250,11 +254,11 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessmentRef,
 			CFDictionarySetValue(adulterated, kSecAssessmentAssessmentVerdict, kCFBooleanTrue);
 			if (CFDictionaryRef authority = CFDictionaryRef(CFDictionaryGetValue(adulterated, kSecAssessmentAssessmentAuthority))) {
 				CFRef<CFMutableDictionaryRef> authority2 = makeCFMutableDictionary(authority);
-				CFDictionarySetValue(authority2, kSecAssessmentAssessmentAuthorityOverride, CFSTR("security disabled"));
+				CFDictionarySetValue(authority2, kSecAssessmentAssessmentAuthorityOverride, kDisabledOverride);
 				CFDictionarySetValue(adulterated, kSecAssessmentAssessmentAuthority, authority2);
 			} else {
-				cfadd(adulterated, "{%O={%O='security disabled'}}",
-					kSecAssessmentAssessmentAuthority, kSecAssessmentAssessmentAuthorityOverride);
+				cfadd(adulterated, "{%O={%O=%O}}",
+					kSecAssessmentAssessmentAuthority, kSecAssessmentAssessmentAuthorityOverride, kDisabledOverride);
 			}
 			result = adulterated.get();
 		}
@@ -275,6 +279,7 @@ const CFStringRef kSecAssessmentUpdateOperationAdd = CFSTR("update:add");
 const CFStringRef kSecAssessmentUpdateOperationRemove = CFSTR("update:remove");
 const CFStringRef kSecAssessmentUpdateOperationEnable = CFSTR("update:enable");
 const CFStringRef kSecAssessmentUpdateOperationDisable = CFSTR("update:disable");
+const CFStringRef kSecAssessmentUpdateOperationFind = CFSTR("update:find");
 
 const CFStringRef kSecAssessmentUpdateKeyAuthorization = CFSTR("update:authorization");
 const CFStringRef kSecAssessmentUpdateKeyPriority = CFSTR("update:priority");
@@ -283,7 +288,36 @@ const CFStringRef kSecAssessmentUpdateKeyExpires = CFSTR("update:expires");
 const CFStringRef kSecAssessmentUpdateKeyAllow = CFSTR("update:allow");
 const CFStringRef kSecAssessmentUpdateKeyRemarks = CFSTR("update:remarks");
 
+const CFStringRef kSecAssessmentUpdateKeyRow = CFSTR("update:row");
+const CFStringRef kSecAssessmentUpdateKeyCount = CFSTR("update:count");
+const CFStringRef kSecAssessmentUpdateKeyFound = CFSTR("update:found");
+
+const CFStringRef kSecAssessmentRuleKeyID = CFSTR("rule:id");
+const CFStringRef kSecAssessmentRuleKeyPriority = CFSTR("rule:priority");
+const CFStringRef kSecAssessmentRuleKeyAllow = CFSTR("rule:allow");
+const CFStringRef kSecAssessmentRuleKeyLabel = CFSTR("rule:label");
+const CFStringRef kSecAssessmentRuleKeyRemarks = CFSTR("rule:remarks");
+const CFStringRef kSecAssessmentRuleKeyRequirement = CFSTR("rule:requirement");
+const CFStringRef kSecAssessmentRuleKeyType = CFSTR("rule:type");
+const CFStringRef kSecAssessmentRuleKeyExpires = CFSTR("rule:expires");
+const CFStringRef kSecAssessmentRuleKeyDisabled = CFSTR("rule:disabled");
+const CFStringRef kSecAssessmentRuleKeyBookmark = CFSTR("rule:bookmark");
+
+
 Boolean SecAssessmentUpdate(CFTypeRef target,
+	SecAssessmentFlags flags,
+	CFDictionaryRef context,
+	CFErrorRef *errors)
+{
+	if (CFDictionaryRef outcome = SecAssessmentCopyUpdate(target, flags, context, errors)) {
+		CFRelease(outcome);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 	SecAssessmentFlags flags,
 	CFDictionaryRef context,
 	CFErrorRef *errors)
@@ -313,19 +347,15 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 	BEGIN_CSAPI
 	
 	if (CFEqual(control, CFSTR("ui-enable"))) {
-		{ UnixPlusPlus::AutoFileDesc flagFile(visibleSecurityFlagFile, O_CREAT | O_WRONLY, 0644); }
-		notify_post(kNotifySecAssessmentMasterSwitch);
+		setAssessment(true);
 		MessageTrace trace("com.apple.security.assessment.state", "enable");
 		trace.send("enable assessment outcomes");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable"))) {
-		if (::remove(visibleSecurityFlagFile) == 0 || errno == ENOENT) {
-			notify_post(kNotifySecAssessmentMasterSwitch);
-			MessageTrace trace("com.apple.security.assessment.state", "disable");
-			trace.send("disable assessment outcomes");
-			return true;
-		}
-		UnixError::throwMe();
+		setAssessment(false);
+		MessageTrace trace("com.apple.security.assessment.state", "disable");
+		trace.send("disable assessment outcomes");
+		return true;
 	} else if (CFEqual(control, CFSTR("ui-status"))) {
 		CFBooleanRef &result = *(CFBooleanRef*)(arguments);
 		if (overrideAssessment())
@@ -335,10 +365,14 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-enable-devid"))) {
 		CFTemp<CFDictionaryRef> ctx("{%O=%s}", kSecAssessmentUpdateKeyLabel, "Developer ID");
-		return gEngine().enable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx);
+		if (CFDictionaryRef result = gEngine().enable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx))
+			CFRelease(result);
+		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable-devid"))) {
 		CFTemp<CFDictionaryRef> ctx("{%O=%s}", kSecAssessmentUpdateKeyLabel, "Developer ID");
-		return gEngine().disable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx);
+		if (CFDictionaryRef result = gEngine().disable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx))
+			CFRelease(result);
+		return true;
 	} else if (CFEqual(control, CFSTR("ui-get-devid"))) {
 		CFBooleanRef &result = *(CFBooleanRef*)(arguments);
 		if (gEngine().value<int>("SELECT disabled FROM authority WHERE label = 'Developer ID';", true))

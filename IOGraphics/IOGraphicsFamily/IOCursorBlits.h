@@ -88,7 +88,7 @@ void IOFramebuffer::StdFBDisplayCursor555(
                 *vramPtr++ = short34to35WithGamma(s);
                 continue;
             }
-            if ((f == AMASK))
+            if (f == AMASK)
             {   /* Transparent non black cursor pixel.  xor it. */
                 *vramPtr++ = d ^ short34to35WithGamma(s);
                 continue;

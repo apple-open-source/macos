@@ -82,3 +82,38 @@ Syntax: (gdb) showallEHCIQHead <object ptr>
 |
 |	(gdb) showallEHCIQHead 0xffffff80263bb000
 end
+
+# The following will print the TRBs in the ring for a particular slot and endpoint
+define printTRB
+    set $slotID = $arg1
+    set $ep = $arg2
+    set $i = 0
+    set $end = (((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRingSize
+    set $dq = (((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRingDequeueIdx
+    set $eq = (((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRingEnqueueIdx
+    
+    printf "TRB for Slot: %d, EP: %d  (transferRingEnqueueIdx: %d, transferRingDequeueIdx: %d)\n", $slotID, $ep, $eq, $dq
+    while ( $i < $end )
+        set $offs0=(((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRing[$i].offs0
+        set $offs4=(((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRing[$i].offs4
+        set $offs8=(((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRing[$i].offs8
+        set $offsC=(((struct AppleUSBXHCI *)$arg0)->_slots[$slotID].rings[$ep]).transferRing[$i].offsC
+        printf "TRB[%03d]:  0x%08x 0x%08x 0x%08x 0x%08x\n",$i++, $offs0, $offs4, $offs8, $offsC 
+    end
+end
+
+document printTRB
+Syntax: (gdb) printTRB <object ptr> <slotID> <endPoint>
+| <object ptr> - AppleUSBXHCI object from showregistry "AppleUSBXHCI <object <object ptr> ...>"
+| <slotID> - The slotID for the device
+| <endPoint> - The Endpoint # for the slot
+|
+| Example:
+|
+|	(gdb) showregistry
+|		:
+|		+-o AppleUSBXHCI  <object 0xffffff80263bb000, id 0x10000127b, vtable 0xffffff7f813ee4c0 <vtable for AppleUSBXHCI>,.......
+|		:
+|
+|	(gdb) printTRB 0xffffff80263bb000 22 1
+end

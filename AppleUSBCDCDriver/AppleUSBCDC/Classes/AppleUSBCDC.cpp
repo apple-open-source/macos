@@ -116,7 +116,7 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
 	SInt32		newScore = 0;
     IOService   *res;
 	
-	XTRACE(this, 0, 0, "probe");
+	XTRACE(this, 0, *score, "probe");
 	
 	OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kCDCDoNotMatchThisDevice"));
     if (boolObj && boolObj->isTrue())
@@ -155,7 +155,7 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
 	
     res = super::probe(provider, score);
 	
-	XTRACE(this, 0, newScore, "probe - Exit");
+	XTRACE(this, 0, *score, "probe - Exit");
     
     return res;
     
@@ -486,6 +486,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 	UInt16				dataClass;
 	bool				configOK = true;				// Assume it's good
 	bool				cdc = false;					// We really only want these
+	const IOUSBConfigurationDescriptor	*suspectConfig = NULL;	// Save a potential configuration
 	
     XTRACE(this, 0, numConfigs, "initDevice");
 	
@@ -554,7 +555,11 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 									if (intf->bInterfaceProtocol == 0xFF)
 									{
 										XTRACE(this, 0, 0, "initDevice - ACM interface has vendor specific protocol...");
-										cdc = false;				// We'll allow this here and let the interface driver refuse it
+										cdc = false;				// We'll allow this here and let the interface driver refuse it (that doesn't work...)
+										if (suspectConfig == NULL)
+										{
+											suspectConfig = cd;	// Save as a suspect configuration (if we don't already have one)
+										}
 									}
 								}
 							} else {
@@ -574,6 +579,15 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
             }
         }
     }
+	
+		// If we don't think we found a CDC config, check if we had a "suspect" one
+	
+	if ((!cdc) && (suspectConfig != NULL))
+	{
+		cd = suspectConfig;
+		fDataInterfaceNumber = 0xFF;		// Can't trust the data interface number in this case
+		cdc = true;
+	}
     
     if ((configOK) && (cdc))		// Need to make sure it's CDC now we also match on Miscellaneous devices
     {
@@ -872,6 +886,31 @@ bool AppleUSBCDC::checkDMM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDC::checkMBIM
+//
+//		Inputs:		Comm - pointer to the interface
+//				cInterfaceNum - the interface number of the current Comm. interface
+//				dataInterfaceNum - the interface number of the enquiring driver
+//
+//		Outputs:	return Code - true (correct), false (incorrect)
+//
+//		Desc:		Checks the interface number of MBIM/NCM interface
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDC::checkMBIM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum)
+{
+       
+    XTRACE(this, 0, 0, "checkMBIM");
+	
+		// We're just interested in the Union and ECM Functional Descriptor at this point
+        
+    return checkECM(Comm, cInterfaceNumber, dataInterfaceNum);
+
+}/* end checkMBIM */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDC::confirmDriver
 //
 //		Inputs:		subClass - the subclass needed by the inquiring data driver
@@ -938,7 +977,12 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
                         driverOK = true; 
                     }
                     break;
-
+				case kUSBNetworkControlModel:
+					driverOK = checkMBIM(Comm, controlInterfaceNumber, dataInterface);
+                    break;
+				case kUSBMobileBroadbandInterfaceModel:
+					driverOK = checkMBIM(Comm, controlInterfaceNumber, dataInterface);
+                    break;
                 default:
                     break;
             }
@@ -953,10 +997,10 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
             // see if there's another CDC interface
             
         req.bInterfaceClass = kUSBCommunicationClass;
-//	req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
-	req.bInterfaceSubClass = subClass;
-	req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
-	req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+//		req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+		req.bInterfaceSubClass = subClass;
+		req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
+		req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
             
         Comm = fpDevice->FindNextInterface(Comm, &req);
         if (!Comm)
@@ -1290,6 +1334,9 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 //					setProperty(key->getCStringNoCopy(),propertyDict->getObject(key));					
 					if (key->isEqualTo(kWWAN_SC_SETUP))
 					{
+                        if (fTerminate == true)
+                            return kIOReturnNoDevice;//We were terminated in the middle of handling a wwand request.
+                        
 						rc = fpDevice->setProperty(kWWAN_SC_SETUP,propertyDict->getObject(key));
 						goto exit;
 					}

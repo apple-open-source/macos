@@ -78,6 +78,7 @@ Servers</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#locationmatch">&lt;LocationMatch&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#loglevel">LogLevel</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#maxkeepaliverequests">MaxKeepAliveRequests</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#maxranges">MaxRanges</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#namevirtualhost">NameVirtualHost</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#options">Options</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#protocol">Protocol</a></li>
@@ -2272,6 +2273,20 @@ zulässig sind</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="MaxRanges" id="MaxRanges">MaxRanges</a>-<a name="maxranges" id="maxranges">Direktive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Beschreibung:</a></th><td>Number of ranges allowed before returning the complete
+resource </td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>MaxRanges default | unlimited | none | <var>number-of-ranges</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Voreinstellung:</a></th><td><code>MaxRanges 200</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Kontext:</a></th><td>Serverkonfiguration, Virtual Host, Verzeichnis</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
+<tr><th><a href="directive-dict.html#Module">Modul:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Kompatibilität:</a></th><td>Available in Apache HTTP Server 2.2.21 and later</td></tr>
+</table><p>Die Dokumentation zu dieser Direktive wurde
+            noch nicht übersetzt. Bitte schauen Sie in die englische
+            Version.</p></div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="NameVirtualHost" id="NameVirtualHost">NameVirtualHost</a>-<a name="namevirtualhost" id="namevirtualhost">Direktive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Beschreibung:</a></th><td>Bestimmt eine IP-Adresse für den Betrieb namensbasierter
@@ -3460,6 +3475,6 @@ IP-Adressen angewendet werden</td></tr>
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Module</a> | <a href="../mod/directives.html">Direktiven</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossar</a> | <a href="../sitemap.html">Seitenindex</a></p></div>
 </body></html>

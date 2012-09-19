@@ -591,8 +591,27 @@ enum
 	errSecInvalidIndexInfo						= -67877,	/* The index information is not valid. */
 	errSecInvalidNewOwner						= -67878,	/* The new owner is not valid. */
 	errSecInvalidModifyMode						= -67879,	/* The modify mode is not valid. */
+	errSecMissingRequiredExtension					= -67880,	/* A required certificate extension is missing. */
+	errSecExtendedKeyUsageNotCritical				= -67881,	/* The extended key usage extension was not marked critical. */
+	errSecTimestampMissing                      = -67882,	/* A timestamp was expected but was not found. */
+    errSecTimestampInvalid                      = -67883,	/* The timestamp was not valid. */
+    errSecTimestampNotTrusted                   = -67884,	/* The timestamp was not trusted. */
+	errSecTimestampServiceNotAvailable			= -67885,	/* The timestamp service is not available. */
+	errSecTimestampBadAlg						= -67886,	/* An unrecognized or unsupported Algorithm Identifier in timestamp. */
+	errSecTimestampBadRequest					= -67887,	/* The timestamp transaction is not permitted or supported. */
+	errSecTimestampBadDataFormat				= -67888,	/* The timestamp data submitted has the wrong format. */
+	errSecTimestampTimeNotAvailable			= -67889,	/* The time source for the Timestamp Authority is not available. */
+	errSecTimestampUnacceptedPolicy			= -67890,	/* The requested policy is not supported by the Timestamp Authority. */
+	errSecTimestampUnacceptedExtension			= -67891,	/* The requested extension is not supported by the Timestamp Authority. */
+	errSecTimestampAddInfoNotAvailable			= -67892,	/* The additional information requested is not available. */
+	errSecTimestampSystemFailure				= -67893,	/* The timestamp request cannot be handled due to system failure . */
+	errSecSigningTimeMissing					= -67894,	/* A signing time was expected but was not found. */
+	errSecTimestampRejection					= -67895,	/* A timestamp transaction was rejected. */
+	errSecTimestampWaiting                      = -67896,	/* A timestamp transaction is waiting. */
+	errSecTimestampRevocationWarning            = -67897,	/* A timestamp authority revocation warning was issued. */
+	errSecTimestampRevocationNotification       = -67898,	/* A timestamp authority revocation notification was issued. */
 };
-	
+
 #if defined(__cplusplus)
 }
 #endif

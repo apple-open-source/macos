@@ -515,14 +515,12 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
         goto exit;
     }
 
-    if (CFEqual(PMFeature, CFSTR(kIOPMRestartOnKernelPanicKey))) { 
 #if TARGET_OS_EMBEDDED
+    if (CFEqual(PMFeature, CFSTR(kIOPMRestartOnKernelPanicKey))) { 
         ret = false;
-#else
-        ret = true;
-#endif
         goto exit;
     }
+#endif
     
     // *********************************
     // Special case for PowerButtonSleep    

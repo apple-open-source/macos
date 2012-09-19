@@ -14,116 +14,138 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/System/Errno.h"
-#include "llvm/System/Path.h"
-#include "llvm/System/Process.h"
-#include "llvm/System/Program.h"
+#include "llvm/Support/MathExtras.h"
+#include "llvm/Support/Errno.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Process.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/system_error.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <cerrno>
+#include <new>
 #include <sys/types.h>
 #include <sys/stat.h>
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
 #include <unistd.h>
-#include <sys/uio.h>
 #else
 #include <io.h>
 #endif
 #include <fcntl.h>
 using namespace llvm;
 
+namespace { const llvm::error_code success; }
+
 //===----------------------------------------------------------------------===//
 // MemoryBuffer implementation itself.
 //===----------------------------------------------------------------------===//
 
-MemoryBuffer::~MemoryBuffer() {
-  if (MustDeleteBuffer)
-    free((void*)BufferStart);
-}
-
-/// initCopyOf - Initialize this source buffer with a copy of the specified
-/// memory range.  We make the copy so that we can null terminate it
-/// successfully.
-void MemoryBuffer::initCopyOf(const char *BufStart, const char *BufEnd) {
-  size_t Size = BufEnd-BufStart;
-  BufferStart = (char *)malloc(Size+1);
-  BufferEnd = BufferStart+Size;
-  memcpy(const_cast<char*>(BufferStart), BufStart, Size);
-  *const_cast<char*>(BufferEnd) = 0;   // Null terminate buffer.
-  MustDeleteBuffer = true;
-}
+MemoryBuffer::~MemoryBuffer() { }
 
 /// init - Initialize this MemoryBuffer as a reference to externally allocated
 /// memory, memory that we know is already null terminated.
-void MemoryBuffer::init(const char *BufStart, const char *BufEnd) {
-  assert(BufEnd[0] == 0 && "Buffer is not null terminated!");
+void MemoryBuffer::init(const char *BufStart, const char *BufEnd,
+                        bool RequiresNullTerminator) {
+  assert((!RequiresNullTerminator || BufEnd[0] == 0) &&
+         "Buffer is not null terminated!");
   BufferStart = BufStart;
   BufferEnd = BufEnd;
-  MustDeleteBuffer = false;
 }
 
 //===----------------------------------------------------------------------===//
 // MemoryBufferMem implementation.
 //===----------------------------------------------------------------------===//
 
+/// CopyStringRef - Copies contents of a StringRef into a block of memory and
+/// null-terminates it.
+static void CopyStringRef(char *Memory, StringRef Data) {
+  memcpy(Memory, Data.data(), Data.size());
+  Memory[Data.size()] = 0; // Null terminate string.
+}
+
+/// GetNamedBuffer - Allocates a new MemoryBuffer with Name copied after it.
+template <typename T>
+static T *GetNamedBuffer(StringRef Buffer, StringRef Name,
+                         bool RequiresNullTerminator) {
+  char *Mem = static_cast<char*>(operator new(sizeof(T) + Name.size() + 1));
+  CopyStringRef(Mem + sizeof(T), Name);
+  return new (Mem) T(Buffer, RequiresNullTerminator);
+}
+
 namespace {
+/// MemoryBufferMem - Named MemoryBuffer pointing to a block of memory.
 class MemoryBufferMem : public MemoryBuffer {
-  std::string FileID;
 public:
-  MemoryBufferMem(StringRef InputData, StringRef FID, bool Copy = false)
-  : FileID(FID) {
-    if (!Copy)
-      init(InputData.data(), InputData.data()+InputData.size());
-    else
-      initCopyOf(InputData.data(), InputData.data()+InputData.size());
+  MemoryBufferMem(StringRef InputData, bool RequiresNullTerminator) {
+    init(InputData.begin(), InputData.end(), RequiresNullTerminator);
+  }
+
+  virtual const char *getBufferIdentifier() const {
+     // The name is stored after the class itself.
+    return reinterpret_cast<const char*>(this + 1);
   }
   
-  virtual const char *getBufferIdentifier() const {
-    return FileID.c_str();
+  virtual BufferKind getBufferKind() const {
+    return MemoryBuffer_Malloc;
   }
 };
 }
 
 /// getMemBuffer - Open the specified memory range as a MemoryBuffer.  Note
-/// that EndPtr[0] must be a null byte and be accessible!
+/// that InputData must be a null terminated if RequiresNullTerminator is true!
 MemoryBuffer *MemoryBuffer::getMemBuffer(StringRef InputData,
-                                         const char *BufferName) {
-  return new MemoryBufferMem(InputData, BufferName);
+                                         StringRef BufferName,
+                                         bool RequiresNullTerminator) {
+  return GetNamedBuffer<MemoryBufferMem>(InputData, BufferName,
+                                         RequiresNullTerminator);
 }
 
 /// getMemBufferCopy - Open the specified memory range as a MemoryBuffer,
 /// copying the contents and taking ownership of it.  This has no requirements
 /// on EndPtr[0].
 MemoryBuffer *MemoryBuffer::getMemBufferCopy(StringRef InputData,
-                                             const char *BufferName) {
-  return new MemoryBufferMem(InputData, BufferName, true);
+                                             StringRef BufferName) {
+  MemoryBuffer *Buf = getNewUninitMemBuffer(InputData.size(), BufferName);
+  if (!Buf) return 0;
+  memcpy(const_cast<char*>(Buf->getBufferStart()), InputData.data(),
+         InputData.size());
+  return Buf;
 }
 
 /// getNewUninitMemBuffer - Allocate a new MemoryBuffer of the specified size
-/// that is completely initialized to zeros.  Note that the caller should
-/// initialize the memory allocated by this method.  The memory is owned by
-/// the MemoryBuffer object.
+/// that is not initialized.  Note that the caller should initialize the
+/// memory allocated by this method.  The memory is owned by the MemoryBuffer
+/// object.
 MemoryBuffer *MemoryBuffer::getNewUninitMemBuffer(size_t Size,
                                                   StringRef BufferName) {
-  char *Buf = (char *)malloc(Size+1);
-  if (!Buf) return 0;
-  Buf[Size] = 0;
-  MemoryBufferMem *SB = new MemoryBufferMem(StringRef(Buf, Size), BufferName);
-  // The memory for this buffer is owned by the MemoryBuffer.
-  SB->MustDeleteBuffer = true;
-  return SB;
+  // Allocate space for the MemoryBuffer, the data and the name. It is important
+  // that MemoryBuffer and data are aligned so PointerIntPair works with them.
+  size_t AlignedStringLen =
+    RoundUpToAlignment(sizeof(MemoryBufferMem) + BufferName.size() + 1,
+                       sizeof(void*)); // TODO: Is sizeof(void*) enough?
+  size_t RealLen = AlignedStringLen + Size + 1;
+  char *Mem = static_cast<char*>(operator new(RealLen, std::nothrow));
+  if (!Mem) return 0;
+
+  // The name is stored after the class itself.
+  CopyStringRef(Mem + sizeof(MemoryBufferMem), BufferName);
+
+  // The buffer begins after the name and must be aligned.
+  char *Buf = Mem + AlignedStringLen;
+  Buf[Size] = 0; // Null terminate buffer.
+
+  return new (Mem) MemoryBufferMem(StringRef(Buf, Size), true);
 }
 
 /// getNewMemBuffer - Allocate a new MemoryBuffer of the specified size that
 /// is completely initialized to zeros.  Note that the caller should
 /// initialize the memory allocated by this method.  The memory is owned by
 /// the MemoryBuffer object.
-MemoryBuffer *MemoryBuffer::getNewMemBuffer(size_t Size,
-                                            const char *BufferName) {
+MemoryBuffer *MemoryBuffer::getNewMemBuffer(size_t Size, StringRef BufferName) {
   MemoryBuffer *SB = getNewUninitMemBuffer(Size, BufferName);
   if (!SB) return 0;
-  memset(const_cast<char*>(SB->getBufferStart()), 0, Size+1);
+  memset(const_cast<char*>(SB->getBufferStart()), 0, Size);
   return SB;
 }
 
@@ -132,13 +154,20 @@ MemoryBuffer *MemoryBuffer::getNewMemBuffer(size_t Size,
 /// if the Filename is "-".  If an error occurs, this returns null and fills
 /// in *ErrStr with a reason.  If stdin is empty, this API (unlike getSTDIN)
 /// returns an empty buffer.
-MemoryBuffer *MemoryBuffer::getFileOrSTDIN(StringRef Filename,
-                                           std::string *ErrStr,
-                                           int64_t FileSize,
-                                           struct stat *FileInfo) {
+error_code MemoryBuffer::getFileOrSTDIN(StringRef Filename,
+                                        OwningPtr<MemoryBuffer> &result,
+                                        int64_t FileSize) {
   if (Filename == "-")
-    return getSTDIN();
-  return getFile(Filename, ErrStr, FileSize, FileInfo);
+    return getSTDIN(result);
+  return getFile(Filename, result, FileSize);
+}
+
+error_code MemoryBuffer::getFileOrSTDIN(const char *Filename,
+                                        OwningPtr<MemoryBuffer> &result,
+                                        int64_t FileSize) {
+  if (strcmp(Filename, "-") == 0)
+    return getSTDIN(result);
+  return getFile(Filename, result, FileSize);
 }
 
 //===----------------------------------------------------------------------===//
@@ -149,139 +178,198 @@ namespace {
 /// MemoryBufferMMapFile - This represents a file that was mapped in with the
 /// sys::Path::MapInFilePages method.  When destroyed, it calls the
 /// sys::Path::UnMapFilePages method.
-class MemoryBufferMMapFile : public MemoryBuffer {
-  std::string Filename;
+class MemoryBufferMMapFile : public MemoryBufferMem {
 public:
-  MemoryBufferMMapFile(StringRef filename, const char *Pages, uint64_t Size)
-    : Filename(filename) {
-    init(Pages, Pages+Size);
+  MemoryBufferMMapFile(StringRef Buffer, bool RequiresNullTerminator)
+    : MemoryBufferMem(Buffer, RequiresNullTerminator) { }
+
+  ~MemoryBufferMMapFile() {
+    static int PageSize = sys::Process::GetPageSize();
+
+    uintptr_t Start = reinterpret_cast<uintptr_t>(getBufferStart());
+    size_t Size = getBufferSize();
+    uintptr_t RealStart = Start & ~(PageSize - 1);
+    size_t RealSize = Size + (Start - RealStart);
+
+    sys::Path::UnMapFilePages(reinterpret_cast<const char*>(RealStart),
+                              RealSize);
   }
   
-  virtual const char *getBufferIdentifier() const {
-    return Filename.c_str();
+  virtual BufferKind getBufferKind() const {
+    return MemoryBuffer_MMap;
   }
-    
-  ~MemoryBufferMMapFile() {
-    sys::Path::UnMapFilePages(getBufferStart(), getBufferSize());
-  }
-};
-
-/// FileCloser - RAII object to make sure an FD gets closed properly.
-class FileCloser {
-  int FD;
-public:
-  FileCloser(int FD) : FD(FD) {}
-  ~FileCloser() { ::close(FD); }
 };
 }
 
-MemoryBuffer *MemoryBuffer::getFile(StringRef Filename, std::string *ErrStr,
-                                    int64_t FileSize, struct stat *FileInfo) {
-  int OpenFlags = 0;
+error_code MemoryBuffer::getFile(StringRef Filename,
+                                 OwningPtr<MemoryBuffer> &result,
+                                 int64_t FileSize,
+                                 bool RequiresNullTerminator) {
+  // Ensure the path is null terminated.
+  SmallString<256> PathBuf(Filename.begin(), Filename.end());
+  return MemoryBuffer::getFile(PathBuf.c_str(), result, FileSize,
+                               RequiresNullTerminator);
+}
+
+error_code MemoryBuffer::getFile(const char *Filename,
+                                 OwningPtr<MemoryBuffer> &result,
+                                 int64_t FileSize,
+                                 bool RequiresNullTerminator) {
+  int OpenFlags = O_RDONLY;
 #ifdef O_BINARY
   OpenFlags |= O_BINARY;  // Open input file in binary mode on win32.
 #endif
-  SmallString<256> PathBuf(Filename.begin(), Filename.end());
-  int FD = ::open(PathBuf.c_str(), O_RDONLY|OpenFlags);
-  if (FD == -1) {
-    if (ErrStr) *ErrStr = sys::StrError();
-    return 0;
-  }
-  FileCloser FC(FD); // Close FD on return.
-  
+  int FD = ::open(Filename, OpenFlags);
+  if (FD == -1)
+    return error_code(errno, posix_category());
+
+  error_code ret = getOpenFile(FD, Filename, result, FileSize, FileSize,
+                               0, RequiresNullTerminator);
+  close(FD);
+  return ret;
+}
+
+static bool shouldUseMmap(int FD,
+                          size_t FileSize,
+                          size_t MapSize,
+                          off_t Offset,
+                          bool RequiresNullTerminator,
+                          int PageSize) {
+  // We don't use mmap for small files because this can severely fragment our
+  // address space.
+  if (MapSize < 4096*4)
+    return false;
+
+  if (!RequiresNullTerminator)
+    return true;
+
+
   // If we don't know the file size, use fstat to find out.  fstat on an open
   // file descriptor is cheaper than stat on a random path.
-  if (FileSize == -1 || FileInfo) {
-    struct stat MyFileInfo;
-    struct stat *FileInfoPtr = FileInfo? FileInfo : &MyFileInfo;
-    
+  // FIXME: this chunk of code is duplicated, but it avoids a fstat when
+  // RequiresNullTerminator = false and MapSize != -1.
+  if (FileSize == size_t(-1)) {
+    struct stat FileInfo;
     // TODO: This should use fstat64 when available.
-    if (fstat(FD, FileInfoPtr) == -1) {
-      if (ErrStr) *ErrStr = sys::StrError();
-      return 0;
+    if (fstat(FD, &FileInfo) == -1) {
+      return error_code(errno, posix_category());
     }
-    FileSize = FileInfoPtr->st_size;
+    FileSize = FileInfo.st_size;
   }
-  
-  
-  // If the file is large, try to use mmap to read it in.  We don't use mmap
-  // for small files, because this can severely fragment our address space. Also
-  // don't try to map files that are exactly a multiple of the system page size,
-  // as the file would not have the required null terminator.
-  //
-  // FIXME: Can we just mmap an extra page in the latter case?
-  if (FileSize >= 4096*4 &&
-      (FileSize & (sys::Process::GetPageSize()-1)) != 0) {
-    if (const char *Pages = sys::Path::MapInFilePages(FD, FileSize)) {
-      // Close the file descriptor, now that the whole file is in memory.
-      return new MemoryBufferMMapFile(Filename, Pages, FileSize);
+
+  // If we need a null terminator and the end of the map is inside the file,
+  // we cannot use mmap.
+  size_t End = Offset + MapSize;
+  assert(End <= FileSize);
+  if (End != FileSize)
+    return false;
+
+  // Don't try to map files that are exactly a multiple of the system page size
+  // if we need a null terminator.
+  if ((FileSize & (PageSize -1)) == 0)
+    return false;
+
+  return true;
+}
+
+error_code MemoryBuffer::getOpenFile(int FD, const char *Filename,
+                                     OwningPtr<MemoryBuffer> &result,
+                                     uint64_t FileSize, uint64_t MapSize,
+                                     int64_t Offset,
+                                     bool RequiresNullTerminator) {
+  static int PageSize = sys::Process::GetPageSize();
+
+  // Default is to map the full file.
+  if (MapSize == uint64_t(-1)) {
+    // If we don't know the file size, use fstat to find out.  fstat on an open
+    // file descriptor is cheaper than stat on a random path.
+    if (FileSize == uint64_t(-1)) {
+      struct stat FileInfo;
+      // TODO: This should use fstat64 when available.
+      if (fstat(FD, &FileInfo) == -1) {
+        return error_code(errno, posix_category());
+      }
+      FileSize = FileInfo.st_size;
+    }
+    MapSize = FileSize;
+  }
+
+  if (shouldUseMmap(FD, FileSize, MapSize, Offset, RequiresNullTerminator,
+                    PageSize)) {
+    off_t RealMapOffset = Offset & ~(PageSize - 1);
+    off_t Delta = Offset - RealMapOffset;
+    size_t RealMapSize = MapSize + Delta;
+
+    if (const char *Pages = sys::Path::MapInFilePages(FD,
+                                                      RealMapSize,
+                                                      RealMapOffset)) {
+      result.reset(GetNamedBuffer<MemoryBufferMMapFile>(
+          StringRef(Pages + Delta, MapSize), Filename, RequiresNullTerminator));
+      return success;
     }
   }
 
-  MemoryBuffer *Buf = MemoryBuffer::getNewUninitMemBuffer(FileSize, Filename);
+  MemoryBuffer *Buf = MemoryBuffer::getNewUninitMemBuffer(MapSize, Filename);
   if (!Buf) {
-    // Failed to create a buffer.
-    if (ErrStr) *ErrStr = "could not allocate buffer";
-    return 0;
+    // Failed to create a buffer. The only way it can fail is if
+    // new(std::nothrow) returns 0.
+    return make_error_code(errc::not_enough_memory);
   }
 
   OwningPtr<MemoryBuffer> SB(Buf);
   char *BufPtr = const_cast<char*>(SB->getBufferStart());
 
-  size_t BytesLeft = FileSize;
+  size_t BytesLeft = MapSize;
+  if (lseek(FD, Offset, SEEK_SET) == -1)
+    return error_code(errno, posix_category());
+
   while (BytesLeft) {
     ssize_t NumRead = ::read(FD, BufPtr, BytesLeft);
     if (NumRead == -1) {
       if (errno == EINTR)
         continue;
       // Error while reading.
-      if (ErrStr) *ErrStr = sys::StrError();
-      return 0;
+      return error_code(errno, posix_category());
     } else if (NumRead == 0) {
       // We hit EOF early, truncate and terminate buffer.
       Buf->BufferEnd = BufPtr;
       *BufPtr = 0;
-      return SB.take();
+      result.swap(SB);
+      return success;
     }
     BytesLeft -= NumRead;
     BufPtr += NumRead;
   }
 
-  return SB.take();
+  result.swap(SB);
+  return success;
 }
 
 //===----------------------------------------------------------------------===//
 // MemoryBuffer::getSTDIN implementation.
 //===----------------------------------------------------------------------===//
 
-namespace {
-class STDINBufferFile : public MemoryBuffer {
-public:
-  virtual const char *getBufferIdentifier() const {
-    return "<stdin>";
-  }
-};
-}
-
-MemoryBuffer *MemoryBuffer::getSTDIN() {
-  char Buffer[4096*4];
-
-  std::vector<char> FileData;
-
+error_code MemoryBuffer::getSTDIN(OwningPtr<MemoryBuffer> &result) {
   // Read in all of the data from stdin, we cannot mmap stdin.
   //
   // FIXME: That isn't necessarily true, we should try to mmap stdin and
   // fallback if it fails.
   sys::Program::ChangeStdinToBinary();
-  size_t ReadBytes;
-  do {
-    ReadBytes = fread(Buffer, sizeof(char), sizeof(Buffer), stdin);
-    FileData.insert(FileData.end(), Buffer, Buffer+ReadBytes);
-  } while (ReadBytes == sizeof(Buffer));
 
-  FileData.push_back(0); // &FileData[Size] is invalid. So is &*FileData.end().
-  size_t Size = FileData.size();
-  MemoryBuffer *B = new STDINBufferFile();
-  B->initCopyOf(&FileData[0], &FileData[Size-1]);
-  return B;
+  const ssize_t ChunkSize = 4096*4;
+  SmallString<ChunkSize> Buffer;
+  ssize_t ReadBytes;
+  // Read into Buffer until we hit EOF.
+  do {
+    Buffer.reserve(Buffer.size() + ChunkSize);
+    ReadBytes = read(0, Buffer.end(), ChunkSize);
+    if (ReadBytes == -1) {
+      if (errno == EINTR) continue;
+      return error_code(errno, posix_category());
+    }
+    Buffer.set_size(Buffer.size() + ReadBytes);
+  } while (ReadBytes != 0);
+
+  result.reset(getMemBufferCopy(Buffer, "<stdin>"));
+  return success;
 }

@@ -17,18 +17,20 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Assembly/AsmAnnotationWriter.h"
+#include "llvm/Assembly/AssemblyAnnotationWriter.h"
 #include "llvm/Analysis/ProfileInfo.h"
 #include "llvm/Analysis/ProfileInfoLoader.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Format.h"
-#include "llvm/System/Signals.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/system_error.h"
 #include <algorithm>
 #include <iomanip>
 #include <map>
@@ -75,9 +77,10 @@ namespace {
   class ProfileAnnotator : public AssemblyAnnotationWriter {
     ProfileInfo &PI;
   public:
-    ProfileAnnotator(ProfileInfo& pi) : PI(pi) {}
+    ProfileAnnotator(ProfileInfo &pi) : PI(pi) {}
 
-    virtual void emitFunctionAnnot(const Function *F, raw_ostream &OS) {
+    virtual void emitFunctionAnnot(const Function *F,
+                                   formatted_raw_ostream &OS) {
       double w = PI.getExecutionCount(F);
       if (w != ProfileInfo::MissingValue) {
         OS << ";;; %" << F->getName() << " called "<<(unsigned)w
@@ -85,7 +88,7 @@ namespace {
       }
     }
     virtual void emitBasicBlockStartAnnot(const BasicBlock *BB,
-                                          raw_ostream &OS) {
+                                          formatted_raw_ostream &OS) {
       double w = PI.getExecutionCount(BB);
       if (w != ProfileInfo::MissingValue) {
         if (w != 0) {
@@ -96,7 +99,8 @@ namespace {
       }
     }
 
-    virtual void emitBasicBlockEndAnnot(const BasicBlock *BB, raw_ostream &OS) {
+    virtual void emitBasicBlockEndAnnot(const BasicBlock *BB,
+                                        formatted_raw_ostream &OS) {
       // Figure out how many times each successor executed.
       std::vector<std::pair<ProfileInfo::Edge, double> > SuccCounts;
 
@@ -128,7 +132,7 @@ namespace {
   public:
     static char ID; // Class identification, replacement for typeinfo.
     explicit ProfileInfoPrinterPass(ProfileInfoLoader &_PIL) 
-      : ModulePass(&ID), PIL(_PIL) {}
+      : ModulePass(ID), PIL(_PIL) {}
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesAll();
@@ -260,12 +264,13 @@ int main(int argc, char **argv) {
 
   // Read in the bitcode file...
   std::string ErrorMessage;
+  OwningPtr<MemoryBuffer> Buffer;
+  error_code ec;
   Module *M = 0;
-  if (MemoryBuffer *Buffer = MemoryBuffer::getFileOrSTDIN(BitcodeFile,
-                                                          &ErrorMessage)) {
-    M = ParseBitcodeFile(Buffer, Context, &ErrorMessage);
-    delete Buffer;
-  }
+  if (!(ec = MemoryBuffer::getFileOrSTDIN(BitcodeFile, Buffer))) {
+    M = ParseBitcodeFile(Buffer.get(), Context, &ErrorMessage);
+  } else
+    ErrorMessage = ec.message();
   if (M == 0) {
     errs() << argv[0] << ": " << BitcodeFile << ": "
       << ErrorMessage << "\n";

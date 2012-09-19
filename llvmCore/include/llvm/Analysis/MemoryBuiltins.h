@@ -51,14 +51,14 @@ const CallInst *isArrayMalloc(const Value *I, const TargetData *TD);
 ///   0: PointerType is the malloc calls' return type.
 ///   1: PointerType is the bitcast's result type.
 ///  >1: Unique PointerType cannot be determined, return NULL.
-const PointerType *getMallocType(const CallInst *CI);
+PointerType *getMallocType(const CallInst *CI);
 
 /// getMallocAllocatedType - Returns the Type allocated by malloc call.
 /// The Type depends on the number of bitcast uses of the malloc call:
 ///   0: PointerType is the malloc calls' return type.
 ///   1: PointerType is the bitcast's result type.
 ///  >1: Unique PointerType cannot be determined, return NULL.
-const Type *getMallocAllocatedType(const CallInst *CI);
+Type *getMallocAllocatedType(const CallInst *CI);
 
 /// getMallocArraySize - Returns the array size of a malloc call.  If the 
 /// argument passed to malloc is a multiple of the size of the malloced type,
@@ -72,8 +72,12 @@ Value *getMallocArraySize(CallInst *CI, const TargetData *TD,
 //  free Call Utility Functions.
 //
 
-/// isFreeCall - Returns true if the value is a call to the builtin free()
-bool isFreeCall(const Value *I);
+/// isFreeCall - Returns non-null if the value is a call to the builtin free()
+const CallInst *isFreeCall(const Value *I);
+  
+static inline CallInst *isFreeCall(Value *I) {
+  return const_cast<CallInst*>(isFreeCall((const Value*)I));
+}
 
 } // End llvm namespace
 

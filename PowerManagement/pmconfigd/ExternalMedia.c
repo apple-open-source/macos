@@ -97,8 +97,8 @@ static void _DiskAppeared(DADiskRef disk, void * context)
 
 static bool weLikeTheDisk(DADiskRef disk)
 {
-    CFDictionaryRef		description = NULL;
-    CFStringRef			protocol = NULL;
+    CFDictionaryRef     description = NULL;
+    CFStringRef         protocol = NULL;
     bool                ret = false;
 
     /*
@@ -107,6 +107,7 @@ static bool weLikeTheDisk(DADiskRef disk)
       USB hard drive    : Protocol = USB
       USB thumb drive   : Protocol = USB 
       SD Card           : Protocol = USB, Protocol = Secure Digital 
+      External drive    : Interconnect Location = External
 
     These disks do not cause us to create an ExternalMedia assertion;
       CD/DVD            : Protocol = ATAPI
@@ -115,16 +116,20 @@ static bool weLikeTheDisk(DADiskRef disk)
     
     description = DADiskCopyDescription(disk);
     if (description) {
-
-        protocol = CFDictionaryGetValue(description, kDADiskDescriptionDeviceProtocolKey);
-
-        if (protocol &&
-            (CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeUSB)) ||
-             CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeSecureDigital))))
-        {
-            ret = true;
-        }
         
+        if (CFDictionaryGetValue(description, kDADiskDescriptionDeviceInternalKey) == kCFBooleanFalse) {
+            ret = true;
+        } else {
+            protocol = CFDictionaryGetValue(description, kDADiskDescriptionDeviceProtocolKey);
+
+            if (protocol &&
+                (CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeUSB)) ||
+                 CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeSecureDigital))))
+            {
+                ret = true;
+            }
+        }
+
         CFRelease(description);
     }
     return ret;

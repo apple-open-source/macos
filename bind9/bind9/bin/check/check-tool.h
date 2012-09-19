@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: check-tool.h,v 1.14.560.2 2010-09-07 23:46:37 tbox Exp $ */
+/* $Id: check-tool.h,v 1.14.560.2 2010/09/07 23:46:37 tbox Exp $ */
 
 #ifndef CHECK_TOOL_H
 #define CHECK_TOOL_H

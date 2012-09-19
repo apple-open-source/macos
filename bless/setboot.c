@@ -209,7 +209,7 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 		strlcpy(label, "Unknown", sizeof(label));
 #endif // !USE_DISKARBITRATION
 		
-		ret = BLGenerateOFLabel(context, label, &labelData);
+		ret = BLGenerateLabelData(context, label, kBitmapScale_1x, &labelData);
 		if(ret)
 			labelData = NULL;
 		
@@ -250,6 +250,7 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 		spec[currentCount+0].version = 0;
 		spec[currentCount+0].reqType = kBL_OSTYPE_PPC_TYPE_OFLABEL;
 		spec[currentCount+0].reqCreator = kBL_OSTYPE_PPC_CREATOR_CHRP;
+		spec[currentCount+0].reqParentDir = 0;
 		spec[currentCount+0].reqFilename = NULL;
 		spec[currentCount+0].payloadData = labelData;
 		spec[currentCount+0].postType = 0; // no type
@@ -260,6 +261,7 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 		spec[currentCount+1].version = 0;
 		spec[currentCount+1].reqType = kBL_OSTYPE_PPC_TYPE_OFLABEL_PLACEHOLDER;
 		spec[currentCount+1].reqCreator = kBL_OSTYPE_PPC_CREATOR_CHRP;
+		spec[currentCount+1].reqParentDir = 0;
 		spec[currentCount+1].reqFilename = NULL;
 		spec[currentCount+1].payloadData = labelData;
 		spec[currentCount+1].postType = kBL_OSTYPE_PPC_TYPE_OFLABEL;
@@ -274,6 +276,7 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 		spec[currentCount+0].version = 0;
 		spec[currentCount+0].reqType = kBL_OSTYPE_PPC_TYPE_BOOTX;
 		spec[currentCount+0].reqCreator = kBL_OSTYPE_PPC_CREATOR_CHRP;
+		spec[currentCount+0].reqParentDir = 0;
 		spec[currentCount+0].reqFilename = NULL;
 		spec[currentCount+0].payloadData = bootxData;
 		spec[currentCount+0].postType = 0; // no type

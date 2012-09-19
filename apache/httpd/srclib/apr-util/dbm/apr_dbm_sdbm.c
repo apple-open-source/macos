@@ -27,11 +27,11 @@
 #include "apr_dbm_private.h"
 #include "apr_sdbm.h"
 
-#define APR_DBM_DBMODE_RO       (APR_READ | APR_BUFFERED)
-#define APR_DBM_DBMODE_RW       (APR_READ | APR_WRITE)
-#define APR_DBM_DBMODE_RWCREATE (APR_READ | APR_WRITE | APR_CREATE)
-#define APR_DBM_DBMODE_RWTRUNC  (APR_READ | APR_WRITE | APR_CREATE | \
-                                 APR_TRUNCATE)
+#define APR_DBM_DBMODE_RO       (APR_FOPEN_READ | APR_FOPEN_BUFFERED)
+#define APR_DBM_DBMODE_RW       (APR_FOPEN_READ | APR_FOPEN_WRITE)
+#define APR_DBM_DBMODE_RWCREATE (APR_FOPEN_READ | APR_FOPEN_WRITE | APR_FOPEN_CREATE)
+#define APR_DBM_DBMODE_RWTRUNC  (APR_FOPEN_READ | APR_FOPEN_WRITE | APR_FOPEN_CREATE | \
+                                 APR_FOPEN_TRUNCATE)
 
 static apr_status_t set_error(apr_dbm_t *dbm, apr_status_t dbm_said)
 {
@@ -184,10 +184,9 @@ static apr_status_t vt_sdbm_firstkey(apr_dbm_t *dbm, apr_datum_t *pkey)
 
 static apr_status_t vt_sdbm_nextkey(apr_dbm_t *dbm, apr_datum_t *pkey)
 {
-    apr_status_t rv;
     apr_sdbm_datum_t rd;
 
-    rv = apr_sdbm_nextkey(dbm->file, &rd);
+    (void)apr_sdbm_nextkey(dbm->file, &rd);
 
     pkey->dptr = rd.dptr;
     pkey->dsize = rd.dsize;

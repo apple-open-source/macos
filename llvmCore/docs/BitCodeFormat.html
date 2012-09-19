@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="llvm.css" type="text/css">
 </head>
 <body>
-<div class="doc_title"> LLVM Bitcode File Format </div>
+<h1> LLVM Bitcode File Format</h1>
 <ol>
   <li><a href="#abstract">Abstract</a></li>
   <li><a href="#overview">Overview</a></li>
@@ -40,16 +40,17 @@
   </li>
 </ol>
 <div class="doc_author">
-  <p>Written by <a href="mailto:sabre@nondot.org">Chris Lattner</a>
-  and <a href="http://www.reverberate.org">Joshua Haberman</a>.
+  <p>Written by <a href="mailto:sabre@nondot.org">Chris Lattner</a>,
+  <a href="http://www.reverberate.org">Joshua Haberman</a>,
+  and <a href="mailto:housel@acm.org">Peter S. Housel</a>.
 </p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"> <a name="abstract">Abstract</a></div>
+<h2><a name="abstract">Abstract</a></h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>This document describes the LLVM bitstream file format and the encoding of
 the LLVM IR into it.</p>
@@ -57,10 +58,10 @@ the LLVM IR into it.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"> <a name="overview">Overview</a></div>
+<h2><a name="overview">Overview</a></h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>
 What is commonly known as the LLVM bitcode file format (also, sometimes
@@ -87,10 +88,10 @@ wrapper format, then describes the record structure used by LLVM IR files.
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"> <a name="bitstream">Bitstream Format</a></div>
+<h2><a name="bitstream">Bitstream Format</a></h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>
 The bitstream format is literally a stream of bits, with a very simple
@@ -113,13 +114,12 @@ href="CommandGuide/html/llvm-bcanalyzer.html">llvm-bcanalyzer</a> tool can be
 used to dump and inspect arbitrary bitstreams, which is very useful for
 understanding the encoding.</p>
 
-</div>
-
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="magic">Magic Numbers</a>
-</div>
+<h3>
+  <a name="magic">Magic Numbers</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>The first two bytes of a bitcode file are 'BC' (0x42, 0x43).
 The second two bytes are an application-specific magic number.  Generic
@@ -129,10 +129,11 @@ bitcode, while application-specific programs will want to look at all four.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="primitives">Primitives</a>
-</div>
+<h3>
+  <a name="primitives">Primitives</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>
 A bitstream literally consists of a stream of bits, which are read in order
@@ -143,13 +144,12 @@ Width Integers</a> or as <a href="#variablewidth">Variable Width
 Integers</a>.
 </p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="fixedwidth">Fixed Width Integers</a>
-</div>
+<h4>
+  <a name="fixedwidth">Fixed Width Integers</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>Fixed-width integer values have their low bits emitted directly to the file.
    For example, a 3-bit integer value encodes 1 as 001.  Fixed width integers
@@ -160,10 +160,11 @@ Integers</a>.
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="variablewidth">Variable Width
-Integers</a></div>
+<h4>
+  <a name="variablewidth">Variable Width Integers</a>
+</h4>
 
-<div class="doc_text">
+<div>
 
 <p>Variable-width integer (VBR) values encode values of arbitrary size,
 optimizing for the case where the values are small.  Given a 4-bit VBR field,
@@ -181,9 +182,9 @@ value of 24 (011 << 3) with no continuation.  The sum (3+24) yields the value
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="char6">6-bit characters</a></div>
+<h4><a name="char6">6-bit characters</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p>6-bit characters encode common characters into a fixed 6-bit field.  They
 represent the following characters with the following 6-bit values:</p>
@@ -205,9 +206,9 @@ characters not in the set.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="wordalign">Word Alignment</a></div>
+<h4><a name="wordalign">Word Alignment</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p>Occasionally, it is useful to emit zero bits until the bitstream is a
 multiple of 32 bits.  This ensures that the bit position in the stream can be
@@ -215,12 +216,14 @@ represented as a multiple of 32-bit words.</p>
 
 </div>
 
-
-<!-- ======================================================================= -->
-<div class="doc_subsection"><a name="abbrevid">Abbreviation IDs</a>
 </div>
 
-<div class="doc_text">
+<!-- ======================================================================= -->
+<h3>
+  <a name="abbrevid">Abbreviation IDs</a>
+</h3>
+
+<div>
 
 <p>
 A bitstream is a sequential series of <a href="#blocks">Blocks</a> and
@@ -252,10 +255,11 @@ an <a href="#abbrev_records">abbreviated record encoding</a>.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="blocks">Blocks</a>
-</div>
+<h3>
+  <a name="blocks">Blocks</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>
 Blocks in a bitstream denote nested regions of the stream, and are identified by
@@ -296,13 +300,10 @@ its own set of abbreviations, and its own abbrev id width.  When a sub-block is
 popped, the saved values are restored.
 </p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="ENTER_SUBBLOCK">ENTER_SUBBLOCK
-Encoding</a></div>
+<h4><a name="ENTER_SUBBLOCK">ENTER_SUBBLOCK Encoding</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[ENTER_SUBBLOCK, blockid<sub>vbr8</sub>, newabbrevlen<sub>vbr4</sub>,
      &lt;align32bits&gt;, blocklen<sub>32</sub>]</tt></p>
@@ -321,10 +322,9 @@ reader to skip over the entire block in one jump.
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="END_BLOCK">END_BLOCK
-Encoding</a></div>
+<h4><a name="END_BLOCK">END_BLOCK Encoding</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[END_BLOCK, &lt;align32bits&gt;]</tt></p>
 
@@ -336,13 +336,14 @@ an even multiple of 32-bits.
 
 </div>
 
-
-
-<!-- ======================================================================= -->
-<div class="doc_subsection"><a name="datarecord">Data Records</a>
 </div>
 
-<div class="doc_text">
+<!-- ======================================================================= -->
+<h3>
+  <a name="datarecord">Data Records</a>
+</h3>
+
+<div>
 <p>
 Data records consist of a record code and a number of (up to) 64-bit
 integer values.  The interpretation of the code and values is
@@ -354,13 +355,10 @@ which encodes the target triple of a module.  The code is
 ASCII codes for the characters in the string.
 </p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="UNABBREV_RECORD">UNABBREV_RECORD
-Encoding</a></div>
+<h4><a name="UNABBREV_RECORD">UNABBREV_RECORD Encoding</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[UNABBREV_RECORD, code<sub>vbr6</sub>, numops<sub>vbr6</sub>,
        op0<sub>vbr6</sub>, op1<sub>vbr6</sub>, ...]</tt></p>
@@ -384,10 +382,9 @@ bits.  This is not an efficient encoding, but it is fully general.
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"> <a name="abbrev_records">Abbreviated Record
-Encoding</a></div>
+<h4><a name="abbrev_records">Abbreviated Record Encoding</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[&lt;abbrevid&gt;, fields...]</tt></p>
 
@@ -408,11 +405,14 @@ operand value).</p>
 
 </div>
 
-<!-- ======================================================================= -->
-<div class="doc_subsection"><a name="abbreviations">Abbreviations</a>
 </div>
 
-<div class="doc_text">
+<!-- ======================================================================= -->
+<h3>
+  <a name="abbreviations">Abbreviations</a>
+</h3>
+
+<div>
 <p>
 Abbreviations are an important form of compression for bitstreams.  The idea is
 to specify a dense encoding for a class of records once, then use that encoding
@@ -430,13 +430,11 @@ As a concrete example, LLVM IR files usually emit an abbreviation
 for binary operators.  If a specific LLVM module contained no or few binary
 operators, the abbreviation does not need to be emitted.
 </p>
-</div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="DEFINE_ABBREV">DEFINE_ABBREV
- Encoding</a></div>
+<h4><a name="DEFINE_ABBREV">DEFINE_ABBREV  Encoding</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[DEFINE_ABBREV, numabbrevops<sub>vbr5</sub>, abbrevop0, abbrevop1,
  ...]</tt></p>
@@ -551,11 +549,14 @@ used for any other string value.
 
 </div>
 
-<!-- ======================================================================= -->
-<div class="doc_subsection"><a name="stdblocks">Standard Blocks</a>
 </div>
 
-<div class="doc_text">
+<!-- ======================================================================= -->
+<h3>
+  <a name="stdblocks">Standard Blocks</a>
+</h3>
+
+<div>
 
 <p>
 In addition to the basic block structure and record encodings, the bitstream
@@ -564,13 +565,10 @@ stream is to be decoded or other metadata.  In the future, new standard blocks
 may be added.  Block IDs 0-7 are reserved for standard blocks.
 </p>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="BLOCKINFO">#0 - BLOCKINFO
-Block</a></div>
+<h4><a name="BLOCKINFO">#0 - BLOCKINFO Block</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p>
 The <tt>BLOCKINFO</tt> block allows the description of metadata for other
@@ -619,11 +617,15 @@ from the corresponding blocks.  It is not safe to skip them.
 
 </div>
 
+</div>
+
+</div>
+
 <!-- *********************************************************************** -->
-<div class="doc_section"> <a name="wrapper">Bitcode Wrapper Format</a></div>
+<h2><a name="wrapper">Bitcode Wrapper Format</a></h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>
 Bitcode files for LLVM IR may optionally be wrapped in a simple wrapper
@@ -651,10 +653,10 @@ value that can be used to encode the CPU of the target.
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"> <a name="llvmir">LLVM IR Encoding</a></div>
+<h2><a name="llvmir">LLVM IR Encoding</a></h2>
 <!-- *********************************************************************** -->
 
-<div class="doc_text">
+<div>
 
 <p>
 LLVM IR is encoded into a bitstream by defining blocks and records.  It uses
@@ -665,16 +667,17 @@ that the writer uses, as these are fully self-described in the file, and the
 reader is not allowed to build in any knowledge of this.
 </p>
 
-</div>
-
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="basics">Basics</a>
-</div>
+<h3>
+  <a name="basics">Basics</a>
+</h3>
+
+<div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="ir_magic">LLVM IR Magic Number</a></div>
+<h4><a name="ir_magic">LLVM IR Magic Number</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p>
 The magic number for LLVM IR files is:
@@ -694,9 +697,9 @@ When combined with the bitcode magic number and viewed as bytes, this is
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="ir_signed_vbr">Signed VBRs</a></div>
+<h4><a name="ir_signed_vbr">Signed VBRs</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p>
 <a href="#variablewidth">Variable Width Integer</a> encoding is an efficient way to
@@ -727,9 +730,9 @@ within <tt>CONSTANTS_BLOCK</tt> blocks.
 
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="ir_blocks">LLVM IR Blocks</a></div>
+<h4><a name="ir_blocks">LLVM IR Blocks</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p>
 LLVM IR is defined with the following blocks:
@@ -757,11 +760,14 @@ LLVM IR is defined with the following blocks:
 
 </div>
 
-<!-- ======================================================================= -->
-<div class="doc_subsection"><a name="MODULE_BLOCK">MODULE_BLOCK Contents</a>
 </div>
 
-<div class="doc_text">
+<!-- ======================================================================= -->
+<h3>
+  <a name="MODULE_BLOCK">MODULE_BLOCK Contents</a>
+</h3>
+
+<div>
 
 <p>The <tt>MODULE_BLOCK</tt> block (id 8) is the top-level block for LLVM
 bitcode files, and each bitcode file must contain exactly one. In
@@ -781,13 +787,10 @@ following sub-blocks:
 <li><a href="#METADATA_BLOCK"><tt>METADATA_BLOCK</tt></a></li>
 </ul>
 
-</div>
-
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_VERSION">MODULE_CODE_VERSION Record</a>
-</div>
+<h4><a name="MODULE_CODE_VERSION">MODULE_CODE_VERSION Record</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[VERSION, version#]</tt></p>
 
@@ -797,10 +800,9 @@ time.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_TRIPLE">MODULE_CODE_TRIPLE Record</a>
-</div>
+<h4><a name="MODULE_CODE_TRIPLE">MODULE_CODE_TRIPLE Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[TRIPLE, ...string...]</tt></p>
 
 <p>The <tt>TRIPLE</tt> record (code 2) contains a variable number of
@@ -809,10 +811,9 @@ specification string.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_DATALAYOUT">MODULE_CODE_DATALAYOUT Record</a>
-</div>
+<h4><a name="MODULE_CODE_DATALAYOUT">MODULE_CODE_DATALAYOUT Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[DATALAYOUT, ...string...]</tt></p>
 
 <p>The <tt>DATALAYOUT</tt> record (code 3) contains a variable number of
@@ -821,10 +822,9 @@ specification string.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_ASM">MODULE_CODE_ASM Record</a>
-</div>
+<h4><a name="MODULE_CODE_ASM">MODULE_CODE_ASM Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[ASM, ...string...]</tt></p>
 
 <p>The <tt>ASM</tt> record (code 4) contains a variable number of
@@ -833,10 +833,9 @@ individual assembly blocks separated by newline (ASCII 10) characters.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_SECTIONNAME">MODULE_CODE_SECTIONNAME Record</a>
-</div>
+<h4><a name="MODULE_CODE_SECTIONNAME">MODULE_CODE_SECTIONNAME Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[SECTIONNAME, ...string...]</tt></p>
 
 <p>The <tt>SECTIONNAME</tt> record (code 5) contains a variable number
@@ -849,10 +848,9 @@ referenced by the 1-based index in the <i>section</i> fields of
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_DEPLIB">MODULE_CODE_DEPLIB Record</a>
-</div>
+<h4><a name="MODULE_CODE_DEPLIB">MODULE_CODE_DEPLIB Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[DEPLIB, ...string...]</tt></p>
 
 <p>The <tt>DEPLIB</tt> record (code 6) contains a variable number of
@@ -863,10 +861,9 @@ library name referenced.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_GLOBALVAR">MODULE_CODE_GLOBALVAR Record</a>
-</div>
+<h4><a name="MODULE_CODE_GLOBALVAR">MODULE_CODE_GLOBALVAR Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[GLOBALVAR, pointer type, isconst, initid, linkage, alignment, section, visibility, threadlocal]</tt></p>
 
 <p>The <tt>GLOBALVAR</tt> record (code 7) marks the declaration or
@@ -921,14 +918,16 @@ encoding of the visibility of this variable:
 <li><i>threadlocal</i>: If present and non-zero, indicates that the variable
 is <tt>thread_local</tt></li>
 
+<li><i>unnamed_addr</i>: If present and non-zero, indicates that the variable
+has <tt>unnamed_addr</tt></li>
+
 </ul>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_FUNCTION">MODULE_CODE_FUNCTION Record</a>
-</div>
+<h4><a name="MODULE_CODE_FUNCTION">MODULE_CODE_FUNCTION Record</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[FUNCTION, type, callingconv, isproto, linkage, paramattr, alignment, section, visibility, gc]</tt></p>
 
@@ -974,14 +973,17 @@ entries.</li>
 <li><i>gc</i>: If present and nonzero, the 1-based garbage collector
 index in the table of
 <a href="#MODULE_CODE_GCNAME">MODULE_CODE_GCNAME</a> entries.</li>
+
+<li><i>unnamed_addr</i>: If present and non-zero, indicates that the function
+has <tt>unnamed_addr</tt></li>
+
 </ul>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_ALIAS">MODULE_CODE_ALIAS Record</a>
-</div>
+<h4><a name="MODULE_CODE_ALIAS">MODULE_CODE_ALIAS Record</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[ALIAS, alias type, aliasee val#, linkage, visibility]</tt></p>
 
@@ -1003,10 +1005,9 @@ for this alias</li>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_PURGEVALS">MODULE_CODE_PURGEVALS Record</a>
-</div>
+<h4><a name="MODULE_CODE_PURGEVALS">MODULE_CODE_PURGEVALS Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[PURGEVALS, numvals]</tt></p>
 
 <p>The <tt>PURGEVALS</tt> record (code 10) resets the module-level
@@ -1017,10 +1018,9 @@ new value indices will start from the given <i>numvals</i> value.</p>
 </div>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="MODULE_CODE_GCNAME">MODULE_CODE_GCNAME Record</a>
-</div>
+<h4><a name="MODULE_CODE_GCNAME">MODULE_CODE_GCNAME Record</a></h4>
 
-<div class="doc_text">
+<div>
 <p><tt>[GCNAME, ...string...]</tt></p>
 
 <p>The <tt>GCNAME</tt> record (code 11) contains a variable number of
@@ -1031,47 +1031,333 @@ the module. These records can be referenced by 1-based index in the <i>gc</i>
 fields of <tt>FUNCTION</tt> records.</p>
 </div>
 
+</div>
+
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="PARAMATTR_BLOCK">PARAMATTR_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="PARAMATTR_BLOCK">PARAMATTR_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
-<p>The <tt>PARAMATTR_BLOCK</tt> block (id 9) ...
-</p>
+<p>The <tt>PARAMATTR_BLOCK</tt> block (id 9) contains a table of
+entries describing the attributes of function parameters. These
+entries are referenced by 1-based index in the <i>paramattr</i> field
+of module block <a name="MODULE_CODE_FUNCTION"><tt>FUNCTION</tt></a>
+records, or within the <i>attr</i> field of function block <a
+href="#FUNC_CODE_INST_INVOKE"><tt>INST_INVOKE</tt></a> and <a
+href="#FUNC_CODE_INST_CALL"><tt>INST_CALL</tt></a> records.</p>
 
-</div>
-
+<p>Entries within <tt>PARAMATTR_BLOCK</tt> are constructed to ensure
+that each is unique (i.e., no two indicies represent equivalent
+attribute lists). </p>
 
 <!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection"><a name="PARAMATTR_CODE_ENTRY">PARAMATTR_CODE_ENTRY Record</a>
-</div>
+<h4><a name="PARAMATTR_CODE_ENTRY">PARAMATTR_CODE_ENTRY Record</a></h4>
 
-<div class="doc_text">
+<div>
 
 <p><tt>[ENTRY, paramidx0, attr0, paramidx1, attr1...]</tt></p>
 
-<p>The <tt>ENTRY</tt> record (code 1) ...
+<p>The <tt>ENTRY</tt> record (code 1) contains an even number of
+values describing a unique set of function parameter attributes. Each
+<i>paramidx</i> value indicates which set of attributes is
+represented, with 0 representing the return value attributes,
+0xFFFFFFFF representing function attributes, and other values
+representing 1-based function parameters. Each <i>attr</i> value is a
+bitmap with the following interpretation:
 </p>
+
+<ul>
+<li>bit 0: <tt>zeroext</tt></li>
+<li>bit 1: <tt>signext</tt></li>
+<li>bit 2: <tt>noreturn</tt></li>
+<li>bit 3: <tt>inreg</tt></li>
+<li>bit 4: <tt>sret</tt></li>
+<li>bit 5: <tt>nounwind</tt></li>
+<li>bit 6: <tt>noalias</tt></li>
+<li>bit 7: <tt>byval</tt></li>
+<li>bit 8: <tt>nest</tt></li>
+<li>bit 9: <tt>readnone</tt></li>
+<li>bit 10: <tt>readonly</tt></li>
+<li>bit 11: <tt>noinline</tt></li>
+<li>bit 12: <tt>alwaysinline</tt></li>
+<li>bit 13: <tt>optsize</tt></li>
+<li>bit 14: <tt>ssp</tt></li>
+<li>bit 15: <tt>sspreq</tt></li>
+<li>bits 16&ndash;31: <tt>align <var>n</var></tt></li>
+<li>bit 32: <tt>nocapture</tt></li>
+<li>bit 33: <tt>noredzone</tt></li>
+<li>bit 34: <tt>noimplicitfloat</tt></li>
+<li>bit 35: <tt>naked</tt></li>
+<li>bit 36: <tt>inlinehint</tt></li>
+<li>bits 37&ndash;39: <tt>alignstack <var>n</var></tt>, represented as
+the logarithm base 2 of the requested alignment, plus 1</li>
+</ul>
+</div>
+
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="TYPE_BLOCK">TYPE_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="TYPE_BLOCK">TYPE_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
-<p>The <tt>TYPE_BLOCK</tt> block (id 10) ...
+<p>The <tt>TYPE_BLOCK</tt> block (id 10) contains records which
+constitute a table of type operator entries used to represent types
+referenced within an LLVM module. Each record (with the exception of
+<a href="#TYPE_CODE_NUMENTRY"><tt>NUMENTRY</tt></a>) generates a
+single type table entry, which may be referenced by 0-based index from
+instructions, constants, metadata, type symbol table entries, or other
+type operator records.
 </p>
 
+<p>Entries within <tt>TYPE_BLOCK</tt> are constructed to ensure that
+each entry is unique (i.e., no two indicies represent structurally
+equivalent types). </p>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_NUMENTRY">TYPE_CODE_NUMENTRY Record</a></h4>
+
+<div>
+
+<p><tt>[NUMENTRY, numentries]</tt></p>
+
+<p>The <tt>NUMENTRY</tt> record (code 1) contains a single value which
+indicates the total number of type code entries in the type table of
+the module. If present, <tt>NUMENTRY</tt> should be the first record
+in the block.
+</p>
 </div>
 
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_VOID">TYPE_CODE_VOID Record</a></h4>
+
+<div>
+
+<p><tt>[VOID]</tt></p>
+
+<p>The <tt>VOID</tt> record (code 2) adds a <tt>void</tt> type to the
+type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_FLOAT">TYPE_CODE_FLOAT Record</a></h4>
+
+<div>
+
+<p><tt>[FLOAT]</tt></p>
+
+<p>The <tt>FLOAT</tt> record (code 3) adds a <tt>float</tt> (32-bit
+floating point) type to the type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_DOUBLE">TYPE_CODE_DOUBLE Record</a></h4>
+
+<div>
+
+<p><tt>[DOUBLE]</tt></p>
+
+<p>The <tt>DOUBLE</tt> record (code 4) adds a <tt>double</tt> (64-bit
+floating point) type to the type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_LABEL">TYPE_CODE_LABEL Record</a></h4>
+
+<div>
+
+<p><tt>[LABEL]</tt></p>
+
+<p>The <tt>LABEL</tt> record (code 5) adds a <tt>label</tt> type to
+the type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_OPAQUE">TYPE_CODE_OPAQUE Record</a></h4>
+
+<div>
+
+<p><tt>[OPAQUE]</tt></p>
+
+<p>The <tt>OPAQUE</tt> record (code 6) adds an <tt>opaque</tt> type to
+the type table. Note that distinct <tt>opaque</tt> types are not
+unified.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_INTEGER">TYPE_CODE_INTEGER  Record</a></h4>
+
+<div>
+
+<p><tt>[INTEGER, width]</tt></p>
+
+<p>The <tt>INTEGER</tt> record (code 7) adds an integer type to the
+type table. The single <i>width</i> field indicates the width of the
+integer type.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_POINTER">TYPE_CODE_POINTER Record</a></h4>
+
+<div>
+
+<p><tt>[POINTER, pointee type, address space]</tt></p>
+
+<p>The <tt>POINTER</tt> record (code 8) adds a pointer type to the
+type table. The operand fields are</p>
+
+<ul>
+<li><i>pointee type</i>: The type index of the pointed-to type</li>
+
+<li><i>address space</i>: If supplied, the target-specific numbered
+address space where the pointed-to object resides. Otherwise, the
+default address space is zero.
+</li>
+</ul>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_FUNCTION">TYPE_CODE_FUNCTION Record</a></h4>
+
+<div>
+
+<p><tt>[FUNCTION, vararg, ignored, retty, ...paramty... ]</tt></p>
+
+<p>The <tt>FUNCTION</tt> record (code 9) adds a function type to the
+type table. The operand fields are</p>
+
+<ul>
+<li><i>vararg</i>: Non-zero if the type represents a varargs function</li>
+
+<li><i>ignored</i>: This value field is present for backward
+compatibility only, and is ignored</li>
+
+<li><i>retty</i>: The type index of the function's return type</li>
+
+<li><i>paramty</i>: Zero or more type indices representing the
+parameter types of the function</li>
+</ul>
+	
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_STRUCT">TYPE_CODE_STRUCT Record</a></h4>
+
+<div>
+
+<p><tt>[STRUCT, ispacked, ...eltty...]</tt></p>
+
+<p>The <tt>STRUCT </tt> record (code 10) adds a struct type to the
+type table. The operand fields are</p>
+
+<ul>
+<li><i>ispacked</i>: Non-zero if the type represents a packed structure</li>
+
+<li><i>eltty</i>: Zero or more type indices representing the element
+types of the structure</li>
+</ul>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_ARRAY">TYPE_CODE_ARRAY Record</a></h4>
+
+<div>
+
+<p><tt>[ARRAY, numelts, eltty]</tt></p>
+
+<p>The <tt>ARRAY</tt> record (code 11) adds an array type to the type
+table.  The operand fields are</p>
+
+<ul>
+<li><i>numelts</i>: The number of elements in arrays of this type</li>
+
+<li><i>eltty</i>: The type index of the array element type</li>
+</ul>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_VECTOR">TYPE_CODE_VECTOR Record</a></h4>
+
+<div>
+
+<p><tt>[VECTOR, numelts, eltty]</tt></p>
+
+<p>The <tt>VECTOR</tt> record (code 12) adds a vector type to the type
+table.  The operand fields are</p>
+
+<ul>
+<li><i>numelts</i>: The number of elements in vectors of this type</li>
+
+<li><i>eltty</i>: The type index of the vector element type</li>
+</ul>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_X86_FP80">TYPE_CODE_X86_FP80 Record</a></h4>
+
+<div>
+
+<p><tt>[X86_FP80]</tt></p>
+
+<p>The <tt>X86_FP80</tt> record (code 13) adds an <tt>x86_fp80</tt> (80-bit
+floating point) type to the type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_FP128">TYPE_CODE_FP128 Record</a></h4>
+
+<div>
+
+<p><tt>[FP128]</tt></p>
+
+<p>The <tt>FP128</tt> record (code 14) adds an <tt>fp128</tt> (128-bit
+floating point) type to the type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_PPC_FP128">TYPE_CODE_PPC_FP128 Record</a></h4>
+
+<div>
+
+<p><tt>[PPC_FP128]</tt></p>
+
+<p>The <tt>PPC_FP128</tt> record (code 15) adds a <tt>ppc_fp128</tt>
+(128-bit floating point) type to the type table.
+</p>
+</div>
+
+<!-- _______________________________________________________________________ -->
+<h4><a name="TYPE_CODE_METADATA">TYPE_CODE_METADATA Record</a></h4>
+
+<div>
+
+<p><tt>[METADATA]</tt></p>
+
+<p>The <tt>METADATA</tt> record (code 16) adds a <tt>metadata</tt>
+type to the type table.
+</p>
+</div>
+
+</div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="CONSTANTS_BLOCK">CONSTANTS_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="CONSTANTS_BLOCK">CONSTANTS_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>The <tt>CONSTANTS_BLOCK</tt> block (id 11) ...
 </p>
@@ -1080,10 +1366,11 @@ fields of <tt>FUNCTION</tt> records.</p>
 
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="FUNCTION_BLOCK">FUNCTION_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="FUNCTION_BLOCK">FUNCTION_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>The <tt>FUNCTION_BLOCK</tt> block (id 12) ...
 </p>
@@ -1102,22 +1389,39 @@ fields of <tt>FUNCTION</tt> records.</p>
 
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="TYPE_SYMTAB_BLOCK">TYPE_SYMTAB_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="TYPE_SYMTAB_BLOCK">TYPE_SYMTAB_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
-<p>The <tt>TYPE_SYMTAB_BLOCK</tt> block (id 13) ...
+<p>The <tt>TYPE_SYMTAB_BLOCK</tt> block (id 13) contains entries which
+map between module-level named types and their corresponding type
+indices.
 </p>
 
+<!-- _______________________________________________________________________ -->
+<h4><a name="TST_CODE_ENTRY">TST_CODE_ENTRY Record</a></h4>
+
+<div>
+
+<p><tt>[ENTRY, typeid, ...string...]</tt></p>
+
+<p>The <tt>ENTRY</tt> record (code 1) contains a variable number of
+values, with the first giving the type index of the designated type,
+and the remaining values giving the character codes of the type
+name. Each entry corresponds to a single named type.
+</p>
 </div>
 
+</div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="VALUE_SYMTAB_BLOCK">VALUE_SYMTAB_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="VALUE_SYMTAB_BLOCK">VALUE_SYMTAB_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>The <tt>VALUE_SYMTAB_BLOCK</tt> block (id 14) ... 
 </p>
@@ -1126,10 +1430,11 @@ fields of <tt>FUNCTION</tt> records.</p>
 
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="METADATA_BLOCK">METADATA_BLOCK Contents</a>
-</div>
+<h3>
+  <a name="METADATA_BLOCK">METADATA_BLOCK Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>The <tt>METADATA_BLOCK</tt> block (id 15) ...
 </p>
@@ -1138,16 +1443,18 @@ fields of <tt>FUNCTION</tt> records.</p>
 
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="METADATA_ATTACHMENT">METADATA_ATTACHMENT Contents</a>
-</div>
+<h3>
+  <a name="METADATA_ATTACHMENT">METADATA_ATTACHMENT Contents</a>
+</h3>
 
-<div class="doc_text">
+<div>
 
 <p>The <tt>METADATA_ATTACHMENT</tt> block (id 16) ...
 </p>
 
 </div>
 
+</div>
 
 <!-- *********************************************************************** -->
 <hr>
@@ -1156,8 +1463,8 @@ fields of <tt>FUNCTION</tt> records.</p>
 <a href="http://validator.w3.org/check/referer"><img
  src="http://www.w3.org/Icons/valid-html401-blue" alt="Valid HTML 4.01"></a>
  <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
-<a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
+<a href="http://llvm.org/">The LLVM Compiler Infrastructure</a><br>
+Last modified: $Date$
 </address>
 </body>
 </html>

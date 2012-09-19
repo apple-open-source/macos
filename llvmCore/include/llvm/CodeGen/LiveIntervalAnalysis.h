@@ -42,7 +42,7 @@ namespace llvm {
   class TargetInstrInfo;
   class TargetRegisterClass;
   class VirtRegMap;
-  
+
   class LiveIntervals : public MachineFunctionPass {
     MachineFunction* mf_;
     MachineRegisterInfo* mri_;
@@ -68,18 +68,12 @@ namespace llvm {
 
   public:
     static char ID; // Pass identification, replacement for typeid
-    LiveIntervals() : MachineFunctionPass(&ID) {}
+    LiveIntervals() : MachineFunctionPass(ID) {
+      initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
+    }
 
     // Calculate the spill weight to assign to a single instruction.
     static float getSpillWeight(bool isDef, bool isUse, unsigned loopDepth);
-
-    // After summing the spill weights of all defs and uses, the final weight
-    // should be normalized, dividing the weight of the interval by its size.
-    // This encourages spilling of intervals that are large and have few uses,
-    // and discourages spilling of small intervals with many uses.
-    void normalizeSpillWeight(LiveInterval &li) {
-      li.weight /= getApproximateInstructionCount(li) + 25;
-    }
 
     typedef Reg2IntervalMap::iterator iterator;
     typedef Reg2IntervalMap::const_iterator const_iterator;
@@ -105,6 +99,12 @@ namespace llvm {
       return r2iMap_.count(reg);
     }
 
+    /// isAllocatable - is the physical register reg allocatable in the current
+    /// function?
+    bool isAllocatable(unsigned reg) const {
+      return allocatableRegs_.test(reg);
+    }
+
     /// getScaledIntervalSize - get the size of an interval in "units,"
     /// where every function is composed of one thousand units.  This
     /// measure scales properly with empty index slots in the function.
@@ -117,7 +117,7 @@ namespace llvm {
     unsigned getFuncInstructionCount() {
       return indexes_->getFunctionSize();
     }
-    
+
     /// getApproximateInstructionCount - computes an estimate of the number
     /// of instructions in a given LiveInterval.
     unsigned getApproximateInstructionCount(LiveInterval& I) {
@@ -133,10 +133,9 @@ namespace llvm {
     bool conflictsWithPhysReg(const LiveInterval &li, VirtRegMap &vrm,
                               unsigned reg);
 
-    /// conflictsWithSubPhysRegRef - Similar to conflictsWithPhysRegRef except
-    /// it checks for sub-register reference and it can check use as well.
-    bool conflictsWithSubPhysRegRef(LiveInterval &li, unsigned Reg,
-                                    bool CheckUse,
+    /// conflictsWithAliasRef - Similar to conflictsWithPhysRegRef except
+    /// it checks for alias uses and defs.
+    bool conflictsWithAliasRef(LiveInterval &li, unsigned Reg,
                                    SmallPtrSet<MachineInstr*,32> &JoinedCopies);
 
     // Interval creation
@@ -150,11 +149,21 @@ namespace llvm {
     /// dupInterval - Duplicate a live interval. The caller is responsible for
     /// managing the allocated memory.
     LiveInterval *dupInterval(LiveInterval *li);
-    
+
     /// addLiveRangeToEndOfBlock - Given a register and an instruction,
     /// adds a live range from that instruction to the end of its MBB.
     LiveRange addLiveRangeToEndOfBlock(unsigned reg,
                                        MachineInstr* startInst);
+
+    /// shrinkToUses - After removing some uses of a register, shrink its live
+    /// range to just the remaining uses. This method does not compute reaching
+    /// defs for new uses, and it doesn't remove dead defs.
+    /// Dead PHIDef values are marked as unused.
+    /// New dead machine instructions are added to the dead vector.
+    /// Return true if the interval may have been separated into multiple
+    /// connected components.
+    bool shrinkToUses(LiveInterval *li,
+                      SmallVectorImpl<MachineInstr*> *dead = 0);
 
     // Interval removal
 
@@ -162,6 +171,10 @@ namespace llvm {
       DenseMap<unsigned, LiveInterval*>::iterator I = r2iMap_.find(Reg);
       delete I->second;
       r2iMap_.erase(I);
+    }
+
+    SlotIndexes *getSlotIndexes() const {
+      return indexes_;
     }
 
     SlotIndex getZeroIndex() const {
@@ -182,7 +195,7 @@ namespace llvm {
     SlotIndex getInstructionIndex(const MachineInstr *instr) const {
       return indexes_->getInstructionIndex(instr);
     }
-    
+
     /// Returns the instruction associated with the given index.
     MachineInstr* getInstructionFromIndex(SlotIndex index) const {
       return indexes_->getInstructionFromIndex(index);
@@ -191,19 +204,35 @@ namespace llvm {
     /// Return the first index in the given basic block.
     SlotIndex getMBBStartIdx(const MachineBasicBlock *mbb) const {
       return indexes_->getMBBStartIdx(mbb);
-    } 
+    }
 
     /// Return the last index in the given basic block.
     SlotIndex getMBBEndIdx(const MachineBasicBlock *mbb) const {
       return indexes_->getMBBEndIdx(mbb);
-    } 
+    }
+
+    bool isLiveInToMBB(const LiveInterval &li,
+                       const MachineBasicBlock *mbb) const {
+      return li.liveAt(getMBBStartIdx(mbb));
+    }
+
+    LiveRange* findEnteringRange(LiveInterval &li,
+                                 const MachineBasicBlock *mbb) {
+      return li.getLiveRangeContaining(getMBBStartIdx(mbb));
+    }
+
+    bool isLiveOutOfMBB(const LiveInterval &li,
+                        const MachineBasicBlock *mbb) const {
+      return li.liveAt(getMBBEndIdx(mbb).getPrevSlot());
+    }
+
+    LiveRange* findExitingRange(LiveInterval &li,
+                                const MachineBasicBlock *mbb) {
+      return li.getLiveRangeContaining(getMBBEndIdx(mbb).getPrevSlot());
+    }
 
     MachineBasicBlock* getMBBFromIndex(SlotIndex index) const {
       return indexes_->getMBBFromIndex(index);
-    }
-
-    SlotIndex getMBBTerminatorGap(const MachineBasicBlock *mbb) {
-      return indexes_->getTerminatorGap(mbb);
     }
 
     SlotIndex InsertMachineInstrInMaps(MachineInstr *MI) {
@@ -218,6 +247,10 @@ namespace llvm {
       indexes_->replaceMachineInstrInMaps(MI, NewMI);
     }
 
+    void InsertMBBInMaps(MachineBasicBlock *MBB) {
+      indexes_->insertMBBInMaps(MBB);
+    }
+
     bool findLiveInMBBs(SlotIndex Start, SlotIndex End,
                         SmallVectorImpl<MachineBasicBlock*> &MBBs) const {
       return indexes_->findLiveInMBBs(Start, End, MBBs);
@@ -228,10 +261,6 @@ namespace llvm {
     }
 
     VNInfo::Allocator& getVNInfoAllocator() { return VNInfoAllocator; }
-
-    /// getVNInfoSourceReg - Helper function that parses the specified VNInfo
-    /// copy field and returns the source register that defines it.
-    unsigned getVNInfoSourceReg(const VNInfo *VNI) const;
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual void releaseMemory();
@@ -247,14 +276,8 @@ namespace llvm {
     /// (if any is created) by reference. This is temporary.
     std::vector<LiveInterval*>
     addIntervalsForSpills(const LiveInterval& i,
-                          SmallVectorImpl<LiveInterval*> &SpillIs,
+                          const SmallVectorImpl<LiveInterval*> *SpillIs,
                           const MachineLoopInfo *loopInfo, VirtRegMap& vrm);
-    
-    /// addIntervalsForSpillsFast - Quickly create new intervals for spilled
-    /// defs / uses without remat or splitting.
-    std::vector<LiveInterval*>
-    addIntervalsForSpillsFast(const LiveInterval &li,
-                              const MachineLoopInfo *loopInfo, VirtRegMap &vrm);
 
     /// spillPhysRegAroundRegDefsUses - Spill the specified physical register
     /// around all defs and uses of the specified interval. Return true if it
@@ -266,7 +289,7 @@ namespace llvm {
     /// val# of the specified interval is re-materializable. Also returns true
     /// by reference if all of the defs are load instructions.
     bool isReMaterializable(const LiveInterval &li,
-                            SmallVectorImpl<LiveInterval*> &SpillIs,
+                            const SmallVectorImpl<LiveInterval*> *SpillIs,
                             bool &isLoad);
 
     /// isReMaterializable - Returns true if the definition MI of the specified
@@ -283,15 +306,15 @@ namespace llvm {
     unsigned getNumConflictsWithPhysReg(const LiveInterval &li,
                                         unsigned PhysReg) const;
 
-    /// processImplicitDefs - Process IMPLICIT_DEF instructions. Add isUndef
-    /// marker to implicit_def defs and their uses.
-    void processImplicitDefs();
-
     /// intervalIsInOneMBB - Returns true if the specified interval is entirely
     /// within a single basic block.
     bool intervalIsInOneMBB(const LiveInterval &li) const;
 
-  private:      
+    /// addKillFlags - Add kill flags to any instruction that kills a virtual
+    /// register.
+    void addKillFlags();
+
+  private:
     /// computeIntervals - Compute live intervals.
     void computeIntervals();
 
@@ -305,7 +328,7 @@ namespace llvm {
 
     /// isPartialRedef - Return true if the specified def at the specific index
     /// is partially re-defining the specified live interval. A common case of
-    /// this is a definition of the sub-register. 
+    /// this is a definition of the sub-register.
     bool isPartialRedef(SlotIndex MIIdx, MachineOperand &MO,
                         LiveInterval &interval);
 
@@ -347,7 +370,7 @@ namespace llvm {
     /// by reference if the def is a load.
     bool isReMaterializable(const LiveInterval &li, const VNInfo *ValNo,
                             MachineInstr *MI,
-                            SmallVectorImpl<LiveInterval*> &SpillIs,
+                            const SmallVectorImpl<LiveInterval*> *SpillIs,
                             bool &isLoad);
 
     /// tryFoldMemoryOperand - Attempts to fold either a spill / restore from
@@ -427,9 +450,6 @@ namespace llvm {
         DenseMap<unsigned,std::vector<SRInfo> > &RestoreIdxes,
         DenseMap<unsigned,unsigned> &MBBVRegsMap,
         std::vector<LiveInterval*> &NewLIs);
-
-    // Normalize the spill weight of all the intervals in NewLIs.
-    void normalizeSpillWeights(std::vector<LiveInterval*> &NewLIs);
 
     static LiveInterval* createInterval(unsigned Reg);
 

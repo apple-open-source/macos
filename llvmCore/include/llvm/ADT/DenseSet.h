@@ -28,10 +28,13 @@ class DenseSet {
   MapTy TheMap;
 public:
   DenseSet(const DenseSet &Other) : TheMap(Other.TheMap) {}
-  explicit DenseSet(unsigned NumInitBuckets = 64) : TheMap(NumInitBuckets) {}
+  explicit DenseSet(unsigned NumInitBuckets = 0) : TheMap(NumInitBuckets) {}
 
   bool empty() const { return TheMap.empty(); }
   unsigned size() const { return TheMap.size(); }
+
+  /// Grow the denseset so that it has at least Size buckets. Does not shrink
+  void resize(size_t Size) { TheMap.resize(Size); }
 
   void clear() {
     TheMap.clear();
@@ -58,6 +61,7 @@ public:
 
   class Iterator {
     typename MapTy::iterator I;
+    friend class DenseSet;
   public:
     typedef typename MapTy::iterator::difference_type difference_type;
     typedef ValueT value_type;
@@ -77,6 +81,7 @@ public:
 
   class ConstIterator {
     typename MapTy::const_iterator I;
+    friend class DenseSet;
   public:
     typedef typename MapTy::const_iterator::difference_type difference_type;
     typedef ValueT value_type;
@@ -102,6 +107,10 @@ public:
 
   const_iterator begin() const { return ConstIterator(TheMap.begin()); }
   const_iterator end() const { return ConstIterator(TheMap.end()); }
+
+  iterator find(const ValueT &V) { return Iterator(TheMap.find(V)); }
+  void erase(Iterator I) { return TheMap.erase(I.I); }
+  void erase(ConstIterator CI) { return TheMap.erase(CI.I); }
 
   std::pair<iterator, bool> insert(const ValueT &V) {
     return TheMap.insert(std::make_pair(V, 0));

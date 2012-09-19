@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2008, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: masterdump.h,v 1.42.604.2 2011-06-06 23:46:32 tbox Exp $ */
+/* $Id$ */
 
 #ifndef DNS_MASTERDUMP_H
 #define DNS_MASTERDUMP_H 1
@@ -331,12 +331,6 @@ dns_master_stylecreate(dns_master_style_t **style, unsigned int flags,
 
 void
 dns_master_styledestroy(dns_master_style_t **style, isc_mem_t *mctx);
-
-const char *
-dns_trust_totext(dns_trust_t trust);
-/*%<
- * Display trust in textual form.
- */
 
 ISC_LANG_ENDDECLS
 

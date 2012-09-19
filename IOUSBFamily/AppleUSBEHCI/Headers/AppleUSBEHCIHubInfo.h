@@ -147,9 +147,4 @@ public:
 	
 };
 
-enum
-{
-    kUSBEHCIFlagsMuliTT		= 0x0001
-};
-
 #endif

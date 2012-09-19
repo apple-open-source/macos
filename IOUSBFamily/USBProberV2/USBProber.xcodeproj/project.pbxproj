@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -13,6 +13,8 @@
 		3E0EA9FE050D2305009D1D9C /* reload.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 3E0EA9DD050D223D009D1D9C /* reload.tiff */; };
 		3E7CBCE604F3DBFF008267FD /* USB Prober_Prefix.pch in Resources */ = {isa = PBXBuildFile; fileRef = 3E7CBCE504F3DBFF008267FD /* USB Prober_Prefix.pch */; };
 		3E97B3D60622623200DE59F9 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E97B3D50622623200DE59F9 /* CoreFoundation.framework */; };
+		3EB4E4DF1326E553000DD9C1 /* DecodeBOSDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EB4E4DD1326E553000DD9C1 /* DecodeBOSDescriptor.h */; };
+		3EB4E4E01326E553000DD9C1 /* DecodeBOSDescriptor.m in Sources */ = {isa = PBXBuildFile; fileRef = 3EB4E4DE1326E553000DD9C1 /* DecodeBOSDescriptor.m */; };
 		3ED5D6760DD4A2CE00AD5562 /* KLog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E0EA84B050D1F76009D1D9C /* KLog.h */; };
 		3ED5D6770DD4A2CE00AD5562 /* KLogClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E0EA84D050D1F76009D1D9C /* KLogClient.h */; };
 		3ED5D6790DD4A2CE00AD5562 /* KLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3E0EA84A050D1F76009D1D9C /* KLog.cpp */; };
@@ -20,7 +22,6 @@
 		3ED5D67C0DD4A2CE00AD5562 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3E0EA84F050D1F76009D1D9C /* InfoPlist.strings */; };
 		3ED5D6B90DD4AA9100AD5562 /* KLog.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3ED5D6840DD4A2CE00AD5562 /* KLog.kext */; };
 		3ED5D6EF0DD4AC3A00AD5562 /* KLogInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3ED5D6EE0DD4AC3A00AD5562 /* KLogInfoPlist.pch */; };
-		7205D05C04C4912C00325756 /* MainMenu-Jaguar.nib in Resources */ = {isa = PBXBuildFile; fileRef = 7205D05A04C4912C00325756 /* MainMenu-Jaguar.nib */; };
 		7206B40D04C3392200856A2F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7206B40C04C3392200856A2F /* Security.framework */; };
 		7206B50B04C33BFD00856A2F /* SetKLogPermissions.sh in Resources */ = {isa = PBXBuildFile; fileRef = 7206B50A04C33BFD00856A2F /* SetKLogPermissions.sh */; };
 		724C8B9B04B241770045B190 /* DecodeDeviceQualifierDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 724C8B9904B241770045B190 /* DecodeDeviceQualifierDescriptor.h */; };
@@ -49,6 +50,8 @@
 		7276562C04AA7391002DBEAD /* OutlineViewAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = 7276562A04AA7391002DBEAD /* OutlineViewAdditions.m */; };
 		7295C02004BC916F00B46CD7 /* MainApplicationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 7295C01E04BC916F00B46CD7 /* MainApplicationController.h */; };
 		7295C02104BC916F00B46CD7 /* MainApplicationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7295C01F04BC916F00B46CD7 /* MainApplicationController.m */; };
+		72B7F0D41406B39500605667 /* ExtensionSelector.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B7F0D21406B39500605667 /* ExtensionSelector.h */; };
+		72B7F0D51406B39500605667 /* ExtensionSelector.m in Sources */ = {isa = PBXBuildFile; fileRef = 72B7F0D31406B39500605667 /* ExtensionSelector.m */; };
 		72BE052804AB749300B6FDD1 /* BusProbeController.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BE052604AB749300B6FDD1 /* BusProbeController.h */; };
 		72BE052904AB749300B6FDD1 /* BusProbeController.m in Sources */ = {isa = PBXBuildFile; fileRef = 72BE052704AB749300B6FDD1 /* BusProbeController.m */; };
 		72BE056B04AB780300B6FDD1 /* BusProber.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BE056904AB780300B6FDD1 /* BusProber.h */; };
@@ -135,10 +138,11 @@
 		3E0EA9DD050D223D009D1D9C /* reload.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = reload.tiff; sourceTree = "<group>"; };
 		3E7CBCE504F3DBFF008267FD /* USB Prober_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "USB Prober_Prefix.pch"; sourceTree = "<group>"; };
 		3E97B3D50622623200DE59F9 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		3EB4E4DD1326E553000DD9C1 /* DecodeBOSDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DecodeBOSDescriptor.h; sourceTree = "<group>"; };
+		3EB4E4DE1326E553000DD9C1 /* DecodeBOSDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DecodeBOSDescriptor.m; sourceTree = "<group>"; };
 		3ED5D6840DD4A2CE00AD5562 /* KLog.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KLog.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		3ED5D6B30DD4AA2200AD5562 /* KLog.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = KLog.plist; path = KLog/KLog.plist; sourceTree = "<group>"; };
 		3ED5D6EE0DD4AC3A00AD5562 /* KLogInfoPlist.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KLogInfoPlist.pch; path = KLog/KLogInfoPlist.pch; sourceTree = "<group>"; };
-		7205D05B04C4912C00325756 /* MainMenu-Jaguar.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = "MainMenu-Jaguar.nib"; path = "English.lproj/MainMenu-Jaguar.nib"; sourceTree = "<group>"; };
 		7206B40C04C3392200856A2F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		7206B50A04C33BFD00856A2F /* SetKLogPermissions.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = SetKLogPermissions.sh; sourceTree = "<group>"; };
 		724C8B9904B241770045B190 /* DecodeDeviceQualifierDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DecodeDeviceQualifierDescriptor.h; sourceTree = "<group>"; };
@@ -167,6 +171,8 @@
 		7276562A04AA7391002DBEAD /* OutlineViewAdditions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OutlineViewAdditions.m; sourceTree = "<group>"; };
 		7295C01E04BC916F00B46CD7 /* MainApplicationController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MainApplicationController.h; sourceTree = "<group>"; };
 		7295C01F04BC916F00B46CD7 /* MainApplicationController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MainApplicationController.m; sourceTree = "<group>"; };
+		72B7F0D21406B39500605667 /* ExtensionSelector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ExtensionSelector.h; sourceTree = "<group>"; };
+		72B7F0D31406B39500605667 /* ExtensionSelector.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ExtensionSelector.m; sourceTree = "<group>"; };
 		72BE052604AB749300B6FDD1 /* BusProbeController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BusProbeController.h; sourceTree = "<group>"; };
 		72BE052704AB749300B6FDD1 /* BusProbeController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = BusProbeController.m; sourceTree = "<group>"; };
 		72BE056904AB780300B6FDD1 /* BusProber.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BusProber.h; sourceTree = "<group>"; };
@@ -244,6 +250,8 @@
 				7276562A04AA7391002DBEAD /* OutlineViewAdditions.m */,
 				72D2096104A3C6ED0011EEA5 /* OutlineViewNode.h */,
 				72D2096204A3C6ED0011EEA5 /* OutlineViewNode.m */,
+				72B7F0D21406B39500605667 /* ExtensionSelector.h */,
+				72B7F0D31406B39500605667 /* ExtensionSelector.m */,
 				72BE04FD04AB6D1100B6FDD1 /* Bus Probe */,
 				72BE7DDA04A3899600EB1451 /* Kernel Extensions */,
 				72D2097B04A3CCCF0011EEA5 /* IORegistry */,
@@ -317,7 +325,6 @@
 				8D1107310486CEB800E47090 /* Info.plist */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
-				7205D05A04C4912C00325756 /* MainMenu-Jaguar.nib */,
 				7206B50A04C33BFD00856A2F /* SetKLogPermissions.sh */,
 			);
 			name = Resources;
@@ -393,6 +400,8 @@
 				72D92EFC04B22A7200D63E74 /* DescriptorDecoder.m */,
 				72BE4EB704B2230200545F4F /* DecodeDeviceDescriptor.h */,
 				72BE4EB804B2230200545F4F /* DecodeDeviceDescriptor.m */,
+				3EB4E4DD1326E553000DD9C1 /* DecodeBOSDescriptor.h */,
+				3EB4E4DE1326E553000DD9C1 /* DecodeBOSDescriptor.m */,
 				72BE4F0104B224F500545F4F /* DecodeConfigurationDescriptor.h */,
 				72BE4F0204B224F500545F4F /* DecodeConfigurationDescriptor.m */,
 				726236F804B2017D0026A607 /* DecodeHubDescriptor.h */,
@@ -499,6 +508,8 @@
 				3E0EA9FB050D22BA009D1D9C /* USBLoggerFilterWindowController.h in Headers */,
 				84281E60126782430039577F /* PortStatusController.h in Headers */,
 				84281E64126783230039577F /* PortStatusGatherer.h in Headers */,
+				3EB4E4DF1326E553000DD9C1 /* DecodeBOSDescriptor.h in Headers */,
+				72B7F0D41406B39500605667 /* ExtensionSelector.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -551,8 +562,12 @@
 /* Begin PBXProject section */
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = 3E420D2E08E1B98300FD1873 /* Build configuration list for PBXProject "USBProber" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -592,7 +607,6 @@
 				72DDD16104A298B60067E712 /* clear.tiff in Resources */,
 				726236BE04B0E16D0026A607 /* USBVendors.txt in Resources */,
 				7206B50B04C33BFD00856A2F /* SetKLogPermissions.sh in Resources */,
-				7205D05C04C4912C00325756 /* MainMenu-Jaguar.nib in Resources */,
 				72DA3D2404C4A5D500DBD7EE /* USBProberIcon.icns in Resources */,
 				3E7CBCE604F3DBFF008267FD /* USB Prober_Prefix.pch in Resources */,
 			);
@@ -675,6 +689,8 @@
 				3E0EA9FC050D22BA009D1D9C /* USBLoggerFilterWindowController.m in Sources */,
 				84281E61126782430039577F /* PortStatusController.m in Sources */,
 				84281E65126783230039577F /* PortStatusGatherer.m in Sources */,
+				3EB4E4E01326E553000DD9C1 /* DecodeBOSDescriptor.m in Sources */,
+				72B7F0D51406B39500605667 /* ExtensionSelector.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -713,27 +729,17 @@
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
-		7205D05A04C4912C00325756 /* MainMenu-Jaguar.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				7205D05B04C4912C00325756 /* MainMenu-Jaguar.nib */,
-			);
-			name = "MainMenu-Jaguar.nib";
-			sourceTree = SOURCE_ROOT;
-		};
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		3E420D2B08E1B98300FD1873 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUGGING_SYMBOLS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_ENABLE_TRIGRAPHS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -763,13 +769,11 @@
 		3E420D2C08E1B98300FD1873 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEPLOYMENT_LOCATION = YES;
 				DEPLOYMENT_POSTPROCESSING = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_TRIGRAPHS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = 2;
@@ -799,8 +803,7 @@
 		3E420D2D08E1B98300FD1873 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_TRIGRAPHS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -829,9 +832,9 @@
 		3E420D2F08E1B98300FD1873 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
+				ONLY_ACTIVE_ARCH = YES;
 				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Development;
@@ -839,9 +842,9 @@
 		3E420D3008E1B98300FD1873 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
+				ONLY_ACTIVE_ARCH = YES;
 				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Deployment;
@@ -849,9 +852,9 @@
 		3E420D3108E1B98300FD1873 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
+				ONLY_ACTIVE_ARCH = YES;
 				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Default;
@@ -867,7 +870,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -910,7 +912,6 @@
 				DEPLOYMENT_LOCATION = YES;
 				DEPLOYMENT_POSTPROCESSING = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 2;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";

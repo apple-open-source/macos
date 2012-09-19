@@ -33,7 +33,9 @@ namespace {
 
   public:
     static char ID; // Pass identification
-    OptimizePHIs() : MachineFunctionPass(&ID) {}
+    OptimizePHIs() : MachineFunctionPass(ID) {
+      initializeOptimizePHIsPass(*PassRegistry::getPassRegistry());
+    }
 
     virtual bool runOnMachineFunction(MachineFunction &MF);
 
@@ -54,8 +56,8 @@ namespace {
 }
 
 char OptimizePHIs::ID = 0;
-static RegisterPass<OptimizePHIs>
-X("opt-phis", "Optimize machine instruction PHIs");
+INITIALIZE_PASS(OptimizePHIs, "opt-phis",
+                "Optimize machine instruction PHIs", false, false)
 
 FunctionPass *llvm::createOptimizePHIsPass() { return new OptimizePHIs(); }
 
@@ -101,12 +103,11 @@ bool OptimizePHIs::IsSingleValuePHICycle(MachineInstr *MI,
     MachineInstr *SrcMI = MRI->getVRegDef(SrcReg);
 
     // Skip over register-to-register moves.
-    unsigned MvSrcReg, MvDstReg, SrcSubIdx, DstSubIdx;
-    if (SrcMI &&
-        TII->isMoveInstr(*SrcMI, MvSrcReg, MvDstReg, SrcSubIdx, DstSubIdx) &&
-        SrcSubIdx == 0 && DstSubIdx == 0 &&
-        TargetRegisterInfo::isVirtualRegister(MvSrcReg))
-      SrcMI = MRI->getVRegDef(MvSrcReg);
+    if (SrcMI && SrcMI->isCopy() &&
+        !SrcMI->getOperand(0).getSubReg() &&
+        !SrcMI->getOperand(1).getSubReg() &&
+        TargetRegisterInfo::isVirtualRegister(SrcMI->getOperand(1).getReg()))
+      SrcMI = MRI->getVRegDef(SrcMI->getOperand(1).getReg());
     if (!SrcMI)
       return false;
 
@@ -164,7 +165,11 @@ bool OptimizePHIs::OptimizeBB(MachineBasicBlock &MBB) {
     InstrSet PHIsInCycle;
     if (IsSingleValuePHICycle(MI, SingleValReg, PHIsInCycle) &&
         SingleValReg != 0) {
-      MRI->replaceRegWith(MI->getOperand(0).getReg(), SingleValReg);
+      unsigned OldReg = MI->getOperand(0).getReg();
+      if (!MRI->constrainRegClass(SingleValReg, MRI->getRegClass(OldReg)))
+        continue;
+
+      MRI->replaceRegWith(OldReg, SingleValReg);
       MI->eraseFromParent();
       ++NumPHICycles;
       Changed = true;

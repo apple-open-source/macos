@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2010 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #ifndef _IOKIT_APPLEUSBHUB_H
 #define _IOKIT_APPLEUSBHUB_H
@@ -51,6 +52,9 @@ __attribute__((format(printf, 1, 2)));
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
+#ifdef SUPPORTS_SS_USB
+	#define GETLINKSTATE(status)	(((status >> kSSHubPortStatusLinkStateShift) & 0x0007) | ((status & 0x4000)>>14))
+#endif
 
 enum 
 {
@@ -58,11 +62,17 @@ enum
 	kHubPortPowerOn = 1
 };
 
-enum
+enum HubErrataBits
 {
-      kErrataCaptiveOKBit = 1,
-      kStartupDelayBit = 2,
-	  kDisplayOverCurrentTimeout = 30			// # of seconds that need to pass before we will show an overcurrent dialog again
+	kErrataCaptiveOKBit = 0x0001,
+	kErrataDontSuspendDownstreamHubs = 0x0002
+	
+};
+
+enum 
+{
+	kStartupDelayBit = 2,
+	kDisplayOverCurrentTimeout = 30			// # of seconds that need to pass before we will show an overcurrent dialog again
 };
 
 
@@ -82,7 +92,11 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 
     IOUSBInterface *					_hubInterface;
     IOUSBConfigurationDescriptor		*_configDescriptor;
+#ifdef SUPPORTS_SS_USB
+    IOUSB3HubDescriptor					_hubDescriptor;
+#else
     IOUSBHubDescriptor					_hubDescriptor;
+#endif
     USBDeviceAddress					_address;
     IOUSBHubPortStatus					_hubStatus;
     IOUSBPipe *							_interruptPipe;
@@ -97,7 +111,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     bool								_hubIsDead;
 	bool								_abortExpected;
 	UInt32								_retryCount;
-    IOUSBHubDevice *					_hubParent;										// the hub to which our provider hub is attached (NULL for root hubs)
+ //   IOUSBHubDevice *					_hubParent;										// the hub to which our provider hub is attached (NULL for root hubs)
     
     // Power stuff
     bool								_busPowered;
@@ -111,6 +125,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     
 	bool								_needInterruptRead;						// T if we need a new interrupt read on either a power change or on the last I/O
 	bool								_needToCallResetDevice;
+    bool                                _outstandingIOFromPowerChange;          // T if we have an outstandingIO pending due to a power change
 	UInt32								_interruptReadPending;					// 1 if there is ab outstanding read on the interrupt pipe, 0 if there is not
     
     UInt32								_powerForCaptive;
@@ -130,6 +145,10 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     AppleUSBHubPort **					_ports;									// Allocated at runtime
     bool								_multiTTs;								// Hub is multiTT capable, and configured.
     bool								_hsHub;									// our provider is a HS bus
+#ifdef SUPPORTS_SS_USB
+    bool								_ssHub;									// our provider is a SuperSpeed bus
+	bool								_isVIASSHub;
+#endif
 	bool								_needToAckSetPowerState;
 	bool								_checkPortsThreadActive;
 	bool								_abandonCheckPorts;						// T if we should abandon the check ports thread
@@ -152,12 +171,16 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	bool								_retryBogusPortStatus;
 	bool								_overCurrentNoticeDisplayed;
 	AbsoluteTime						_overCurrentNoticeTimeStamp;
+	bool								_treatAllPortsAsCaptive;
 	bool								_hubWithExpressCardPort;				// T if this hub has a port that connects to an expresscard slot
 	int									_expressCardPort;						// Port # of the hub that connects to the express card slot
 	bool								_hasExtraPowerRequest;
+	bool								_needsInoculation;						// T if this is a hub which needs to be inoculated with a SUS/RES after a restart
 	
 	volatile UInt32						_hubDeadCheckLock;
-	
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+	UInt32								_inoculatedCount;						// debug only - will only be in logging builds
+#endif	
 	
     static void 	InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining);
     void			InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining);
@@ -186,8 +209,8 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     IOReturn			DoDeviceRequestWithRetries(IOUSBDevRequest *request, bool retrySTALLs = false);
     UInt32				GetHubErrataBits(void);
 
-    void				DecrementOutstandingIO(void);
-    void				IncrementOutstandingIO(void);
+    void				DecrementOutstandingIO(bool fromPowerChange = false);
+    void				IncrementOutstandingIO(bool fromPowerChange = false);
     static IOReturn		ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     void				LowerPowerState(void);
     void				RaisePowerState(void);
@@ -200,6 +223,10 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     static IOReturn		ChangeDoPortActionLock(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 	
     // Hub functions
+    void			UnpackUSB2PortFlags(void);
+#ifdef SUPPORTS_SS_USB
+    void			UnpackUSB3PortFlags(void);
+#endif
     void			UnpackPortFlags(void);
     void			CountCaptivePorts(void);
     IOReturn		CheckPortPowerRequirements(void);
@@ -211,7 +238,11 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 
     bool			HubStatusChanged(void);
 
+#ifdef SUPPORTS_SS_USB
+    IOReturn		GetHubDescriptor(IOUSB3HubDescriptor *desc);
+#else
     IOReturn		GetHubDescriptor(IOUSBHubDescriptor *desc);
+#endif
     IOReturn		GetHubStatus(IOUSBHubStatus *status);
     IOReturn		ClearHubFeature(UInt16 feature);
 
@@ -221,8 +252,19 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     IOReturn		ClearPortFeature(UInt16 feature, UInt16 port);
     IOReturn		GetDeviceStatus(USBStatus *status);
 
+#ifdef SUPPORTS_SS_USB
+	IOReturn		GetPortErrorCount(UInt16 port, UInt16 *portErrorCount);
+	IOReturn		SetHubDepth(UInt16 depth);
+	UInt16			calculateDepth(UInt32 locationID);
+	IOReturn		SetPortLinkState(UInt16 linkState, UInt16 port);
+	IOReturn		SetPortU1Timeout(UInt16 timeout, UInt16 port);
+	IOReturn		SetPortU2Timeout(UInt16 timeout, UInt16 port);
+	IOReturn		SetPortRemoteWakeMask(UInt16 linkState, UInt16 port);
+	
+    void			PrintHubDescriptor(IOUSB3HubDescriptor *desc);
+#else
     void			PrintHubDescriptor(IOUSBHubDescriptor *desc);
-
+#endif
     void			FatalError(IOReturn err, const char *str);
     IOReturn		DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options );
     void			StartWatchdogTimer();
@@ -231,13 +273,26 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     void			ResetMyPort();
     void			CallCheckForDeadHub(void);
 
+#ifdef SUPPORTS_SS_USB
+    IOUSB3HubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
+#else
     IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
+#endif
 	bool				HubAreAllPortsDisconnectedOrSuspended();
     bool				IsPortInitThreadActiveForAnyPort();
     bool				IsStatusChangedThreadActiveForAnyPort();
     bool				IsHSRootHub();
 	bool				HasExpressCardPort();
+    bool            	IsPortSuspended(UInt32 portNumber, UInt16 statusFlags);
 	
+	
+	// Port Indicator and Port Power functions, called by the AppleUSBHSHubUserClient
+	IOReturn			SetIndicatorForPort(UInt16 port, UInt16 selector);
+	IOReturn			GetPortIndicatorControl(UInt16 port, UInt32 *defaultColors);
+    IOReturn			SetIndicatorsToAutomatic();
+	IOReturn			GetPortPower(UInt16 port, UInt32 *on);
+	IOReturn			SetPortPower(UInt16 port, UInt32 on);
+	void				DisablePowerManagement(UInt32 disable);
 	
 	// local function for an initial delay
 	void				InitialDelay(void);
@@ -250,10 +305,21 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	void				WakeOnPowerOn( );
 
 	
-	static const char *	HubMessageToString(UInt32 message);
+	virtual const char *			HubMessageToString(UInt32 message);
+	virtual const char *			FeatureName(UInt32 feature);
 
-	bool				ValidateHubDevice();
-	bool				HasInternalDevice(UInt32 portnum);
+#ifdef SUPPORTS_SS_USB
+	virtual const char *			LinkStateName(UInt32 state);
+
+	
+    void				GetACPIPortMuxProperties(UInt32 portnum, bool *muxed, char *muxName);
+	void				ControllerHasMuxedPorts(bool *muxed);
+	IOReturn			DeviceDisconnected(UInt16 port, char *muxName);
+#endif	
+
+    bool				GetInternalHubErrataBits(UInt32 *errataBits);
+	bool				IsHubDeviceInternal();
+	void				GetACPIPortCaptiveProperties(UInt32 portnum, bool *isInternal, bool *hasExternalConnector);
 	
 	
 public:
@@ -300,4 +366,5 @@ public:
 };
 
 
-#endif _IOKIT_APPLEUSBHUB_H
+#endif
+

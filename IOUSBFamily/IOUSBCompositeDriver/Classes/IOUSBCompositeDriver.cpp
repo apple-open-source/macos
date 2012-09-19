@@ -30,6 +30,8 @@
 //================================================================================================
 //
 #include <IOKit/usb/IOUSBCompositeDriver.h>
+#include <IOKit/usb/IOUSBControllerV3.h>
+
 #include "USBTracepoints.h"
 
 //================================================================================================
@@ -103,6 +105,12 @@ IOUSBCompositeDriver::start(IOService * provider)
     fExpectingClose = false;
     fNotifier = NULL;
     
+    // call into a subclass to allow it to configure power management if it wants to
+    if (ConfigureDevicePowerManagement(provider) != kIOReturnSuccess)
+    {
+        USBLog(1, "IOUSBCompositeDriver[%p]::start - ConfigureDevicePowerManagement failed", this);
+        return false;
+    }
     configured = ConfigureDevice();
     if ( configured )
     {
@@ -322,6 +330,9 @@ IOUSBCompositeDriver::ConfigureDevice()
             {
 				USBLog(1, "%s[%p](%s)::ConfigureDevice GetFullConfigDescriptor(%d) returned NULL, retrying", getName(), this, fDevice->getName(), i );
 				USBTrace( kUSBTCompositeDriver, kTPCompositeDriverConfigureDevice , (uintptr_t)this, i, 0, 1 );
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+                {if(fDevice->GetBus()->getWorkLoop()->inGate()){USBLog(1, "%s[%p](%s)::ConfigureDevice GetFullConfigDescriptor - IOSleep in gate:%d", getName(), this, fDevice->getName(), 1);}}
+#endif
 				IOSleep( 300 );
 				cdTemp = fDevice->GetFullConfigurationDescriptor(i);
 				if ( !cdTemp )
@@ -372,6 +383,9 @@ IOUSBCompositeDriver::ConfigureDevice()
         {
             USBLog(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL, retrying", getName(), this, fDevice->getName() );
 			USBTrace( kUSBTCompositeDriver, kTPCompositeDriverConfigureDevice , (uintptr_t)this, 0, 0, 2 );
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+            {if(fDevice->GetBus()->getWorkLoop()->inGate()){USBLog(1, "%s[%p](%s)::ConfigureDevice GetFullConfigDescriptor - IOSleep in gate:%d", getName(), this, fDevice->getName(), 1);}}
+#endif
             IOSleep( 300 );
             cd = fDevice->GetFullConfigurationDescriptor(0);
             if ( !cd )
@@ -404,6 +418,22 @@ IOUSBCompositeDriver::ConfigureDevice()
     {
 		fIOUSBCompositeExpansionData->fIssueRemoteWakeup = true;
 	}
+	
+#if 0
+	// Test code - this block should be removed
+	{
+		IOUSBControllerV3		*bus = OSDynamicCast(IOUSBControllerV3, fDevice->GetBus());
+		
+		if (bus)
+		{
+			UInt32			bandwidth;
+			
+			bus->GetBandwidthAvailableForDevice(fDevice, &bandwidth);
+			
+			USBLog(2, "Composite Driver(%s): Bandwidth for device is %d", fDevice->getName(), (int)bandwidth);
+		}
+	}
+#endif
 	
     // Now, configure it
     //
@@ -440,6 +470,9 @@ IOUSBCompositeDriver::ConfigureDevice()
 			if ( err != kIOReturnSuccess )
 			{
 				// Wait and retry
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+                {if(fDevice->GetBus()->getWorkLoop()->inGate()){USBLog(1, "%s[%p](%s)::SetConfiguration - IOSleep in gate:%d", getName(), this, fDevice->getName(), 1);}}
+#endif
 				IOSleep(300);
 				err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
 			}
@@ -557,6 +590,9 @@ IOUSBCompositeDriver::ReConfigureDevice()
         if ( err != kIOReturnSuccess )
         {
             // Wait and retry
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+            {if(fDevice->GetBus()->getWorkLoop()->inGate()){USBLog(1, "%s[%p](%s)::ReConfigureDevice - IOSleep in gate:%d", getName(), this, fDevice->getName(), 1);}}
+#endif
             IOSleep(300);
             err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
         }
@@ -612,18 +648,47 @@ ErrorExit:
 IOReturn
 IOUSBCompositeDriver::SetConfiguration(UInt8 configValue, bool startInterfaceMatching)
 {
+	IOReturn	kr = kIOReturnSuccess;
+	
 	// Call the device object to do the configuration
 	//
 	if ( fIOUSBCompositeExpansionData && fIOUSBCompositeExpansionData->fIssueRemoteWakeup )
 	{
 		fIOUSBCompositeExpansionData->fRemoteWakeupIssued = true;
-		return fDevice->SetConfiguration(this, configValue, startInterfaceMatching, true);
+		kr = fDevice->SetConfiguration(this, configValue, startInterfaceMatching, true);
+		if ( kr != kIOReturnSuccess)
+		{
+			USBLog(6, "%s[%p]::SetConfiguration returned 0x%x, resetting the device",getName(),this, kr);
+			
+			kr = fDevice->ResetDevice();
+			USBLog(6, "%s[%p]::ResetDevice returned 0x%x",getName(),this, kr);
+			if ( kr == kIOReturnSuccess)
+			{
+				kr = fDevice->SetConfiguration(this, configValue, startInterfaceMatching, true);
+				USBLog(6, "%s[%p]::SetConfiguration returned 0x%x",getName(),this, kr);
+			}
+		}
 	}
 	else
 	{
 		fIOUSBCompositeExpansionData->fRemoteWakeupIssued = false;
-		return fDevice->SetConfiguration(this, configValue, startInterfaceMatching);
+		kr = fDevice->SetConfiguration(this, configValue, startInterfaceMatching);
+		if ( kr != kIOReturnSuccess)
+		{
+			USBLog(6, "%s[%p]::SetConfiguration returned 0x%x, resetting the device",getName(),this, kr);
+			
+			kr = fDevice->ResetDevice();
+			USBLog(6, "%s[%p]::ResetDevice returned 0x%x",getName(),this, kr);
+			if ( kr == kIOReturnSuccess)
+			{
+				kr = fDevice->SetConfiguration(this, configValue, startInterfaceMatching, true);
+				USBLog(6, "%s[%p]::SetConfiguration returned 0x%x",getName(),this, kr);
+			}
+		}
 	}
+	
+	USBLog(6, "%s[%p]::SetConfiguration returning 0x%x",getName(),this, kr);
+	return kr;
 }
 
 
@@ -639,6 +704,7 @@ IOReturn
 IOUSBCompositeDriver::CompositeDriverInterestHandler(  void * target, void * refCon, UInt32 messageType, IOService * provider,
                                                        void * messageArgument, vm_size_t argSize )
 {
+#pragma unused (provider, refCon, argSize)
     IOUSBCompositeDriver *	me = (IOUSBCompositeDriver *) target;
     
     if (!me)
@@ -673,8 +739,24 @@ IOUSBCompositeDriver::CompositeDriverInterestHandler(  void * target, void * ref
     
 }
 
+OSMetaClassDefineReservedUsed(IOUSBCompositeDriver,  0);
+//=============================================================================================
+//
+//  ConfigureDevicePowerManagement
+//
+//=============================================================================================
+//
+IOReturn
+IOUSBCompositeDriver::ConfigureDevicePowerManagement( IOService * provider )
+{
+#pragma unused(provider)
+        // For this class ConfigureDevicePowerManagement does nothing. But this gives
+        // subclasses an entrypoint to set up power management
+        return kIOReturnSuccess;
+}
+
+
 #pragma mark ееееееее Padding Methods еееееееее
-OSMetaClassDefineReservedUnused(IOUSBCompositeDriver,  0);
 OSMetaClassDefineReservedUnused(IOUSBCompositeDriver,  1);
 OSMetaClassDefineReservedUnused(IOUSBCompositeDriver,  2);
 OSMetaClassDefineReservedUnused(IOUSBCompositeDriver,  3);

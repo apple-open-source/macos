@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,7 +80,9 @@ enum
 	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21),	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
 	kErrataDontUseCompanionController			= (1 << 22),	// For systems which will end up being EHCI only
 	kErrataIgnoreRootHubPowerClearFeature		= (1 << 23),	// MCP89 - don't power off the root hub ports
-	kErrataDisablePCIeLinkOnSleep				= (1 << 24)		// some controllers require us to do some extra work in the PCIe bridge on sleep.. we just set a property
+	kErrataDisablePCIeLinkOnSleep				= (1 << 24),	// some controllers require us to do some extra work in the PCIe bridge on sleep.. we just set a property
+                                                                // bit 25 is available again
+    kErrataEHCIUseRLvalue                       = (1 << 26)     // we want to program Control and Bulk QHs with the RL on some controllers
 };
 
 enum
@@ -173,6 +175,7 @@ class IOUSBController : public IOUSBBus
     friend class IOUSBControllerV2;
     friend class IOUSBControllerV3;
     friend class AppleUSBHub;
+	friend class IOUSBRootHubDevice;
 
 protected:
 
@@ -197,13 +200,16 @@ protected:
         UInt32				_currentSizeOfIsocCommandPool;
         UInt8				_controllerSpeed;					// Controller speed, passed down for splits
         thread_call_t		_terminatePCCardThread;				// Obsolete
-        bool				_addressPending[128];
+        bool				_addressPending[kUSBMaxDevices+2];
 		SInt32				_activeIsochTransfers;				// isochronous transfers in the queue
 		IOService			*_provider;							// common name for our provider
 		bool				_controllerCanSleep;				// true iff the controller is able to support sleep/wake
 		bool				_needToClose;
 		UInt32				_isochMaxBusStall;					// value (in ns) of the maximum PCI bus stall allowed for Isoch.
 		SInt32				_activeInterruptTransfers;			// interrupt transfers in the queue
+#ifdef SUPPORTS_SS_USB
+		IOUSBRootHubDevice	*_rootHubDeviceSS;
+#endif
     };
     ExpansionData *_expansionData;
 	
@@ -217,6 +223,8 @@ public:
     virtual bool 		finalize(IOOptionBits options);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
     virtual bool		didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+	
+    void 				ReturnUSBCommand( IOUSBCommand *  command );
 	
 protected:
 		
@@ -1091,10 +1099,22 @@ protected:
 	IOACPIPlatformDevice *			CopyACPIDevice( IORegistryEntry * device );
 	bool							DumpUSBACPI( IORegistryEntry * acpiDevice );
 	bool							IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UInt32 locationID );
+    bool                            GetInternalHubErrataBits(IORegistryEntry* provider, UInt32 portnum, UInt32 locationID, UInt32 *errataBits);
+#ifdef SUPPORTS_SS_USB
+    bool                            IsControllerMuxed( IORegistryEntry * provider, UInt32 locationID );
+    bool                            IsPortMuxed(IORegistryEntry * provider, UInt32 portnum, UInt32 locationID, char *muxName);
+#endif    
+	UInt8							GetControllerSpeed() { return (_expansionData ? _expansionData->_controllerSpeed : 255); }
 	
 private:
 	bool							HasExpressCard( IORegistryEntry * acpiDevice, UInt32 * portnum );
 	bool							CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID );
+#ifdef SUPPORTS_SS_USB
+    bool                            CheckACPIUPCTableForMuxedMethods( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID, char* muxName );
+#endif
+    bool                            CheckACPIUPCTableForInternalHubErrataBits( IORegistryEntry* acpiDevice, UInt32 portnum, UInt32 locationID, UInt32* errataBits );
+	int 							calculateUSBDepth(UInt32 locationID);
+	int 							calculateACPIDepth(int hubUSBDepth);
 };
 
 //================================================================================================
@@ -1114,5 +1134,5 @@ public:
 	IOLock *lock;
 };
 
-#endif /* ! _IOKIT_IOUSBCONTROLLER_H */
+#endif
 

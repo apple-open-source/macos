@@ -122,6 +122,7 @@
 #define PKCS9_CERT_TYPES	PKCS9, 0x16
 #define PKCS9_CRL_TYPES		PKCS9, 0x17
 #define PKCS9_SMIME_IDS		PKCS9, 0x10
+#define PKCS9_SMIME_CTYPE	PKCS9_SMIME_IDS, 1
 #define PKCS9_SMIME_ATTRS	PKCS9_SMIME_IDS, 2
 #define PKCS9_SMIME_ALGS	PKCS9_SMIME_IDS, 3
 #define PKCS12_VERSION1		PKCS12, 0x0a
@@ -235,6 +236,10 @@ CONST_OID cmsRC2wrap[]  			= { PKCS9_SMIME_ALGS, 7 };
 /* RFC2633 SMIME message attributes */
 CONST_OID smimeEncryptionKeyPreference[] 	= { PKCS9_SMIME_ATTRS, 11 };
 CONST_OID ms_smimeEncryptionKeyPreference[] 	= { MICROSOFT_OID, 0x10, 0x4 };
+
+CONST_OID smimeSigningCertificate[] 	= { PKCS9_SMIME_ATTRS, 12 };
+CONST_OID smimeTimeStampToken[]         = { PKCS9_SMIME_ATTRS, 14 };
+CONST_OID smimeTimeStampTokenInfo[] 	= { PKCS9_SMIME_CTYPE, 0x04 };
 
 CONST_OID x520CommonName[]          		= { X520_ATTRIBUTE_TYPE, 3 };
 CONST_OID x520CountryName[]         		= { X520_ATTRIBUTE_TYPE, 6 };
@@ -1100,6 +1105,19 @@ const static SECOidData oids[] = {
     OD( secp521r1, SEC_OID_SECP_521_R1,
 	"secp521r1", CSSM_ALGID_NONE,
 	INVALID_CERT_EXTENSION ),
+    
+    OD( smimeTimeStampTokenInfo, SEC_OID_PKCS9_ID_CT_TSTInfo,
+	"id-ct-TSTInfo", CSSM_ALGID_NONE,
+	INVALID_CERT_EXTENSION ),
+
+    OD( smimeTimeStampToken, SEC_OID_PKCS9_TIMESTAMP_TOKEN,
+	"id-aa-timeStampToken", CSSM_ALGID_NONE,
+	INVALID_CERT_EXTENSION ),
+
+    OD( smimeSigningCertificate, SEC_OID_PKCS9_SIGNING_CERTIFICATE,
+	"id-aa-signing-certificate", CSSM_ALGID_NONE,
+	INVALID_CERT_EXTENSION ),
+
 };
 
 /*

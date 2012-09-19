@@ -14,10 +14,15 @@
 #include "llvm/AutoUpgrade.h"
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
+#include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/IntrinsicInst.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/CallSite.h"
+#include "llvm/Support/CFG.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/IRBuilder.h"
 #include <cstring>
@@ -27,266 +32,113 @@ using namespace llvm;
 static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
   assert(F && "Illegal to upgrade a non-existent Function.");
 
-  // Get the Function's name.
-  const std::string& Name = F->getName();
-
-  // Convenience
-  const FunctionType *FTy = F->getFunctionType();
-
   // Quickly eliminate it, if it's not a candidate.
-  if (Name.length() <= 8 || Name[0] != 'l' || Name[1] != 'l' || 
-      Name[2] != 'v' || Name[3] != 'm' || Name[4] != '.')
+  StringRef Name = F->getName();
+  if (Name.size() <= 8 || !Name.startswith("llvm."))
     return false;
+  Name = Name.substr(5); // Strip off "llvm."
 
+  FunctionType *FTy = F->getFunctionType();
   Module *M = F->getParent();
-  switch (Name[5]) {
+  
+  switch (Name[0]) {
   default: break;
   case 'a':
-    // This upgrades the llvm.atomic.lcs, llvm.atomic.las, llvm.atomic.lss,
-    // and atomics with default address spaces to their new names to their new
-    // function name (e.g. llvm.atomic.add.i32 => llvm.atomic.add.i32.p0i32)
-    if (Name.compare(5,7,"atomic.",7) == 0) {
-      if (Name.compare(12,3,"lcs",3) == 0) {
-        std::string::size_type delim = Name.find('.',12);
-        F->setName("llvm.atomic.cmp.swap" + Name.substr(delim) +
-                   ".p0" + Name.substr(delim+1));
-        NewFn = F;
-        return true;
-      }
-      else if (Name.compare(12,3,"las",3) == 0) {
-        std::string::size_type delim = Name.find('.',12);
-        F->setName("llvm.atomic.load.add"+Name.substr(delim)
-                   + ".p0" + Name.substr(delim+1));
-        NewFn = F;
-        return true;
-      }
-      else if (Name.compare(12,3,"lss",3) == 0) {
-        std::string::size_type delim = Name.find('.',12);
-        F->setName("llvm.atomic.load.sub"+Name.substr(delim)
-                   + ".p0" + Name.substr(delim+1));
-        NewFn = F;
-        return true;
-      }
-      else if (Name.rfind(".p") == std::string::npos) {
-        // We don't have an address space qualifier so this has be upgraded
-        // to the new name.  Copy the type name at the end of the intrinsic
-        // and add to it
-        std::string::size_type delim = Name.find_last_of('.');
-        assert(delim != std::string::npos && "can not find type");
-        F->setName(Name + ".p0" + Name.substr(delim+1));
-        NewFn = F;
-        return true;
-      }
-    }
-    break;
-  case 'b':
-    //  This upgrades the name of the llvm.bswap intrinsic function to only use 
-    //  a single type name for overloading. We only care about the old format
-    //  'llvm.bswap.i*.i*', so check for 'bswap.' and then for there being 
-    //  a '.' after 'bswap.'
-    if (Name.compare(5,6,"bswap.",6) == 0) {
-      std::string::size_type delim = Name.find('.',11);
-      
-      if (delim != std::string::npos) {
-        //  Construct the new name as 'llvm.bswap' + '.i*'
-        F->setName(Name.substr(0,10)+Name.substr(delim));
-        NewFn = F;
-        return true;
-      }
-    }
-    break;
-
-  case 'c':
-    //  We only want to fix the 'llvm.ct*' intrinsics which do not have the 
-    //  correct return type, so we check for the name, and then check if the 
-    //  return type does not match the parameter type.
-    if ( (Name.compare(5,5,"ctpop",5) == 0 ||
-          Name.compare(5,4,"ctlz",4) == 0 ||
-          Name.compare(5,4,"cttz",4) == 0) &&
-        FTy->getReturnType() != FTy->getParamType(0)) {
-      //  We first need to change the name of the old (bad) intrinsic, because 
-      //  its type is incorrect, but we cannot overload that name. We 
-      //  arbitrarily unique it here allowing us to construct a correctly named 
-      //  and typed function below.
-      F->setName("");
-
-      //  Now construct the new intrinsic with the correct name and type. We 
-      //  leave the old function around in order to query its type, whatever it 
-      //  may be, and correctly convert up to the new type.
-      NewFn = cast<Function>(M->getOrInsertFunction(Name, 
-                                                    FTy->getParamType(0),
-                                                    FTy->getParamType(0),
-                                                    (Type *)0));
+    if (Name.startswith("atomic.cmp.swap") ||
+        Name.startswith("atomic.swap") ||
+        Name.startswith("atomic.load.add") ||
+        Name.startswith("atomic.load.sub") ||
+        Name.startswith("atomic.load.and") ||
+        Name.startswith("atomic.load.nand") ||
+        Name.startswith("atomic.load.or") ||
+        Name.startswith("atomic.load.xor") ||
+        Name.startswith("atomic.load.max") ||
+        Name.startswith("atomic.load.min") ||
+        Name.startswith("atomic.load.umax") ||
+        Name.startswith("atomic.load.umin"))
       return true;
-    }
-    break;
-
-  case 'e':
-    //  The old llvm.eh.selector.i32 is equivalent to the new llvm.eh.selector.
-    if (Name.compare("llvm.eh.selector.i32") == 0) {
-      F->setName("llvm.eh.selector");
-      NewFn = F;
-      return true;
-    }
-    //  The old llvm.eh.typeid.for.i32 is equivalent to llvm.eh.typeid.for.
-    if (Name.compare("llvm.eh.typeid.for.i32") == 0) {
-      F->setName("llvm.eh.typeid.for");
-      NewFn = F;
-      return true;
-    }
-    //  Convert the old llvm.eh.selector.i64 to a call to llvm.eh.selector.
-    if (Name.compare("llvm.eh.selector.i64") == 0) {
-      NewFn = Intrinsic::getDeclaration(M, Intrinsic::eh_selector);
-      return true;
-    }
-    //  Convert the old llvm.eh.typeid.for.i64 to a call to llvm.eh.typeid.for.
-    if (Name.compare("llvm.eh.typeid.for.i64") == 0) {
-      NewFn = Intrinsic::getDeclaration(M, Intrinsic::eh_typeid_for);
-      return true;
-    }
-    break;
-
-  case 'm': {
-    // This upgrades the llvm.memcpy, llvm.memmove, and llvm.memset to the
-    // new format that allows overloading the pointer for different address
-    // space (e.g., llvm.memcpy.i16 => llvm.memcpy.p0i8.p0i8.i16)
-    const char* NewFnName = NULL;
-    if (Name.compare(5,8,"memcpy.i",8) == 0) {
-      if (Name[13] == '8')
-        NewFnName = "llvm.memcpy.p0i8.p0i8.i8";
-      else if (Name.compare(13,2,"16") == 0)
-        NewFnName = "llvm.memcpy.p0i8.p0i8.i16";
-      else if (Name.compare(13,2,"32") == 0)
-        NewFnName = "llvm.memcpy.p0i8.p0i8.i32";
-      else if (Name.compare(13,2,"64") == 0)
-        NewFnName = "llvm.memcpy.p0i8.p0i8.i64";
-    } else if (Name.compare(5,9,"memmove.i",9) == 0) {
-      if (Name[14] == '8')
-        NewFnName = "llvm.memmove.p0i8.p0i8.i8";
-      else if (Name.compare(14,2,"16") == 0)
-        NewFnName = "llvm.memmove.p0i8.p0i8.i16";
-      else if (Name.compare(14,2,"32") == 0)
-        NewFnName = "llvm.memmove.p0i8.p0i8.i32";
-      else if (Name.compare(14,2,"64") == 0)
-        NewFnName = "llvm.memmove.p0i8.p0i8.i64";
-    }
-    else if (Name.compare(5,8,"memset.i",8) == 0) {
-      if (Name[13] == '8')
-        NewFnName = "llvm.memset.p0i8.i8";
-      else if (Name.compare(13,2,"16") == 0)
-        NewFnName = "llvm.memset.p0i8.i16";
-      else if (Name.compare(13,2,"32") == 0)
-        NewFnName = "llvm.memset.p0i8.i32";
-      else if (Name.compare(13,2,"64") == 0)
-        NewFnName = "llvm.memset.p0i8.i64";
-    }
-    if (NewFnName) {
-      const FunctionType *FTy = F->getFunctionType();
-      NewFn = cast<Function>(M->getOrInsertFunction(NewFnName, 
-                                            FTy->getReturnType(),
-                                            FTy->getParamType(0),
-                                            FTy->getParamType(1),
-                                            FTy->getParamType(2),
-                                            FTy->getParamType(3),
-                                            Type::getInt1Ty(F->getContext()),
-                                            (Type *)0));
-      return true;
-    }
-    break;
-  }
-  case 'p':
-    //  This upgrades the llvm.part.select overloaded intrinsic names to only 
-    //  use one type specifier in the name. We only care about the old format
-    //  'llvm.part.select.i*.i*', and solve as above with bswap.
-    if (Name.compare(5,12,"part.select.",12) == 0) {
-      std::string::size_type delim = Name.find('.',17);
-      
-      if (delim != std::string::npos) {
-        //  Construct a new name as 'llvm.part.select' + '.i*'
-        F->setName(Name.substr(0,16)+Name.substr(delim));
-        NewFn = F;
-        return true;
-      }
-      break;
-    }
-
-    //  This upgrades the llvm.part.set intrinsics similarly as above, however 
-    //  we care about 'llvm.part.set.i*.i*.i*', but only the first two types 
-    //  must match. There is an additional type specifier after these two 
-    //  matching types that we must retain when upgrading.  Thus, we require 
-    //  finding 2 periods, not just one, after the intrinsic name.
-    if (Name.compare(5,9,"part.set.",9) == 0) {
-      std::string::size_type delim = Name.find('.',14);
-
-      if (delim != std::string::npos &&
-          Name.find('.',delim+1) != std::string::npos) {
-        //  Construct a new name as 'llvm.part.select' + '.i*.i*'
-        F->setName(Name.substr(0,13)+Name.substr(delim));
-        NewFn = F;
-        return true;
-      }
-      break;
-    }
-
-    break;
-  case 'x': 
-    // This fixes all MMX shift intrinsic instructions to take a
-    // v1i64 instead of a v2i32 as the second parameter.
-    if (Name.compare(5,10,"x86.mmx.ps",10) == 0 &&
-        (Name.compare(13,4,"psll", 4) == 0 ||
-         Name.compare(13,4,"psra", 4) == 0 ||
-         Name.compare(13,4,"psrl", 4) == 0) && Name[17] != 'i') {
-      
-      const llvm::Type *VT =
-                    VectorType::get(IntegerType::get(FTy->getContext(), 64), 1);
-      
-      // We don't have to do anything if the parameter already has
-      // the correct type.
-      if (FTy->getParamType(1) == VT)
+  case 'i':
+    //  This upgrades the old llvm.init.trampoline to the new
+    //  llvm.init.trampoline and llvm.adjust.trampoline pair.
+    if (Name == "init.trampoline") {
+      // The new llvm.init.trampoline returns nothing.
+      if (FTy->getReturnType()->isVoidTy())
         break;
-      
-      //  We first need to change the name of the old (bad) intrinsic, because 
-      //  its type is incorrect, but we cannot overload that name. We 
-      //  arbitrarily unique it here allowing us to construct a correctly named 
-      //  and typed function below.
-      F->setName("");
 
-      assert(FTy->getNumParams() == 2 && "MMX shift intrinsics take 2 args!");
-      
-      //  Now construct the new intrinsic with the correct name and type. We 
-      //  leave the old function around in order to query its type, whatever it 
-      //  may be, and correctly convert up to the new type.
-      NewFn = cast<Function>(M->getOrInsertFunction(Name, 
+      assert(FTy->getNumParams() == 3 && "old init.trampoline takes 3 args!");
+
+      // Change the name of the old intrinsic so that we can play with its type.
+      std::string NameTmp = F->getName();
+      F->setName("");
+      NewFn = cast<Function>(M->getOrInsertFunction(
+                               NameTmp,
+                               Type::getVoidTy(M->getContext()),
+                               FTy->getParamType(0), FTy->getParamType(1),
+                               FTy->getParamType(2), (Type *)0));
+      return true;
+    }
+  case 'm':
+    if (Name == "memory.barrier")
+      return true;
+  case 'p':
+    //  This upgrades the llvm.prefetch intrinsic to accept one more parameter,
+    //  which is a instruction / data cache identifier. The old version only
+    //  implicitly accepted the data version.
+    if (Name == "prefetch") {
+      // Don't do anything if it has the correct number of arguments already
+      if (FTy->getNumParams() == 4)
+        break;
+
+      assert(FTy->getNumParams() == 3 && "old prefetch takes 3 args!");
+      //  We first need to change the name of the old (bad) intrinsic, because
+      //  its type is incorrect, but we cannot overload that name. We
+      //  arbitrarily unique it here allowing us to construct a correctly named
+      //  and typed function below.
+      std::string NameTmp = F->getName();
+      F->setName("");
+      NewFn = cast<Function>(M->getOrInsertFunction(NameTmp,
                                                     FTy->getReturnType(),
                                                     FTy->getParamType(0),
-                                                    VT,
-                                                    (Type *)0));
+                                                    FTy->getParamType(1),
+                                                    FTy->getParamType(2),
+                                                    FTy->getParamType(2),
+                                                    (Type*)0));
       return true;
-    } else if (Name.compare(5,17,"x86.sse2.loadh.pd",17) == 0 ||
-               Name.compare(5,17,"x86.sse2.loadl.pd",17) == 0 ||
-               Name.compare(5,16,"x86.sse2.movl.dq",16) == 0 ||
-               Name.compare(5,15,"x86.sse2.movs.d",15) == 0 ||
-               Name.compare(5,16,"x86.sse2.shuf.pd",16) == 0 ||
-               Name.compare(5,18,"x86.sse2.unpckh.pd",18) == 0 ||
-               Name.compare(5,18,"x86.sse2.unpckl.pd",18) == 0 ||
-               Name.compare(5,20,"x86.sse2.punpckh.qdq",20) == 0 ||
-               Name.compare(5,20,"x86.sse2.punpckl.qdq",20) == 0) {
-      // Calls to these intrinsics are transformed into ShuffleVector's.
-      NewFn = 0;
-      return true;
-    } else if (Name.compare(5, 16, "x86.sse41.pmulld", 16) == 0) {
-      // Calls to these intrinsics are transformed into vector multiplies.
-      NewFn = 0;
-      return true;
-    } else if (Name.compare(5, 18, "x86.ssse3.palign.r", 18) == 0 ||
-               Name.compare(5, 22, "x86.ssse3.palign.r.128", 22) == 0) {
-      // Calls to these intrinsics are transformed into vector shuffles, shifts,
-      // or 0.
-      NewFn = 0;
-      return true;           
     }
 
     break;
+  case 'x': {
+    const char *NewFnName = NULL;
+    // This fixes the poorly named crc32 intrinsics.
+    if (Name == "x86.sse42.crc32.8")
+      NewFnName = "llvm.x86.sse42.crc32.32.8";
+    else if (Name == "x86.sse42.crc32.16")
+      NewFnName = "llvm.x86.sse42.crc32.32.16";
+    else if (Name == "x86.sse42.crc32.32")
+      NewFnName = "llvm.x86.sse42.crc32.32.32";
+    else if (Name == "x86.sse42.crc64.8")
+      NewFnName = "llvm.x86.sse42.crc32.64.8";
+    else if (Name == "x86.sse42.crc64.64")
+      NewFnName = "llvm.x86.sse42.crc32.64.64";
+    
+    if (NewFnName) {
+      F->setName(NewFnName);
+      NewFn = F;
+      return true;
+    }
+
+    // Calls to these instructions are transformed into unaligned loads.
+    if (Name == "x86.sse.loadu.ps" || Name == "x86.sse2.loadu.dq" ||
+        Name == "x86.sse2.loadu.pd")
+      return true;
+      
+    // Calls to these instructions are transformed into nontemporal stores.
+    if (Name == "x86.sse.movnt.ps"  || Name == "x86.sse2.movnt.dq" ||
+        Name == "x86.sse2.movnt.pd" || Name == "x86.sse2.movnt.i")
+      return true;
+
+    break;
+  }
   }
 
   //  This may not belong here. This function is effectively being overloaded 
@@ -308,236 +160,143 @@ bool llvm::UpgradeIntrinsicFunction(Function *F, Function *&NewFn) {
   return Upgraded;
 }
 
+bool llvm::UpgradeGlobalVariable(GlobalVariable *GV) {
+  // Nothing to do yet.
+  return false;
+}
+
 // UpgradeIntrinsicCall - Upgrade a call to an old intrinsic to be a call the 
 // upgraded intrinsic. All argument and return casting must be provided in 
 // order to seamlessly integrate with existing context.
 void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
   Function *F = CI->getCalledFunction();
   LLVMContext &C = CI->getContext();
-  
+  ImmutableCallSite CS(CI);
+
   assert(F && "CallInst has no function associated with it.");
 
   if (!NewFn) {
-    bool isLoadH = false, isLoadL = false, isMovL = false;
-    bool isMovSD = false, isShufPD = false;
-    bool isUnpckhPD = false, isUnpcklPD = false;
-    bool isPunpckhQPD = false, isPunpcklQPD = false;
-    if (F->getName() == "llvm.x86.sse2.loadh.pd")
-      isLoadH = true;
-    else if (F->getName() == "llvm.x86.sse2.loadl.pd")
-      isLoadL = true;
-    else if (F->getName() == "llvm.x86.sse2.movl.dq")
-      isMovL = true;
-    else if (F->getName() == "llvm.x86.sse2.movs.d")
-      isMovSD = true;
-    else if (F->getName() == "llvm.x86.sse2.shuf.pd")
-      isShufPD = true;
-    else if (F->getName() == "llvm.x86.sse2.unpckh.pd")
-      isUnpckhPD = true;
-    else if (F->getName() == "llvm.x86.sse2.unpckl.pd")
-      isUnpcklPD = true;
-    else if (F->getName() ==  "llvm.x86.sse2.punpckh.qdq")
-      isPunpckhQPD = true;
-    else if (F->getName() ==  "llvm.x86.sse2.punpckl.qdq")
-      isPunpcklQPD = true;
-
-    if (isLoadH || isLoadL || isMovL || isMovSD || isShufPD ||
-        isUnpckhPD || isUnpcklPD || isPunpckhQPD || isPunpcklQPD) {
-      std::vector<Constant*> Idxs;
-      Value *Op0 = CI->getOperand(1);
-      ShuffleVectorInst *SI = NULL;
-      if (isLoadH || isLoadL) {
-        Value *Op1 = UndefValue::get(Op0->getType());
-        Value *Addr = new BitCastInst(CI->getOperand(2), 
-                                  Type::getDoublePtrTy(C),
-                                      "upgraded.", CI);
-        Value *Load = new LoadInst(Addr, "upgraded.", false, 8, CI);
-        Value *Idx = ConstantInt::get(Type::getInt32Ty(C), 0);
-        Op1 = InsertElementInst::Create(Op1, Load, Idx, "upgraded.", CI);
-
-        if (isLoadH) {
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 2));
-        } else {
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 2));
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
-        }
-        Value *Mask = ConstantVector::get(Idxs);
-        SI = new ShuffleVectorInst(Op0, Op1, Mask, "upgraded.", CI);
-      } else if (isMovL) {
-        Constant *Zero = ConstantInt::get(Type::getInt32Ty(C), 0);
-        Idxs.push_back(Zero);
-        Idxs.push_back(Zero);
-        Idxs.push_back(Zero);
-        Idxs.push_back(Zero);
-        Value *ZeroV = ConstantVector::get(Idxs);
-
-        Idxs.clear(); 
-        Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 4));
-        Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 5));
-        Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 2));
-        Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 3));
-        Value *Mask = ConstantVector::get(Idxs);
-        SI = new ShuffleVectorInst(ZeroV, Op0, Mask, "upgraded.", CI);
-      } else if (isMovSD ||
-                 isUnpckhPD || isUnpcklPD || isPunpckhQPD || isPunpcklQPD) {
-        Value *Op1 = CI->getOperand(2);
-        if (isMovSD) {
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 2));
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
-        } else if (isUnpckhPD || isPunpckhQPD) {
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 3));
-        } else {
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
-          Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), 2));
-        }
-        Value *Mask = ConstantVector::get(Idxs);
-        SI = new ShuffleVectorInst(Op0, Op1, Mask, "upgraded.", CI);
-      } else if (isShufPD) {
-        Value *Op1 = CI->getOperand(2);
-        unsigned MaskVal = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
-        Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C), MaskVal & 1));
-        Idxs.push_back(ConstantInt::get(Type::getInt32Ty(C),
-                                               ((MaskVal >> 1) & 1)+2));
-        Value *Mask = ConstantVector::get(Idxs);
-        SI = new ShuffleVectorInst(Op0, Op1, Mask, "upgraded.", CI);
-      }
-
-      assert(SI && "Unexpected!");
-
-      // Handle any uses of the old CallInst.
-      if (!CI->use_empty())
-        //  Replace all uses of the old call with the new cast which has the 
-        //  correct type.
-        CI->replaceAllUsesWith(SI);
-      
-      //  Clean up the old call now that it has been completely upgraded.
-      CI->eraseFromParent();
-    } else if (F->getName() == "llvm.x86.sse41.pmulld") {
-      // Upgrade this set of intrinsics into vector multiplies.
-      Instruction *Mul = BinaryOperator::CreateMul(CI->getOperand(1),
-                                                   CI->getOperand(2),
-                                                   CI->getName(),
-                                                   CI);
-      // Fix up all the uses with our new multiply.
-      if (!CI->use_empty())
-        CI->replaceAllUsesWith(Mul);
-        
-      // Remove upgraded multiply.
-      CI->eraseFromParent();
-    } else if (F->getName() == "llvm.x86.ssse3.palign.r") {
-      Value *Op1 = CI->getOperand(1);
-      Value *Op2 = CI->getOperand(2);
-      Value *Op3 = CI->getOperand(3);
-      unsigned shiftVal = cast<ConstantInt>(Op3)->getZExtValue();
-      Value *Rep;
+    if (F->getName() == "llvm.x86.sse.loadu.ps" ||
+        F->getName() == "llvm.x86.sse2.loadu.dq" ||
+        F->getName() == "llvm.x86.sse2.loadu.pd") {
+      // Convert to a native, unaligned load.
+      Type *VecTy = CI->getType();
+      Type *IntTy = IntegerType::get(C, 128);
       IRBuilder<> Builder(C);
       Builder.SetInsertPoint(CI->getParent(), CI);
 
-      // If palignr is shifting the pair of input vectors less than 9 bytes,
-      // emit a shuffle instruction.
-      if (shiftVal <= 8) {
-        const Type *IntTy = Type::getInt32Ty(C);
-        const Type *EltTy = Type::getInt8Ty(C);
-        const Type *VecTy = VectorType::get(EltTy, 8);
-        
-        Op2 = Builder.CreateBitCast(Op2, VecTy);
-        Op1 = Builder.CreateBitCast(Op1, VecTy);
+      Value *BC = Builder.CreateBitCast(CI->getArgOperand(0),
+                                        PointerType::getUnqual(IntTy),
+                                        "cast");
+      LoadInst *LI = Builder.CreateLoad(BC, CI->getName());
+      LI->setAlignment(1);      // Unaligned load.
+      BC = Builder.CreateBitCast(LI, VecTy, "new.cast");
 
-        llvm::SmallVector<llvm::Constant*, 8> Indices;
-        for (unsigned i = 0; i != 8; ++i)
-          Indices.push_back(ConstantInt::get(IntTy, shiftVal + i));
-
-        Value *SV = ConstantVector::get(Indices.begin(), Indices.size());
-        Rep = Builder.CreateShuffleVector(Op2, Op1, SV, "palignr");
-        Rep = Builder.CreateBitCast(Rep, F->getReturnType());
-      }
-
-      // If palignr is shifting the pair of input vectors more than 8 but less
-      // than 16 bytes, emit a logical right shift of the destination.
-      else if (shiftVal < 16) {
-        // MMX has these as 1 x i64 vectors for some odd optimization reasons.
-        const Type *EltTy = Type::getInt64Ty(C);
-        const Type *VecTy = VectorType::get(EltTy, 1);
-
-        Op1 = Builder.CreateBitCast(Op1, VecTy, "cast");
-        Op2 = ConstantInt::get(VecTy, (shiftVal-8) * 8);
-
-        // create i32 constant
-        Function *I =
-          Intrinsic::getDeclaration(F->getParent(), Intrinsic::x86_mmx_psrl_q);
-        Rep = Builder.CreateCall2(I, Op1, Op2, "palignr");
-      }
-
-      // If palignr is shifting the pair of vectors more than 32 bytes, emit zero.
-      else {
-        Rep = Constant::getNullValue(F->getReturnType());
-      }
-      
-      // Replace any uses with our new instruction.
+      // Fix up all the uses with our new load.
       if (!CI->use_empty())
-        CI->replaceAllUsesWith(Rep);
-        
-      // Remove upgraded instruction.
+        CI->replaceAllUsesWith(BC);
+
+      // Remove intrinsic.
       CI->eraseFromParent();
-      
-    } else if (F->getName() == "llvm.x86.ssse3.palign.r.128") {
-      Value *Op1 = CI->getOperand(1);
-      Value *Op2 = CI->getOperand(2);
-      Value *Op3 = CI->getOperand(3);
-      unsigned shiftVal = cast<ConstantInt>(Op3)->getZExtValue();
-      Value *Rep;
+    } else if (F->getName() == "llvm.x86.sse.movnt.ps" ||
+               F->getName() == "llvm.x86.sse2.movnt.dq" ||
+               F->getName() == "llvm.x86.sse2.movnt.pd" ||
+               F->getName() == "llvm.x86.sse2.movnt.i") {
       IRBuilder<> Builder(C);
       Builder.SetInsertPoint(CI->getParent(), CI);
 
-      // If palignr is shifting the pair of input vectors less than 17 bytes,
-      // emit a shuffle instruction.
-      if (shiftVal <= 16) {
-        const Type *IntTy = Type::getInt32Ty(C);
-        const Type *EltTy = Type::getInt8Ty(C);
-        const Type *VecTy = VectorType::get(EltTy, 16);
-        
-        Op2 = Builder.CreateBitCast(Op2, VecTy);
-        Op1 = Builder.CreateBitCast(Op1, VecTy);
+      Module *M = F->getParent();
+      SmallVector<Value *, 1> Elts;
+      Elts.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
+      MDNode *Node = MDNode::get(C, Elts);
 
-        llvm::SmallVector<llvm::Constant*, 16> Indices;
-        for (unsigned i = 0; i != 16; ++i)
-          Indices.push_back(ConstantInt::get(IntTy, shiftVal + i));
+      Value *Arg0 = CI->getArgOperand(0);
+      Value *Arg1 = CI->getArgOperand(1);
 
-        Value *SV = ConstantVector::get(Indices.begin(), Indices.size());
-        Rep = Builder.CreateShuffleVector(Op2, Op1, SV, "palignr");
-        Rep = Builder.CreateBitCast(Rep, F->getReturnType());
-      }
+      // Convert the type of the pointer to a pointer to the stored type.
+      Value *BC = Builder.CreateBitCast(Arg0,
+                                        PointerType::getUnqual(Arg1->getType()),
+                                        "cast");
+      StoreInst *SI = Builder.CreateStore(Arg1, BC);
+      SI->setMetadata(M->getMDKindID("nontemporal"), Node);
+      SI->setAlignment(16);
 
-      // If palignr is shifting the pair of input vectors more than 16 but less
-      // than 32 bytes, emit a logical right shift of the destination.
-      else if (shiftVal < 32) {
-        const Type *EltTy = Type::getInt64Ty(C);
-        const Type *VecTy = VectorType::get(EltTy, 2);
-        const Type *IntTy = Type::getInt32Ty(C);
-
-        Op1 = Builder.CreateBitCast(Op1, VecTy, "cast");
-        Op2 = ConstantInt::get(IntTy, (shiftVal-16) * 8);
-
-        // create i32 constant
-        Function *I =
-          Intrinsic::getDeclaration(F->getParent(), Intrinsic::x86_sse2_psrl_dq);
-        Rep = Builder.CreateCall2(I, Op1, Op2, "palignr");
-      }
-
-      // If palignr is shifting the pair of vectors more than 32 bytes, emit zero.
-      else {
-        Rep = Constant::getNullValue(F->getReturnType());
-      }
-      
-      // Replace any uses with our new instruction.
-      if (!CI->use_empty())
-        CI->replaceAllUsesWith(Rep);
-        
-      // Remove upgraded instruction.
+      // Remove intrinsic.
       CI->eraseFromParent();
-      
+    } else if (F->getName().startswith("llvm.atomic.cmp.swap")) {
+      IRBuilder<> Builder(C);
+      Builder.SetInsertPoint(CI->getParent(), CI);
+      Value *Val = Builder.CreateAtomicCmpXchg(CI->getArgOperand(0),
+                                               CI->getArgOperand(1),
+                                               CI->getArgOperand(2),
+                                               Monotonic);
+
+      // Replace intrinsic.
+      Val->takeName(CI);
+      if (!CI->use_empty())
+        CI->replaceAllUsesWith(Val);
+      CI->eraseFromParent();
+    } else if (F->getName().startswith("llvm.atomic")) {
+      IRBuilder<> Builder(C);
+      Builder.SetInsertPoint(CI->getParent(), CI);
+
+      AtomicRMWInst::BinOp Op;
+      if (F->getName().startswith("llvm.atomic.swap"))
+        Op = AtomicRMWInst::Xchg;
+      else if (F->getName().startswith("llvm.atomic.load.add"))
+        Op = AtomicRMWInst::Add;
+      else if (F->getName().startswith("llvm.atomic.load.sub"))
+        Op = AtomicRMWInst::Sub;
+      else if (F->getName().startswith("llvm.atomic.load.and"))
+        Op = AtomicRMWInst::And;
+      else if (F->getName().startswith("llvm.atomic.load.nand"))
+        Op = AtomicRMWInst::Nand;
+      else if (F->getName().startswith("llvm.atomic.load.or"))
+        Op = AtomicRMWInst::Or;
+      else if (F->getName().startswith("llvm.atomic.load.xor"))
+        Op = AtomicRMWInst::Xor;
+      else if (F->getName().startswith("llvm.atomic.load.max"))
+        Op = AtomicRMWInst::Max;
+      else if (F->getName().startswith("llvm.atomic.load.min"))
+        Op = AtomicRMWInst::Min;
+      else if (F->getName().startswith("llvm.atomic.load.umax"))
+        Op = AtomicRMWInst::UMax;
+      else if (F->getName().startswith("llvm.atomic.load.umin"))
+        Op = AtomicRMWInst::UMin;
+      else
+        llvm_unreachable("Unknown atomic");
+
+      Value *Val = Builder.CreateAtomicRMW(Op, CI->getArgOperand(0),
+                                           CI->getArgOperand(1),
+                                           Monotonic);
+
+      // Replace intrinsic.
+      Val->takeName(CI);
+      if (!CI->use_empty())
+        CI->replaceAllUsesWith(Val);
+      CI->eraseFromParent();
+    } else if (F->getName() == "llvm.memory.barrier") {
+      IRBuilder<> Builder(C);
+      Builder.SetInsertPoint(CI->getParent(), CI);
+
+      // Note that this conversion ignores the "device" bit; it was not really
+      // well-defined, and got abused because nobody paid enough attention to
+      // get it right. In practice, this probably doesn't matter; application
+      // code generally doesn't need anything stronger than
+      // SequentiallyConsistent (and realistically, SequentiallyConsistent
+      // is lowered to a strong enough barrier for almost anything).
+
+      if (cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue())
+        Builder.CreateFence(SequentiallyConsistent);
+      else if (!cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue())
+        Builder.CreateFence(Release);
+      else if (!cast<ConstantInt>(CI->getArgOperand(3))->getZExtValue())
+        Builder.CreateFence(Acquire);
+      else
+        Builder.CreateFence(AcquireRelease);
+
+      // Remove intrinsic.
+      CI->eraseFromParent();
     } else {
       llvm_unreachable("Unknown function for CallInst upgrade.");
     }
@@ -545,118 +304,52 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
   }
 
   switch (NewFn->getIntrinsicID()) {
-  default:  llvm_unreachable("Unknown function for CallInst upgrade.");
-  case Intrinsic::x86_mmx_psll_d:
-  case Intrinsic::x86_mmx_psll_q:
-  case Intrinsic::x86_mmx_psll_w:
-  case Intrinsic::x86_mmx_psra_d:
-  case Intrinsic::x86_mmx_psra_w:
-  case Intrinsic::x86_mmx_psrl_d:
-  case Intrinsic::x86_mmx_psrl_q:
-  case Intrinsic::x86_mmx_psrl_w: {
-    Value *Operands[2];
-    
-    Operands[0] = CI->getOperand(1);
-    
-    // Cast the second parameter to the correct type.
-    BitCastInst *BC = new BitCastInst(CI->getOperand(2), 
-                                      NewFn->getFunctionType()->getParamType(1),
-                                      "upgraded.", CI);
-    Operands[1] = BC;
-    
-    //  Construct a new CallInst
-    CallInst *NewCI = CallInst::Create(NewFn, Operands, Operands+2, 
-                                       "upgraded."+CI->getName(), CI);
-    NewCI->setTailCall(CI->isTailCall());
-    NewCI->setCallingConv(CI->getCallingConv());
-    
-    //  Handle any uses of the old CallInst.
-    if (!CI->use_empty())
-      //  Replace all uses of the old call with the new cast which has the 
-      //  correct type.
-      CI->replaceAllUsesWith(NewCI);
-    
-    //  Clean up the old call now that it has been completely upgraded.
-    CI->eraseFromParent();
-    break;
-  }        
-  case Intrinsic::ctlz:
-  case Intrinsic::ctpop:
-  case Intrinsic::cttz: {
-    //  Build a small vector of the 1..(N-1) operands, which are the 
-    //  parameters.
-    SmallVector<Value*, 8> Operands(CI->op_begin()+1, CI->op_end());
+  case Intrinsic::prefetch: {
+    IRBuilder<> Builder(C);
+    Builder.SetInsertPoint(CI->getParent(), CI);
+    llvm::Type *I32Ty = llvm::Type::getInt32Ty(CI->getContext());
 
-    //  Construct a new CallInst
-    CallInst *NewCI = CallInst::Create(NewFn, Operands.begin(), Operands.end(),
-                                       "upgraded."+CI->getName(), CI);
-    NewCI->setTailCall(CI->isTailCall());
-    NewCI->setCallingConv(CI->getCallingConv());
-
-    //  Handle any uses of the old CallInst.
-    if (!CI->use_empty()) {
-      //  Check for sign extend parameter attributes on the return values.
-      bool SrcSExt = NewFn->getAttributes().paramHasAttr(0, Attribute::SExt);
-      bool DestSExt = F->getAttributes().paramHasAttr(0, Attribute::SExt);
-      
-      //  Construct an appropriate cast from the new return type to the old.
-      CastInst *RetCast = CastInst::Create(
-                            CastInst::getCastOpcode(NewCI, SrcSExt,
-                                                    F->getReturnType(),
-                                                    DestSExt),
-                            NewCI, F->getReturnType(),
-                            NewCI->getName(), CI);
-      NewCI->moveBefore(RetCast);
-
-      //  Replace all uses of the old call with the new cast which has the 
-      //  correct type.
-      CI->replaceAllUsesWith(RetCast);
-    }
-
-    //  Clean up the old call now that it has been completely upgraded.
-    CI->eraseFromParent();
-  }
-  break;
-  case Intrinsic::eh_selector:
-  case Intrinsic::eh_typeid_for: {
-    // Only the return type changed.
-    SmallVector<Value*, 8> Operands(CI->op_begin() + 1, CI->op_end());
-    CallInst *NewCI = CallInst::Create(NewFn, Operands.begin(), Operands.end(),
-                                       "upgraded." + CI->getName(), CI);
-    NewCI->setTailCall(CI->isTailCall());
-    NewCI->setCallingConv(CI->getCallingConv());
-
-    //  Handle any uses of the old CallInst.
-    if (!CI->use_empty()) {
-      //  Construct an appropriate cast from the new return type to the old.
-      CastInst *RetCast =
-        CastInst::Create(CastInst::getCastOpcode(NewCI, true,
-                                                 F->getReturnType(), true),
-                         NewCI, F->getReturnType(), NewCI->getName(), CI);
-      CI->replaceAllUsesWith(RetCast);
-    }
-    CI->eraseFromParent();
-  }
-  break;
-  case Intrinsic::memcpy:
-  case Intrinsic::memmove:
-  case Intrinsic::memset: {
-    // Add isVolatile
-    const llvm::Type *I1Ty = llvm::Type::getInt1Ty(CI->getContext());
-    Value *Operands[5] = { CI->getOperand(1), CI->getOperand(2),
-                           CI->getOperand(3), CI->getOperand(4),
-                           llvm::ConstantInt::get(I1Ty, 0) };
-    CallInst *NewCI = CallInst::Create(NewFn, Operands, Operands+5,
+    // Add the extra "data cache" argument
+    Value *Operands[4] = { CI->getArgOperand(0), CI->getArgOperand(1),
+                           CI->getArgOperand(2),
+                           llvm::ConstantInt::get(I32Ty, 1) };
+    CallInst *NewCI = CallInst::Create(NewFn, Operands,
                                        CI->getName(), CI);
     NewCI->setTailCall(CI->isTailCall());
     NewCI->setCallingConv(CI->getCallingConv());
     //  Handle any uses of the old CallInst.
     if (!CI->use_empty())
-      //  Replace all uses of the old call with the new cast which has the 
+      //  Replace all uses of the old call with the new cast which has the
       //  correct type.
       CI->replaceAllUsesWith(NewCI);
-    
+
     //  Clean up the old call now that it has been completely upgraded.
+    CI->eraseFromParent();
+    break;
+  }
+  case Intrinsic::init_trampoline: {
+
+    //  Transform
+    //    %tramp = call i8* llvm.init.trampoline (i8* x, i8* y, i8* z)
+    //  to
+    //    call void llvm.init.trampoline (i8* %x, i8* %y, i8* %z)
+    //    %tramp = call i8* llvm.adjust.trampoline (i8* %x)
+
+    Function *AdjustTrampolineFn =
+      cast<Function>(Intrinsic::getDeclaration(F->getParent(),
+                                               Intrinsic::adjust_trampoline));
+
+    IRBuilder<> Builder(C);
+    Builder.SetInsertPoint(CI);
+
+    Builder.CreateCall3(NewFn, CI->getArgOperand(0), CI->getArgOperand(1),
+                        CI->getArgOperand(2));
+
+    CallInst *AdjustCall = Builder.CreateCall(AdjustTrampolineFn,
+                                              CI->getArgOperand(0),
+                                              CI->getName());
+    if (!CI->use_empty())
+      CI->replaceAllUsesWith(AdjustCall);
     CI->eraseFromParent();
     break;
   }
@@ -670,13 +363,13 @@ void llvm::UpgradeCallsToIntrinsic(Function* F) {
   assert(F && "Illegal attempt to upgrade a non-existent intrinsic.");
 
   // Upgrade the function and check if it is a totaly new function.
-  Function* NewFn;
+  Function *NewFn;
   if (UpgradeIntrinsicFunction(F, NewFn)) {
     if (NewFn != F) {
       // Replace all uses to the old function with the new one if necessary.
       for (Value::use_iterator UI = F->use_begin(), UE = F->use_end();
            UI != UE; ) {
-        if (CallInst* CI = dyn_cast<CallInst>(*UI++))
+        if (CallInst *CI = dyn_cast<CallInst>(*UI++))
           UpgradeIntrinsicCall(CI, NewFn);
       }
       // Remove old function, no longer used, from the module.
@@ -689,50 +382,287 @@ void llvm::UpgradeCallsToIntrinsic(Function* F) {
 /// If an llvm.dbg.declare intrinsic is invalid, then this function simply
 /// strips that use.
 void llvm::CheckDebugInfoIntrinsics(Module *M) {
-
-
   if (Function *FuncStart = M->getFunction("llvm.dbg.func.start")) {
-    while (!FuncStart->use_empty()) {
-      CallInst *CI = cast<CallInst>(FuncStart->use_back());
-      CI->eraseFromParent();
-    }
+    while (!FuncStart->use_empty())
+      cast<CallInst>(FuncStart->use_back())->eraseFromParent();
     FuncStart->eraseFromParent();
   }
   
   if (Function *StopPoint = M->getFunction("llvm.dbg.stoppoint")) {
-    while (!StopPoint->use_empty()) {
-      CallInst *CI = cast<CallInst>(StopPoint->use_back());
-      CI->eraseFromParent();
-    }
+    while (!StopPoint->use_empty())
+      cast<CallInst>(StopPoint->use_back())->eraseFromParent();
     StopPoint->eraseFromParent();
   }
 
   if (Function *RegionStart = M->getFunction("llvm.dbg.region.start")) {
-    while (!RegionStart->use_empty()) {
-      CallInst *CI = cast<CallInst>(RegionStart->use_back());
-      CI->eraseFromParent();
-    }
+    while (!RegionStart->use_empty())
+      cast<CallInst>(RegionStart->use_back())->eraseFromParent();
     RegionStart->eraseFromParent();
   }
 
   if (Function *RegionEnd = M->getFunction("llvm.dbg.region.end")) {
-    while (!RegionEnd->use_empty()) {
-      CallInst *CI = cast<CallInst>(RegionEnd->use_back());
-      CI->eraseFromParent();
-    }
+    while (!RegionEnd->use_empty())
+      cast<CallInst>(RegionEnd->use_back())->eraseFromParent();
     RegionEnd->eraseFromParent();
   }
   
   if (Function *Declare = M->getFunction("llvm.dbg.declare")) {
     if (!Declare->use_empty()) {
       DbgDeclareInst *DDI = cast<DbgDeclareInst>(Declare->use_back());
-      if (!isa<MDNode>(DDI->getOperand(1)) ||!isa<MDNode>(DDI->getOperand(2))) {
+      if (!isa<MDNode>(DDI->getArgOperand(0)) ||
+          !isa<MDNode>(DDI->getArgOperand(1))) {
         while (!Declare->use_empty()) {
           CallInst *CI = cast<CallInst>(Declare->use_back());
           CI->eraseFromParent();
         }
         Declare->eraseFromParent();
       }
+    }
+  }
+}
+
+/// FindExnAndSelIntrinsics - Find the eh_exception and eh_selector intrinsic
+/// calls reachable from the unwind basic block.
+static void FindExnAndSelIntrinsics(BasicBlock *BB, CallInst *&Exn,
+                                    CallInst *&Sel,
+                                    SmallPtrSet<BasicBlock*, 8> &Visited) {
+  if (!Visited.insert(BB)) return;
+
+  for (BasicBlock::iterator
+         I = BB->begin(), E = BB->end(); I != E; ++I) {
+    if (CallInst *CI = dyn_cast<CallInst>(I)) {
+      switch (CI->getCalledFunction()->getIntrinsicID()) {
+      default: break;
+      case Intrinsic::eh_exception:
+        assert(!Exn && "Found more than one eh.exception call!");
+        Exn = CI;
+        break;
+      case Intrinsic::eh_selector:
+        assert(!Sel && "Found more than one eh.selector call!");
+        Sel = CI;
+        break;
+      }
+
+      if (Exn && Sel) return;
+    }
+  }
+
+  if (Exn && Sel) return;
+
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    FindExnAndSelIntrinsics(*I, Exn, Sel, Visited);
+    if (Exn && Sel) return;
+  }
+}
+
+/// TransferClausesToLandingPadInst - Transfer the exception handling clauses
+/// from the eh_selector call to the new landingpad instruction.
+static void TransferClausesToLandingPadInst(LandingPadInst *LPI,
+                                            CallInst *EHSel) {
+  LLVMContext &Context = LPI->getContext();
+  unsigned N = EHSel->getNumArgOperands();
+
+  for (unsigned i = N - 1; i > 1; --i) {
+    if (const ConstantInt *CI = dyn_cast<ConstantInt>(EHSel->getArgOperand(i))){
+      unsigned FilterLength = CI->getZExtValue();
+      unsigned FirstCatch = i + FilterLength + !FilterLength;
+      assert(FirstCatch <= N && "Invalid filter length");
+
+      if (FirstCatch < N)
+        for (unsigned j = FirstCatch; j < N; ++j) {
+          Value *Val = EHSel->getArgOperand(j);
+          if (!Val->hasName() || Val->getName() != "llvm.eh.catch.all.value") {
+            LPI->addClause(EHSel->getArgOperand(j));
+          } else {
+            GlobalVariable *GV = cast<GlobalVariable>(Val);
+            LPI->addClause(GV->getInitializer());
+          }
+        }
+
+      if (!FilterLength) {
+        // Cleanup.
+        LPI->setCleanup(true);
+      } else {
+        // Filter.
+        SmallVector<Constant *, 4> TyInfo;
+        TyInfo.reserve(FilterLength - 1);
+        for (unsigned j = i + 1; j < FirstCatch; ++j)
+          TyInfo.push_back(cast<Constant>(EHSel->getArgOperand(j)));
+        ArrayType *AType =
+          ArrayType::get(!TyInfo.empty() ? TyInfo[0]->getType() :
+                         PointerType::getUnqual(Type::getInt8Ty(Context)),
+                         TyInfo.size());
+        LPI->addClause(ConstantArray::get(AType, TyInfo));
+      }
+
+      N = i;
+    }
+  }
+
+  if (N > 2)
+    for (unsigned j = 2; j < N; ++j) {
+      Value *Val = EHSel->getArgOperand(j);
+      if (!Val->hasName() || Val->getName() != "llvm.eh.catch.all.value") {
+        LPI->addClause(EHSel->getArgOperand(j));
+      } else {
+        GlobalVariable *GV = cast<GlobalVariable>(Val);
+        LPI->addClause(GV->getInitializer());
+      }
+    }
+}
+
+/// This function upgrades the old pre-3.0 exception handling system to the new
+/// one. N.B. This will be removed in 3.1.
+void llvm::UpgradeExceptionHandling(Module *M) {
+  Function *EHException = M->getFunction("llvm.eh.exception");
+  Function *EHSelector = M->getFunction("llvm.eh.selector");
+  if (!EHException || !EHSelector)
+    return;
+
+  LLVMContext &Context = M->getContext();
+  Type *ExnTy = PointerType::getUnqual(Type::getInt8Ty(Context));
+  Type *SelTy = Type::getInt32Ty(Context);
+  Type *LPadSlotTy = StructType::get(ExnTy, SelTy, NULL);
+
+  // This map links the invoke instruction with the eh.exception and eh.selector
+  // calls associated with it.
+  DenseMap<InvokeInst*, std::pair<Value*, Value*> > InvokeToIntrinsicsMap;
+  for (Module::iterator
+         I = M->begin(), E = M->end(); I != E; ++I) {
+    Function &F = *I;
+
+    for (Function::iterator
+           II = F.begin(), IE = F.end(); II != IE; ++II) {
+      BasicBlock *BB = &*II;
+      InvokeInst *Inst = dyn_cast<InvokeInst>(BB->getTerminator());
+      if (!Inst) continue;
+      BasicBlock *UnwindDest = Inst->getUnwindDest();
+      if (UnwindDest->isLandingPad()) continue; // Already converted.
+
+      SmallPtrSet<BasicBlock*, 8> Visited;
+      CallInst *Exn = 0;
+      CallInst *Sel = 0;
+      FindExnAndSelIntrinsics(UnwindDest, Exn, Sel, Visited);
+      assert(Exn && Sel && "Cannot find eh.exception and eh.selector calls!");
+      InvokeToIntrinsicsMap[Inst] = std::make_pair(Exn, Sel);
+    }
+  }
+
+  // This map stores the slots where the exception object and selector value are
+  // stored within a function.
+  DenseMap<Function*, std::pair<Value*, Value*> > FnToLPadSlotMap;
+  SmallPtrSet<Instruction*, 32> DeadInsts;
+  for (DenseMap<InvokeInst*, std::pair<Value*, Value*> >::iterator
+         I = InvokeToIntrinsicsMap.begin(), E = InvokeToIntrinsicsMap.end();
+       I != E; ++I) {
+    InvokeInst *Invoke = I->first;
+    BasicBlock *UnwindDest = Invoke->getUnwindDest();
+    Function *F = UnwindDest->getParent();
+    std::pair<Value*, Value*> EHIntrinsics = I->second;
+    CallInst *Exn = cast<CallInst>(EHIntrinsics.first);
+    CallInst *Sel = cast<CallInst>(EHIntrinsics.second);
+
+    // Store the exception object and selector value in the entry block.
+    Value *ExnSlot = 0;
+    Value *SelSlot = 0;
+    if (!FnToLPadSlotMap[F].first) {
+      BasicBlock *Entry = &F->front();
+      ExnSlot = new AllocaInst(ExnTy, "exn", Entry->getTerminator());
+      SelSlot = new AllocaInst(SelTy, "sel", Entry->getTerminator());
+      FnToLPadSlotMap[F] = std::make_pair(ExnSlot, SelSlot);
+    } else {
+      ExnSlot = FnToLPadSlotMap[F].first;
+      SelSlot = FnToLPadSlotMap[F].second;
+    }
+
+    if (!UnwindDest->getSinglePredecessor()) {
+      // The unwind destination doesn't have a single predecessor. Create an
+      // unwind destination which has only one predecessor.
+      BasicBlock *NewBB = BasicBlock::Create(Context, "new.lpad",
+                                             UnwindDest->getParent());
+      BranchInst::Create(UnwindDest, NewBB);
+      Invoke->setUnwindDest(NewBB);
+
+      // Fix up any PHIs in the original unwind destination block.
+      for (BasicBlock::iterator
+             II = UnwindDest->begin(); isa<PHINode>(II); ++II) {
+        PHINode *PN = cast<PHINode>(II);
+        int Idx = PN->getBasicBlockIndex(Invoke->getParent());
+        if (Idx == -1) continue;
+        PN->setIncomingBlock(Idx, NewBB);
+      }
+
+      UnwindDest = NewBB;
+    }
+
+    IRBuilder<> Builder(Context);
+    Builder.SetInsertPoint(UnwindDest, UnwindDest->getFirstInsertionPt());
+
+    Value *PersFn = Sel->getArgOperand(1);
+    LandingPadInst *LPI = Builder.CreateLandingPad(LPadSlotTy, PersFn, 0);
+    Value *LPExn = Builder.CreateExtractValue(LPI, 0);
+    Value *LPSel = Builder.CreateExtractValue(LPI, 1);
+    Builder.CreateStore(LPExn, ExnSlot);
+    Builder.CreateStore(LPSel, SelSlot);
+
+    TransferClausesToLandingPadInst(LPI, Sel);
+
+    DeadInsts.insert(Exn);
+    DeadInsts.insert(Sel);
+  }
+
+  // Replace the old intrinsic calls with the values from the landingpad
+  // instruction(s). These values were stored in allocas for us to use here.
+  for (DenseMap<InvokeInst*, std::pair<Value*, Value*> >::iterator
+         I = InvokeToIntrinsicsMap.begin(), E = InvokeToIntrinsicsMap.end();
+       I != E; ++I) {
+    std::pair<Value*, Value*> EHIntrinsics = I->second;
+    CallInst *Exn = cast<CallInst>(EHIntrinsics.first);
+    CallInst *Sel = cast<CallInst>(EHIntrinsics.second);
+    BasicBlock *Parent = Exn->getParent();
+
+    std::pair<Value*,Value*> ExnSelSlots = FnToLPadSlotMap[Parent->getParent()];
+
+    IRBuilder<> Builder(Context);
+    Builder.SetInsertPoint(Parent, Exn);
+    LoadInst *LPExn = Builder.CreateLoad(ExnSelSlots.first, "exn.load");
+    LoadInst *LPSel = Builder.CreateLoad(ExnSelSlots.second, "sel.load");
+
+    Exn->replaceAllUsesWith(LPExn);
+    Sel->replaceAllUsesWith(LPSel);
+  }
+
+  // Remove the dead instructions.
+  for (SmallPtrSet<Instruction*, 32>::iterator
+         I = DeadInsts.begin(), E = DeadInsts.end(); I != E; ++I) {
+    Instruction *Inst = *I;
+    Inst->eraseFromParent();
+  }
+
+  // Replace calls to "llvm.eh.resume" with the 'resume' instruction. Load the
+  // exception and selector values from the stored place.
+  Function *EHResume = M->getFunction("llvm.eh.resume");
+  if (!EHResume) return;
+
+  while (!EHResume->use_empty()) {
+    CallInst *Resume = cast<CallInst>(EHResume->use_back());
+    BasicBlock *BB = Resume->getParent();
+
+    IRBuilder<> Builder(Context);
+    Builder.SetInsertPoint(BB, Resume);
+
+    Value *LPadVal =
+      Builder.CreateInsertValue(UndefValue::get(LPadSlotTy),
+                                Resume->getArgOperand(0), 0, "lpad.val");
+    LPadVal = Builder.CreateInsertValue(LPadVal, Resume->getArgOperand(1),
+                                        1, "lpad.val");
+    Builder.CreateResume(LPadVal);
+
+    // Remove all instructions after the 'resume.'
+    BasicBlock::iterator I = Resume;
+    while (I != BB->end()) {
+      Instruction *Inst = &*I++;
+      Inst->eraseFromParent();
     }
   }
 }

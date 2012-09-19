@@ -66,22 +66,25 @@ enum  VideoClassSpecific
 
     // Video Class Specific Streaming Interface Descriptor Types
     //
-    VS_UNDEFINED		= 0x00,
-    VS_INPUT_HEADER		= 0x01,
+    VS_UNDEFINED			= 0x00,
+    VS_INPUT_HEADER			= 0x01,
     VS_OUTPUT_HEADER		= 0x02,
     VS_STILL_IMAGE_FRAME	= 0x03,
     VS_FORMAT_UNCOMPRESSED	= 0x04,
     VS_FRAME_UNCOMPRESSED	= 0x05,
-    VS_FORMAT_MJPEG		= 0x06,
-    VS_FRAME_MJPEG		= 0x07,
-    VS_FORMAT_MPEG1		= 0x08,
-    VS_FORMAT_MPEG2PS		= 0x09,
+    VS_FORMAT_MJPEG			= 0x06,
+    VS_FRAME_MJPEG			= 0x07,
+    VS_FORMAT_MPEG1			= 0x08, // Reserved in 1.1
+    VS_FORMAT_MPEG2PS		= 0x09, // Reserved in 1.1
     VS_FORMAT_MPEG2TS		= 0x0a,
-    VS_FORMAT_MPEG4SL		= 0xFF, // TBD -- will not be 0x0b
-    VS_FORMAT_DV		= 0x0c,
-    VS_COLORFORMAT              = 0x0d,
-    VS_FORMAT_VENDOR		= 0x0e,
-    VS_FRAME_VENDOR		= 0x0f,
+    VS_FORMAT_DV			= 0x0c,	
+    VS_COLORFORMAT          = 0x0d, 
+    VS_FORMAT_VENDOR		= 0x0e,	// Reserved in 1.1
+    VS_FRAME_VENDOR			= 0x0f,	// Reserved in 1.1
+	VS_FORMAT_FRAME_BASED	= 0x10,
+	VS_FRAME_FRAME_BASED	= 0x11,
+	VS_FORMAT_STREAM_BASED	= 0x12,
+    VS_FORMAT_MPEG4SL		= 0xFF, // Undefined in 1.1
 
     // Video Class Specific Endpoint Descriptor Subtypes
     //
@@ -689,6 +692,69 @@ struct IOUSBVDC_ColorFormatDescriptor
 typedef struct IOUSBVDC_ColorFormatDescriptor IOUSBVDC_ColorFormatDescriptor;
 #pragma options align=reset
 
+#pragma pack(1)
+struct IOUSBVDC_FrameBasedFormatDescriptor
+{
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint8_t		bNumFrameDescriptors;
+    uint8_t		guidFormat[16];
+	uint8_t		bBitsPerPixel;
+	uint8_t		bDefaultFrameIndex;
+	uint8_t		bAspectRatioX;
+	uint8_t		bAspectRatioY;
+	uint8_t		bmInterlaceFlags;
+	uint8_t		bCopyProtect;
+	uint8_t		bVariableSize;
+};
+typedef struct IOUSBVDC_FrameBasedFormatDescriptor IOUSBVDC_FrameBasedFormatDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_FrameBasedFrameDescriptor
+{
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+	uint32_t	dwBytesPerLine;
+    uint32_t	dwMinFrameInterval;
+    uint32_t	dwMaxFrameInterval;
+    uint32_t	dwFrameIntervalStep;
+};
+typedef struct IOUSBVDC_FrameBasedFrameDescriptor IOUSBVDC_FrameBasedFrameDescriptor;
+#pragma options align=reset
+
+#pragma pack(1)
+struct IOUSBVDC_DiscreteFrameBasedFrameDescriptor
+{
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+	uint32_t	dwBytesPerLine;
+    uint32_t	dwMinFrameInterval;
+    uint32_t	dwMaxFrameInterval;
+    uint32_t	dwFrameInterval[1];
+};
+typedef struct IOUSBVDC_DiscreteFrameBasedFrameDescriptor IOUSBVDC_DiscreteFrameBasedFrameDescriptor;
+#pragma options align=reset
 
 @interface DecodeVideoInterfaceDescriptor : NSObject {
 

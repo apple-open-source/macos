@@ -16,14 +16,19 @@
 
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/Support/DataTypes.h"
+#include <functional>
 
 namespace llvm {
 
+class Pass;
 class BasicBlock;
 class MachineFunction;
 class MCSymbol;
+class SlotIndexes;
 class StringRef;
 class raw_ostream;
+class MachineBranchProbabilityInfo;
 
 template <>
 struct ilist_traits<MachineInstr> : public ilist_default_traits<MachineInstr> {
@@ -60,11 +65,18 @@ class MachineBasicBlock : public ilist_node<MachineBasicBlock> {
   const BasicBlock *BB;
   int Number;
   MachineFunction *xParent;
-  
+
   /// Predecessors/Successors - Keep track of the predecessor / successor
   /// basicblocks.
   std::vector<MachineBasicBlock *> Predecessors;
   std::vector<MachineBasicBlock *> Successors;
+
+
+  /// Weights - Keep track of the weights to the successors. This vector
+  /// has the same order as Successors, or it is empty if we don't use it
+  /// (disable optimization).
+  std::vector<uint32_t> Weights;
+  typedef std::vector<uint32_t>::iterator weight_iterator;
 
   /// LiveIns - Keep track of the physical registers that are livein of
   /// the basicblock.
@@ -220,7 +232,11 @@ public:
 
   /// setIsLandingPad - Indicates the block is a landing pad.  That is
   /// this basic block is entered via an exception handler.
-  void setIsLandingPad() { IsLandingPad = true; }
+  void setIsLandingPad(bool V = true) { IsLandingPad = V; }
+
+  /// getLandingPadSuccessor - If this block has a successor that is a landing
+  /// pad, return it. Otherwise return NULL.
+  const MachineBasicBlock *getLandingPadSuccessor() const;
 
   // Code Layout methods.
   
@@ -237,11 +253,13 @@ public:
   void updateTerminator();
 
   // Machine-CFG mutators
-  
+
   /// addSuccessor - Add succ as a successor of this MachineBasicBlock.
-  /// The Predecessors list of succ is automatically updated.
+  /// The Predecessors list of succ is automatically updated. WEIGHT
+  /// parameter is stored in Weights list and it may be used by
+  /// MachineBranchProbabilityInfo analysis to calculate branch probability.
   ///
-  void addSuccessor(MachineBasicBlock *succ);
+  void addSuccessor(MachineBasicBlock *succ, uint32_t weight = 0);
 
   /// removeSuccessor - Remove successor from the successors list of this
   /// MachineBasicBlock. The Predecessors list of succ is automatically updated.
@@ -253,11 +271,21 @@ public:
   /// updated.  Return the iterator to the element after the one removed.
   ///
   succ_iterator removeSuccessor(succ_iterator I);
-  
+
+  /// replaceSuccessor - Replace successor OLD with NEW and update weight info.
+  ///
+  void replaceSuccessor(MachineBasicBlock *Old, MachineBasicBlock *New);
+
+
   /// transferSuccessors - Transfers all the successors from MBB to this
   /// machine basic block (i.e., copies all the successors fromMBB and
   /// remove all the successors from fromMBB).
   void transferSuccessors(MachineBasicBlock *fromMBB);
+
+  /// transferSuccessorsAndUpdatePHIs - Transfers all the successors, as
+  /// in transferSuccessors, and update PHI operands in the successor blocks
+  /// which refer to fromMBB to refer to this.
+  void transferSuccessorsAndUpdatePHIs(MachineBasicBlock *fromMBB);
   
   /// isSuccessor - Return true if the specified MBB is a successor of this
   /// block.
@@ -276,10 +304,42 @@ public:
   /// branch to do so (e.g., a table jump).  True is a conservative answer.
   bool canFallThrough();
 
+  /// Returns a pointer to the first instructon in this block that is not a 
+  /// PHINode instruction. When adding instruction to the beginning of the
+  /// basic block, they should be added before the returned value, not before
+  /// the first instruction, which might be PHI.
+  /// Returns end() is there's no non-PHI instruction.
+  iterator getFirstNonPHI();
+
+  /// SkipPHIsAndLabels - Return the first instruction in MBB after I that is
+  /// not a PHI or a label. This is the correct point to insert copies at the
+  /// beginning of a basic block.
+  iterator SkipPHIsAndLabels(iterator I);
+
   /// getFirstTerminator - returns an iterator to the first terminator
   /// instruction of this basic block. If a terminator does not exist,
   /// it returns end()
   iterator getFirstTerminator();
+
+  const_iterator getFirstTerminator() const {
+    return const_cast<MachineBasicBlock*>(this)->getFirstTerminator();
+  }
+
+  /// getLastNonDebugInstr - returns an iterator to the last non-debug
+  /// instruction in the basic block, or end()
+  iterator getLastNonDebugInstr();
+
+  const_iterator getLastNonDebugInstr() const {
+    return const_cast<MachineBasicBlock*>(this)->getLastNonDebugInstr();
+  }
+
+  /// SplitCriticalEdge - Split the critical edge from this block to the
+  /// given successor block, and return the newly created block, or null
+  /// if splitting is not possible.
+  ///
+  /// This function updates LiveVariables, MachineDominatorTree, and
+  /// MachineLoopInfo, as applicable.
+  MachineBasicBlock *SplitCriticalEdge(MachineBasicBlock *Succ, Pass *P);
 
   void pop_front() { Insts.pop_front(); }
   void pop_back() { Insts.pop_back(); }
@@ -287,6 +347,9 @@ public:
   template<typename IT>
   void insert(iterator I, IT S, IT E) { Insts.insert(I, S, E); }
   iterator insert(iterator I, MachineInstr *M) { return Insts.insert(I, M); }
+  iterator insertAfter(iterator I, MachineInstr *M) { 
+    return Insts.insertAfter(I, M); 
+  }
 
   // erase - Remove the specified element or range from the instruction list.
   // These functions delete any instructions removed.
@@ -337,7 +400,7 @@ public:
 
   // Debugging methods.
   void dump() const;
-  void print(raw_ostream &OS) const;
+  void print(raw_ostream &OS, SlotIndexes* = 0) const;
 
   /// getNumber - MachineBasicBlocks are uniquely numbered at the function
   /// level, unless they're not in a MachineFunction yet, in which case this
@@ -349,8 +412,22 @@ public:
   /// getSymbol - Return the MCSymbol for this basic block.
   ///
   MCSymbol *getSymbol() const;
-  
-private:   // Methods used to maintain doubly linked list of blocks...
+
+
+private:
+  /// getWeightIterator - Return weight iterator corresponding to the I
+  /// successor iterator.
+  weight_iterator getWeightIterator(succ_iterator I);
+
+  friend class MachineBranchProbabilityInfo;
+
+  /// getSuccWeight - Return weight of the edge from this block to MBB. This
+  /// method should NOT be called directly, but by using getEdgeWeight method
+  /// from MachineBranchProbabilityInfo class.
+  uint32_t getSuccWeight(MachineBasicBlock *succ);
+
+
+  // Methods used to maintain doubly linked list of blocks...
   friend struct ilist_traits<MachineBasicBlock>;
 
   // Machine-CFG mutators
@@ -372,6 +449,14 @@ private:   // Methods used to maintain doubly linked list of blocks...
 raw_ostream& operator<<(raw_ostream &OS, const MachineBasicBlock &MBB);
 
 void WriteAsOperand(raw_ostream &, const MachineBasicBlock*, bool t);
+
+// This is useful when building IndexedMaps keyed on basic block pointers.
+struct MBB2NumberFunctor :
+  public std::unary_function<const MachineBasicBlock*, unsigned> {
+  unsigned operator()(const MachineBasicBlock *MBB) const {
+    return MBB->getNumber();
+  }
+};
 
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for machine basic block graphs (machine-CFGs)

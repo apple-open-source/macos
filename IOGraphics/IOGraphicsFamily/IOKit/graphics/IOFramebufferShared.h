@@ -25,7 +25,7 @@
 
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/graphics/IOGraphicsTypes.h>
-#include <IOKit/IOSharedLock.h>
+#include <libkern/OSAtomic.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -175,7 +175,7 @@ enum {
 */
 
 struct StdFBShmem_t {
-    ev_lock_data_t cursorSema;  
+    OSSpinLock cursorSema;  
     int frame;
     char cursorShow;
     char cursorObscured;
@@ -193,7 +193,9 @@ struct StdFBShmem_t {
     AbsoluteTime vblDelta;
     unsigned long long int vblCount;
 #if IOFB_ARBITRARY_FRAMES_CURSOR
-    unsigned int reservedC[28];
+    unsigned long long int vblDrift;
+    unsigned long long int vblDeltaMeasured;
+    unsigned int reservedC[24];
 #else
     unsigned int reservedC[27];
     unsigned char hardwareCursorFlags[kIOFBNumCursorFrames];

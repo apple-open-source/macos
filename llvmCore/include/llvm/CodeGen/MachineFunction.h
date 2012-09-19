@@ -28,6 +28,7 @@ namespace llvm {
 
 class Value;
 class Function;
+class GCModuleInfo;
 class MachineRegisterInfo;
 class MachineFrameInfo;
 class MachineConstantPool;
@@ -37,6 +38,7 @@ class MCContext;
 class Pass;
 class TargetMachine;
 class TargetRegisterClass;
+struct MachinePointerInfo;
 
 template <>
 struct ilist_traits<MachineBasicBlock>
@@ -74,6 +76,7 @@ class MachineFunction {
   const TargetMachine &Target;
   MCContext &Ctx;
   MachineModuleInfo &MMI;
+  GCModuleInfo *GMI;
   
   // RegInfo - Information about each register in use in the function.
   MachineRegisterInfo *RegInfo;
@@ -114,17 +117,24 @@ class MachineFunction {
   ///
   unsigned FunctionNumber;
   
-  /// The alignment of the function.
+  /// Alignment - The alignment of the function.
   unsigned Alignment;
+
+  /// CallsSetJmp - True if the function calls setjmp or sigsetjmp. This is used
+  /// to limit optimizations which cannot reason about the control flow of
+  /// setjmp.
+  bool CallsSetJmp;
 
   MachineFunction(const MachineFunction &); // DO NOT IMPLEMENT
   void operator=(const MachineFunction&);   // DO NOT IMPLEMENT
 public:
   MachineFunction(const Function *Fn, const TargetMachine &TM,
-                  unsigned FunctionNum, MachineModuleInfo &MMI);
+                  unsigned FunctionNum, MachineModuleInfo &MMI,
+                  GCModuleInfo* GMI);
   ~MachineFunction();
 
   MachineModuleInfo &getMMI() const { return MMI; }
+  GCModuleInfo *getGMI() const { return GMI; }
   MCContext &getContext() const { return Ctx; }
   
   /// getFunction - Return the LLVM function that this machine code represents
@@ -181,6 +191,17 @@ public:
   void EnsureAlignment(unsigned A) {
     if (Alignment < A) Alignment = A;
   }
+
+  /// callsSetJmp - Returns true if the function calls setjmp or sigsetjmp.
+  bool callsSetJmp() const {
+    return CallsSetJmp;
+  }
+
+  /// setCallsSetJmp - Set a flag that indicates if there's a call to setjmp or
+  /// sigsetjmp.
+  void setCallsSetJmp(bool B) {
+    CallsSetJmp = B;
+  }
   
   /// getInfo - Keep track of various per-function pieces of information for
   /// backends that would like to do so.
@@ -227,7 +248,7 @@ public:
   /// print - Print out the MachineFunction in a format suitable for debugging
   /// to the specified stream.
   ///
-  void print(raw_ostream &OS) const;
+  void print(raw_ostream &OS, SlotIndexes* = 0) const;
 
   /// viewCFG - This function is meant for use from the debugger.  You can just
   /// say 'call F->viewCFG()' and a ghostview window should pop up from the
@@ -250,7 +271,7 @@ public:
 
   /// verify - Run the current MachineFunction through the machine code
   /// verifier, useful for debugger use.
-  void verify(Pass *p=NULL, bool allowDoubleDefs=false) const;
+  void verify(Pass *p = NULL, const char *Banner = NULL) const;
 
   // Provide accessors for the MachineBasicBlock list...
   typedef BasicBlockListType::iterator iterator;
@@ -324,7 +345,7 @@ public:
   /// CreateMachineInstr - Allocate a new MachineInstr. Use this instead
   /// of `new MachineInstr'.
   ///
-  MachineInstr *CreateMachineInstr(const TargetInstrDesc &TID,
+  MachineInstr *CreateMachineInstr(const MCInstrDesc &MCID,
                                    DebugLoc DL,
                                    bool NoImp = false);
 
@@ -352,10 +373,11 @@ public:
   /// getMachineMemOperand - Allocate a new MachineMemOperand.
   /// MachineMemOperands are owned by the MachineFunction and need not be
   /// explicitly deallocated.
-  MachineMemOperand *getMachineMemOperand(const Value *v, unsigned f,
-                                          int64_t o, uint64_t s,
-                                          unsigned base_alignment);
-
+  MachineMemOperand *getMachineMemOperand(MachinePointerInfo PtrInfo,
+                                          unsigned f, uint64_t s,
+                                          unsigned base_alignment,
+                                          const MDNode *TBAAInfo = 0);
+  
   /// getMachineMemOperand - Allocate a new MachineMemOperand by copying
   /// an existing one, adjusting by an offset and using the given size.
   /// MachineMemOperands are owned by the MachineFunction and need not be
@@ -390,6 +412,10 @@ public:
   /// normal 'L' label is returned.
   MCSymbol *getJTISymbol(unsigned JTI, MCContext &Ctx, 
                          bool isLinkerPrivate = false) const;
+  
+  /// getPICBaseSymbol - Return a function-local symbol to represent the PIC
+  /// base.
+  MCSymbol *getPICBaseSymbol() const;
 };
 
 //===--------------------------------------------------------------------===//

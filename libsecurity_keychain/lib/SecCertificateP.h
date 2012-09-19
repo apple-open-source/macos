@@ -36,6 +36,7 @@
 
 #include "SecBaseP.h"
 #include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFDate.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -83,6 +84,16 @@ CFDataRef SecCertificateCopyDataP(SecCertificateRefP certificate)
 */
 CFStringRef SecCertificateCopySubjectSummaryP(SecCertificateRefP certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+
+/*!
+	@function SecCertificateIsValid
+	@abstract 
+    @param certificate SecCertificate object created with
+    SecCertificateCreateWithDataP().
+	@result DER encoded X.509 certificate.
+*/
+bool SecCertificateIsValid(SecCertificateRefP certificate, CFAbsoluteTime verifyTime)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 
 #if defined(__cplusplus)
 }

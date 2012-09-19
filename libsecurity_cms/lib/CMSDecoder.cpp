@@ -43,7 +43,7 @@
 #include <Security/SecTrustPriv.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <pthread.h>
-
+#include <AssertMacros.h>
 
 #pragma mark --- Private types and definitions ---
 
@@ -833,3 +833,126 @@ OSStatus CMSDecoderGetDecoder(
 	return noErr;
 }
 
+/*
+ * Obtain the signing time of signer 'signerIndex' of a CMS message, if
+ * present. This is an unauthenticate time, although it is part of the
+ * signed attributes of the message.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. 
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
+ */
+OSStatus CMSDecoderCopySignerSigningTime(
+       CMSDecoderRef           cmsDecoder,
+       size_t                          signerIndex,            /* usually 0 */
+       CFAbsoluteTime      *signingTime)                       /* RETURNED */
+{
+    OSStatus status = paramErr;
+       SecCmsMessageRef cmsg;
+       SecCmsSignedDataRef signedData = NULL;
+    int numContentInfos = 0;
+    
+    require(cmsDecoder && signingTime, xit);
+       require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    numContentInfos = SecCmsMessageContentLevelCount(cmsg);
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
+    {
+        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
+        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+        if (tag == SEC_OID_PKCS7_SIGNED_DATA)
+            if ((signedData = SecCmsSignedDataRef(SecCmsContentInfoGetContent(ci))))
+                if (SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex))
+                {
+                    status = SecCmsSignerInfoGetSigningTime(signerInfo, signingTime);
+                    break;
+                }
+    }
+xit:
+    return status;
+}
+
+/*
+ * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
+ * present. This timestamp is an authenticated timestamp provided by
+ * a timestamping authority.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. 
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
+ */
+OSStatus CMSDecoderCopySignerTimestamp(
+       CMSDecoderRef           cmsDecoder,
+       size_t                          signerIndex,        /* usually 0 */
+       CFAbsoluteTime      *timestamp)                 /* RETURNED */
+{
+    OSStatus status = paramErr;
+       SecCmsMessageRef cmsg;
+       SecCmsSignedDataRef signedData = NULL;
+    int numContentInfos = 0;
+
+    require(cmsDecoder && timestamp, xit);
+       require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    numContentInfos = SecCmsMessageContentLevelCount(cmsg);
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
+    {
+        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
+        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+        if (tag == SEC_OID_PKCS7_SIGNED_DATA)
+            if ((signedData = SecCmsSignedDataRef(SecCmsContentInfoGetContent(ci))))
+                if (SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex))
+                {
+                    status = SecCmsSignerInfoGetTimestampTime(signerInfo, timestamp);
+                    break;
+                }
+    }
+
+xit:
+    return status;
+}
+
+/*
+ * Obtain an array of the certificates in a timestamp response. Elements of the 
+ * returned array are SecCertificateRefs. The caller must CFRelease the returned
+ * array. This timestamp is an authenticated timestamp provided by
+ * a timestamping authority.
+ *
+ * Returns paramErr if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one. It returns
+ * errSecItemNotFound if no certificates were found.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
+ */
+OSStatus CMSDecoderCopySignerTimestampCertificates(
+       CMSDecoderRef           cmsDecoder,
+       size_t                          signerIndex,            /* usually 0 */
+       CFArrayRef          *certificateRefs)       /* RETURNED */
+{
+    OSStatus status = paramErr;
+       SecCmsMessageRef cmsg;
+       SecCmsSignedDataRef signedData = NULL;
+    int numContentInfos = 0;
+
+    require(cmsDecoder && certificateRefs, xit);
+       require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    numContentInfos = SecCmsMessageContentLevelCount(cmsg);
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
+    {
+        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
+        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+        if (tag == SEC_OID_PKCS7_SIGNED_DATA)
+            if ((signedData = SecCmsSignedDataRef(SecCmsContentInfoGetContent(ci))))
+                if (SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex))
+                {
+                    CFArrayRef certList = SecCmsSignerInfoGetTimestampCertList(signerInfo);
+                    require_action(certList, xit, status = errSecItemNotFound);
+                    *certificateRefs = CFArrayCreateCopy(kCFAllocatorDefault, certList);
+                    status = noErr;
+                    break;
+                }
+    }
+
+xit:
+    return status;
+}

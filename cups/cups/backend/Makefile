@@ -3,7 +3,7 @@
 #
 #   Backend makefile for CUPS.
 #
-#   Copyright 2007-2011 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -98,7 +98,7 @@ install-exec:	$(INSTALLXPC)
 		$(RM) $(SERVERBIN)/backend/$$file; \
 		$(LN) ipp $(SERVERBIN)/backend/$$file; \
 	done
-	if test "x$(DNSSD_BACKEND)" != x; then \
+	if test "x$(DNSSD_BACKEND)" != x -a `uname` = Darwin; then \
 		$(RM) $(SERVERBIN)/backend/mdns; \
 		$(LN) $(DNSSD_BACKEND) $(SERVERBIN)/backend/mdns; \
 	fi

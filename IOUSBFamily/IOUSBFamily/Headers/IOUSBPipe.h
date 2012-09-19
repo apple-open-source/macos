@@ -379,9 +379,9 @@ public:
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  15);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  16);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  17);
-    OSMetaClassDeclareReservedUnused(IOUSBPipe,  18);
+	OSMetaClassDeclareReservedUnused(IOUSBPipe,  18);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  19);
 	
 };
 
-#endif /* _IOKIT_IOUSBPIPE_H */
+#endif

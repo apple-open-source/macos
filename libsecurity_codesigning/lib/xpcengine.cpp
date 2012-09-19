@@ -25,7 +25,7 @@
 #include <syslog.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/cfutilities.h>
-#include <Security/CodeSigning.h>
+#include <Security/SecRequirement.h>
 
 
 namespace Security {
@@ -135,7 +135,7 @@ void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutab
 }
 
 
-bool xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
+CFDictionaryRef xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
 {
 	Message msg("update");
 	// target can be NULL, a CFURLRef, a SecRequirementRef, or a CFNumberRef
@@ -173,7 +173,9 @@ bool xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
 	if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
 		MacOSError::throwMe(error);
 	
-	return true;
+	size_t resultLength;
+	const void *resultData = xpc_dictionary_get_data(msg, "result", &resultLength);
+	return makeCFDictionaryFrom(resultData, resultLength);
 }
 
 

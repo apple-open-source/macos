@@ -39,6 +39,7 @@
 #include <security_utilities/errors.h>
 #include <security_utilities/hashing.h>
 #include <security_utilities/cfutilities.h>
+#include <security_cdsa_utilities/cssmdata.h>
 
 
 //
@@ -78,6 +79,8 @@ public:
 	void operator () (OSStatus rc)
 		{ if (rc != noErr) throwError(); }
 	void operator () (Boolean success)
+		{ if (!success) throwError(); }
+	void operator () (bool success)
 		{ if (!success) throwError(); }
 	
 public:

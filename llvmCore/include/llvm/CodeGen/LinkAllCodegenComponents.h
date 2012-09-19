@@ -33,20 +33,18 @@ namespace {
 
       (void) llvm::createDeadMachineInstructionElimPass();
 
-      (void) llvm::createLocalRegisterAllocator();
       (void) llvm::createFastRegisterAllocator();
+      (void) llvm::createBasicRegisterAllocator();
       (void) llvm::createLinearScanRegisterAllocator();
-      (void) llvm::createPBQPRegisterAllocator();
+      (void) llvm::createGreedyRegisterAllocator();
+      (void) llvm::createDefaultPBQPRegisterAllocator();
 
-      (void) llvm::createSimpleRegisterCoalescer();
-      
       llvm::linkOcamlGC();
       llvm::linkShadowStackGC();
       
       (void) llvm::createBURRListDAGScheduler(NULL, llvm::CodeGenOpt::Default);
-      (void) llvm::createTDRRListDAGScheduler(NULL, llvm::CodeGenOpt::Default);
       (void) llvm::createSourceListDAGScheduler(NULL,llvm::CodeGenOpt::Default);
-      (void) llvm::createTDListDAGScheduler(NULL, llvm::CodeGenOpt::Default);
+      (void) llvm::createHybridListDAGScheduler(NULL,llvm::CodeGenOpt::Default);
       (void) llvm::createFastDAGScheduler(NULL, llvm::CodeGenOpt::Default);
       (void) llvm::createDefaultScheduler(NULL, llvm::CodeGenOpt::Default);
 

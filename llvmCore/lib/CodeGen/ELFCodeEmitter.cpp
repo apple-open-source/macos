@@ -71,7 +71,7 @@ void ELFCodeEmitter::startFunction(MachineFunction &MF) {
 bool ELFCodeEmitter::finishFunction(MachineFunction &MF) {
   // Add a symbol to represent the function.
   const Function *F = MF.getFunction();
-  ELFSym *FnSym = ELFSym::getGV(F, EW.getGlobalELFBinding(F), ELFSym::STT_FUNC,
+  ELFSym *FnSym = ELFSym::getGV(F, EW.getGlobalELFBinding(F), ELF::STT_FUNC,
                                 EW.getGlobalELFVisibility(F));
   FnSym->SectionIdx = ES->SectionIdx;
   FnSym->Size = ES->getCurrentPCOffset()-FnStartOff;
@@ -90,7 +90,7 @@ bool ELFCodeEmitter::finishFunction(MachineFunction &MF) {
     for (std::vector<MachineRelocation>::iterator MRI = JTRelocations.begin(),
          MRE = JTRelocations.end(); MRI != MRE; ++MRI) {
       MachineRelocation &MR = *MRI;
-      unsigned MBBOffset = getMachineBasicBlockAddress(MR.getBasicBlock());
+      uintptr_t MBBOffset = getMachineBasicBlockAddress(MR.getBasicBlock());
       MR.setResultPointer((void*)MBBOffset);
       MR.setConstantVal(ES->SectionIdx);
       JTSection.addRelocation(MR);
@@ -155,7 +155,7 @@ void ELFCodeEmitter::emitConstantPool(MachineConstantPool *MCP) {
     CPSections.push_back(CstPool.SectionIdx);
 
     if (CPE.isMachineConstantPoolEntry())
-      assert("CPE.isMachineConstantPoolEntry not supported yet");
+      assert(0 && "CPE.isMachineConstantPoolEntry not supported yet");
 
     // Emit the constant to constant pool section
     EW.EmitGlobalConstant(CPE.Val.ConstVal, CstPool);

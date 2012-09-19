@@ -22,7 +22,10 @@ namespace llvm {
 // Debug info constants.
 
 enum {
-  LLVMDebugVersion = (8 << 16),         // Current version of debug information.
+  LLVMDebugVersion = (11 << 16),        // Current version of debug information.
+  LLVMDebugVersion10 = (10 << 16),      // Constant for version 10.
+  LLVMDebugVersion9 = (9 << 16),        // Constant for version 9.
+  LLVMDebugVersion8 = (8 << 16),        // Constant for version 8.
   LLVMDebugVersion7 = (7 << 16),        // Constant for version 7.
   LLVMDebugVersion6 = (6 << 16),        // Constant for version 6.
   LLVMDebugVersion5 = (5 << 16),        // Constant for version 5.
@@ -44,11 +47,9 @@ enum llvm_dwarf_constants {
   // llvm mock tags
   DW_TAG_invalid = ~0U,                 // Tag for invalid results.
 
-  DW_TAG_anchor = 0,                    // Tag for descriptor anchors.
   DW_TAG_auto_variable = 0x100,         // Tag for local (auto) variables.
   DW_TAG_arg_variable = 0x101,          // Tag for argument variables.
   DW_TAG_return_variable = 0x102,       // Tag for return variables.
-
   DW_TAG_vector_type = 0x103,           // Tag for vector types.
 
   DW_TAG_user_base = 0x1000,            // Recommended base for user tags.
@@ -118,6 +119,16 @@ enum dwarf_constants {
   DW_TAG_imported_unit = 0x3d,
   DW_TAG_condition = 0x3f,
   DW_TAG_shared_type = 0x40,
+  DW_TAG_type_unit = 0x41,
+  DW_TAG_rvalue_reference_type = 0x42,
+  DW_TAG_template_alias = 0x43,
+  DW_TAG_MIPS_loop = 0x4081,
+  DW_TAG_format_label = 0x4101,
+  DW_TAG_function_template = 0x4102,
+  DW_TAG_class_template = 0x4103,
+  DW_TAG_GNU_template_template_param = 0x4106,
+  DW_TAG_GNU_template_parameter_pack = 0x4107,
+  DW_TAG_GNU_formal_parameter_pack = 0x4108,
   DW_TAG_lo_user = 0x4080,
   DW_TAG_hi_user = 0xffff,
 
@@ -212,14 +223,36 @@ enum dwarf_constants {
   DW_AT_elemental = 0x66,
   DW_AT_pure = 0x67,
   DW_AT_recursive = 0x68,
+  DW_AT_signature = 0x69,
+  DW_AT_main_subprogram = 0x6a,
+  DW_AT_data_bit_offset = 0x6b,
+  DW_AT_const_expr = 0x6c,
+  DW_AT_enum_class = 0x6d,
+  DW_AT_linkage_name = 0x6e,
+  DW_AT_MIPS_loop_begin = 0x2002,
+  DW_AT_MIPS_tail_loop_begin = 0x2003,
+  DW_AT_MIPS_epilog_begin = 0x2004,
+  DW_AT_MIPS_loop_unroll_factor = 0x2005,
+  DW_AT_MIPS_software_pipeline_depth = 0x2006,
   DW_AT_MIPS_linkage_name = 0x2007,
-  DW_AT_sf_names   = 0x2101,
+  DW_AT_MIPS_stride = 0x2008,
+  DW_AT_MIPS_abstract_name = 0x2009,
+  DW_AT_MIPS_clone_origin = 0x200a,
+  DW_AT_MIPS_has_inlines = 0x200b,
+  DW_AT_MIPS_stride_byte = 0x200c,
+  DW_AT_MIPS_stride_elem = 0x200d,
+  DW_AT_MIPS_ptr_dopetype = 0x200e,
+  DW_AT_MIPS_allocatable_dopetype = 0x200f,
+  DW_AT_MIPS_assumed_shape_dopetype = 0x2010,
+  DW_AT_sf_names = 0x2101,
   DW_AT_src_info = 0x2102,
   DW_AT_mac_info = 0x2103,
   DW_AT_src_coords = 0x2104,
   DW_AT_body_begin = 0x2105,
   DW_AT_body_end = 0x2106,
   DW_AT_GNU_vector = 0x2107,
+  DW_AT_GNU_template_name = 0x2110,
+  DW_AT_MIPS_assumed_size = 0x2011,
   DW_AT_lo_user = 0x2000,
   DW_AT_hi_user = 0x3fff,
 
@@ -231,6 +264,11 @@ enum dwarf_constants {
   DW_AT_APPLE_major_runtime_vers = 0x3fe5,
   DW_AT_APPLE_runtime_class = 0x3fe6,
   DW_AT_APPLE_omit_frame_ptr = 0x3fe7,
+  DW_AT_APPLE_property_name = 0x3fe8,
+  DW_AT_APPLE_property_getter = 0x3fe9,
+  DW_AT_APPLE_property_setter = 0x3fea,
+  DW_AT_APPLE_property_attribute = 0x3feb,
+  DW_AT_APPLE_objc_complete_type = 0x3fec,
 
   // Attribute form encodings
   DW_FORM_addr = 0x01,
@@ -254,6 +292,10 @@ enum dwarf_constants {
   DW_FORM_ref8 = 0x14,
   DW_FORM_ref_udata = 0x15,
   DW_FORM_indirect = 0x16,
+  DW_FORM_sec_offset = 0x17,
+  DW_FORM_exprloc = 0x18,
+  DW_FORM_flag_present = 0x19,
+  DW_FORM_ref_sig8 = 0x20,
 
   // Operation encodings
   DW_OP_addr = 0x03,
@@ -300,12 +342,99 @@ enum dwarf_constants {
   DW_OP_ne = 0x2e,
   DW_OP_lit0 = 0x30,
   DW_OP_lit1 = 0x31,
+  DW_OP_lit2 = 0x32,
+  DW_OP_lit3 = 0x33,
+  DW_OP_lit4 = 0x34,
+  DW_OP_lit5 = 0x35,
+  DW_OP_lit6 = 0x36,
+  DW_OP_lit7 = 0x37,
+  DW_OP_lit8 = 0x38,
+  DW_OP_lit9 = 0x39,
+  DW_OP_lit10 = 0x3a,
+  DW_OP_lit11 = 0x3b,
+  DW_OP_lit12 = 0x3c,
+  DW_OP_lit13 = 0x3d,
+  DW_OP_lit14 = 0x3e,
+  DW_OP_lit15 = 0x3f,
+  DW_OP_lit16 = 0x40,
+  DW_OP_lit17 = 0x41,
+  DW_OP_lit18 = 0x42,
+  DW_OP_lit19 = 0x43,
+  DW_OP_lit20 = 0x44,
+  DW_OP_lit21 = 0x45,
+  DW_OP_lit22 = 0x46,
+  DW_OP_lit23 = 0x47,
+  DW_OP_lit24 = 0x48,
+  DW_OP_lit25 = 0x49,
+  DW_OP_lit26 = 0x4a,
+  DW_OP_lit27 = 0x4b,
+  DW_OP_lit28 = 0x4c,
+  DW_OP_lit29 = 0x4d,
+  DW_OP_lit30 = 0x4e,
   DW_OP_lit31 = 0x4f,
   DW_OP_reg0 = 0x50,
   DW_OP_reg1 = 0x51,
+  DW_OP_reg2 = 0x52,
+  DW_OP_reg3 = 0x53,
+  DW_OP_reg4 = 0x54,
+  DW_OP_reg5 = 0x55,
+  DW_OP_reg6 = 0x56,
+  DW_OP_reg7 = 0x57,
+  DW_OP_reg8 = 0x58,
+  DW_OP_reg9 = 0x59,
+  DW_OP_reg10 = 0x5a,
+  DW_OP_reg11 = 0x5b,
+  DW_OP_reg12 = 0x5c,
+  DW_OP_reg13 = 0x5d,
+  DW_OP_reg14 = 0x5e,
+  DW_OP_reg15 = 0x5f,
+  DW_OP_reg16 = 0x60,
+  DW_OP_reg17 = 0x61,
+  DW_OP_reg18 = 0x62,
+  DW_OP_reg19 = 0x63,
+  DW_OP_reg20 = 0x64,
+  DW_OP_reg21 = 0x65,
+  DW_OP_reg22 = 0x66,
+  DW_OP_reg23 = 0x67,
+  DW_OP_reg24 = 0x68,
+  DW_OP_reg25 = 0x69,
+  DW_OP_reg26 = 0x6a,
+  DW_OP_reg27 = 0x6b,
+  DW_OP_reg28 = 0x6c,
+  DW_OP_reg29 = 0x6d,
+  DW_OP_reg30 = 0x6e,
   DW_OP_reg31 = 0x6f,
   DW_OP_breg0 = 0x70,
   DW_OP_breg1 = 0x71,
+  DW_OP_breg2 = 0x72,
+  DW_OP_breg3 = 0x73,
+  DW_OP_breg4 = 0x74,
+  DW_OP_breg5 = 0x75,
+  DW_OP_breg6 = 0x76,
+  DW_OP_breg7 = 0x77,
+  DW_OP_breg8 = 0x78,
+  DW_OP_breg9 = 0x79,
+  DW_OP_breg10 = 0x7a,
+  DW_OP_breg11 = 0x7b,
+  DW_OP_breg12 = 0x7c,
+  DW_OP_breg13 = 0x7d,
+  DW_OP_breg14 = 0x7e,
+  DW_OP_breg15 = 0x7f,
+  DW_OP_breg16 = 0x80,
+  DW_OP_breg17 = 0x81,
+  DW_OP_breg18 = 0x82,
+  DW_OP_breg19 = 0x83,
+  DW_OP_breg20 = 0x84,
+  DW_OP_breg21 = 0x85,
+  DW_OP_breg22 = 0x86,
+  DW_OP_breg23 = 0x87,
+  DW_OP_breg24 = 0x88,
+  DW_OP_breg25 = 0x89,
+  DW_OP_breg26 = 0x8a,
+  DW_OP_breg27 = 0x8b,
+  DW_OP_breg28 = 0x8c,
+  DW_OP_breg29 = 0x8d,
+  DW_OP_breg30 = 0x8e,
   DW_OP_breg31 = 0x8f,
   DW_OP_regx = 0x90,
   DW_OP_fbreg = 0x91,
@@ -320,6 +449,9 @@ enum dwarf_constants {
   DW_OP_call_ref = 0x9a,
   DW_OP_form_tls_address = 0x9b,
   DW_OP_call_frame_cfa = 0x9c,
+  DW_OP_bit_piece = 0x9d,
+  DW_OP_implicit_value = 0x9e,
+  DW_OP_stack_value = 0x9f,
   DW_OP_lo_user = 0xe0,
   DW_OP_hi_user = 0xff,
 
@@ -339,6 +471,7 @@ enum dwarf_constants {
   DW_ATE_signed_fixed = 0x0d,
   DW_ATE_unsigned_fixed = 0x0e,
   DW_ATE_decimal_float = 0x0f,
+  DW_ATE_UTF = 0x10,
   DW_ATE_lo_user = 0x80,
   DW_ATE_hi_user = 0xff,
 
@@ -391,6 +524,7 @@ enum dwarf_constants {
   DW_LANG_ObjC_plus_plus = 0x0011,
   DW_LANG_UPC = 0x0012,
   DW_LANG_D = 0x0013,
+  DW_LANG_Python = 0x0014,
   DW_LANG_lo_user = 0x8000,
   DW_LANG_hi_user = 0xffff,
 
@@ -422,6 +556,7 @@ enum dwarf_constants {
   DW_DSC_range = 0x01,
 
   // Line Number Standard Opcode Encodings
+  DW_LNS_extended_op = 0x00,
   DW_LNS_copy = 0x01,
   DW_LNS_advance_pc = 0x02,
   DW_LNS_advance_line = 0x03,
@@ -439,6 +574,7 @@ enum dwarf_constants {
   DW_LNE_end_sequence = 0x01,
   DW_LNE_set_address = 0x02,
   DW_LNE_define_file = 0x03,
+  DW_LNE_set_discriminator = 0x04,
   DW_LNE_lo_user = 0x80,
   DW_LNE_hi_user = 0xff,
 
@@ -477,6 +613,9 @@ enum dwarf_constants {
   DW_CFA_val_offset = 0x14,
   DW_CFA_val_offset_sf = 0x15,
   DW_CFA_val_expression = 0x16,
+  DW_CFA_MIPS_advance_loc8 = 0x1d,
+  DW_CFA_GNU_window_save = 0x2d,
+  DW_CFA_GNU_args_size = 0x2e,
   DW_CFA_lo_user = 0x1c,
   DW_CFA_hi_user = 0x3f,
 
@@ -496,7 +635,15 @@ enum dwarf_constants {
   DW_EH_PE_datarel = 0x30,
   DW_EH_PE_funcrel = 0x40,
   DW_EH_PE_aligned = 0x50,
-  DW_EH_PE_indirect = 0x80
+  DW_EH_PE_indirect = 0x80,
+
+  // Apple Objective-C Property Attributes
+  DW_APPLE_PROPERTY_readonly = 0x01,
+  DW_APPLE_PROPERTY_readwrite = 0x02,
+  DW_APPLE_PROPERTY_assign = 0x04,
+  DW_APPLE_PROPERTY_retain = 0x08,
+  DW_APPLE_PROPERTY_copy = 0x10,
+  DW_APPLE_PROPERTY_nonatomic = 0x20
 };
 
 /// TagString - Return the string for the specified tag.

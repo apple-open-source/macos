@@ -27,6 +27,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/OwningPtr.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/BitstreamReader.h"
 #include "llvm/Bitcode/LLVMBitCodes.h"
@@ -37,7 +38,8 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Signals.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/system_error.h"
 #include <cstdio>
 #include <map>
 #include <algorithm>
@@ -45,9 +47,6 @@ using namespace llvm;
 
 static cl::opt<std::string>
   InputFilename(cl::Positional, cl::desc("<input bitcode>"), cl::init("-"));
-
-static cl::opt<std::string>
-  OutputFilename("-o", cl::init("-"), cl::desc("<output file>"));
 
 static cl::opt<bool> Dump("dump", cl::desc("Dump low level bitcode trace"));
 
@@ -60,15 +59,22 @@ static cl::opt<bool> NoHistogram("disable-histogram",
 
 static cl::opt<bool>
 NonSymbolic("non-symbolic",
-            cl::desc("Emit numberic info in dump even if"
+            cl::desc("Emit numeric info in dump even if"
                      " symbolic info is available"));
+
+namespace {
+
+/// CurStreamTypeType - A type for CurStreamType
+enum CurStreamTypeType {
+  UnknownBitstream,
+  LLVMIRBitstream
+};
+
+}
 
 /// CurStreamType - If we can sniff the flavor of this stream, we can produce
 /// better dump info.
-static enum {
-  UnknownBitstream,
-  LLVMIRBitstream
-} CurStreamType;
+static CurStreamTypeType CurStreamType;
 
 
 /// GetBlockName - Return a symbolic block name if known, otherwise return
@@ -96,10 +102,11 @@ static const char *GetBlockName(unsigned BlockID,
   default:                           return 0;
   case bitc::MODULE_BLOCK_ID:        return "MODULE_BLOCK";
   case bitc::PARAMATTR_BLOCK_ID:     return "PARAMATTR_BLOCK";
-  case bitc::TYPE_BLOCK_ID:          return "TYPE_BLOCK";
+  case bitc::TYPE_BLOCK_ID_OLD:      return "TYPE_BLOCK_ID_OLD";
+  case bitc::TYPE_BLOCK_ID_NEW:      return "TYPE_BLOCK_ID";
   case bitc::CONSTANTS_BLOCK_ID:     return "CONSTANTS_BLOCK";
   case bitc::FUNCTION_BLOCK_ID:      return "FUNCTION_BLOCK";
-  case bitc::TYPE_SYMTAB_BLOCK_ID:   return "TYPE_SYMTAB";
+  case bitc::TYPE_SYMTAB_BLOCK_ID_OLD: return "TYPE_SYMTAB_OLD";
   case bitc::VALUE_SYMTAB_BLOCK_ID:  return "VALUE_SYMTAB";
   case bitc::METADATA_BLOCK_ID:      return "METADATA_BLOCK";
   case bitc::METADATA_ATTACHMENT_ID: return "METADATA_ATTACHMENT_BLOCK";
@@ -156,25 +163,30 @@ static const char *GetCodeName(unsigned CodeID, unsigned BlockID,
     default: return 0;
     case bitc::PARAMATTR_CODE_ENTRY: return "ENTRY";
     }
-  case bitc::TYPE_BLOCK_ID:
+  case bitc::TYPE_BLOCK_ID_OLD:
+  case bitc::TYPE_BLOCK_ID_NEW:
     switch (CodeID) {
     default: return 0;
-    case bitc::TYPE_CODE_NUMENTRY:  return "NUMENTRY";
-    case bitc::TYPE_CODE_VOID:      return "VOID";
-    case bitc::TYPE_CODE_FLOAT:     return "FLOAT";
-    case bitc::TYPE_CODE_DOUBLE:    return "DOUBLE";
-    case bitc::TYPE_CODE_LABEL:     return "LABEL";
-    case bitc::TYPE_CODE_OPAQUE:    return "OPAQUE";
-    case bitc::TYPE_CODE_INTEGER:   return "INTEGER";
-    case bitc::TYPE_CODE_POINTER:   return "POINTER";
-    case bitc::TYPE_CODE_FUNCTION:  return "FUNCTION";
-    case bitc::TYPE_CODE_STRUCT:    return "STRUCT";
-    case bitc::TYPE_CODE_ARRAY:     return "ARRAY";
-    case bitc::TYPE_CODE_VECTOR:    return "VECTOR";
-    case bitc::TYPE_CODE_X86_FP80:  return "X86_FP80";
-    case bitc::TYPE_CODE_FP128:     return "FP128";
-    case bitc::TYPE_CODE_PPC_FP128: return "PPC_FP128";
-    case bitc::TYPE_CODE_METADATA:  return "METADATA";
+    case bitc::TYPE_CODE_NUMENTRY:     return "NUMENTRY";
+    case bitc::TYPE_CODE_VOID:         return "VOID";
+    case bitc::TYPE_CODE_FLOAT:        return "FLOAT";
+    case bitc::TYPE_CODE_DOUBLE:       return "DOUBLE";
+    case bitc::TYPE_CODE_LABEL:        return "LABEL";
+    case bitc::TYPE_CODE_OPAQUE:       return "OPAQUE";
+    case bitc::TYPE_CODE_INTEGER:      return "INTEGER";
+    case bitc::TYPE_CODE_POINTER:      return "POINTER";
+    case bitc::TYPE_CODE_FUNCTION_OLD: return "FUNCTION_OLD";
+    case bitc::TYPE_CODE_STRUCT_OLD:   return "STRUCT_OLD";
+    case bitc::TYPE_CODE_ARRAY:        return "ARRAY";
+    case bitc::TYPE_CODE_VECTOR:       return "VECTOR";
+    case bitc::TYPE_CODE_X86_FP80:     return "X86_FP80";
+    case bitc::TYPE_CODE_FP128:        return "FP128";
+    case bitc::TYPE_CODE_PPC_FP128:    return "PPC_FP128";
+    case bitc::TYPE_CODE_METADATA:     return "METADATA";
+    case bitc::TYPE_CODE_STRUCT_ANON:  return "STRUCT_ANON";
+    case bitc::TYPE_CODE_STRUCT_NAME:  return "STRUCT_NAME";
+    case bitc::TYPE_CODE_STRUCT_NAMED: return "STRUCT_NAMED";
+    case bitc::TYPE_CODE_FUNCTION:     return "FUNCTION";
     }
 
   case bitc::CONSTANTS_BLOCK_ID:
@@ -224,23 +236,19 @@ static const char *GetCodeName(unsigned CodeID, unsigned BlockID,
     case bitc::FUNC_CODE_INST_UNREACHABLE:  return "INST_UNREACHABLE";
 
     case bitc::FUNC_CODE_INST_PHI:          return "INST_PHI";
-    case bitc::FUNC_CODE_INST_MALLOC:       return "INST_MALLOC";
-    case bitc::FUNC_CODE_INST_FREE:         return "INST_FREE";
     case bitc::FUNC_CODE_INST_ALLOCA:       return "INST_ALLOCA";
     case bitc::FUNC_CODE_INST_LOAD:         return "INST_LOAD";
-    case bitc::FUNC_CODE_INST_STORE:        return "INST_STORE";
-    case bitc::FUNC_CODE_INST_CALL:         return "INST_CALL";
     case bitc::FUNC_CODE_INST_VAARG:        return "INST_VAARG";
-    case bitc::FUNC_CODE_INST_STORE2:       return "INST_STORE2";
-    case bitc::FUNC_CODE_INST_GETRESULT:    return "INST_GETRESULT";
+    case bitc::FUNC_CODE_INST_STORE:        return "INST_STORE";
     case bitc::FUNC_CODE_INST_EXTRACTVAL:   return "INST_EXTRACTVAL";
     case bitc::FUNC_CODE_INST_INSERTVAL:    return "INST_INSERTVAL";
     case bitc::FUNC_CODE_INST_CMP2:         return "INST_CMP2";
     case bitc::FUNC_CODE_INST_VSELECT:      return "INST_VSELECT";
-    case bitc::FUNC_CODE_DEBUG_LOC:         return "DEBUG_LOC";
     case bitc::FUNC_CODE_DEBUG_LOC_AGAIN:   return "DEBUG_LOC_AGAIN";
+    case bitc::FUNC_CODE_INST_CALL:         return "INST_CALL";
+    case bitc::FUNC_CODE_DEBUG_LOC:         return "DEBUG_LOC";
     }
-  case bitc::TYPE_SYMTAB_BLOCK_ID:
+  case bitc::TYPE_SYMTAB_BLOCK_ID_OLD:
     switch (CodeID) {
     default: return 0;
     case bitc::TST_CODE_ENTRY: return "ENTRY";
@@ -254,18 +262,17 @@ static const char *GetCodeName(unsigned CodeID, unsigned BlockID,
   case bitc::METADATA_ATTACHMENT_ID:
     switch(CodeID) {
     default:return 0;
-    case bitc::METADATA_ATTACHMENT:  return "METADATA_ATTACHMENT";
+    case bitc::METADATA_ATTACHMENT: return "METADATA_ATTACHMENT";
     }
   case bitc::METADATA_BLOCK_ID:
     switch(CodeID) {
     default:return 0;
-    case bitc::METADATA_STRING:      return "MDSTRING";
-    case bitc::METADATA_NODE:        return "MDNODE";
-    case bitc::METADATA_FN_NODE:     return "FN_MDNODE";
+    case bitc::METADATA_STRING:      return "METADATA_STRING";
     case bitc::METADATA_NAME:        return "METADATA_NAME";
-    case bitc::METADATA_NAMED_NODE:  return "NAMEDMDNODE";
     case bitc::METADATA_KIND:        return "METADATA_KIND";
-    case bitc::METADATA_ATTACHMENT:  return "METADATA_ATTACHMENT";
+    case bitc::METADATA_NODE:        return "METADATA_NODE";
+    case bitc::METADATA_FN_NODE:     return "METADATA_FN_NODE";
+    case bitc::METADATA_NAMED_NODE:  return "METADATA_NAMED_NODE";
     }
   }
 }
@@ -459,21 +466,22 @@ static bool ParseBlock(BitstreamCursor &Stream, unsigned IndentLevel) {
 }
 
 static void PrintSize(double Bits) {
-  fprintf(stderr, "%.2f/%.2fB/%lluW", Bits, Bits/8,(unsigned long long)Bits/32);
+  fprintf(stderr, "%.2f/%.2fB/%luW", Bits, Bits/8,(unsigned long)(Bits/32));
 }
 static void PrintSize(uint64_t Bits) {
-  fprintf(stderr, "%llub/%.2fB/%lluW", (unsigned long long)Bits,
-          (double)Bits/8, (unsigned long long)Bits/32);
+  fprintf(stderr, "%lub/%.2fB/%luW", (unsigned long)Bits,
+          (double)Bits/8, (unsigned long)(Bits/32));
 }
 
 
 /// AnalyzeBitcode - Analyze the bitcode file specified by InputFilename.
 static int AnalyzeBitcode() {
   // Read the input file.
-  MemoryBuffer *MemBuf = MemoryBuffer::getFileOrSTDIN(InputFilename.c_str());
+  OwningPtr<MemoryBuffer> MemBuf;
 
-  if (MemBuf == 0)
-    return Error("Error reading '" + InputFilename + "'.");
+  if (error_code ec =
+        MemoryBuffer::getFileOrSTDIN(InputFilename.c_str(), MemBuf))
+    return Error("Error reading '" + InputFilename + "': " + ec.message());
 
   if (MemBuf->getBufferSize() & 3)
     return Error("Bitcode stream should be a multiple of 4 bytes in length");
@@ -588,8 +596,8 @@ static int AnalyzeBitcode() {
       for (unsigned i = 0, e = FreqPairs.size(); i != e; ++i) {
         const PerRecordStats &RecStats = Stats.CodeFreq[FreqPairs[i].second];
 
-        fprintf(stderr, "\t\t%7d %9llu ", RecStats.NumInstances,
-                (unsigned long long)RecStats.TotalBits);
+        fprintf(stderr, "\t\t%7d %9lu ", RecStats.NumInstances,
+                (unsigned long)RecStats.TotalBits);
 
         if (RecStats.NumAbbrev)
           fprintf(stderr, "%7.2f  ",

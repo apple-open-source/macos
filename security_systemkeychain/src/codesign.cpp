@@ -79,6 +79,9 @@ bool noMachO = false;				// force non-MachO operation
 bool dryrun = false;				// do not actually change anything
 bool allArchitectures = false;		// process all architectures in a universal (aka fat) code file
 int preserveMetadata = 0;			// what metadata to keep from previous signature
+CFBooleanRef timestampRequest = NULL; // timestamp service request
+bool noTSAcerts = false;			// Don't request certificates with ts request
+const char *tsaURL = NULL;			// TimeStamping Authority URL
 
 
 //
@@ -110,6 +113,7 @@ enum {
 	optAllArchitectures,
 	optBundleVersion,
 	optCheckExpiration,
+	optCheckRevocation,
 	optContinue,
 	optDeepVerify,
 	optDetachedDatabase,
@@ -131,6 +135,8 @@ enum {
 	optSDKRoot,
 	optSigningTime,
 	optSignatureSize,
+    optTimestamp,
+    optTSANoCerts
 };
 
 const struct option options[] = {
@@ -153,6 +159,7 @@ const struct option options[] = {
 	{ "all-architectures", no_argument,		NULL, optAllArchitectures },
 	{ "bundle-version", required_argument,	NULL, optBundleVersion },
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
+	{ "check-revocation", no_argument,		NULL, optCheckRevocation },
 	{ "continue",	no_argument,			NULL, optContinue },
 	{ "deep-verify", no_argument,			NULL, optDeepVerify },
 	{ "detached-database", optional_argument, NULL, optDetachedDatabase },
@@ -172,9 +179,12 @@ const struct option options[] = {
 	{ "procinfo",	no_argument,			NULL, optProcInfo },
 	{ "remove-signature", no_argument,		NULL, optRemoveSignature },
 	{ "resource-rules", required_argument,	NULL, optResourceRules },
+	{ "revoked", no_argument,				NULL, optCheckRevocation },
 	{ "sdkroot", required_argument,			NULL, optSDKRoot },
 	{ "signature-size", required_argument,	NULL, optSignatureSize },
 	{ "signing-time", required_argument,	NULL, optSigningTime },
+	{ "timestamp",	optional_argument,		NULL, optTimestamp },
+	{ "no-tsa-certs",	no_argument,		NULL, optTSANoCerts },
 	{ }
 };
 
@@ -214,7 +224,7 @@ int main(int argc, char *argv[])
 				break;
 			case 'P':
 				{
-					if (pagesize = atol(optarg)) {
+					if ((pagesize = atol(optarg))) {
 						int pslog;
 						if (frexp(pagesize, &pslog) != 0.5)
 							fail("page size must be a power of two");
@@ -252,6 +262,10 @@ int main(int argc, char *argv[])
 			case optCheckExpiration:
 				staticVerifyOptions |= kSecCSConsiderExpiration;
 				dynamicVerifyOptions |= kSecCSConsiderExpiration;
+				break;
+			case optCheckRevocation:
+				staticVerifyOptions |= kSecCSEnforceRevocationChecks;
+				dynamicVerifyOptions |= kSecCSEnforceRevocationChecks;
 				break;
 			case optContinue:
 				continueOnError = true;
@@ -303,6 +317,17 @@ int main(int argc, char *argv[])
 				break;
 			case optNoMachO:
 				noMachO = true;
+				break;
+			case optTimestamp:
+				if (optarg && !strcmp(optarg, "none")) {	// explicit defeat
+					timestampRequest = kCFBooleanFalse;
+				} else {
+					timestampRequest = kCFBooleanTrue;
+					tsaURL = optarg;
+				}
+				break;
+            case optTSANoCerts:
+ 				noTSAcerts = true;
 				break;
 			case optPreserveMetadata:
 				preserveMetadata = parseMetadataFlags(optarg);

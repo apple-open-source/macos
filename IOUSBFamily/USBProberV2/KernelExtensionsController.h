@@ -26,6 +26,7 @@
 #import <Cocoa/Cocoa.h>
 #import "KextInfoGatherer.h"
 #import "TableViewWithCopying.h"
+#import "ExtensionSelector.h"
 
 @interface KernelExtensionsController : NSObject
 {

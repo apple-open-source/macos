@@ -50,6 +50,7 @@
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -63,8 +64,9 @@ char ELFWriter::ID = 0;
 //===----------------------------------------------------------------------===//
 
 ELFWriter::ELFWriter(raw_ostream &o, TargetMachine &tm)
-  : MachineFunctionPass(&ID), O(o), TM(tm),
-    OutContext(*new MCContext(*TM.getMCAsmInfo())),
+  : MachineFunctionPass(ID), O(o), TM(tm),
+    OutContext(*new MCContext(*TM.getMCAsmInfo(), *TM.getRegisterInfo(),
+                              &TM.getTargetLowering()->getObjFileLowering())),
     TLOF(TM.getTargetLowering()->getObjFileLowering()),
     is64Bit(TM.getTargetData()->getPointerSizeInBits() == 64),
     isLittleEndian(TM.getTargetData()->isLittleEndian()),
@@ -76,7 +78,7 @@ ELFWriter::ELFWriter(raw_ostream &o, TargetMachine &tm)
   // Create the object code emitter object for this target.
   ElfCE = new ELFCodeEmitter(*this);
 
-  // Inital number of sections
+  // Initial number of sections
   NumSections = 0;
 }
 
@@ -129,12 +131,12 @@ bool ELFWriter::doInitialization(Module &M) {
 
   ElfHdr.emitByte(TEW->getEIClass()); // e_ident[EI_CLASS]
   ElfHdr.emitByte(TEW->getEIData());  // e_ident[EI_DATA]
-  ElfHdr.emitByte(EV_CURRENT);        // e_ident[EI_VERSION]
+  ElfHdr.emitByte(ELF::EV_CURRENT);   // e_ident[EI_VERSION]
   ElfHdr.emitAlignment(16);           // e_ident[EI_NIDENT-EI_PAD]
 
-  ElfHdr.emitWord16(ET_REL);             // e_type
+  ElfHdr.emitWord16(ELF::ET_REL);        // e_type
   ElfHdr.emitWord16(TEW->getEMachine()); // e_machine = target
-  ElfHdr.emitWord32(EV_CURRENT);         // e_version
+  ElfHdr.emitWord32(ELF::EV_CURRENT);    // e_version
   ElfHdr.emitWord(0);                    // e_entry, no entry point in .o file
   ElfHdr.emitWord(0);                    // e_phoff, no program header for .o
   ELFHdr_e_shoff_Offset = ElfHdr.size();
@@ -252,7 +254,7 @@ ELFSection &ELFWriter::getConstantPoolSection(MachineConstantPoolEntry &CPE) {
 // is true if the relocation section contains entries with addends.
 ELFSection &ELFWriter::getRelocSection(ELFSection &S) {
   unsigned SectionType = TEW->hasRelocationAddend() ?
-                ELFSection::SHT_RELA : ELFSection::SHT_REL;
+                ELF::SHT_RELA : ELF::SHT_REL;
 
   std::string SectionName(".rel");
   if (TEW->hasRelocationAddend())
@@ -268,11 +270,11 @@ unsigned ELFWriter::getGlobalELFVisibility(const GlobalValue *GV) {
   default:
     llvm_unreachable("unknown visibility type");
   case GlobalValue::DefaultVisibility:
-    return ELFSym::STV_DEFAULT;
+    return ELF::STV_DEFAULT;
   case GlobalValue::HiddenVisibility:
-    return ELFSym::STV_HIDDEN;
+    return ELF::STV_HIDDEN;
   case GlobalValue::ProtectedVisibility:
-    return ELFSym::STV_PROTECTED;
+    return ELF::STV_PROTECTED;
   }
   return 0;
 }
@@ -280,23 +282,23 @@ unsigned ELFWriter::getGlobalELFVisibility(const GlobalValue *GV) {
 // getGlobalELFBinding - Returns the ELF specific binding type
 unsigned ELFWriter::getGlobalELFBinding(const GlobalValue *GV) {
   if (GV->hasInternalLinkage())
-    return ELFSym::STB_LOCAL;
+    return ELF::STB_LOCAL;
 
   if (GV->isWeakForLinker() && !GV->hasCommonLinkage())
-    return ELFSym::STB_WEAK;
+    return ELF::STB_WEAK;
 
-  return ELFSym::STB_GLOBAL;
+  return ELF::STB_GLOBAL;
 }
 
 // getGlobalELFType - Returns the ELF specific type for a global
 unsigned ELFWriter::getGlobalELFType(const GlobalValue *GV) {
   if (GV->isDeclaration())
-    return ELFSym::STT_NOTYPE;
+    return ELF::STT_NOTYPE;
 
   if (isa<Function>(GV))
-    return ELFSym::STT_FUNC;
+    return ELF::STT_FUNC;
 
-  return ELFSym::STT_OBJECT;
+  return ELF::STT_OBJECT;
 }
 
 // IsELFUndefSym - True if the global value must be marked as a symbol
@@ -326,6 +328,18 @@ void ELFWriter::AddToSymbolList(ELFSym *GblSym) {
     GblSymLookup[GV] = 0;
   }
 }
+
+/// HasCommonSymbols - True if this section holds common symbols, this is
+/// indicated on the ELF object file by a symbol with SHN_COMMON section
+/// header index.
+static bool HasCommonSymbols(const MCSectionELF &S) {
+  // FIXME: this is wrong, a common symbol can be in .data for example.
+  if (StringRef(S.getSectionName()).startswith(".gnu.linkonce."))
+    return true;
+
+  return false;
+}
+
 
 // EmitGlobal - Choose the right section for global and emit it
 void ELFWriter::EmitGlobal(const GlobalValue *GV) {
@@ -363,8 +377,8 @@ void ELFWriter::EmitGlobal(const GlobalValue *GV) {
     unsigned Size = TD->getTypeAllocSize(GVar->getInitializer()->getType());
     GblSym->Size = Size;
 
-    if (S->HasCommonSymbols()) { // Symbol must go to a common section
-      GblSym->SectionIdx = ELFSection::SHN_COMMON;
+    if (HasCommonSymbols(*S)) { // Symbol must go to a common section
+      GblSym->SectionIdx = ELF::SHN_COMMON;
 
       // A new linkonce section is created for each global in the
       // common section, the default alignment is 1 and the symbol
@@ -469,7 +483,7 @@ void ELFWriter::EmitGlobalConstant(const Constant *CV, ELFSection &GblS) {
       EmitGlobalConstantLargeInt(CI, GblS);
     return;
   } else if (const ConstantVector *CP = dyn_cast<ConstantVector>(CV)) {
-    const VectorType *PTy = CP->getType();
+    VectorType *PTy = CP->getType();
     for (unsigned I = 0, E = PTy->getNumElements(); I < E; ++I)
       EmitGlobalConstant(CP->getOperand(I), GblS);
     return;
@@ -527,8 +541,7 @@ CstExprResTy ELFWriter::ResolveConstantExpr(const Constant *CV) {
   case Instruction::GetElementPtr: {
     const Constant *ptrVal = CE->getOperand(0);
     SmallVector<Value*, 8> idxVec(CE->op_begin()+1, CE->op_end());
-    int64_t Offset = TD->getIndexedOffset(ptrVal->getType(), &idxVec[0],
-                                          idxVec.size());
+    int64_t Offset = TD->getIndexedOffset(ptrVal->getType(), idxVec);
     return std::make_pair(ptrVal, Offset);
   }
   case Instruction::IntToPtr: {
@@ -539,7 +552,7 @@ CstExprResTy ELFWriter::ResolveConstantExpr(const Constant *CV) {
   }
   case Instruction::PtrToInt: {
     Constant *Op = CE->getOperand(0);
-    const Type *Ty = CE->getType();
+    Type *Ty = CE->getType();
 
     // We can emit the pointer value into this slot if the slot is an
     // integer slot greater or equal to the size of the pointer.
@@ -646,20 +659,22 @@ bool ELFWriter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
 
 /// EmitXXStructorList - Emit the ctor or dtor list.  This just emits out the 
 /// function pointers, ignoring the init priority.
-void ELFWriter::EmitXXStructorList(Constant *List, ELFSection &Xtor) {
-  // Should be an array of '{ int, void ()* }' structs.  The first value is the
+void ELFWriter::EmitXXStructorList(const Constant *List, ELFSection &Xtor) {
+  // Should be an array of '{ i32, void ()* }' structs.  The first value is the
   // init priority, which we ignore.
-  if (!isa<ConstantArray>(List)) return;
-  ConstantArray *InitList = cast<ConstantArray>(List);
-  for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i)
-    if (ConstantStruct *CS = dyn_cast<ConstantStruct>(InitList->getOperand(i))){
-      if (CS->getNumOperands() != 2) return;  // Not array of 2-element structs.
+  if (List->isNullValue()) return;
+  const ConstantArray *InitList = cast<ConstantArray>(List);
+  for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
+    if (InitList->getOperand(i)->isNullValue())
+      continue;
+    ConstantStruct *CS = cast<ConstantStruct>(InitList->getOperand(i));
 
-      if (CS->getOperand(1)->isNullValue())
-        return;  // Found a null terminator, exit printing.
-      // Emit the function pointer.
-      EmitGlobalConstant(CS->getOperand(1), Xtor);
-    }
+    if (CS->getOperand(1)->isNullValue())
+      continue;
+
+    // Emit the function pointer.
+    EmitGlobalConstant(CS->getOperand(1), Xtor);
+  }
 }
 
 bool ELFWriter::runOnMachineFunction(MachineFunction &MF) {

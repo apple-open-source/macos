@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*!
+/*
  * @header IOBDBlockStorageDriver
  * @abstract
  * This header contains the IOBDBlockStorageDriver class definition.
@@ -39,7 +39,7 @@
 #include <IOKit/storage/IOBDBlockStorageDevice.h>
 #include <IOKit/storage/IODVDBlockStorageDriver.h>
 
-/*!
+/*
  * @defined kIOBDBlockStorageDriverClass
  * @abstract
  * kIOBDBlockStorageDriverClass is the name of the IOBDBlockStorageDriver class.
@@ -49,7 +49,7 @@
 
 #define kIOBDBlockStorageDriverClass "IOBDBlockStorageDriver"
 
-/*!
+/*
  * @class
  * IOBDBlockStorageDriver
  * @abstract
@@ -119,7 +119,7 @@ public:
 
     /* End of IODVDBlockStorageDriver overrides. */
 
-    /*!
+    /*
      * @function splitTrack
      * @discussion
      * Issue an MMC RESERVE TRACK command with the ARSV bit.

@@ -39,7 +39,8 @@ namespace {
   public:
     static char ID; // Class identification, replacement for typeinfo
     explicit ProfileEstimatorPass(const double execcount = 0)
-      : FunctionPass(&ID), ExecCount(execcount) {
+        : FunctionPass(ID), ExecCount(execcount) {
+      initializeProfileEstimatorPassPass(*PassRegistry::getPassRegistry());
       if (execcount == 0) ExecCount = LoopWeight;
     }
 
@@ -59,8 +60,8 @@ namespace {
     /// an analysis interface through multiple inheritance.  If needed, it
     /// should override this to adjust the this pointer as needed for the
     /// specified pass info.
-    virtual void *getAdjustedAnalysisPointer(const PassInfo *PI) {
-      if (PI->isPassID(&ProfileInfo::ID))
+    virtual void *getAdjustedAnalysisPointer(AnalysisID PI) {
+      if (PI == &ProfileInfo::ID)
         return (ProfileInfo*)this;
       return this;
     }
@@ -72,13 +73,14 @@ namespace {
 }  // End of anonymous namespace
 
 char ProfileEstimatorPass::ID = 0;
-static RegisterPass<ProfileEstimatorPass>
-X("profile-estimator", "Estimate profiling information", false, true);
-
-static RegisterAnalysisGroup<ProfileInfo> Y(X);
+INITIALIZE_AG_PASS_BEGIN(ProfileEstimatorPass, ProfileInfo, "profile-estimator",
+                "Estimate profiling information", false, true, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_AG_PASS_END(ProfileEstimatorPass, ProfileInfo, "profile-estimator",
+                "Estimate profiling information", false, true, false)
 
 namespace llvm {
-  const PassInfo *ProfileEstimatorPassID = &X;
+  char &ProfileEstimatorPassID = ProfileEstimatorPass::ID;
 
   FunctionPass *createProfileEstimatorPass() {
     return new ProfileEstimatorPass();
@@ -138,7 +140,7 @@ void ProfileEstimatorPass::recurseBasicBlock(BasicBlock *BB) {
     // loop, thus the edge is a backedge, continue and do not check if the
     // value is valid.
     if (BBisHeader && BBLoop->contains(*bbi)) {
-      printEdgeError(edge, "but is backedge, continueing");
+      printEdgeError(edge, "but is backedge, continuing");
       continue;
     }
     // If the edges value is missing (and this is no loop header, and this is
@@ -321,6 +323,7 @@ bool ProfileEstimatorPass::runOnFunction(Function &F) {
   FunctionInformation.erase(&F);
   BlockInformation[&F].clear();
   EdgeInformation[&F].clear();
+  BBToVisit.clear();
 
   // Mark all blocks as to visit.
   for (Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi)

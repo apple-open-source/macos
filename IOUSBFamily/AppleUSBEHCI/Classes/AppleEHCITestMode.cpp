@@ -25,19 +25,30 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "AppleUSBEHCI.h"
+#include "USBEHCI.h"
 
-// these could go in some public header, or can just be copied by hand
-enum
+
+#ifdef SUPPORTS_SS_USB
+void
+AppleUSBEHCI::SwitchMuxes(UInt8	numPorts, UInt32 type)
 {
-    kEHCITestMode_Off		= 0,
-    kEHCITestMode_J_State	= 1,
-    kEHCITestMode_K_State 	= 2,
-    kEHCITestMode_SE0_NAK	= 3,
-    kEHCITestMode_Packet	= 4,
-    kEHCITestMode_ForceEnable	= 5,
-    kEHCITestMode_Start		= 10,
-    kEHCITestMode_End		= 11
-};
+	int		i;
+
+	if( _xhciController )
+	{
+		USBLog(1, "AppleUSBEHCI[%p]::SwitchMuxes found AppleUSBXHCI %p sending %p numPorts %d", this, _xhciController, (void*)type, numPorts);
+		
+		for (i=0; i < numPorts; i++)
+		{
+			_xhciController->message(type, _device, (void*)i);
+		}
+	}
+	else
+	{
+		USBLog(1, "AppleUSBEHCI[%p]::SwitchMuxes could not discover AppleUSBXHCI dropping %p message", this, (void*)type);
+	}
+}
+#endif
 
 IOReturn
 AppleUSBEHCI::EnterTestMode()
@@ -47,8 +58,19 @@ AppleUSBEHCI::EnterTestMode()
     int		i;
     
     USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode",  this);
+	
+    // suspend all enabled ports
+    GetNumberOfPorts(&numPorts);
+	
     // see section 4.14 of the EHCI spec
-    
+	
+#ifdef SUPPORTS_SS_USB
+	if ( _xhciController )
+	{
+		SwitchMuxes(numPorts, kIOUSBMessageMuxFromXHCIToEHCI);
+	}
+#endif
+	
     // disable the periodic and async schedules
     usbcmd = USBToHostLong(_pEHCIRegisters->USBCMD);
     usbcmd &= ~kEHCICMDAsyncEnable;
@@ -56,28 +78,26 @@ AppleUSBEHCI::EnterTestMode()
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
     USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - async and periodic lists disabled",  this);
     
-    // suspend all enabled ports
-    GetNumberOfPorts(&numPorts);
     USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - suspending %d ports",  this, numPorts);
     for (i=0; i < numPorts; i++)
     {
-	UInt32 portStat;
-	portStat = USBToHostLong(_pEHCIRegisters->PortSC[i]);
-	if (portStat & kEHCIPortSC_Owner)
-	{
-	    USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - port %d owned by OHCI",  this, i);
-	    // should i return an error here? probably not
-	}
-	else if (portStat & kEHCIPortSC_Enabled)
-	{
-	    portStat |= kEHCIPortSC_Suspend;
-	    _pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
-	    USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - port %d now suspended",  this, i);
-	}
-	else
-	{
-	    USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - port %d not enabled",  this, i);
-	}
+		UInt32 portStat;
+		portStat = USBToHostLong(_pEHCIRegisters->PortSC[i]);
+		if (portStat & kEHCIPortSC_Owner)
+		{
+			USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - port %d owned by OHCI",  this, i);
+			// should i return an error here? probably not
+		}
+		else if (portStat & kEHCIPortSC_Enabled)
+		{
+			portStat |= kEHCIPortSC_Suspend;
+			_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
+			USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - port %d now suspended",  this, i);
+		}
+		else
+		{
+			USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - port %d not enabled",  this, i);
+		}
     }
     
     // set run/stop
@@ -142,6 +162,8 @@ AppleUSBEHCI::PlacePortInMode(UInt32 port, UInt32 mode)
 IOReturn
 AppleUSBEHCI::LeaveTestMode()
 {
+    int		i;
+
     UInt32	usbcmd, usbsts;
     USBLog(1, "AppleUSBEHCI[%p]::LeaveTestMode",  this);
     // see section 4.14 of the EHCI spec
@@ -153,6 +175,13 @@ AppleUSBEHCI::LeaveTestMode()
     if (!(usbsts & kEHCIHCHaltedBit))
 	return kIOReturnInternalError;
     
+#ifdef SUPPORTS_SS_USB
+	if ( _xhciController )
+	{
+		SwitchMuxes(_rootHubNumPorts, kIOUSBMessageMuxFromEHCIToXHCI);
+	}
+#endif
+	
     // place controller in reset
     usbcmd |= kEHCICMDHCReset;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
@@ -176,6 +205,24 @@ AppleUSBEHCI::UIMSetTestMode(UInt32 mode, UInt32 port)
     
     switch (mode)
     {
+#ifdef SUPPORTS_SS_USB
+    case kEHCITestMode_SwitchMuxesToEHCI:
+        if ( _xhciController )
+        {
+            // port is the number of ports in built-in hub
+            SwitchMuxes(port, kIOUSBMessageMuxFromXHCIToEHCI);
+        }
+        break;
+
+    case kEHCITestMode_SwitchMuxesToXHCI:
+        if ( _xhciController )
+        {
+            // port is the number of ports in built-in hub
+            SwitchMuxes(port, kIOUSBMessageMuxFromEHCIToXHCI);
+        }
+        break;
+#endif
+
 	case kEHCITestMode_Off:
 	case kEHCITestMode_J_State:
 	case kEHCITestMode_K_State:
@@ -197,3 +244,4 @@ AppleUSBEHCI::UIMSetTestMode(UInt32 mode, UInt32 port)
 
     return ret;
 }
+

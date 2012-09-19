@@ -79,7 +79,17 @@ provider codesign {
 
 
 provider syspolicy {
-	probe assess_api(const char *path, uint32_t flags);
+	probe assess_api(const char *path, int type, uint64_t flags);
+	
+	probe assess__outcome__accept(const char *path, int type, const char *label, const void *cdhash);
+	probe assess__outcome__deny(const char *path, int type, const char *label, const void *cdhash);
+	probe assess__outcome__default(const char *path, int type, const char *label, const void *cdhash);
+	probe assess__outcome__unsigned(const char *path, int type);
+	probe assess__outcome__broken(const char *path, int type, bool exception_made);
+
+	probe recorder_mode(const char *path, int type, const char *label, const void *cdhash, int flags);
+	probe recorder_mode_adhoc_path(const char *path, int type, const char *sig_path);	// path containing adhoc signature recorded
+	
 	probe assess_cache_hit();
 	probe assess_local();
 	probe assess_remote();

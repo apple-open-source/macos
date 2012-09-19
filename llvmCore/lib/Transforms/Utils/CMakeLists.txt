@@ -5,7 +5,6 @@ add_llvm_library(LLVMTransformUtils
   BreakCriticalEdges.cpp
   BuildLibCalls.cpp
   CloneFunction.cpp
-  CloneLoop.cpp
   CloneModule.cpp
   CodeExtractor.cpp
   DemoteRegToStack.cpp
@@ -15,15 +14,25 @@ add_llvm_library(LLVMTransformUtils
   Local.cpp
   LoopSimplify.cpp
   LoopUnroll.cpp
+  LowerExpectIntrinsic.cpp
   LowerInvoke.cpp
   LowerSwitch.cpp
   Mem2Reg.cpp
+  ModuleUtils.cpp
   PromoteMemoryToRegister.cpp
   SSAUpdater.cpp
-  SSI.cpp
   SimplifyCFG.cpp
+  SimplifyIndVar.cpp
+  SimplifyInstructions.cpp
   UnifyFunctionExitNodes.cpp
+  Utils.cpp
   ValueMapper.cpp
   )
 
-target_link_libraries (LLVMTransformUtils LLVMSupport)
+add_llvm_library_dependencies(LLVMTransformUtils
+  LLVMAnalysis
+  LLVMCore
+  LLVMSupport
+  LLVMTarget
+  LLVMipa
+  )

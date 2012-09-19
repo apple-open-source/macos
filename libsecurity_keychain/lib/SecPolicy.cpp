@@ -45,8 +45,10 @@ SEC_CONST_DECL (kSecPolicyAppleiChat, "1.2.840.113635.100.1.12");
 SEC_CONST_DECL (kSecPolicyApplePKINITClient, "1.2.840.113635.100.1.14");
 SEC_CONST_DECL (kSecPolicyApplePKINITServer, "1.2.840.113635.100.1.15");
 SEC_CONST_DECL (kSecPolicyAppleCodeSigning, "1.2.840.113635.100.1.16");
-SEC_CONST_DECL (kSecPolicyMacAppStoreReceipt, "1.2.840.113635.100.1.17");
+SEC_CONST_DECL (kSecPolicyApplePackageSigning, "1.2.840.113635.100.1.17");
 SEC_CONST_DECL (kSecPolicyAppleIDValidation, "1.2.840.113635.100.1.18");
+SEC_CONST_DECL (kSecPolicyMacAppStoreReceipt, "1.2.840.113635.100.1.19");
+SEC_CONST_DECL (kSecPolicyAppleTimeStamping, "1.2.840.113635.100.1.20");
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
@@ -256,7 +258,8 @@ SecPolicyCreateWithOID(CFTypeRef policyOID)
 		kSecPolicyApplePKINITServer, &CSSMOID_APPLE_TP_PKINIT_SERVER,
 		kSecPolicyAppleCodeSigning, &CSSMOID_APPLE_TP_CODE_SIGNING,
 		kSecPolicyMacAppStoreReceipt, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT,
-		kSecPolicyAppleIDValidation, &CSSMOID_APPLE_TP_APPLEID_SHARING
+		kSecPolicyAppleIDValidation, &CSSMOID_APPLE_TP_APPLEID_SHARING,
+		kSecPolicyAppleTimeStamping, &CSSMOID_APPLE_TP_TIMESTAMPING
 	};
 	unsigned int i, oidmaplen = sizeof(oidmap) / sizeof(oidmap[0]);
 	for (i=0; i<oidmaplen*2; i+=2) {

@@ -14,6 +14,7 @@
 				C26AC0F0143BCF18001C98CE /* ShellScript */,
 				C26AC0F4143BD1C4001C98CE /* CopyFiles */,
 				C2F24DFE14BCBBF200309FCD /* ShellScript */,
+				C24826BD159911A20082B10B /* CopyFiles */,
 			);
 			dependencies = (
 			);
@@ -71,6 +72,12 @@
 		C22463610B86210100626F1B /* antlrplugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2CC31130B85254F005FA59D /* antlrplugin.cpp */; };
 		C236E3D70AD59446000F5140 /* signer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D50AD59446000F5140 /* signer.cpp */; };
 		C236E3DB0AD595C2000F5140 /* signerutils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D90AD595C2000F5140 /* signerutils.cpp */; };
+		C24826C6159911F40082B10B /* gkclear in CopyFiles */ = {isa = PBXBuildFile; fileRef = C24826BF159911CF0082B10B /* gkclear */; };
+		C24826C7159911F40082B10B /* gkgenerate in CopyFiles */ = {isa = PBXBuildFile; fileRef = C24826C0159911CF0082B10B /* gkgenerate */; };
+		C24826C8159911F40082B10B /* gkhandmake in CopyFiles */ = {isa = PBXBuildFile; fileRef = C24826C1159911CF0082B10B /* gkhandmake */; };
+		C24826C9159911F40082B10B /* gklist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C24826C2159911CF0082B10B /* gklist */; };
+		C24826CA159911F40082B10B /* gkmerge in CopyFiles */ = {isa = PBXBuildFile; fileRef = C24826C3159911CF0082B10B /* gkmerge */; };
+		C24826CB159911F40082B10B /* gkrecord in CopyFiles */ = {isa = PBXBuildFile; fileRef = C24826C4159911CF0082B10B /* gkrecord */; };
 		C24EABAB1421432800C16AA9 /* policydb.h in Headers */ = {isa = PBXBuildFile; fileRef = C24EABAA1421432800C16AA9 /* policydb.h */; };
 		C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C24EABAC1421433700C16AA9 /* policydb.cpp */; };
 		C250F6C30B5EF1910076098F /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; };
@@ -189,6 +196,8 @@
 		C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F4439914C626D4000A01E6 /* quarantine++.h */; };
 		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
 		C2F656930BCBFFF40078779E /* cserror.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F6566D0BCBFB250078779E /* cserror.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB5B6856156E4FEE0067635E /* drmaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB5B684E156E492D0067635E /* drmaker.cpp */; };
+		EB5B6857156E4FEE0067635E /* drmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5B684F156E492D0067635E /* drmaker.h */; };
 		FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB30C9210DAC89D00557BA2 /* SecTask.c */; };
 		FEB30C9E10DAC8FD00557BA2 /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = FEB30C9410DAC8A500557BA2 /* SecTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FEB30CA310DAC91800557BA2 /* SecTask.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEB30C9410DAC8A500557BA2 /* SecTask.h */; };
@@ -284,6 +293,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C24826BD159911A20082B10B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/bin;
+			dstSubfolderSpec = 0;
+			files = (
+				C24826C6159911F40082B10B /* gkclear in CopyFiles */,
+				C24826C7159911F40082B10B /* gkgenerate in CopyFiles */,
+				C24826C8159911F40082B10B /* gkhandmake in CopyFiles */,
+				C24826C9159911F40082B10B /* gklist in CopyFiles */,
+				C24826CA159911F40082B10B /* gkmerge in CopyFiles */,
+				C24826CB159911F40082B10B /* gkrecord in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		C26AC0F4143BD1C4001C98CE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -331,6 +355,12 @@
 		C236E3D60AD59446000F5140 /* signer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signer.h; sourceTree = "<group>"; };
 		C236E3D90AD595C2000F5140 /* signerutils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = signerutils.cpp; sourceTree = "<group>"; };
 		C236E3DA0AD595C2000F5140 /* signerutils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signerutils.h; sourceTree = "<group>"; };
+		C24826BF159911CF0082B10B /* gkclear */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkclear; path = gke/gkclear; sourceTree = SOURCE_ROOT; };
+		C24826C0159911CF0082B10B /* gkgenerate */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkgenerate; path = gke/gkgenerate; sourceTree = SOURCE_ROOT; };
+		C24826C1159911CF0082B10B /* gkhandmake */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkhandmake; path = gke/gkhandmake; sourceTree = SOURCE_ROOT; };
+		C24826C2159911CF0082B10B /* gklist */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gklist; path = gke/gklist; sourceTree = SOURCE_ROOT; };
+		C24826C3159911CF0082B10B /* gkmerge */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkmerge; path = gke/gkmerge; sourceTree = SOURCE_ROOT; };
+		C24826C4159911CF0082B10B /* gkrecord */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkrecord; path = gke/gkrecord; sourceTree = SOURCE_ROOT; };
 		C24EABAA1421432800C16AA9 /* policydb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policydb.h; sourceTree = "<group>"; };
 		C24EABAC1421433700C16AA9 /* policydb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = policydb.cpp; sourceTree = "<group>"; };
 		C250F6C20B5EF1910076098F /* SecIntegrity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrity.h; sourceTree = "<group>"; };
@@ -437,6 +467,8 @@
 		C2F6071B107D575700A83618 /* codesign-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "codesign-watch.d"; path = "dtrace/codesign-watch.d"; sourceTree = SOURCE_ROOT; };
 		C2F6566C0BCBFB250078779E /* cserror.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cserror.cpp; sourceTree = "<group>"; };
 		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
+		EB5B684E156E492D0067635E /* drmaker.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = drmaker.cpp; sourceTree = "<group>"; };
+		EB5B684F156E492D0067635E /* drmaker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = drmaker.h; sourceTree = "<group>"; };
 		FEB30C9210DAC89D00557BA2 /* SecTask.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecTask.c; sourceTree = "<group>"; };
 		FEB30C9410DAC8A500557BA2 /* SecTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTask.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -483,6 +515,7 @@
 				C2CC31160B852554005FA59D /* Security Plugins */,
 				FEB30C9110DAC6C400557BA2 /* Entitlements */,
 				C24EABA914213FAF00C16AA9 /* System Policy */,
+				C24826C5159911D70082B10B /* GKE */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -518,6 +551,19 @@
 				C236E3D90AD595C2000F5140 /* signerutils.cpp */,
 			);
 			name = "Signing Operations";
+			sourceTree = "<group>";
+		};
+		C24826C5159911D70082B10B /* GKE */ = {
+			isa = PBXGroup;
+			children = (
+				C24826BF159911CF0082B10B /* gkclear */,
+				C24826C0159911CF0082B10B /* gkgenerate */,
+				C24826C1159911CF0082B10B /* gkhandmake */,
+				C24826C2159911CF0082B10B /* gklist */,
+				C24826C3159911CF0082B10B /* gkmerge */,
+				C24826C4159911CF0082B10B /* gkrecord */,
+			);
+			name = GKE;
 			sourceTree = "<group>";
 		};
 		C24EABA914213FAF00C16AA9 /* System Policy */ = {
@@ -634,6 +680,8 @@
 		C2C1DF620A2E45B600D1B02B /* Requirements */ = {
 			isa = PBXGroup;
 			children = (
+				EB5B684E156E492D0067635E /* drmaker.cpp */,
+				EB5B684F156E492D0067635E /* drmaker.h */,
 				C2C1DF8F0A2E4A2700D1B02B /* requirements.grammar */,
 				C2D383360A237F47005C63A2 /* requirement.h */,
 				C2D383350A237F47005C63A2 /* requirement.cpp */,
@@ -819,6 +867,7 @@
 				C2A436160F2133B2007A41A6 /* slcrep.h in Headers */,
 				C24EABAB1421432800C16AA9 /* policydb.h in Headers */,
 				C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */,
+				EB5B6857156E4FEE0067635E /* drmaker.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1116,6 +1165,7 @@
 				C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */,
 				C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */,
 				C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */,
+				EB5B6856156E4FEE0067635E /* drmaker.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1224,7 +1274,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55037.4;
+				CURRENT_PROJECT_VERSION = 55037.15;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1239,6 +1289,8 @@
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 					"$(TEMPDIR)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = "\U0001STATIC";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -1277,7 +1329,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55037.4;
+				CURRENT_PROJECT_VERSION = 55037.15;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1290,6 +1342,8 @@
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 					"$(TEMPDIR)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -1328,7 +1382,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55037.4;
+				CURRENT_PROJECT_VERSION = 55037.15;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1341,6 +1395,8 @@
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 					"$(TEMPDIR)",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";

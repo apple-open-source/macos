@@ -171,12 +171,9 @@ static void setSystemSleepStateTracking(IOPMSystemPowerStateCapabilities);
 
 static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms);
 
-#define LOG_SLEEPSERVICES 0
-
-#if LOG_SLEEPSERVICES
 static void logASLMessageSleepServiceBegins(long withCapTime);
+
 static void logASLMessageSleepServiceTerminated(void);
-#endif
 
 static void PMConnectionPowerCallBack(
     void            *port,
@@ -933,9 +930,8 @@ static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms)
             * ApplePushServiceTask assertions. We will either go back to sleep immediately, or stay awake in 
             * DarkWake or FullWake if other assertions keep the system up.
             */
-#if LOG_SLEEPSERVICES
            logASLMessageSleepServiceTerminated();
-#endif           
+           
            
            if (gSleepService.notifyToken) {
                notify_set_state(gSleepService.notifyToken, 0);
@@ -992,13 +988,10 @@ static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms)
         notify_post(kIOPMSleepServiceActiveNotifyName);
     }
     
-
-#if LOG_SLEEPSERVICES
     /*
      *  Announce to ASL & MessageTracer
      */
     logASLMessageSleepServiceBegins(gSleepService.capTime);
-#endif
 }
 
 
@@ -1009,7 +1002,6 @@ __private_extern__ void cancelSleepService(void)
     }
 }
 
-#if LOG_SLEEPSERVICES
 
 /*****************************************************************************/
 /* LOG ASL MESSAGE SLEEPSERVICE - Begins */
@@ -1129,8 +1121,6 @@ static void logASLMessageSleepServiceTerminated(void)
     }
 */
 }
-
-#endif
 
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */

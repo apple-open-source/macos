@@ -75,7 +75,6 @@ extern const SecCodeDirectoryFlagTable kSecCodeDirectoryFlagTable[];
 	numbers. This is not a valid ASCII character; test for this to distinguish
 	between text and binary data if you expect a code signing-related binary blob.
  */
-typedef uint32_t SecCodeSignatureFlags;
 
 enum {
 	kSecCodeMagicRequirement = 0xfade0c00,		/* single requirement */

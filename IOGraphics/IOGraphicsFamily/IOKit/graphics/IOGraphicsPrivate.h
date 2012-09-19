@@ -71,6 +71,27 @@ do {                                    \
 #define DEBG1(idx, fmt, args...)  {}
 #endif
 
+#if 0
+
+#warning **LOGS**
+#define DEBG2(name, fmt, args...)                \
+do {                                    \
+    AbsoluteTime    now;                \
+    UInt64          nano;               \
+    AbsoluteTime_to_scalar(&now) = mach_absolute_time();                \
+    absolutetime_to_nanoseconds( now, &nano );                          \
+    IOLog("%08d [%s]::", (uint32_t) (nano / 1000000ULL), name);           \
+    IOLog("%s", __FUNCTION__);          \
+    IOLog(fmt, ## args);                \
+    kprintf("%08d [%s]::", (uint32_t) (nano / 1000000ULL), name);           \
+    kprintf("%s", __FUNCTION__);          \
+    kprintf(fmt, ## args);                \
+} while( false )
+
+#else
+#define DEBG2(idx, fmt, args...)  {}
+#endif
+
 #define STOREINC(_ptr_, _data_, _type_) {   \
         *((_type_ *)(_ptr_)) = _data_;                                  \
         _ptr_ = (typeof(_ptr_)) (((char *) (_ptr_)) + sizeof(_type_));  \
@@ -154,7 +175,26 @@ enum
 	kIOGDbgVBLThrottle = 0x00000002,
 	kIOGDbgK59Mode     = 0x00000004,
 	kIOGDbgDumbPanic   = 0x00000008,
+	kIOGDbgVBLDrift    = 0x00000010,
 };
+
+#ifndef kIOScreenLockStateKey
+
+#define IOHIB_PREVIEW_V0	1
+
+enum { kIOPreviewImageCount = 1 };
+
+struct hibernate_preview_t
+{
+    uint32_t  depth;      	// Pixel Depth
+    uint32_t  width;      	// Width
+    uint32_t  height;     	// Height
+};
+typedef struct hibernate_preview_t hibernate_preview_t;
+
+#define kIOScreenLockStateKey      "IOScreenLockState"
+
+#endif /* ! kIOScreenLockStateKey */
 
 #endif /* ! _IOKIT_IOGRAPHICSPRIVATE_H */
 

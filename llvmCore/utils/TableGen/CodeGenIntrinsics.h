@@ -60,7 +60,7 @@ namespace llvm {
 
     // Memory mod/ref behavior of this intrinsic.
     enum {
-      NoMem, ReadArgMem, ReadMem, WriteArgMem, WriteMem
+      NoMem, ReadArgMem, ReadMem, ReadWriteArgMem, ReadWriteMem
     } ModRef;
 
     /// This is set to true if the intrinsic is overloaded by its argument
@@ -69,6 +69,9 @@ namespace llvm {
 
     /// isCommutative - True if the intrinsic is commutative.
     bool isCommutative;
+
+    /// canThrow - True if the intrinsic can throw.
+    bool canThrow;
     
     enum ArgAttribute {
       NoCapture

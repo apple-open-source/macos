@@ -222,7 +222,9 @@ writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key __unused 
 static CFMutableDictionaryRef
 IODisplayCreateOverrides( IOOptionBits options, 
                             IODisplayVendorID vendor, IODisplayProductID product,
-                            UInt32 serialNumber __unused, CFAbsoluteTime manufactureDate __unused,
+                            UInt32 serialNumber __unused, 
+                            uint32_t manufactureYear,
+                            uint32_t manufactureWeek,
                             Boolean isDigital )
 {
 
@@ -238,7 +240,19 @@ IODisplayCreateOverrides( IOOptionBits options,
                         (unsigned) vendor, (unsigned) product );
     
         obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
-        if( obj) {
+
+	if ((!obj) && manufactureYear && manufactureWeek)
+	{
+	    snprintf( path, sizeof(path), "/System/Library/Displays/Overrides"
+			    "/" kDisplayVendorID "-%x"
+			    "/" kDisplayYearOfManufacture "-%d"
+			    "-" kDisplayWeekOfManufacture "-%d",
+			    (unsigned) vendor,
+			    manufactureYear, manufactureWeek );
+	    obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
+	}
+        if (obj)
+        {
             if( CFDictionaryGetTypeID() == CFGetTypeID( obj ))
             {
                 dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, obj);
@@ -320,7 +334,8 @@ IODisplayCreateOverrides( IOOptionBits options,
 static void
 EDIDInfo( struct EDID * edid,
             IODisplayVendorID * vendor, IODisplayProductID * product,
-            UInt32 * serialNumber, CFAbsoluteTime * manufactureDate,
+            UInt32 * serialNumber,
+            uint32_t * manufactureYear, uint32_t * manufactureWeek,
             Boolean * isDigital )
 {
     SInt32              sint;
@@ -342,22 +357,8 @@ EDIDInfo( struct EDID * edid,
         *serialNumber = sint;
     }
 
-    if( false && manufactureDate ) {
-
-        CFGregorianDate gDate;
-        CFTimeZoneRef   tz;
-
-        gDate.year      = edid->yearOfManufacture + 1990;
-        gDate.month     = 0;
-        gDate.day       = edid->weekOfManufacture * 7;
-        gDate.hour      = 0;
-        gDate.minute    = 0;
-        gDate.second    = 0.0;
-
-        tz = CFTimeZoneCopySystem();
-        *manufactureDate = CFGregorianDateGetAbsoluteTime( gDate, tz);
-        CFRelease(tz);
-    }
+    if (manufactureYear) *manufactureYear = edid->yearOfManufacture + 1990;
+    if (manufactureWeek) *manufactureWeek = edid->weekOfManufacture;
 }
 
 __private_extern__ Boolean
@@ -1771,6 +1772,7 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
         && !bcmp(desc, &edid->descriptors[connectRef->defaultIndex].timing, 
         sizeof(EDIDDetailedTimingDesc)))
     {
+        DEBG(connectRef, "edid default\n");
         dmFlags |= kDisplayModeDefaultFlag;
     }
     if (kIOInterlacedCEATiming & timing->detailedInfo.v2.signalConfig)
@@ -2580,18 +2582,18 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext, Boole
         }
     }    
 
-    if (!installModes)
-    {
-        InstallCEA861EXTColor(connectRef, edid, ext);
-        return;
-    }
-
     if ((1 == (kCEASupportNativeCount & ext->flags))
         && (kDisplayAppleVendorID == connectRef->displayVendor))
     {
         connectRef->defaultOnly = true;
     }
-        
+
+    if (!installModes)
+    {
+        InstallCEA861EXTColor(connectRef, edid, ext);
+        return;
+    }
+       
     // Process the CEA Detailed Timing Descriptor.
     while (offset <= (sizeof(ext->data) - sizeof(EDIDDetailedTimingDesc)))
     {
@@ -2738,7 +2740,8 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 
         if (2 & edid->featureSupport)
         {}
-        else if ((edid->version > 1) || (edid->revision >= 3))
+        else if ((kDisplayAppleVendorID == connectRef->displayVendor) 
+        	  && ((edid->version > 1) || (edid->revision >= 3)))
         {
             checkDI = true;
         }
@@ -2820,12 +2823,6 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
         // send display attributes
         IOFBSetKernelDisplayConfig(connectRef);
         
-        count = CFDataGetLength(edidData);
-        if ((size_t) count > sizeof(EDID))
-        {
-            LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID), true);
-        }
-
         if (checkDI && connectRef->hasDIEXT)
         {
             connectRef->defaultIndex = 1;
@@ -2914,6 +2911,15 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     }
 
     IODisplayGetAspect( connectRef );
+
+    if (edidData)
+    {
+	count = CFDataGetLength(edidData);
+	if ((size_t) count > sizeof(EDID))
+	{
+	    LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID), true);
+	}
+    }
 
     if (!connectRef->hasHDMI)
     {
@@ -3044,12 +3050,11 @@ _IODisplayCreateInfoDictionary(
     IODisplayProductID          product = 0;
     SInt32                      displayType = 0;
     UInt32                      serialNumber = 0;
-    CFAbsoluteTime              manufactureDate;
+    uint32_t                    manufactureYear = 0;
+    uint32_t                    manufactureWeek = 0;
     io_string_t                 path;
     int                         i;
     IODisplayTimingRange        displayRange;
-
-    bzero( &manufactureDate, sizeof(manufactureDate) );
 
     if( !(service = IODisplayForFramebuffer( framebuffer, options))) {
         dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
@@ -3090,7 +3095,7 @@ _IODisplayCreateInfoDictionary(
 #warning             ****************
 		if (data)
 		{
-            EDIDInfo( (EDID *) CFDataGetBytePtr(data), &vendor, &product, NULL, NULL, NULL);
+            EDIDInfo( (EDID *) CFDataGetBytePtr(data), &vendor, &product, NULL, NULL, NULL, NULL);
 			if (0x10ac == vendor)
 			{
 				data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
@@ -3103,9 +3108,9 @@ _IODisplayCreateInfoDictionary(
             continue;
         edid = (EDID *) CFDataGetBytePtr( data );
         if( vendor && product)
-            EDIDInfo( edid, 0, 0, &serialNumber, &manufactureDate, &isDigital );
+            EDIDInfo( edid, 0, 0, &serialNumber, &manufactureYear, &manufactureWeek, &isDigital );
         else
-            EDIDInfo( edid, &vendor, &product, &serialNumber, &manufactureDate, &isDigital );
+            EDIDInfo( edid, &vendor, &product, &serialNumber, &manufactureYear, &manufactureWeek, &isDigital );
 
     } while( false );
 
@@ -3116,7 +3121,8 @@ _IODisplayCreateInfoDictionary(
     } // </hack>
 
     dict = IODisplayCreateOverrides( options, vendor, product,
-                                        serialNumber, manufactureDate, isDigital );
+                                        serialNumber, manufactureYear, manufactureWeek, 
+                                        isDigital );
 
 #define makeInt( key, value )   \
         num = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &value );       \

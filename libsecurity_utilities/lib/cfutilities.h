@@ -201,10 +201,15 @@ extern ModuleNexus<CFEmptyArray> cfEmptyArray;
 // If release==true, a CFRelease will be performed on the CFWhatever argument
 // whether the call succeeds or not(!).
 //
-string cfString(CFStringRef str, bool release = false);	// extract UTF8 string
-string cfString(CFURLRef url, bool release = false);	// path of file: URL (only)
-string cfString(CFBundleRef url, bool release = false);	// path to bundle root
+string cfString(CFStringRef str);	// extract UTF8 string
+string cfString(CFURLRef url);	// path of file: URL (only)
+string cfString(CFBundleRef bundle);	// path to bundle root
 
+string cfStringRelease(CFStringRef str);	// extract UTF8 string
+string cfStringRelease(CFURLRef url);		// path of file: URL (only)
+string cfStringRelease(CFBundleRef bundle);	// path to bundle root
+
+    
 string cfString(CFTypeRef anything, OSStatus err);		// dynamic form; throws err on NULL
 
 
@@ -452,8 +457,8 @@ CFMutableDictionaryRef makeCFMutableDictionary();						// empty
 CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...);	// (count) key/value pairs
 CFMutableDictionaryRef makeCFMutableDictionary(CFDictionaryRef dict);	// copy of dictionary
 
-CFDictionaryRef makeCFDictionaryFrom(CFDataRef data);	// interpret plist form
-CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length); // ditto
+CFDictionaryRef makeCFDictionaryFrom(CFDataRef data) CF_RETURNS_RETAINED;// interpret plist form
+CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length) CF_RETURNS_RETAINED; // ditto
 
 
 //
@@ -594,8 +599,8 @@ inline CFArrayRef makeCFArray(Generator &generate, const Container &container)
 	return makeCFArray(generate, container.begin(), container.end());
 }
 
-CFArrayRef makeCFArray(CFIndex count, ...);
-CFMutableArrayRef makeCFMutableArray(CFIndex count, ...);
+CFArrayRef makeCFArray(CFIndex count, ...) CF_RETURNS_RETAINED;
+CFMutableArrayRef makeCFMutableArray(CFIndex count, ...) CF_RETURNS_RETAINED;
 
 
 } // end namespace Security

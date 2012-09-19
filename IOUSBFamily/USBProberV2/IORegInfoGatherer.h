@@ -23,6 +23,10 @@
  */
 
 
+#include <AvailabilityMacros.h>
+
+#define SUPPORTS_SS_USB 1
+
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/IOMessage.h>
@@ -63,4 +67,3 @@ enum {
 - (void)setPlane:(int)plane;
 
 @end
-

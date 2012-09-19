@@ -28,7 +28,7 @@
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOUserClient.h>
-
+#include <IOKit/IOHibernatePrivate.h>
 
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>

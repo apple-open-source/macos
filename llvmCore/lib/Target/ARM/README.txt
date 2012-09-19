@@ -590,3 +590,112 @@ than the Z bit, we'll need additional logic to reverse the conditionals
 associated with the comparison. Perhaps a pseudo-instruction for the comparison,
 with a post-codegen pass to clean up and handle the condition codes?
 See PR5694 for testcase.
+
+//===---------------------------------------------------------------------===//
+
+Given the following on armv5:
+int test1(int A, int B) {
+  return (A&-8388481)|(B&8388480);
+}
+
+We currently generate:
+	ldr	r2, .LCPI0_0
+	and	r0, r0, r2
+	ldr	r2, .LCPI0_1
+	and	r1, r1, r2
+	orr	r0, r1, r0
+	bx	lr
+
+We should be able to replace the second ldr+and with a bic (i.e. reuse the
+constant which was already loaded).  Not sure what's necessary to do that.
+
+//===---------------------------------------------------------------------===//
+
+The code generated for bswap on armv4/5 (CPUs without rev) is less than ideal:
+
+int a(int x) { return __builtin_bswap32(x); }
+
+a:
+	mov	r1, #255, 24
+	mov	r2, #255, 16
+	and	r1, r1, r0, lsr #8
+	and	r2, r2, r0, lsl #8
+	orr	r1, r1, r0, lsr #24
+	orr	r0, r2, r0, lsl #24
+	orr	r0, r0, r1
+	bx	lr
+
+Something like the following would be better (fewer instructions/registers):
+	eor     r1, r0, r0, ror #16
+	bic     r1, r1, #0xff0000
+	mov     r1, r1, lsr #8
+	eor     r0, r1, r0, ror #8
+	bx	lr
+
+A custom Thumb version would also be a slight improvement over the generic
+version.
+
+//===---------------------------------------------------------------------===//
+
+Consider the following simple C code:
+
+void foo(unsigned char *a, unsigned char *b, int *c) {
+ if ((*a | *b) == 0) *c = 0;
+}
+
+currently llvm-gcc generates something like this (nice branchless code I'd say):
+
+       ldrb    r0, [r0]
+       ldrb    r1, [r1]
+       orr     r0, r1, r0
+       tst     r0, #255
+       moveq   r0, #0
+       streq   r0, [r2]
+       bx      lr
+
+Note that both "tst" and "moveq" are redundant.
+
+//===---------------------------------------------------------------------===//
+
+When loading immediate constants with movt/movw, if there are multiple
+constants needed with the same low 16 bits, and those values are not live at
+the same time, it would be possible to use a single movw instruction, followed
+by multiple movt instructions to rewrite the high bits to different values.
+For example:
+
+  volatile store i32 -1, i32* inttoptr (i32 1342210076 to i32*), align 4,
+  !tbaa
+!0
+  volatile store i32 -1, i32* inttoptr (i32 1342341148 to i32*), align 4,
+  !tbaa
+!0
+
+is compiled and optimized to:
+
+    movw    r0, #32796
+    mov.w    r1, #-1
+    movt    r0, #20480
+    str    r1, [r0]
+    movw    r0, #32796    @ <= this MOVW is not needed, value is there already
+    movt    r0, #20482
+    str    r1, [r0]
+
+//===---------------------------------------------------------------------===//
+
+Improve codegen for select's:
+if (x != 0) x = 1
+if (x == 1) x = 1
+
+ARM codegen used to look like this:
+       mov     r1, r0
+       cmp     r1, #1
+       mov     r0, #0
+       moveq   r0, #1
+
+The naive lowering select between two different values. It should recognize the
+test is equality test so it's more a conditional move rather than a select:
+       cmp     r0, #1
+       movne   r0, #0
+
+Currently this is a ARM specific dag combine. We probably should make it into a
+target-neutral one.

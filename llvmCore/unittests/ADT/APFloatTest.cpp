@@ -12,6 +12,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
 #include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -33,11 +34,13 @@ static std::string convertToString(double d, unsigned Prec, unsigned Pad) {
 namespace {
 
 TEST(APFloatTest, Zero) {
-  EXPECT_EQ(0.0f,  APFloat(APFloat::IEEEsingle,  0.0f).convertToFloat());
-  EXPECT_EQ(-0.0f, APFloat(APFloat::IEEEsingle, -0.0f).convertToFloat());
+  EXPECT_EQ(0.0f,  APFloat(0.0f).convertToFloat());
+  EXPECT_EQ(-0.0f, APFloat(-0.0f).convertToFloat());
+  EXPECT_TRUE(APFloat(-0.0f).isNegative());
 
-  EXPECT_EQ(0.0,  APFloat(APFloat::IEEEdouble,  0.0).convertToDouble());
-  EXPECT_EQ(-0.0, APFloat(APFloat::IEEEdouble, -0.0).convertToDouble());
+  EXPECT_EQ(0.0,  APFloat(0.0).convertToDouble());
+  EXPECT_EQ(-0.0, APFloat(-0.0).convertToDouble());
+  EXPECT_TRUE(APFloat(-0.0).isNegative());
 }
 
 TEST(APFloatTest, fromZeroDecimalString) {
@@ -344,6 +347,54 @@ TEST(APFloatTest, toString) {
   ASSERT_EQ("8.731834E+2", convertToString(873.1834, 0, 0));
 }
 
+TEST(APFloatTest, toInteger) {
+  bool isExact = false;
+  APSInt result(5, /*isUnsigned=*/true);
+
+  EXPECT_EQ(APFloat::opOK,
+            APFloat(APFloat::IEEEdouble, "10")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_TRUE(isExact);
+  EXPECT_EQ(APSInt(APInt(5, 10), true), result);
+
+  EXPECT_EQ(APFloat::opInvalidOp,
+            APFloat(APFloat::IEEEdouble, "-10")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_FALSE(isExact);
+  EXPECT_EQ(APSInt::getMinValue(5, true), result);
+
+  EXPECT_EQ(APFloat::opInvalidOp,
+            APFloat(APFloat::IEEEdouble, "32")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_FALSE(isExact);
+  EXPECT_EQ(APSInt::getMaxValue(5, true), result);
+
+  EXPECT_EQ(APFloat::opInexact,
+            APFloat(APFloat::IEEEdouble, "7.9")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_FALSE(isExact);
+  EXPECT_EQ(APSInt(APInt(5, 7), true), result);
+
+  result.setIsUnsigned(false);
+  EXPECT_EQ(APFloat::opOK,
+            APFloat(APFloat::IEEEdouble, "-10")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_TRUE(isExact);
+  EXPECT_EQ(APSInt(APInt(5, -10, true), false), result);
+
+  EXPECT_EQ(APFloat::opInvalidOp,
+            APFloat(APFloat::IEEEdouble, "-17")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_FALSE(isExact);
+  EXPECT_EQ(APSInt::getMinValue(5, false), result);
+
+  EXPECT_EQ(APFloat::opInvalidOp,
+            APFloat(APFloat::IEEEdouble, "16")
+            .convertToInteger(result, APFloat::rmTowardZero, &isExact));
+  EXPECT_FALSE(isExact);
+  EXPECT_EQ(APSInt::getMaxValue(5, false), result);
+}
+
 static APInt nanbits(const fltSemantics &Sem,
                      bool SNaN, bool Negative, uint64_t fill) {
   APInt apfill(64, fill);
@@ -576,4 +627,54 @@ TEST(APFloatTest, StringHexadecimalExponentDeath) {
 #endif
 #endif
 
+TEST(APFloatTest, exactInverse) {
+  APFloat inv(0.0f);
+
+  // Trivial operation.
+  EXPECT_TRUE(APFloat(2.0).getExactInverse(&inv));
+  EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(0.5)));
+  EXPECT_TRUE(APFloat(2.0f).getExactInverse(&inv));
+  EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(0.5f)));
+
+  // FLT_MIN
+  EXPECT_TRUE(APFloat(1.17549435e-38f).getExactInverse(&inv));
+  EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(8.5070592e+37f)));
+
+  // Large float, inverse is a denormal.
+  EXPECT_FALSE(APFloat(1.7014118e38f).getExactInverse(0));
+  // Zero
+  EXPECT_FALSE(APFloat(0.0).getExactInverse(0));
+  // Denormalized float
+  EXPECT_FALSE(APFloat(1.40129846e-45f).getExactInverse(0));
+}
+
+TEST(APFloatTest, getLargest) {
+  EXPECT_EQ(3.402823466e+38f, APFloat::getLargest(APFloat::IEEEsingle).convertToFloat());
+  EXPECT_EQ(1.7976931348623158e+308, APFloat::getLargest(APFloat::IEEEdouble).convertToDouble());
+}
+
+TEST(APFloatTest, convert) {
+  bool losesInfo;
+  APFloat test(APFloat::IEEEdouble, "1.0");
+  test.convert(APFloat::IEEEsingle, APFloat::rmNearestTiesToEven, &losesInfo);
+  EXPECT_EQ(1.0f, test.convertToFloat());
+  EXPECT_FALSE(losesInfo);
+
+  test = APFloat(APFloat::x87DoubleExtended, "0x1p-53");
+  test.add(APFloat(APFloat::x87DoubleExtended, "1.0"), APFloat::rmNearestTiesToEven);
+  test.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &losesInfo);
+  EXPECT_EQ(1.0, test.convertToDouble());
+  EXPECT_TRUE(losesInfo);
+
+  test = APFloat(APFloat::IEEEquad, "0x1p-53");
+  test.add(APFloat(APFloat::IEEEquad, "1.0"), APFloat::rmNearestTiesToEven);
+  test.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &losesInfo);
+  EXPECT_EQ(1.0, test.convertToDouble());
+  EXPECT_TRUE(losesInfo);
+
+  test = APFloat(APFloat::x87DoubleExtended, "0xf.fffffffp+28");
+  test.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &losesInfo);
+  EXPECT_EQ(4294967295.0, test.convertToDouble());
+  EXPECT_FALSE(losesInfo);
+}
 }

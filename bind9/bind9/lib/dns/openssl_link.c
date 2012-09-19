@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -31,7 +31,7 @@
 
 /*
  * Principal Author: Brian Wellington
- * $Id: openssl_link.c,v 1.27.60.2 2010-09-15 12:38:04 tbox Exp $
+ * $Id$
  */
 #ifdef OPENSSL
 
@@ -49,16 +49,6 @@
 
 #include "dst_internal.h"
 #include "dst_openssl.h"
-
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <openssl/evp.h>
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
-
-#if defined(CRYPTO_LOCK_ENGINE) && (OPENSSL_VERSION_NUMBER >= 0x0090707f)
-#define USE_ENGINE 1
-#endif
 
 #ifdef USE_ENGINE
 #include <openssl/engine.h>
@@ -308,19 +298,19 @@ dst__openssl_toresult(isc_result_t fallback) {
 	return (result);
 }
 
+#if defined(USE_ENGINE)
 ENGINE *
 dst__openssl_getengine(const char *engine) {
 
 	if (engine == NULL)
 		return (NULL);
-#if defined(USE_ENGINE)
 	if (e == NULL)
 		return (NULL);
 	if (strcmp(engine, ENGINE_get_id(e)) == 0)
 		return (e);
-#endif
 	return (NULL);
 }
+#endif
 
 #else /* OPENSSL */
 

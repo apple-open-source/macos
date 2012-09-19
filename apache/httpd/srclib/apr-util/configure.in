@@ -13,6 +13,7 @@ sinclude(build/apu-iconv.m4)
 sinclude(build/apu-hints.m4)
 sinclude(build/apr_common.m4)
 sinclude(build/find_apr.m4)
+sinclude(build/crypto.m4)
 sinclude(build/dbm.m4)
 sinclude(build/dbd.m4)
 sinclude(build/dso.m4)
@@ -149,6 +150,9 @@ dnl Find LDAP library
 dnl Determine what DBM backend type to use.
 dnl Find Expat
 dnl Find an iconv library
+APU_CHECK_CRYPTO
+APU_CHECK_CRYPTO_OPENSSL
+APU_CHECK_CRYPTO_NSS
 APU_FIND_LDAP
 APU_CHECK_DBM
 APU_CHECK_DBD

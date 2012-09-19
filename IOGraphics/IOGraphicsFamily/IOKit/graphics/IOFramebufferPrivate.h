@@ -181,6 +181,7 @@
     static void checkConnectionChange(IOFBController * controller );
     static void messageConnectionChange(IOFBController * controller );
     static IOReturn processConnectChange(IOFBController * controller, IOOptionBits mode);
+	IOReturn matchFramebuffer(void);
     static IOReturn matchController(IOFBController * controller);
 
     IOReturn extProcessConnectionChange(void);
@@ -198,6 +199,9 @@
     IOReturn restoreFramebuffer(IOIndex event);
 
     IOReturn deliverDisplayModeDidChangeNotification( void );
+
+	static void didDarkWake(OSObject * owner, IOTimerEventSource * sender);
+
     static IOReturn systemPowerChange( void * target, void * refCon,
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize );
@@ -222,8 +226,11 @@
     bool deepFramebuffer( IOPixelInformation * pixelInfo );
     bool validFramebuffer( IOPixelInformation * pixelInfo );
     IOIndex closestDepth(IODisplayModeID mode, IOPixelInformation * pixelInfo);
-    IOReturn setDisplayAttributes(OSData * data);
+    IOReturn setDisplayAttributes(OSObject * data);
     IOReturn doSetDisplayMode(IODisplayModeID displayMode, IOIndex depth);
+	OSData * getConfigMode(IODisplayModeID mode, const OSSymbol * sym);
+
+	static void saveGammaTables(void);
 
     // --
 

@@ -322,3 +322,41 @@ SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen)
 
     return PR_FALSE;
 }
+
+/*
+ * SecCmsMessageContainsTSTInfo - see if message contains a TimeStamping info block
+ */
+Boolean
+SecCmsMessageContainsTSTInfo(SecCmsMessageRef cmsg)
+{
+    SecCmsContentInfoRef cinfo;
+
+    /* walk down the chain of contentinfos */
+    for (cinfo = &(cmsg->contentInfo); cinfo != NULL; cinfo = SecCmsContentInfoGetChildContentInfo(cinfo))
+    {
+        switch (SecCmsContentInfoGetContentTypeTag(cinfo))
+        {
+        case SEC_OID_PKCS9_ID_CT_TSTInfo:
+            // TSTInfo is in cinfo->rawContent->Data
+            return PR_TRUE;
+        default:
+            break;
+        }
+    }
+    return PR_FALSE;
+}
+
+void
+SecCmsMessageSetTSACallback(SecCmsMessageRef cmsg, SecCmsTSACallback tsaCallback)
+{
+    if (cmsg)
+        cmsg->tsaCallback = tsaCallback;
+}
+
+void
+SecCmsMessageSetTSAContext(SecCmsMessageRef cmsg, const void *tsaContext)   //CFTypeRef
+{
+    if (cmsg)
+        cmsg->tsaContext = tsaContext;
+}
+

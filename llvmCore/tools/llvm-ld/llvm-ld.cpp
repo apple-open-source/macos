@@ -23,7 +23,7 @@
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
-#include "llvm/System/Program.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -35,8 +35,8 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/System/Signals.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Config/config.h"
 #include <memory>
 #include <cstring>
@@ -98,7 +98,7 @@ static cl::list<std::string> PostLinkOpts("post-link-opts",
 static cl::list<std::string> XLinker("Xlinker", cl::value_desc("option"),
   cl::desc("Pass options to the system linker"));
 
-// Compatibility options that llvm-ld ignores but are supported for 
+// Compatibility options that llvm-ld ignores but are supported for
 // compatibility with LD
 static cl::opt<std::string> CO3("soname", cl::Hidden,
   cl::desc("Compatibility option: ignored"));
@@ -112,13 +112,13 @@ static cl::opt<bool> CO5("eh-frame-hdr", cl::Hidden,
 static  cl::opt<std::string> CO6("h", cl::Hidden,
   cl::desc("Compatibility option: ignored"));
 
-static cl::opt<bool> CO7("start-group", cl::Hidden, 
+static cl::opt<bool> CO7("start-group", cl::Hidden,
   cl::desc("Compatibility option: ignored"));
 
-static cl::opt<bool> CO8("end-group", cl::Hidden, 
+static cl::opt<bool> CO8("end-group", cl::Hidden,
   cl::desc("Compatibility option: ignored"));
 
-static cl::opt<std::string> CO9("m", cl::Hidden, 
+static cl::opt<std::string> CO9("m", cl::Hidden,
   cl::desc("Compatibility option: ignored"));
 
 /// This is just for convenience so it doesn't have to be passed around
@@ -142,11 +142,11 @@ static void PrintAndExit(const std::string &Message, Module *M, int errcode = 1)
 }
 
 static void PrintCommand(const std::vector<const char*> &args) {
-  std::vector<const char*>::const_iterator I = args.begin(), E = args.end(); 
+  std::vector<const char*>::const_iterator I = args.begin(), E = args.end();
   for (; I != E; ++I)
     if (*I)
-      outs() << "'" << *I << "'" << " ";
-  outs() << "\n"; outs().flush();
+      errs() << "'" << *I << "'" << " ";
+  errs() << "\n";
 }
 
 /// CopyEnv - This function takes an array of environment variables and makes a
@@ -178,7 +178,7 @@ static char ** CopyEnv(char ** const envp) {
 
   // Allocate a new environment list.
   char **newenv = new char* [entries];
-  if ((newenv = new char* [entries]) == NULL)
+  if (newenv == NULL)
     return NULL;
 
   // Make a copy of the list.  Don't forget the NULL that ends the list.
@@ -232,17 +232,20 @@ static void RemoveEnv(const char * name, char ** const envp) {
 void GenerateBitcode(Module* M, const std::string& FileName) {
 
   if (Verbose)
-    outs() << "Generating Bitcode To " << FileName << '\n';
+    errs() << "Generating Bitcode To " << FileName << '\n';
 
   // Create the output file.
   std::string ErrorInfo;
-  raw_fd_ostream Out(FileName.c_str(), ErrorInfo,
-                     raw_fd_ostream::F_Binary);
-  if (!ErrorInfo.empty())
+  tool_output_file Out(FileName.c_str(), ErrorInfo,
+                       raw_fd_ostream::F_Binary);
+  if (!ErrorInfo.empty()) {
     PrintAndExit(ErrorInfo, M);
+    return;
+  }
 
   // Write it out
-  WriteBitcodeToFile(M, Out);
+  WriteBitcodeToFile(M, Out.os());
+  Out.keep();
 }
 
 /// GenerateAssembly - generates a native assembly language source file from the
@@ -272,7 +275,7 @@ static int GenerateAssembly(const std::string &OutputFilename,
   args.push_back(0);
 
   if (Verbose) {
-    outs() << "Generating Assembly With: \n";
+    errs() << "Generating Assembly With: \n";
     PrintCommand(args);
   }
 
@@ -294,7 +297,7 @@ static int GenerateCFile(const std::string &OutputFile,
   args.push_back(0);
 
   if (Verbose) {
-    outs() << "Generating C Source With: \n";
+    errs() << "Generating C Source With: \n";
     PrintCommand(args);
   }
 
@@ -381,7 +384,7 @@ static int GenerateNative(const std::string &OutputFilename,
     args.push_back("-framework");
     args.push_back(Frameworks[index]);
   }
-      
+
   // Now that "args" owns all the std::strings for the arguments, call the c_str
   // method to get the underlying string array.  We do this game so that the
   // std::string array is guaranteed to outlive the const char* array.
@@ -391,7 +394,7 @@ static int GenerateNative(const std::string &OutputFilename,
   Args.push_back(0);
 
   if (Verbose) {
-    outs() << "Generating Native Executable With:\n";
+    errs() << "Generating Native Executable With:\n";
     PrintCommand(Args);
   }
 
@@ -406,14 +409,14 @@ static int GenerateNative(const std::string &OutputFilename,
 /// bitcode file for the program.
 static void EmitShellScript(char **argv, Module *M) {
   if (Verbose)
-    outs() << "Emitting Shell Script\n";
-#if defined(_WIN32) || defined(__CYGWIN__)
+    errs() << "Emitting Shell Script\n";
+#if defined(_WIN32)
   // Windows doesn't support #!/bin/sh style shell scripts in .exe files.  To
   // support windows systems, we copy the llvm-stub.exe executable from the
   // build tree to the destination file.
-  std::string ErrMsg;  
-  sys::Path llvmstub = FindExecutable("llvm-stub.exe", argv[0],
-                                      (void *)(intptr_t)&Optimize);
+  std::string ErrMsg;
+  sys::Path llvmstub = PrependMainExecutablePath("llvm-stub", argv[0],
+                                                 (void *)(intptr_t)&Optimize);
   if (llvmstub.isEmpty())
     PrintAndExit("Could not find llvm-stub.exe executable!", M);
 
@@ -425,14 +428,14 @@ static void EmitShellScript(char **argv, Module *M) {
 
   // Output the script to start the program...
   std::string ErrorInfo;
-  raw_fd_ostream Out2(OutputFilename.c_str(), ErrorInfo);
+  tool_output_file Out2(OutputFilename.c_str(), ErrorInfo);
   if (!ErrorInfo.empty())
     PrintAndExit(ErrorInfo, M);
 
-  Out2 << "#!/bin/sh\n";
+  Out2.os() << "#!/bin/sh\n";
   // Allow user to setenv LLVMINTERP if lli is not in their PATH.
-  Out2 << "lli=${LLVMINTERP-lli}\n";
-  Out2 << "exec $lli \\\n";
+  Out2.os() << "lli=${LLVMINTERP-lli}\n";
+  Out2.os() << "exec $lli \\\n";
   // gcc accepts -l<lib> and implicitly searches /lib and /usr/lib.
   LibPaths.push_back("/lib");
   LibPaths.push_back("/usr/lib");
@@ -452,7 +455,7 @@ static void EmitShellScript(char **argv, Module *M) {
            E = LibPaths.end(); P != E; ++P) {
       FullLibraryPath = *P;
       FullLibraryPath.appendComponent("lib" + *i);
-      FullLibraryPath.appendSuffix(&(LTDL_SHLIB_EXT[1]));
+      FullLibraryPath.appendSuffix(sys::Path::GetDLLSuffix());
       if (!FullLibraryPath.isEmpty()) {
         if (!FullLibraryPath.isDynamicLibrary()) {
           // Not a native shared library; mark as invalid
@@ -463,9 +466,10 @@ static void EmitShellScript(char **argv, Module *M) {
     if (FullLibraryPath.isEmpty())
       FullLibraryPath = sys::Path::FindLibrary(*i);
     if (!FullLibraryPath.isEmpty())
-      Out2 << "    -load=" << FullLibraryPath.str() << " \\\n";
+      Out2.os() << "    -load=" << FullLibraryPath.str() << " \\\n";
   }
-  Out2 << "    "  << BitcodeOutputFilename << " ${1+\"$@\"}\n";
+  Out2.os() << "    "  << BitcodeOutputFilename << " ${1+\"$@\"}\n";
+  Out2.keep();
 }
 
 // BuildLinkItems -- This function generates a LinkItemList for the LinkItems
@@ -509,9 +513,20 @@ int main(int argc, char **argv, char **envp) {
 
   LLVMContext &Context = getGlobalContext();
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
-  
+
+  // Initialize passes
+  PassRegistry &Registry = *PassRegistry::getPassRegistry();
+  initializeCore(Registry);
+  initializeScalarOpts(Registry);
+  initializeIPO(Registry);
+  initializeAnalysis(Registry);
+  initializeIPA(Registry);
+  initializeTransformUtils(Registry);
+  initializeInstCombine(Registry);
+  initializeTarget(Registry);
+
   // Initial global variable above for convenience printing of program name.
-  progname = sys::Path(argv[0]).getBasename();
+  progname = sys::path::stem(argv[0]);
 
   // Parse the command line options
   cl::ParseCommandLineOptions(argc, argv, "llvm linker\n");
@@ -523,11 +538,8 @@ int main(int argc, char **argv, char **envp) {
       OutputFilename = "a.exe";
 
     // If there is no suffix add an "exe" one.
-    sys::Path ExeFile( OutputFilename );
-    if (ExeFile.getSuffix() == "") {
-      ExeFile.appendSuffix("exe");
-      OutputFilename = ExeFile.str();
-    }
+    if (sys::path::extension(OutputFilename).empty())
+      OutputFilename.append(".exe");
   }
 #endif
 
@@ -540,12 +552,12 @@ int main(int argc, char **argv, char **envp) {
   }
 
   // Arrange for the bitcode output file to be deleted on any errors.
-  BitcodeOutputRemover.setFile(sys::Path(BitcodeOutputFilename));
+  BitcodeOutputRemover.setFile(BitcodeOutputFilename);
   sys::RemoveFileOnSignal(sys::Path(BitcodeOutputFilename));
 
   // Arrange for the output file to be deleted on any errors.
   if (!LinkAsLibrary) {
-    OutputRemover.setFile(sys::Path(OutputFilename));
+    OutputRemover.setFile(OutputFilename);
     sys::RemoveFileOnSignal(sys::Path(OutputFilename));
   }
 
@@ -645,12 +657,12 @@ int main(int argc, char **argv, char **envp) {
       AssemblyFile.appendSuffix("s");
 
       // Mark the output files for removal.
-      FileRemover AssemblyFileRemover(AssemblyFile);
+      FileRemover AssemblyFileRemover(AssemblyFile.str());
       sys::RemoveFileOnSignal(AssemblyFile);
 
       // Determine the locations of the llc and gcc programs.
-      sys::Path llc = FindExecutable("llc", argv[0],
-                                     (void *)(intptr_t)&Optimize);
+      sys::Path llc = PrependMainExecutablePath("llc", argv[0],
+                                                (void *)(intptr_t)&Optimize);
       if (llc.isEmpty())
         PrintAndExit("Failed to find llc", Composite.get());
 
@@ -672,12 +684,12 @@ int main(int argc, char **argv, char **envp) {
       CFile.appendSuffix("cbe.c");
 
       // Mark the output files for removal.
-      FileRemover CFileRemover(CFile);
+      FileRemover CFileRemover(CFile.str());
       sys::RemoveFileOnSignal(CFile);
 
       // Determine the locations of the llc and gcc programs.
-      sys::Path llc = FindExecutable("llc", argv[0],
-                                     (void *)(intptr_t)&Optimize);
+      sys::Path llc = PrependMainExecutablePath("llc", argv[0],
+                                                (void *)(intptr_t)&Optimize);
       if (llc.isEmpty())
         PrintAndExit("Failed to find llc", Composite.get());
 
@@ -690,7 +702,7 @@ int main(int argc, char **argv, char **envp) {
       if (GenerateCFile(CFile.str(), BitcodeOutputFilename, llc, ErrMsg))
         PrintAndExit(ErrMsg, Composite.get());
 
-      if (GenerateNative(OutputFilename, CFile.str(), 
+      if (GenerateNative(OutputFilename, CFile.str(),
                          NativeLinkItems, gcc, envp, ErrMsg))
         PrintAndExit(ErrMsg, Composite.get());
     } else {

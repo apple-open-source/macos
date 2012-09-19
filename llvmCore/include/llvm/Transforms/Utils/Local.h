@@ -19,28 +19,22 @@ namespace llvm {
 
 class User;
 class BasicBlock;
+class Function;
 class BranchInst;
 class Instruction;
+class DbgDeclareInst;
+class StoreInst;
+class LoadInst;
 class Value;
 class Pass;
 class PHINode;
 class AllocaInst;
 class ConstantExpr;
 class TargetData;
+class DIBuilder;
 
 template<typename T> class SmallVectorImpl;
   
-//===----------------------------------------------------------------------===//
-//  Local analysis.
-//
-
-/// isSafeToLoadUnconditionally - Return true if we know that executing a load
-/// from this value cannot trap.  If it is not obviously safe to load from the
-/// specified pointer, we do a quick local scan of the basic block containing
-/// ScanFrom, to determine if the address is already accessed.
-bool isSafeToLoadUnconditionally(Value *V, Instruction *ScanFrom,
-                                 unsigned Align, const TargetData *TD = 0);
-
 //===----------------------------------------------------------------------===//
 //  Local constant propagation.
 //
@@ -49,8 +43,10 @@ bool isSafeToLoadUnconditionally(Value *V, Instruction *ScanFrom,
 /// constant value, convert it into an unconditional branch to the constant
 /// destination.  This is a nontrivial operation because the successors of this
 /// basic block must have their PHI nodes updated.
-///
-bool ConstantFoldTerminator(BasicBlock *BB);
+/// Also calls RecursivelyDeleteTriviallyDeadInstructions() on any branch/switch
+/// conditions and indirectbr addresses this might make dead if
+/// DeleteDeadConditions is true.
+bool ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions = false);
 
 //===----------------------------------------------------------------------===//
 //  Local dead code elimination.
@@ -71,7 +67,7 @@ bool RecursivelyDeleteTriviallyDeadInstructions(Value *V);
 /// dead PHI node, due to being a def-use chain of single-use nodes that
 /// either forms a cycle or is terminated by a trivially dead instruction,
 /// delete it.  If that makes any of its operands trivially dead, delete them
-/// too, recursively.  Return true if the PHI node is actually deleted.
+/// too, recursively.  Return true if a change was made.
 bool RecursivelyDeleteDeadPHINode(PHINode *PN);
 
   
@@ -129,8 +125,6 @@ bool EliminateDuplicatePHINodes(BasicBlock *BB);
 /// of the CFG.  It returns true if a modification was made, possibly deleting
 /// the basic block that was pointed to.
 ///
-/// WARNING:  The entry node of a method may not be simplified.
-///
 bool SimplifyCFG(BasicBlock *BB, const TargetData *TD = 0);
 
 /// FoldBranchToCommonDest - If this basic block is ONLY a setcc and a branch,
@@ -153,6 +147,40 @@ AllocaInst *DemoteRegToStack(Instruction &X,
 /// node and replaces it with a slot in the stack frame, allocated via alloca.
 /// The phi node is deleted and it returns the pointer to the alloca inserted. 
 AllocaInst *DemotePHIToStack(PHINode *P, Instruction *AllocaPoint = 0);
+
+/// getOrEnforceKnownAlignment - If the specified pointer has an alignment that
+/// we can determine, return it, otherwise return 0.  If PrefAlign is specified,
+/// and it is more than the alignment of the ultimate object, see if we can
+/// increase the alignment of the ultimate object, making this check succeed.
+unsigned getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
+                                    const TargetData *TD = 0);
+
+/// getKnownAlignment - Try to infer an alignment for the specified pointer.
+static inline unsigned getKnownAlignment(Value *V, const TargetData *TD = 0) {
+  return getOrEnforceKnownAlignment(V, 0, TD);
+}
+
+///===---------------------------------------------------------------------===//
+///  Dbg Intrinsic utilities
+///
+
+/// Inserts a llvm.dbg.value instrinsic before the stores to an alloca'd value
+/// that has an associated llvm.dbg.decl intrinsic.
+bool ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
+                                     StoreInst *SI, DIBuilder &Builder);
+
+/// Inserts a llvm.dbg.value instrinsic before the stores to an alloca'd value
+/// that has an associated llvm.dbg.decl intrinsic.
+bool ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
+                                     LoadInst *LI, DIBuilder &Builder);
+
+/// LowerDbgDeclare - Lowers llvm.dbg.declare intrinsics into appropriate set
+/// of llvm.dbg.value intrinsics.
+bool LowerDbgDeclare(Function &F);
+
+/// FindAllocaDbgDeclare - Finds the llvm.dbg.declare intrinsic corresponding to
+/// an alloca, if any.
+DbgDeclareInst *FindAllocaDbgDeclare(Value *V);
 
 } // End llvm namespace
 

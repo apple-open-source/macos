@@ -102,7 +102,8 @@ enum
     kIOPCIConfigShadowBridgeDriver     = 0x00000008,
     kIOPCIConfigShadowBridgeInterrupts = 0x00000010,
 	kIOPCIConfigShadowSleepLinkDisable = 0x00000020,
-	kIOPCIConfigShadowSleepReset       = 0x00000040
+	kIOPCIConfigShadowSleepReset       = 0x00000040,
+	kIOPCIConfigShadowHotplug          = 0x00000080
 };
 
 // whatToDo for setDevicePowerState()

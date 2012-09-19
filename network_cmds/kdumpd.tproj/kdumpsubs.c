@@ -53,6 +53,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include "kdumpsubs.h"
 
@@ -60,7 +61,7 @@
 
 struct bf {
 	int counter;            /* size of data in buffer, or flag */
-	char buf[PKTSIZE];      /* room for data packet */
+	char buf[MAXIMUM_KDP_PKTSIZE];      /* room for data packet */
 } bfs[2];
 
 				/* Values for bf.counter  */
@@ -79,6 +80,9 @@ static struct kdumphdr *rw_init __P ((int));
 
 struct kdumphdr *w_init() { return rw_init(0); }         /* write-behind */
 struct kdumphdr *r_init() { return rw_init(1); }         /* read-ahead */
+
+extern uint32_t kdp_crashdump_pkt_size;
+extern uint32_t kdp_crashdump_seg_size;
 
 /* init for either read-ahead or write-behind */
 /* zero for write-behind, one for read-head */
@@ -140,12 +144,12 @@ read_ahead(FILE *file, int convert)
 	dp = (struct kdumphdr *)b->buf;
 
 	if (convert == 0) {
-		b->counter = read(fileno(file), dp->th_data, SEGSIZE);
+		b->counter = read(fileno(file), dp->th_data, kdp_crashdump_seg_size);
 		return;
 	}
 
 	p = dp->th_data;
-	for (i = 0 ; i < SEGSIZE; i++) {
+	for (i = 0 ; i < kdp_crashdump_seg_size; i++) {
 		if (newline) {
 			if (prevchar == '\n')
 				c = '\n';       /* lf to cr,lf */
@@ -181,6 +185,7 @@ writeit(FILE *file, struct kdumphdr **dpp, int ct, int convert)
 	*dpp =  (struct kdumphdr *)bfs[current].buf;
 	return ct;                      /* this is a lie of course */
 }
+
 
 /*
  * Output a buffer to a file, converting from netascii if requested.
@@ -250,7 +255,7 @@ int
 synchnet(int f)
 {
 	int i, j = 0;
-	char rbuf[PKTSIZE];
+	char rbuf[kdp_crashdump_pkt_size];
 	struct sockaddr_in from;
 	socklen_t fromlen;
 

@@ -853,7 +853,7 @@ void AppleUSBCDCACMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
 		
 		if (length > 0)
 		{
-			meLogData(kDataIn, length, buffs->pipeBuffer);
+//			me->LogData(kDataIn, length, buffs->pipeBuffer);
 	
 				// Move the incoming bytes to the ring buffer, if we can
             
@@ -1712,13 +1712,14 @@ bool AppleUSBCDCACMData::createSerialStream()
 		}
 	}
 
-    pNub->registerService();
+    pNub->registerService(kIOServiceSynchronous);
 	
-	XTRACE(this, 0, 0, "createSerialStream - wait for a sec...");
+	XTRACE(this, 0, 0, "createSerialStream with kIOServiceSynchronous - wait for a sec...");
 	if (!findSerialBSDClient(pNub))
 	{
 		XTRACE (this, 0, 0, "createSerialStream - findSerialBSDClient failed terminating nub");
-		pNub->close(this);
+        if (pNub != NULL)
+            pNub->close(this);
 		XTRACE (this, 0, 0, "createSerialStream - findSerialBSDClient returning false");
 		return false;
 	}
@@ -4321,13 +4322,6 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
     {
         case kIOMessageServiceIsTerminated:
             XTRACE(this, fSessions, type, "message - kIOMessageServiceIsTerminated");
-			
-				// As a precaution abort any I/O
-			
-			if (fPort.InPipe)
-				fPort.InPipe->Abort();
-			if (fPort.OutPipe)
-				fPort.OutPipe->Abort();
 			
 			if (!fSuppressWarning)
 			{

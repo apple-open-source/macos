@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,8 @@
 #if KERNEL
 	#include <libkern/OSByteOrder.h>
 	#include <IOKit/IOMemoryDescriptor.h>
+
+
 #else
 	#include <libkern/OSByteOrder.h>
 #endif
@@ -58,6 +60,17 @@ extern "C" {
 #define USBToHostLong OSSwapLittleToHostInt32
 #define HostToUSBLong OSSwapHostToLittleInt32
 
+	
+#define USBBitRange(start, end)				\
+(								\
+((((UInt32) 0xFFFFFFFF) << (31 - (end))) >>		\
+((31 - (end)) + (start))) <<				\
+(start)							\
+)
+	
+#define USBBitRangePhase(start, end)				\
+(start)
+	
     /*!
     @enum Miscellaneous Constants
     @discussion 
@@ -78,7 +91,17 @@ extern "C" {
     kUSBEndPtShift = 7,
     kUSBDeviceMask = ((1 << kUSBEndPtShift) -1),
 
-    kUSBNoPipeIdx = -1
+    kUSBNoPipeIdx = -1,
+        
+#ifdef SUPPORTS_SS_USB
+   // Constants for streams
+    kUSBStream0 = 0,
+    kUSBMaxStream = 65533,
+    kUSBPRimeStream = 0xfffe,
+    kUSBNoStream = 0xffff,
+    kUSBAllStreams = 0xffffffff
+#endif
+
 };
 
 /*!
@@ -100,9 +123,9 @@ enum {
 @discussion Macro to encode the bRequest field of a Device Request.  It is used when constructing an IOUSBDevRequest.
 */
 #define USBmakebmRequestType(direction, type, recipient)		\
-    ((direction & kUSBRqDirnMask) << kUSBRqDirnShift) |			\
+    (((direction & kUSBRqDirnMask) << kUSBRqDirnShift) |			\
     ((type & kUSBRqTypeMask) << kUSBRqTypeShift) |			\
-    (recipient & kUSBRqRecipientMask)
+    (recipient & kUSBRqRecipientMask))
 
 /*!
 @enum kUSBMaxIsocFrameReqCount 
@@ -349,12 +372,18 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 #define kIOUSBInterfaceNotFound     iokit_usb_err(0x4e)									// 0xe000404e  Interface ref not recognized
 #define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(0x4d)			// 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
 #define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(0x4c)			// 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
-#define kIOUSBHighSpeedSplitError     iokit_usb_err(0x4b)								// 0xe000404b Error to hub on high speed bus trying to do split transaction
+#define kIOUSBHighSpeedSplitError	iokit_usb_err(0x4b)									// 0xe000404b  Error to hub on high speed bus trying to do split transaction
 #define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)									// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
-#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)									// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
-#define kIOUSBDevicePortWasNotSuspended iokit_usb_err(0x50)								// 0xe0004050  Port was not suspended
-#define kIOUSBClearPipeStallNotRecursive iokit_usb_err(0x48)							// 0xe0004048  IOUSBPipe::ClearPipeStall should not be called rescursively
-	
+#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)									// 0xe0004049  Name is deprecated, see below
+#define kIOUSBDeviceTransferredToCompanion					iokit_usb_err(0x49)			// 0xe0004049  The device has been tranferred to another controller for enumeration
+#define kIOUSBClearPipeStallNotRecursive 					iokit_usb_err(0x48)			// 0xe0004048  IOUSBPipe::ClearPipeStall should not be called recursively
+#define kIOUSBDevicePortWasNotSuspended 					iokit_usb_err(0x47)			// 0xe0004047  Port was not suspended
+#ifdef SUPPORTS_SS_USB
+	#define kIOUSBEndpointCountExceeded	iokit_usb_err(0x46)									// 0xe0004046  The endpoint was not created because the controller cannot support more endpoints
+	#define kIOUSBDeviceCountExceeded	iokit_usb_err(0x45)									// 0xe0004045  The device cannot be enumerated because the controller cannot support more devices
+    #define kIOUSBStreamsNotSupported   iokit_usb_err(0x44)                                 // 0xe0004044   The request cannot be completed because the XHCI controller does not support streams
+#endif
+
 /*!
 @defined IOUSBFamily hardware error codes
 @discussion These errors are returned by the OHCI controller.  The # in parenthesis (xx) corresponds to the OHCI Completion Code.
@@ -408,7 +437,12 @@ Completion Code         Error Returned              Description
 #define	kIOUSBMessageRootHubWakeEvent				iokit_usb_msg(0x16)		// 0xe0004016  Message from the HC Wakeup code indicating that a Root Hub port has a wake event
 #define kIOUSBMessageReleaseExtraCurrent			iokit_usb_msg(0x17)		// 0xe0004017  Message to ask any clients using extra current to release it if possible
 #define kIOUSBMessageReallocateExtraCurrent			iokit_usb_msg(0x18)		// 0xe0004018  Message to ask any clients using extra current to attempt to allocate it some more
-
+#ifdef SUPPORTS_SS_USB
+	#define kIOUSBMessageEndpointCountExceeded			iokit_usb_msg(0x19)		// 0xe0004019  Message sent to a device when endpoints cannot be created because the USB controller ran out of resources
+	#define kIOUSBMessageDeviceCountExceeded			iokit_usb_msg(0x1a)		// 0xe000401a  Message sent by a hub when a device cannot be enumerated because the USB controller ran out of resources
+#endif
+#define kIOUSBMessageHubPortDeviceDisconnected      iokit_usb_msg(0x1b)		// 0xe000401b  Message sent by a built-in hub when a device was disconnected
+    
 
 // Obsolete
 //
@@ -472,6 +506,85 @@ struct IOUSBDescriptorHeader {
 typedef struct IOUSBDescriptorHeader		IOUSBDescriptorHeader;
 typedef IOUSBDescriptorHeader *			IOUSBDescriptorHeaderPtr;
 
+#ifdef SUPPORTS_SS_USB
+#pragma pack(1)
+	/*!
+	 @typedef IOUSBBOSDescriptor
+	 @discussion BOS Descriptor for a USB Device.  .
+	 */
+	struct IOUSBBOSDescriptor {
+		UInt8 			bLength;
+		UInt8 			bDescriptorType;
+		UInt16 			wTotalLength;
+		UInt8 			bNumDeviceCaps;
+	};
+	typedef struct IOUSBBOSDescriptor		IOUSBBOSDescriptor;
+	typedef IOUSBBOSDescriptor *			IOUSBBOSDescriptorPtr;
+	
+	
+	/*!
+	 @typedef IOUSBDeviceCapabilityDescriptorHeader
+	 @discussion Header for a Device Capability Descriptor for a USB Device.  .
+	 */
+	struct IOUSBDeviceCapabilityDescriptorHeader {
+		UInt8 			bLength;
+		UInt8 			bDescriptorType;
+		UInt8 			bDevCapabilityType;
+		UInt8 			bNumDeviceCaps;
+	};
+	typedef struct IOUSBDeviceCapabilityDescriptorHeader		IOUSBDeviceCapabilityDescriptorHeader;
+	typedef IOUSBDeviceCapabilityDescriptorHeader *				IOUSBDeviceCapabilityDescriptorHeaderPtr;
+	
+	
+	/*!
+	 @typedef IOUSBDeviceCapabilityUSB2Extension
+	 @discussion Device Capability USB 2.0 Extension
+	 */
+	struct IOUSBDeviceCapabilityUSB2Extension {
+		UInt8 			bLength;
+		UInt8 			bDescriptorType;
+		UInt8 			bDevCapabilityType;
+		UInt32 			bmAttributes;
+	};
+	typedef struct IOUSBDeviceCapabilityUSB2Extension		IOUSBDeviceCapabilityUSB2Extension;
+	typedef IOUSBDeviceCapabilityUSB2Extension *			IOUSBDeviceCapabilityUSB2ExtensionPtr;
+	
+
+	/*!
+	 @typedef IOUSBDeviceCapabilitySuperSpeedUSB
+	 @discussion Device Capability SuperSpeed USB
+	 */
+	struct IOUSBDeviceCapabilitySuperSpeedUSB {
+		UInt8 			bLength;
+		UInt8 			bDescriptorType;
+		UInt8 			bDevCapabilityType;
+		UInt8 			bmAttributes;
+		UInt16			wSpeedsSupported;
+		UInt8			bFunctionalitySupport;
+		UInt8			bU1DevExitLat;
+		UInt16			wU2DevExitLat;
+	};
+	typedef struct IOUSBDeviceCapabilitySuperSpeedUSB		IOUSBDeviceCapabilitySuperSpeedUSB;
+	typedef IOUSBDeviceCapabilitySuperSpeedUSB *			IOUSBDeviceCapabilitySuperSpeedUSBPtr;
+	
+	
+	/*!
+	 @typedef IOUSBDeviceCapabilityContainerID
+	 @discussion Device Capability Container ID
+	 */
+	struct IOUSBDeviceCapabilityContainerID {
+		UInt8 			bLength;
+		UInt8 			bDescriptorType;
+		UInt8 			bDevCapabilityType;
+		UInt8			bReservedID;
+		UInt8			containerID[16];
+
+	};
+	typedef struct IOUSBDeviceCapabilityContainerID		IOUSBDeviceCapabilityContainerID;
+	typedef IOUSBDeviceCapabilityContainerID *			IOUSBDeviceCapabilityContainerIDPtr;
+#pragma options align=reset
+#endif	
+	
 /*!
     @typedef IOUSBConfigurationDescriptor
     @discussion Standard USB Configuration Descriptor.  It is variable length, so this only specifies the known fields.  We use the wTotalLength field to read the whole descriptor.
@@ -534,6 +647,24 @@ struct IOUSBEndpointDescriptor {
 };
 typedef struct IOUSBEndpointDescriptor	IOUSBEndpointDescriptor;
 typedef IOUSBEndpointDescriptor *	IOUSBEndpointDescriptorPtr;
+
+#ifdef SUPPORTS_SS_USB
+#pragma pack(1)
+	/*!
+	 @typedef IOUSBSuperSpeedEndpointCompanionDescriptor
+	 @discussion Descriptor for a SuperSpeed USB Endpoint Cpmpanion.  See the USB Specification at <a href="http://www.usb.org"TARGET="_blank">http://www.usb.org</a>.
+	 */
+	struct IOUSBSuperSpeedEndpointCompanionDescriptor {
+		UInt8 			bLength;
+		UInt8 			bDescriptorType;
+		UInt8 			bMaxBurst;
+		UInt8 			bmAttributes;
+		UInt16 			wBytesPerInterval;	
+	};
+	typedef struct IOUSBSuperSpeedEndpointCompanionDescriptor	IOUSBSuperSpeedEndpointCompanionDescriptor;
+	typedef IOUSBSuperSpeedEndpointCompanionDescriptor *	IOUSBSuperSpeedEndpointCompanionDescriptorPtr;
+#pragma options align=reset
+#endif	
 
 enum{addPacketShift = 11};  // Bits for additional packets in maxPacketField. (Table 9-13)
 #define mungeMaxPacketSize(w) ((w>1024)?(((w>>(addPacketShift))+1)*(w&((1<<addPacketShift)-1))):w)
@@ -887,17 +1018,31 @@ enum {
 	kIOUSBVendorIDAppleComputer		= 0x05AC
         };
 
-/*!
-    @enum USBDeviceSpeed
-    @discussion Returns the speed of a particular USB device. 
-    @constant	kUSBDeviceSpeedLow	The device a low speed device.
-    @constant	kUSBDeviceSpeedFull	The device a full speed device.
-    @constant	kUSBDeviceSpeedHigh	The device a high speed device.
-*/
+#ifdef SUPPORTS_SS_USB
+	/*!
+	 @enum USBDeviceSpeed
+	 @discussion Returns the speed of a particular USB device. 
+	 @constant	kUSBDeviceSpeedLow	The device is a low speed device.
+	 @constant	kUSBDeviceSpeedFull	The device is a full speed device.
+	 @constant	kUSBDeviceSpeedHigh	The device is a high speed device.
+	 @constant	kUSBDeviceSpeedSuper  The device is a SuperSpeed device
+	 */
+#else
+	/*!
+	 @enum USBDeviceSpeed
+	 @discussion Returns the speed of a particular USB device. 
+	 @constant	kUSBDeviceSpeedLow	The device is a low speed device.
+	 @constant	kUSBDeviceSpeedFull	The device is a full speed device.
+	 @constant	kUSBDeviceSpeedHigh	The device is a high speed device.
+	 */
+#endif
 enum {
         kUSBDeviceSpeedLow		= 0,
         kUSBDeviceSpeedFull		= 1,
-        kUSBDeviceSpeedHigh		= 2
+		kUSBDeviceSpeedHigh		= 2,
+#ifdef SUPPORTS_SS_USB
+		kUSBDeviceSpeedSuper	= 3
+#endif
         };
 
 /*!
@@ -1030,6 +1175,8 @@ typedef enum {
  @constant	kUSBInformationDevicePortIsInTestModeBit	The hub port to which the USB device is attached is in test mode
  @constant  kUSBInformationDeviceIsRootHub				The device is actually the root hub simulation
  @constant  kUSBInformationRootHubisBuiltIn				If this is a root hub simulation and it's built into the machine, this bit is set.  If it's on an expansion card, it will be cleared
+ @constant  kUSBInformationDeviceIsRemote				This device is "attached" to the controller through a remote connection
+ @constant  kUSBInformationDeviceIsAttachedToEnclosure	The hub port to which the USB device is connected has a USB connector on the CPU enclosure
  
  */
 	typedef enum {
@@ -1045,6 +1192,7 @@ typedef enum {
 		kUSBInformationDeviceIsRootHub					= 9,
 		kUSBInformationRootHubisBuiltIn					= 10,
 		kUSBInformationDeviceIsRemote					= 11,
+		kUSBInformationDeviceIsAttachedToEnclosure		= 12,
 		kUSBInformationDeviceIsCaptiveMask				= (1 << kUSBInformationDeviceIsCaptiveBit),
 		kUSBInformationDeviceIsAttachedToRootHubMask	= (1 << kUSBInformationDeviceIsAttachedToRootHubBit),
 		kUSBInformationDeviceIsInternalMask				= (1 << kUSBInformationDeviceIsInternalBit),
@@ -1056,7 +1204,8 @@ typedef enum {
 		kUSBInformationDevicePortIsInTestModeMask		= (1 << kUSBInformationDevicePortIsInTestModeBit),
 		kUSBInformationDeviceIsRootHubMask				= (1 << kUSBInformationDeviceIsRootHub),
 		kUSBInformationRootHubisBuiltInMask				= (1 << kUSBInformationRootHubisBuiltIn),
-		kUSBInformationDeviceIsRemoteMask				= (1 << kUSBInformationDeviceIsRemote)
+		kUSBInformationDeviceIsRemoteMask				= (1 << kUSBInformationDeviceIsRemote),
+		kUSBInformationDeviceIsAttachedToEnclosureMask	= (1 << kUSBInformationDeviceIsAttachedToEnclosure)
 	} USBDeviceInformationBits;
 	
 	/*!
@@ -1068,15 +1217,16 @@ typedef enum {
 	 @constant	kUSBPowerRequestSleepRelease	When used with ReturnExtraPower(), it will send a message to all devices to return any sleep power if possible.
 	 @constant	kUSBPowerRequestWakeReallocate		When used with ReturnExtraPower(), it will send a message to all devices indicating that they can ask for more wake power, as some device has released it.
 	 @constant	kUSBPowerRequestSleepReallocate		When used with ReturnExtraPower(), it will send a message to all devices indicating that they can ask for more sleep power, as some device has released it.
+	 @constant	kUSBPowerDuringWake		The power is to be used while the system is awake (i.e not sleeping), but can be taken away (via the kUSBPowerRequestWakeRelease message).  The system can then allocate that extra power to another device.
 	 */
 	typedef enum {
-		kUSBPowerDuringSleep 		= 0,
-		kUSBPowerDuringWake			= 1,
-		kUSBPowerRequestWakeRelease = 2,
-		kUSBPowerRequestSleepRelease = 3,
-		kUSBPowerRequestWakeReallocate = 4,
+		kUSBPowerDuringSleep 			= 0,
+		kUSBPowerDuringWake				= 1,
+		kUSBPowerRequestWakeRelease 	= 2,
+		kUSBPowerRequestSleepRelease 	= 3,
+		kUSBPowerRequestWakeReallocate 	= 4,
 		kUSBPowerRequestSleepReallocate = 5,
-
+		kUSBPowerDuringWakeRevokable	= 6
 	} USBPowerRequestTypes;
 	
 	// Apple specific properties
@@ -1106,11 +1256,29 @@ typedef enum {
 	kUSBTypeAConnector				= 0x00,	// Type ÔAÕ connector
 	kUSBTypeMiniABConnector	        = 0x01,	// Mini-AB connector
 	kUSBTypeExpressCard				= 0x02,	// ExpressCard
+#ifdef SUPPORTS_SS_USB
+#endif
 	kUSBProprietaryConnector		= 0xFF	// Proprietary connector
 } kUSBHostConnectorType;
+
+// Root hub definitions
+enum {
+	kUSBSpeed_Mask		= USBBitRange(0, 1),
+	kUSBSpeed_Shift		= USBBitRangePhase(0, 1),
+	
+	kUSBAddress_Mask	= USBBitRange(8, 15),
+	kUSBAddress_Shift	= USBBitRangePhase(8, 15)
+};
+
+#ifdef SUPPORTS_SS_USB
+enum {
+	kXHCISSRootHubAddress	= kUSBMaxDevices,
+	kXHCIUSB2RootHubAddress = kUSBMaxDevices+1
+};
+#endif
 
 #ifdef __cplusplus
 }       
 #endif
 
-#endif /* _USB_H */
+#endif

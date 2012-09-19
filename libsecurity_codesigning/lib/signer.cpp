@@ -51,10 +51,11 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 {
 	rep = code->diskRep()->base();
 	this->prepare(flags);
+	PreSigningContext context(*this);
 	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
-		signMachO(fat);
+		signMachO(fat, context);
 	} else {
-		signArchitectureAgnostic();
+		signArchitectureAgnostic(context);
 	}
 }
 
@@ -112,7 +113,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	} else {
 		cdFlags = 0;
 		if (infoDict)
-			if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags")))
+			if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags"))) {
 				if (CFGetTypeID(csflags) == CFNumberGetTypeID()) {
 					cdFlags = cfNumber<uint32_t>(CFNumberRef(csflags));
 					secdebug("signer", "using numeric cdFlags=0x%x from Info.plist", cdFlags);
@@ -121,6 +122,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 					secdebug("signer", "using text cdFlags=0x%x from Info.plist", cdFlags);
 				} else
 					MacOSError::throwMe(errSecCSBadDictionaryFormat);
+			}
 	}
 	if (state.mSigner == SecIdentityRef(kCFNull))	// ad-hoc signing requested...
 		cdFlags |= kSecCodeSignatureAdhoc;	// ... so note that
@@ -167,6 +169,9 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	
 	pagesize = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(state);
+    
+    // Timestamping setup
+    CFRef<SecIdentityRef> mTSAuth;	// identity for client-side authentication to the Timestamp server
 }
 
 
@@ -176,7 +181,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 // treat them as architectural binaries containing (only) one architecture - that
 // interpretation is courtesy of the Universal/MachO support classes.
 //
-void SecCodeSigner::Signer::signMachO(Universal *fat)
+void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context &context)
 {
 	// Mach-O executable at the core - perform multi-architecture signing
 	auto_ptr<ArchEditor> editor(state.mDetached
@@ -190,7 +195,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat)
 	for (MachOEditor::Iterator it = editor->begin(); it != editor->end(); ++it) {
 		MachOEditor::Arch &arch = *it->second;
 		arch.source.reset(fat->architecture(it->first));
-		arch.ireqs(state.mRequirements, rep->defaultRequirements(&arch.architecture, state));
+		arch.ireqs(state.mRequirements, rep->defaultRequirements(&arch.architecture, state), context);
 		if (editor->attribute(writerNoGlobal))	// can't store globally, add per-arch
 			populate(arch);
 		populate(arch.cdbuilder, arch, arch.ireqs,
@@ -239,14 +244,14 @@ void SecCodeSigner::Signer::signMachO(Universal *fat)
 // Sign a binary that has no notion of architecture.
 // That currently means anything that isn't Mach-O format.
 //
-void SecCodeSigner::Signer::signArchitectureAgnostic()
+void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context &context)
 {
 	// non-Mach-O executable - single-instance signing
 	RefPointer<DiskRep::Writer> writer = state.mDetached ?
 		(new DetachedBlobWriter(*this)) : rep->writer();
 	CodeDirectory::Builder builder(state.mDigestAlgorithm);
 	InternalRequirements ireqs;
-	ireqs(state.mRequirements, rep->defaultRequirements(NULL, state));
+	ireqs(state.mRequirements, rep->defaultRequirements(NULL, state), context);
 	populate(*writer);
 	populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit());
 	
@@ -291,7 +296,7 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	builder.flags(cdFlags);
 	builder.identifier(identifier);
 	
-	if (CFDataRef data = rep->component(cdInfoSlot))
+	if (CFRef<CFDataRef> data = rep->component(cdInfoSlot))
 		builder.specialSlot(cdInfoSlot, data);
 	if (ireqs) {
 		CFRef<CFDataRef> data = makeCFData(*ireqs);
@@ -312,6 +317,7 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	writer.addDiscretionary(builder);
 }
 
+#include <Security/tsaSupport.h>
 
 //
 // Generate the CMS signature for a (finished) CodeDirectory.
@@ -319,7 +325,8 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd)
 {
 	assert(state.mSigner);
-	
+	CFRef<CFMutableDictionaryRef> defaultTSContext = NULL;
+    
 	// a null signer generates a null signature blob
 	if (state.mSigner == SecIdentityRef(kCFNull))
 		return CFDataCreate(NULL, NULL, 0);
@@ -337,8 +344,29 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd)
 	}
 	
 	MacOSError::check(CMSEncoderUpdateContent(cms, cd, cd->length()));
+    
+    // Set up to call Timestamp server if requested
+    
+    if (state.mWantTimeStamp)
+    {
+        CFRef<CFErrorRef> error = NULL;
+        defaultTSContext = SecCmsTSAGetDefaultContext(&error.aref());
+        if (error)
+            MacOSError::throwMe(errSecDataNotAvailable);
+            
+        if (state.mNoTimeStampCerts || state.mTimestampService) {
+            if (state.mTimestampService)
+                CFDictionarySetValue(defaultTSContext, kTSAContextKeyURL, state.mTimestampService);
+            if (state.mNoTimeStampCerts)
+                CFDictionarySetValue(defaultTSContext, kTSAContextKeyNoCerts, kCFBooleanTrue);
+       }
+            
+        CmsMessageSetTSAContext(cms, defaultTSContext);
+    }
+    
 	CFDataRef signature;
 	MacOSError::check(CMSEncoderCopyEncodedContent(cms, &signature));
+
 	return signature;
 }
 

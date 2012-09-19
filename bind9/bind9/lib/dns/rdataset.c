@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: rdataset.c,v 1.84.186.2.48.3 2011-06-21 20:14:47 each Exp $ */
+/* $Id$ */
 
 /*! \file */
 
@@ -319,7 +319,7 @@ towiresorted(dns_rdataset_t *rdataset, const dns_name_t *owner_name,
 	dns_rdata_t rdata = DNS_RDATA_INIT;
 	isc_region_t r;
 	isc_result_t result;
-	unsigned int i, count, added, choice;
+	unsigned int i, count = 0, added, choice;
 	isc_buffer_t savedbuffer, rdlen, rrbuffer;
 	unsigned int headlen;
 	isc_boolean_t question = ISC_FALSE;
@@ -339,7 +339,6 @@ towiresorted(dns_rdataset_t *rdataset, const dns_name_t *owner_name,
 	REQUIRE((order == NULL) == (order_arg == NULL));
 	REQUIRE(cctx != NULL && cctx->mctx != NULL);
 
-	count = 0;
 	if ((rdataset->attributes & DNS_RDATASETATTR_QUESTION) != 0) {
 		question = ISC_TRUE;
 		count = 1;
@@ -443,11 +442,11 @@ towiresorted(dns_rdataset_t *rdataset, const dns_name_t *owner_name,
 			j = val % count;
 			for (i = 0; i < count; i++) {
 				if (order != NULL)
-					sorted[j].key = (*order)(&shuffled[i],
+					sorted[i].key = (*order)(&shuffled[j],
 								 order_arg);
 				else
-					sorted[j].key = 0; /* Unused */
-				sorted[j].rdata = &shuffled[i];
+					sorted[i].key = 0; /* Unused */
+				sorted[i].rdata = &shuffled[j];
 				j++;
 				if (j == count)
 					j = 0; /* Wrap around. */

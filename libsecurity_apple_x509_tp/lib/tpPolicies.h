@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -18,8 +18,6 @@
 
 /*
 	tpPolicies.h - TP module policy implementation
-
-	Created 10/9/2000 by Doug Mitchell. 
 */
 
 #ifndef	_TP_POLICIES_H_
@@ -54,7 +52,8 @@ typedef enum {
 	kTP_CodeSigning,	/* new Apple Code Signing (Leopard/10.5) */
 	kTP_PackageSigning,	/* Package Signing */
 	kTP_MacAppStoreRec,	/* MacApp store receipt */
-	kTP_AppleIDSharing	/* AppleID Sharing */
+	kTP_AppleIDSharing,	/* AppleID Sharing */
+	kTP_TimeStamping	/* RFC3161 time stamping */
 } TPPolicy;
 
 /*

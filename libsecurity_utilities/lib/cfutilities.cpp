@@ -148,55 +148,63 @@ CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length)
 // Turn a CFString into a UTF8-encoded C++ string.
 // If release==true, the argument will be CFReleased even in case of error.
 //
-string cfString(CFStringRef inStr, bool release)
+string cfString(CFStringRef inStr)
 {
 	if (!inStr)
 		return "";
-	CFRef<CFStringRef> str(inStr);	// hold ref
-	if (!release)
-		CFRetain(inStr);	// compensate for release on exit
-
 	// quick path first
-	if (const char *s = CFStringGetCStringPtr(str, kCFStringEncodingUTF8)) {
+	if (const char *s = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8)) {
 		return s;
 	}
 	
 	// need to extract into buffer
 	string ret;
-	CFIndex length = CFStringGetLength(str);	// in 16-bit character units
+	CFIndex length = CFStringGetLength(inStr);	// in 16-bit character units
 	char *buffer = new char[6 * length + 1];	// pessimistic
-	if (CFStringGetCString(str, buffer, 6 * length + 1, kCFStringEncodingUTF8))
+	if (CFStringGetCString(inStr, buffer, 6 * length + 1, kCFStringEncodingUTF8))
 		ret = buffer;
 	delete[] buffer;
 	return ret;
 }
 
-string cfString(CFURLRef inUrl, bool release)
+string cfStringRelease(CFStringRef inStr)
+{
+	CFRef<CFStringRef> str(inStr);
+	return cfString(str);
+}
+
+string cfString(CFURLRef inUrl)
 {
 	if (!inUrl)
 		CFError::throwMe();
-	CFRef<CFURLRef> url(inUrl);	// hold ref
-	if (!release)
-		CFRetain(inUrl);	// compensate for release on exit
 	
 	UInt8 buffer[PATH_MAX+1];
-	if (CFURLGetFileSystemRepresentation(url, true, buffer, sizeof(buffer)))
+	if (CFURLGetFileSystemRepresentation(inUrl, true, buffer, sizeof(buffer)))
 		return string(reinterpret_cast<char *>(buffer));
 	else
 		CFError::throwMe();
 }
-
-string cfString(CFBundleRef inBundle, bool release)
+    
+string cfStringRelease(CFURLRef inUrl)
+{
+	CFRef<CFURLRef> bundle(inUrl);
+	return cfString(bundle);
+}
+    
+string cfString(CFBundleRef inBundle)
 {
 	if (!inBundle)
 		CFError::throwMe();
-	CFRef<CFBundleRef> bundle(inBundle);
-	if (!release)
-		CFRetain(inBundle);	// compensate for release on exit
-	
-	return cfString(CFBundleCopyBundleURL(bundle), true);
+	return cfStringRelease(CFBundleCopyBundleURL(inBundle));
 }
 
+string cfStringRelease(CFBundleRef inBundle)
+{
+	CFRef<CFBundleRef> bundle(inBundle);
+	return cfString(bundle);
+}
+
+    
 string cfString(CFTypeRef it, OSStatus err)
 {
 	if (it == NULL)

@@ -441,6 +441,10 @@ static bool checkPolicyOid(
 		tpPolicy = kTP_AppleIDSharing;
 		return true;
 	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_TIMESTAMPING)) {
+		tpPolicy = kTP_TimeStamping;
+		return true;
+	}
 	return false;
 }
 

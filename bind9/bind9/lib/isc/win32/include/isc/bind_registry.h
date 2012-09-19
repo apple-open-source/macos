@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: bind_registry.h,v 1.8 2007-06-19 23:47:20 tbox Exp $ */
+/* $Id: bind_registry.h,v 1.8 2007/06/19 23:47:20 tbox Exp $ */
 
 #ifndef ISC_BINDREGISTRY_H
 #define ISC_BINDREGISTRY_H

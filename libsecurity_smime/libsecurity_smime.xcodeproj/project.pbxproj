@@ -83,10 +83,20 @@
 		4CDA0D6504200ADF00CA2E66 /* cmsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6D72BC0410298900CA2E66 /* cmsutil.c */; };
 		4CDA0D6604200AE000CA2E66 /* cmssiginfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27420403E9FC5B00A80181 /* cmssiginfo.c */; };
 		4CDA0D6704200B0F00CA2E66 /* smimeutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27420F03E9FC5B00A80181 /* smimeutil.c */; };
-		4CEC5CDF042A721300CA2E66 /* cmspriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CDE042A721300CA2E66 /* cmspriv.h */; };
-		4CEC5CE1042A722000CA2E66 /* cmstpriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CE0042A722000CA2E66 /* cmstpriv.h */; };
 		4CEDC82106371B1700B7E254 /* SecCmsEncryptedData.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEDC82006371B1700B7E254 /* SecCmsEncryptedData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4CEDC82806371B4000B7E254 /* SecCmsEncryptedData.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CEDC82006371B1700B7E254 /* SecCmsEncryptedData.h */; };
+		521F28E615757FD5002B3975 /* tsaSupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 521F28E115757FD5002B3975 /* tsaSupport.c */; };
+		521F28E815757FD5002B3975 /* tsaSupportPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F28E315757FD5002B3975 /* tsaSupportPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		521F28E915757FD5002B3975 /* tsaTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 521F28E415757FD5002B3975 /* tsaTemplates.c */; };
+		521F28EA15757FD5002B3975 /* tsaTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F28E515757FD5002B3975 /* tsaTemplates.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52218A491576F9030001C9E2 /* tsaSupportPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 521F28E315757FD5002B3975 /* tsaSupportPriv.h */; };
+		52218A4A1576F9030001C9E2 /* tsaTemplates.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 521F28E515757FD5002B3975 /* tsaTemplates.h */; };
+		52EEE6E51586BF4200D20784 /* tsaSupport.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 521F28E215757FD5002B3975 /* tsaSupport.h */; };
+		52EEE6E61586BF4A00D20784 /* cmspriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CEC5CDE042A721300CA2E66 /* cmspriv.h */; };
+		52EEE6E71586C02F00D20784 /* cmstpriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CEC5CE0042A722000CA2E66 /* cmstpriv.h */; };
+		52EEE6FE1589448900D20784 /* tsaSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F28E215757FD5002B3975 /* tsaSupport.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52EEE6FF158944EB00D20784 /* cmspriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CDE042A721300CA2E66 /* cmspriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52EEE700158946DB00D20784 /* cmstpriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEC5CE0042A722000CA2E66 /* cmstpriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F64399010420118A01CA2DCC /* cert.h in Headers */ = {isa = PBXBuildFile; fileRef = F64398FF0420118A01CA2DCC /* cert.h */; };
 		F64399020420118A01CA2DCC /* cert.c in Sources */ = {isa = PBXBuildFile; fileRef = F64399000420118A01CA2DCC /* cert.c */; };
 /* End PBXBuildFile section */
@@ -164,6 +174,11 @@
 			dstPath = SecurityPieces/PrivateHeaders/Security;
 			dstSubfolderSpec = 16;
 			files = (
+				52EEE6E51586BF4200D20784 /* tsaSupport.h in CopyFiles */,
+				52218A491576F9030001C9E2 /* tsaSupportPriv.h in CopyFiles */,
+				52EEE6E61586BF4A00D20784 /* cmspriv.h in CopyFiles */,
+				52EEE6E71586C02F00D20784 /* cmstpriv.h in CopyFiles */,
+				52218A4A1576F9030001C9E2 /* tsaTemplates.h in CopyFiles */,
 				4C21886C0635F4BD00E64E02 /* SecCmsBase.h in CopyFiles */,
 				4C21886D0635F4BD00E64E02 /* SecCmsContentInfo.h in CopyFiles */,
 				4C21886E0635F4BD00E64E02 /* SecCmsDecoder.h in CopyFiles */,
@@ -237,6 +252,11 @@
 		4CEC5CDE042A721300CA2E66 /* cmspriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cmspriv.h; sourceTree = "<group>"; };
 		4CEC5CE0042A722000CA2E66 /* cmstpriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cmstpriv.h; sourceTree = "<group>"; };
 		4CEDC82006371B1700B7E254 /* SecCmsEncryptedData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCmsEncryptedData.h; sourceTree = "<group>"; };
+		521F28E115757FD5002B3975 /* tsaSupport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsaSupport.c; sourceTree = "<group>"; };
+		521F28E215757FD5002B3975 /* tsaSupport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaSupport.h; sourceTree = "<group>"; };
+		521F28E315757FD5002B3975 /* tsaSupportPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaSupportPriv.h; sourceTree = "<group>"; };
+		521F28E415757FD5002B3975 /* tsaTemplates.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsaTemplates.c; sourceTree = "<group>"; };
+		521F28E515757FD5002B3975 /* tsaTemplates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaTemplates.h; sourceTree = "<group>"; };
 		F609A284041FB4F001CA2DCC /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		F609AE8E041FDA3A01CA2DCC /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		F64398FF0420118A01CA2DCC /* cert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cert.h; sourceTree = "<group>"; tabWidth = 8; };
@@ -285,6 +305,11 @@
 		4C2741F003E9FC2100A80181 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				521F28E115757FD5002B3975 /* tsaSupport.c */,
+				521F28E215757FD5002B3975 /* tsaSupport.h */,
+				521F28E315757FD5002B3975 /* tsaSupportPriv.h */,
+				521F28E415757FD5002B3975 /* tsaTemplates.c */,
+				521F28E515757FD5002B3975 /* tsaTemplates.h */,
 				0588CB290E7084880069D232 /* siginfoUtils.cpp */,
 				F64399000420118A01CA2DCC /* cert.c */,
 				F64398FF0420118A01CA2DCC /* cert.h */,
@@ -375,9 +400,7 @@
 			files = (
 				F64399010420118A01CA2DCC /* cert.h in Headers */,
 				4C27421D03E9FC7100A80181 /* cmslocal.h in Headers */,
-				4CEC5CDF042A721300CA2E66 /* cmspriv.h in Headers */,
 				4C27422203E9FC7600A80181 /* cmsreclist.h in Headers */,
-				4CEC5CE1042A722000CA2E66 /* cmstpriv.h in Headers */,
 				4CA51CE00420246F00CA2E66 /* cryptohi.h in Headers */,
 				4C8E16750438EF5700CA2E66 /* plhash.h in Headers */,
 				4CCC260E0635F1A200CBF0D4 /* SecCmsBase.h in Headers */,
@@ -388,6 +411,10 @@
 				4CCC26130635F1A200CBF0D4 /* SecCmsEncoder.h in Headers */,
 				4CEDC82106371B1700B7E254 /* SecCmsEncryptedData.h in Headers */,
 				4CCC26140635F1A200CBF0D4 /* SecCmsEnvelopedData.h in Headers */,
+				521F28EA15757FD5002B3975 /* tsaTemplates.h in Headers */,
+				52EEE6FE1589448900D20784 /* tsaSupport.h in Headers */,
+				52EEE6FF158944EB00D20784 /* cmspriv.h in Headers */,
+				52EEE700158946DB00D20784 /* cmstpriv.h in Headers */,
 				4CCC26150635F1A200CBF0D4 /* SecCmsMessage.h in Headers */,
 				4CCC26160635F1A200CBF0D4 /* SecCmsRecipientInfo.h in Headers */,
 				4CCC26170635F1A200CBF0D4 /* SecCmsSignedData.h in Headers */,
@@ -396,6 +423,7 @@
 				4C8E16700438EEE700CA2E66 /* secoid.h in Headers */,
 				4C7183480637153700230DDE /* SecSMIME.h in Headers */,
 				4C424BE8063F28F600E9831A /* SecSMIMEPriv.h in Headers */,
+				521F28E815757FD5002B3975 /* tsaSupportPriv.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -459,6 +487,7 @@
 			isa = PBXProject;
 			buildConfigurationList = C23B0CD909A298C100B7FCED /* Build configuration list for PBXProject "libsecurity_smime" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -530,6 +559,8 @@
 				4C8E166F0438EEE700CA2E66 /* secoid.c in Sources */,
 				4CDA0D6704200B0F00CA2E66 /* smimeutil.c in Sources */,
 				0588CB2A0E7084880069D232 /* siginfoUtils.cpp in Sources */,
+				521F28E615757FD5002B3975 /* tsaSupport.c in Sources */,
+				521F28E915757FD5002B3975 /* tsaTemplates.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -672,7 +703,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55004.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -683,6 +714,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -721,7 +754,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55004.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -732,6 +765,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -767,7 +802,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55004.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -778,6 +813,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LDFLAGS_BUILDFOLDER_SECURITY = "-dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security:$(SYMROOT)/Security.framework/Versions/A/Security_debug\" -dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security_debug:$(SYMROOT)/Security.framework/Versions/A/Security_debug\"";
 				LIBRARY_STYLE = STATIC;
@@ -814,7 +851,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55004.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -825,6 +862,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -864,7 +903,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55004;
+				CURRENT_PROJECT_VERSION = 55004.3;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -875,6 +914,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					/usr/local/SecurityPieces/Headers,
+					/usr/local/SecurityPieces/PrivateHeaders,
 				);
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";

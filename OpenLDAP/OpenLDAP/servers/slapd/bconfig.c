@@ -5718,7 +5718,7 @@ config_back_modify( Operation *op, SlapReply *rs )
 	}
 
 	slap_mods_opattrs( op, &op->orm_modlist, 1 );
-
+#ifndef __APPLE__
 	if ( do_pause ) {
 		if ( op->o_abandon ) {
 			rs->sr_err = SLAPD_ABANDON;
@@ -5726,7 +5726,7 @@ config_back_modify( Operation *op, SlapReply *rs )
 		}
 		ldap_pvt_thread_pool_pause( &connection_pool );
 	}
-
+#endif
 	/* Strategy:
 	 * 1) perform the Modify on the cached Entry.
 	 * 2) verify that the Entry still satisfies the schema.
@@ -5756,9 +5756,10 @@ config_back_modify( Operation *op, SlapReply *rs )
 		op->o_dn = dn;
 		op->o_ndn = ndn;
 	}
-
+#ifndef __APPLE__
 	if ( do_pause )
 		ldap_pvt_thread_pool_resume( &connection_pool );
+#endif
 out:
 	send_ldap_result( op, rs );
 	slap_graduate_commit_csn( op );

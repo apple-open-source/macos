@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -116,17 +116,17 @@ typedef struct
     void *   buffer;
 } dk_bd_read_track_info_t;
 
-#define DKIOCBDREADSTRUCTURE _IOW('d', 160, dk_bd_read_structure_t)
-#define DKIOCBDREPORTKEY     _IOW('d', 161, dk_bd_report_key_t)
-#define DKIOCBDSENDKEY       _IOW('d', 162, dk_bd_send_key_t)
+#define DKIOCBDREADSTRUCTURE   _IOW('d', 160, dk_bd_read_structure_t)
+#define DKIOCBDREPORTKEY       _IOW('d', 161, dk_bd_report_key_t)
+#define DKIOCBDSENDKEY         _IOW('d', 162, dk_bd_send_key_t)
 
-#define DKIOCBDGETSPEED      _IOR('d', 163, uint16_t)
-#define DKIOCBDSETSPEED      _IOW('d', 163, uint16_t)
+#define DKIOCBDGETSPEED        _IOR('d', 163, uint16_t)
+#define DKIOCBDSETSPEED        _IOW('d', 163, uint16_t)
 
-#define DKIOCBDREADDISCINFO  _IOWR('d', 164, dk_bd_read_disc_info_t)
-#define DKIOCBDREADTRACKINFO _IOWR('d', 165, dk_bd_read_track_info_t)
+#define DKIOCBDREADDISCINFO    _IOWR('d', 164, dk_bd_read_disc_info_t)
+#define DKIOCBDREADTRACKINFO   _IOWR('d', 165, dk_bd_read_track_info_t)
 
-#define DKIOCBDSPLITTRACK    _IOW('d', 166, uint32_t)
+#define DKIOCBDSPLITTRACK      _IOW('d', 166, uint32_t)
 
 #ifdef KERNEL
 #ifdef __cplusplus

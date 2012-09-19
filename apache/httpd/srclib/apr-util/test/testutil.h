@@ -50,6 +50,7 @@ abts_suite *testbuckets(abts_suite *suite);
 abts_suite *testpass(abts_suite *suite);
 abts_suite *testmd4(abts_suite *suite);
 abts_suite *testmd5(abts_suite *suite);
+abts_suite *testcrypto(abts_suite *suite);
 abts_suite *testldap(abts_suite *suite);
 abts_suite *testdbd(abts_suite *suite);
 abts_suite *testdate(abts_suite *suite);

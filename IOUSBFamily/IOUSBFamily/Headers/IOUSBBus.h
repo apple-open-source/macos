@@ -31,5 +31,5 @@ class IOUSBBus : public IOService
     OSDeclareAbstractStructors(IOUSBBus)
 };
 
-#endif /* ! _IOKIT_IOUSBBUS_H */
+#endif
 

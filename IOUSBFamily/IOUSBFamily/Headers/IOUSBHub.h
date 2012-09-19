@@ -21,10 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_IOUSBHUB_H
 #define _IOKIT_IOUSBHUB_H
 
 #warning The class IOUSBHub has been deprecated.  You should not be including this header file.
 
 
-#endif _IOKIT_IOUSBHUB_H
+#endif

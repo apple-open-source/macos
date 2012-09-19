@@ -23,7 +23,9 @@ using namespace llvm;
 namespace {
   struct InstNamer : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
-    InstNamer() : FunctionPass(&ID) {}
+    InstNamer() : FunctionPass(ID) {
+      initializeInstNamerPass(*PassRegistry::getPassRegistry());
+    }
     
     void getAnalysisUsage(AnalysisUsage &Info) const {
       Info.setPreservesAll();
@@ -48,12 +50,11 @@ namespace {
   };
   
   char InstNamer::ID = 0;
-  static RegisterPass<InstNamer> X("instnamer",
-                                   "Assign names to anonymous instructions");
 }
 
-
-const PassInfo *const llvm::InstructionNamerID = &X;
+INITIALIZE_PASS(InstNamer, "instnamer", 
+                "Assign names to anonymous instructions", false, false)
+char &llvm::InstructionNamerID = InstNamer::ID;
 //===----------------------------------------------------------------------===//
 //
 // InstructionNamer - Give any unnamed non-void instructions "tmp" names.

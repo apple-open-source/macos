@@ -46,12 +46,20 @@
 #include "cert.h"
 #include "secitem.h"
 #include "secoid.h"
+#include "tsaTemplates.h"
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
 #include <Security/SecBase.h>
+#include <CommonCrypto/CommonRandomSPI.h>
 
-#define SIGDATA_DEBUG	0
+// exported, but not in the header on Lion
+extern CCRandomRef kCCRandomDevRandom __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+
+#ifndef NDEBUG
+#define SIGDATA_DEBUG	1
+#endif
+
 #if	SIGDATA_DEBUG
 #define dprintf(args...)      printf(args)
 #else
@@ -161,6 +169,7 @@ SecCmsSignedDataEncodeBeforeStart(SecCmsSignedDataRef sigd)
 	/* (we need to know which algorithms we have when the content comes in) */
 	/* do not overwrite any existing digestAlgorithms (and digest) */
 	digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
+        
 	n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
 	if (n < 0 && haveDigests) {
 	    /* oops, there is a digestalg we do not have a digest for */
@@ -203,6 +212,156 @@ SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd)
 	    return SECFailure;
     }
     return SECSuccess;
+}
+
+#include <AssertMacros.h>
+#include "tsaSupport.h"
+#include "tsaSupportPriv.h"
+#include "tsaTemplates.h"
+//#include <security_keychain/tsaDERUtilities.h>
+
+extern const SecAsn1Template kSecAsn1TSATSTInfoTemplate;
+
+OSStatus createTSAMessageImprint(SecCmsSignedDataRef signedData, CSSM_DATA_PTR encDigest, 
+    SecAsn1TSAMessageImprint *messageImprint)
+{
+    // Calculate hash of encDigest and put in messageImprint.hashedMessage
+    // We pass in encDigest, since in the verification case, it comes from a different signedData
+    
+    OSStatus status = SECFailure;
+    
+    require(signedData && messageImprint, xit);
+	
+    SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(signedData);
+    require(digestAlgorithms, xit);
+
+    SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestAlgorithms);
+    require(digcx, xit);
+    require(encDigest, xit);
+    
+    SecCmsSignerInfoRef signerinfo = SecCmsSignedDataGetSignerInfo(signedData, 0);  // NB - assume 1 signer only!
+    messageImprint->hashAlgorithm = signerinfo->digestAlg;
+
+    SecCmsDigestContextUpdate(digcx, encDigest->Data, encDigest->Length);
+    
+    require_noerr(SecCmsDigestContextFinishSingle(digcx, (SecArenaPoolRef)signedData->cmsg->poolp,
+        &messageImprint->hashedMessage), xit);
+    
+    status = SECSuccess;
+xit:
+    return status;
+}
+
+#include <Security/SecAsn1Templates.h>
+
+static OSStatus decodeDERUTF8String(const CSSM_DATA_PTR content, char *statusstr, size_t strsz)
+{
+    // The statusString should use kSecAsn1SequenceOfUTF8StringTemplate, but doesn't
+    OSStatus status = SECFailure;
+    SecAsn1CoderRef coder = NULL;
+    CSSM_DATA statusString;
+    size_t len = 0;
+    
+    require(content && statusstr, xit);
+        
+    require_noerr(SecAsn1CoderCreate(&coder), xit);
+    require_noerr(SecAsn1Decode(coder, content->Data, content->Length, kSecAsn1UTF8StringTemplate, &statusString), xit);
+    status = 0;
+    len = (statusString.Length < strsz)?(int)statusString.Length:strsz;
+    if (statusstr && statusString.Data)
+        strncpy(statusstr, (const char *)statusString.Data, len);
+
+xit:
+    if (coder)
+        SecAsn1CoderRelease(coder);
+    return status;
+}
+
+static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR tsaResponse,
+    uint64_t expectedNonce)
+{
+    OSStatus status = SECFailure;
+    SecAsn1CoderRef coder = NULL;
+    SecAsn1TimeStampRespDER respDER = {{{0}},};
+    SecAsn1TSAPKIStatusInfo *tsastatus = NULL;
+    int respstatus = -1;
+    int failinfo = -1;
+
+    require_action(tsaResponse && tsaResponse->Data && tsaResponse->Length, xit, status = errSecTimestampMissing);
+
+    require_noerr(SecAsn1CoderCreate(&coder), xit);
+    require_noerr(SecTSAResponseCopyDEREncoding(coder, tsaResponse, &respDER), xit);
+
+#ifndef NDEBUG
+    tsaWriteFileX("/tmp/tsa-timeStampToken.der", respDER.timeStampTokenDER.Data, respDER.timeStampTokenDER.Length);
+#endif
+
+    tsastatus = (SecAsn1TSAPKIStatusInfo *)&respDER.status;
+    require_action(tsastatus->status.Data, xit, status = errSecTimestampBadDataFormat);
+    respstatus = (int)tsaDER_ToInt(&tsastatus->status);
+
+#ifndef NDEBUG
+    char buf[80]={0,};
+    if (tsastatus->failInfo.Data)   // e.g. FI_BadRequest
+        failinfo = (int)tsaDER_ToInt(&tsastatus->failInfo);
+    
+    if (tsastatus->statusString.Data && tsastatus->statusString.Length)
+    {
+        OSStatus strrx = decodeDERUTF8String(&tsastatus->statusString, buf, sizeof(buf));
+        dprintf("decodeDERUTF8String status: %d\n", (int)strrx);
+    }
+
+    dprintf("validateTSAResponse: status: %d, failinfo: %d, %s\n", respstatus, failinfo, buf);
+#endif
+
+    switch (respstatus)
+    {
+    case PKIS_Granted:
+    case PKIS_GrantedWithMods:  // Success
+        status = noErr;
+        break;
+    case PKIS_Rejection:
+        status = errSecTimestampRejection;
+        break;
+    case PKIS_Waiting:
+        status = errSecTimestampWaiting;
+        break;
+    case PKIS_RevocationWarning:
+        status = errSecTimestampRevocationWarning;
+        break;
+    case PKIS_RevocationNotification:
+        status = errSecTimestampRevocationNotification;
+        break;
+    default:
+        status = errSecTimestampSystemFailure;
+        break;
+    }
+    require_noerr(status, xit);
+    
+    // If we succeeded, then we must have a TimeStampToken
+    
+    require_action(respDER.timeStampTokenDER.Data && respDER.timeStampTokenDER.Length, xit, status = errSecTimestampBadDataFormat);
+
+    dprintf("timestamp full expected nonce: %lld\n", expectedNonce);
+    
+    /*
+        The bytes in respDER are a full CMS message, which we need to check now for validity.
+        The code for this is essentially the same code taht is done during a timestamp
+        verify, except that we also need to check the nonce.
+    */
+    require_noerr(status = decodeTimeStampToken(signerinfo, &respDER.timeStampTokenDER, NULL, expectedNonce), xit);
+
+    status = SecCmsSignerInfoAddTimeStamp(signerinfo, &respDER.timeStampTokenDER);
+
+xit:
+    if (coder)
+        SecAsn1CoderRelease(coder);
+    return status;
+}
+
+static OSStatus getRandomNonce(uint64_t *nonce)
+{
+    return nonce ? CCRandomCopyBytes(kCCRandomDefault, (void *)nonce, sizeof(*nonce)) : SECFailure;
 }
 
 /*
@@ -276,6 +435,47 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 	    certcount += CFArrayGetCount(certlist);
     }
 
+    /* Now we can get a timestamp, since we have all the digests */
+
+    // We force the setting of a callback, since this is the most usual case
+    if (!sigd->cmsg->tsaCallback)
+        SecCmsMessageSetTSACallback(sigd->cmsg, (SecCmsTSACallback)SecCmsTSADefaultCallback);
+        
+    if (sigd->cmsg->tsaCallback && sigd->cmsg->tsaContext)
+    {
+        CSSM_DATA tsaResponse = {0,};
+        SecAsn1TSAMessageImprint messageImprint = {{{0},},{0,}};
+        // <rdar://problem/11073466> Add nonce support for timestamping client
+
+        uint64_t nonce = 0;
+
+        require_noerr(getRandomNonce(&nonce), tsxit);
+        dprintf("SecCmsSignedDataSignerInfoCount: %d\n", SecCmsSignedDataSignerInfoCount(sigd));
+
+        // Calculate hash of encDigest and put in messageImprint.hashedMessage
+        SecCmsSignerInfoRef signerinfo = SecCmsSignedDataGetSignerInfo(sigd, 0);    // NB - assume 1 signer only!
+        CSSM_DATA *encDigest = SecCmsSignerInfoGetEncDigest(signerinfo);
+        require_noerr(createTSAMessageImprint(sigd, encDigest, &messageImprint), tsxit);
+        
+        // Callback to fire up XPC service to talk to TimeStamping server, etc.
+        require_noerr(rv =(*sigd->cmsg->tsaCallback)(sigd->cmsg->tsaContext, &messageImprint,
+                                                     nonce, &tsaResponse), tsxit);
+        
+        require_noerr(rv = validateTSAResponseAndAddTimeStamp(signerinfo, &tsaResponse, nonce), tsxit);
+
+        /*
+            It is likely that every occurrence of "goto loser" in this file should
+            also do a PORT_SetError. Since it is not clear what might depend on this
+            behavior, we just do this in the timestamping case.
+        */
+tsxit:
+        if (rv)
+        {
+            PORT_SetError(rv);
+            goto loser;
+        }
+    }
+        
     /* this is a SET OF, so we need to sort them guys */
     rv = SecCmsArraySortByDER((void **)signerinfos, SecCmsSignerInfoTemplate, NULL);
     if (rv != SECSuccess)
@@ -343,6 +543,8 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
     ret = SECSuccess;
 
 loser:
+
+    dprintf("SecCmsSignedDataEncodeAfterData: ret: %ld, rv: %ld\n", (long)ret, (long)rv);
     return ret;
 }
 
@@ -506,6 +708,10 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
 
     /* Find digest and contentType for signerinfo */
     algiddata = SecCmsSignerInfoGetDigestAlg(signerinfo);
+    if (algiddata == NULL) {
+        return errSecInternalError; // shouldn't have happened, this is likely due to corrupted data
+    }
+    
     digest = SecCmsSignedDataGetDigestByAlgTag(sigd, algiddata->offset);
 	if(digest == NULL) {
 		/* 

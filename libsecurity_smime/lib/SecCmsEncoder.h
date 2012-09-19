@@ -122,7 +122,6 @@ extern OSStatus
 SecCmsMessageEncode(SecCmsMessageRef cmsg, const CSSM_DATA *input, SecArenaPoolRef arena,
                     CSSM_DATA_PTR outBer);
 
-
 #if defined(__cplusplus)
 }
 #endif

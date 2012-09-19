@@ -33,10 +33,41 @@
 		decodeBytes20( descriptor, thisDevice );
 }
 
+// <rdar://10009579> This method uses the same text as the old DUMPIT() macro,
+// but it only prints kUSBAudioDescriptorBytesPerLine bytes per line. 
+void dumpIt ( UInt8 *descriptor, BusProbeDevice * thisDevice, int depth )
+{
+    char			descriptorString[kUSBAudioMaxDescriptorStringSize];
+    char			byteAndSpace[4];
+    UInt8           offset = 0;
+    UInt8           length;
+        
+    if ( descriptor )
+    {
+        length = descriptor[0];
+        descriptorString[0] = '\0';
+        while ( offset < length )
+        {
+            snprintf ( byteAndSpace, 4, "%02X ", descriptor[offset++] );
+            strlcat ( descriptorString, byteAndSpace, kUSBAudioMaxDescriptorStringSize );
+            if ( 0 == ( offset % kUSBAudioDescriptorBytesPerLine ) )  // wrap
+            {
+                [thisDevice addProperty:"Dump Contents (hex):" withValue:descriptorString atDepth:INTERFACE_LEVEL+depth];
+                descriptorString[0] = '\0';
+            }
+            
+        }
+        // Add the last line
+        if ( offset % kUSBAudioDescriptorBytesPerLine )
+        {
+            [thisDevice addProperty:"Dump Contents (hex):" withValue:descriptorString atDepth:INTERFACE_LEVEL+depth];
+        }
+    }
+}
+
 void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     static  char			buf[256];
     static  char			buf2[256];
-	static  char			dump[256];
     auto AudioCtrlHdrDescriptorPtr		pAudioHdrDesc = NULL;
     auto AudioCtrlInTermDescriptorPtr		pAudioInTermDesc;
     auto AudioCtrlOutTermDescriptorPtr		pAudioOutTermDesc;
@@ -165,18 +196,9 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf, "%u", *p );
                     [thisDevice addProperty:"Audio Interface Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-
-				dump[0] = 0;
-				for (tempIndex = 0; tempIndex < pAudioHdrDesc->descLen; tempIndex++)
-				{
-					buf2[0] = ((char *)pAudioHdrDesc)[tempIndex];
-					buf2[1] = '\0';
-					sprintf ((char *)buf, "%02X ", buf2[0]);
-					strcat ((char *)dump, (char *)buf);
-				}
-				
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
+                dumpIt ( ( UInt8 * )pAudioHdrDesc, thisDevice, 1 );
                     break;
+
 
             case ACS_INPUT_TERMINAL:
                 pAudioInTermDesc = (AudioCtrlInTermDescriptorPtr)desc;
@@ -428,17 +450,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf,	"%u", pAudioMixerDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-
-				dump[0] = 0;
-				for (tempIndex = 0; tempIndex < pAudioMixerDesc->descLen; tempIndex++)
-				{
-					buf2[0] = ((char *)pAudioMixerDesc)[tempIndex];
-					buf2[1] = '\0';
-					sprintf ((char *)buf, "%02X ", buf2[0]);
-					strcat ((char *)dump, (char *)buf);
-				}
-				
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
+                dumpIt ( ( UInt8 * )pAudioMixerDesc, thisDevice, 1 );
                     break;
 
             case ACS_SELECTOR_UNIT:
@@ -457,17 +469,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf,	"%u", pAudioSelectorDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-
-				dump[0] = 0;
-				for (tempIndex = 0; tempIndex < pAudioSelectorDesc->descLen; tempIndex++)
-				{
-					buf2[0] = ((char *)pAudioSelectorDesc)[tempIndex];
-					buf2[1] = '\0';
-					sprintf ((char *)buf, "%02X ", buf2[0]);
-					strcat ((char *)dump, (char *)buf);
-				}
-				
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
+                dumpIt ( ( UInt8 * )pAudioSelectorDesc, thisDevice, 1 );
                     break;
 
             case ACS_FEATURE_UNIT:
@@ -568,18 +570,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                 [thisDevice addProperty:"Feature Unit Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				// Dump hex values for Audio Class Specific Feature
-				
-				dump[0] = 0;
-				for (tempIndex = 0; tempIndex < pAudioFeatureDesc->descLen; tempIndex++)
-				{
-					buf2[0] = ((char *)pAudioFeatureDesc)[tempIndex];
-					buf2[1] = '\0';
-					sprintf ((char *)buf, "%02X ", buf2[0]);
-					strcat ((char *)dump, (char *)buf);
-				}
-				
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
-
+                dumpIt ( ( UInt8 * )pAudioFeatureDesc, thisDevice, 1 );
                 break;
             case ACS_EXTENSION_UNIT:
                 pAudioExtDesc = (AudioCtrlExtDescriptorPtr)desc;
@@ -603,17 +594,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf,	"%u", pAudioExtDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-
-				dump[0] = 0;
-				for (tempIndex = 0; tempIndex < pAudioExtDesc->descLen; tempIndex++)
-				{
-					buf2[0] = ((char *)pAudioExtDesc)[tempIndex];
-					buf2[1] = '\0';
-					sprintf ((char *)buf, "%02X ", buf2[0]);
-					strcat ((char *)dump, (char *)buf);
-				}
-				
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
+                dumpIt ( ( UInt8 * )pAudioExtDesc, thisDevice, 1 );
                 break;
             case ACS_PROCESSING_UNIT:
                 pAudioProcDesc = (acProcessingDescriptorPtr)desc;
@@ -652,16 +633,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                 sprintf((char *)buf, "%u", pAudioProcContDesc->iProcessing );
                 [thisDevice addProperty:"Process Unit Name:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-				dump[0] = 0;
-				for (tempIndex = 0; tempIndex < pAudioProcDesc->bLength; tempIndex++)
-				{
-					buf2[0] = ((char *)pAudioProcDesc)[tempIndex];
-					buf2[1] = '\0';
-					sprintf ((char *)buf, "%02X ", buf2[0]);
-					strcat ((char *)dump, (char *)buf);
-				}
-				
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
+                dumpIt ( ( UInt8 * )pAudioProcDesc, thisDevice, 1 );
                 break;
 	}
             else            if ( [[thisDevice lastInterfaceClassInfo] subclassNum]==0x02 /*AudioStreaming*/ )
@@ -773,20 +745,9 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                         }
 }
 
-#define DUMPIT( des, x )	dump[0] = 0; \
-				for (tempIndex = 0; tempIndex < des->descLen; tempIndex++) \
-				{ \
-					buf2[0] = ((char *)des)[tempIndex]; \
-					buf2[1] = '\0'; \
-					sprintf ((char *)buf, "%02X ", buf2[0]); \
-					strcat ((char *)dump, (char *)buf); \
-				} \
-				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+(x)]
-
 void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     static  char			buf[256];
     static  char			buf2[256];
-	static  char			dump[256];
     auto Audio20CtrlHdrDescriptorPtr		pAudioHdrDesc;
     auto Audio20CtrlInTermDescriptorPtr		pAudioInTermDesc;
     auto Audio20ClockSourceDescriptorPtr		pAudioClockSourceDesc;
@@ -925,7 +886,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                 sprintf((char *)buf, "%u", pAudioHdrDesc->descbmControls );
                 [thisDevice addProperty:"bmControls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-				DUMPIT( pAudioHdrDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioHdrDesc, thisDevice, 1 );
 				break;
 
             case ACS_INPUT_TERMINAL:
@@ -1065,7 +1026,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     }
                     [thisDevice addProperty:"Terminal Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-				DUMPIT( pAudioInTermDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioInTermDesc, thisDevice, 1 );
                 break;
 
             case AC20S_CLOCK_SOURCE:
@@ -1098,7 +1059,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 					sprintf((char *)buf, "%u", pAudioClockSourceDesc->desciClockSourceName );
 				}
 				[thisDevice addProperty:"Clock Source Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
-				DUMPIT( pAudioClockSourceDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioClockSourceDesc, thisDevice, 1 );
 
                 break;
 				
@@ -1131,7 +1092,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 				}
 				[thisDevice addProperty:"Clock Selector Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				DUMPIT( pAudioClockSelectorDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioClockSelectorDesc, thisDevice, 1 );
 				break;
 				
 			case AC20S_CLOCK_MULTIPLIER:	
@@ -1156,7 +1117,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 				}
 				[thisDevice addProperty:"Clock Multiplier Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				DUMPIT( pAudioClockMultiplierDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioClockMultiplierDesc, thisDevice, 1 );
 				break;
 				
             case ACS_OUTPUT_TERMINAL:
@@ -1252,7 +1213,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     }
                     [thisDevice addProperty:"Terminal Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-				DUMPIT( pAudioOutTermDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioOutTermDesc, thisDevice, 1 );
                 break;
             case ACS_MIXER_UNIT:
                 pAudioMixerDesc = (AudioCtrlMixerDescriptorPtr)desc;
@@ -1271,7 +1232,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf,	"%u", pAudioMixerDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-				DUMPIT( pAudioMixerDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioMixerDesc, thisDevice, 1 );
 				break;
 
             case ACS_SELECTOR_UNIT:
@@ -1290,7 +1251,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf,	"%u", pAudioSelectorDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-				DUMPIT( pAudioSelectorDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioSelectorDesc, thisDevice, 1 );
                     break;
 
             case ACS_FEATURE_UNIT:
@@ -1375,7 +1336,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     // p points to the next descriptor byte.
                     sprintf((char *)buf, "%u", *p );
                 [thisDevice addProperty:"Feature Unit Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
-				DUMPIT( pAudioFeatureDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioFeatureDesc, thisDevice, 1 );
                 break;
             case ACS_EXTENSION_UNIT:
                 pAudioExtDesc = (Audio20CtrlExtDescriptorPtr)desc;
@@ -1399,7 +1360,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     sprintf((char *)buf,	"%u", pAudioExtDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
-				DUMPIT( pAudioExtDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioExtDesc, thisDevice, 1 );
 
                 break;
             case ACS_PROCESSING_UNIT:
@@ -1435,7 +1396,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 
                 sprintf((char *)buf, "%u", pAudioProcContDesc->iProcessing );
                 [thisDevice addProperty:"Process Unit Name:" withValue:buf atDepth:INTERFACE_LEVEL+1];
-				DUMPIT( pAudioProcDesc, 1 );
+                dumpIt ( ( UInt8 * )pAudioProcDesc, thisDevice, 1 );
 
                 break;
 				}
@@ -1484,7 +1445,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 
 						sprintf((char *)buf, "%u", (unsigned int) Swap32( & pAudioGeneralDesc->channelConfig ) );
                         [thisDevice addProperty:"Channel Configuration" withValue:buf atDepth:INTERFACE_LEVEL+2];
-						DUMPIT( pAudioGeneralDesc, 2 );
+                        dumpIt ( ( UInt8 * )pAudioGeneralDesc, thisDevice, 2 );
 
                         break;
                     case ACS_ASTREAM_TYPE:
@@ -1501,7 +1462,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                         sprintf((char *)buf, "%u", pAudioFormatTypeDesc->bitResolution );
                         [thisDevice addProperty:"Bit Resolution:" withValue:buf atDepth:INTERFACE_LEVEL+2];
 
-						DUMPIT( pAudioFormatTypeDesc, 2 );
+                        dumpIt ( ( UInt8 * )pAudioFormatTypeDesc, thisDevice, 2 );
 						break;
                     default:
                         sprintf((char *)buf, "AudioStreaming Subclass" );

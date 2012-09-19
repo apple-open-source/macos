@@ -530,7 +530,9 @@ enum
 	/* unknown critical Qualified Cert Statement ID */
 	CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT = 	CSSM_TP_PRIVATE_ERROR + 56,
 	/* Missing required extension */
-	CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION =    CSSM_TP_PRIVATE_ERROR + 57
+	CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION =    CSSM_TP_PRIVATE_ERROR + 57,
+	/* Extended key usage not marked critical */
+	CSSMERR_APPLETP_EXT_KEYUSAGE_NOT_CRITICAL =     CSSM_TP_PRIVATE_ERROR + 58
 };
 
 /* Apple .mac TP private error codes. */

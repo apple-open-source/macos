@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2008, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: controlconf.c,v 1.60 2008-07-23 23:27:54 marka Exp $ */
+/* $Id: controlconf.c,v 1.60.290.3 2011/12/22 08:11:09 marka Exp $ */
 
 /*! \file */
 
@@ -373,17 +373,8 @@ control_recvmessage(isc_task_t *task, isc_event_t *event) {
 		if (result == ISC_R_SUCCESS)
 			break;
 		isc_mem_put(listener->mctx, secret.rstart, REGION_SIZE(secret));
-		if (result == ISCCC_R_BADAUTH) {
-			/*
-			 * For some reason, request is non-NULL when
-			 * isccc_cc_fromwire returns ISCCC_R_BADAUTH.
-			 */
-			if (request != NULL)
-				isccc_sexpr_free(&request);
-		} else {
-			log_invalid(&conn->ccmsg, result);
-			goto cleanup;
-		}
+		log_invalid(&conn->ccmsg, result);
+		goto cleanup;
 	}
 
 	if (key == NULL) {
@@ -859,7 +850,7 @@ get_rndckey(isc_mem_t *mctx, controlkeylist_t *keyids) {
 		cfg_obj_log(key, ns_g_lctx, ISC_LOG_WARNING,
 			    "secret for key '%s' on command channel: %s",
 			    keyid->keyname, isc_result_totext(result));
-		CHECK(result);
+		goto cleanup;
 	}
 
 	keyid->secret.length = isc_buffer_usedlength(&b);
@@ -1147,6 +1138,11 @@ add_listener(ns_controls_t *cp, controllistener_t **listenerp,
 					   type, &listener->sock);
 	if (result == ISC_R_SUCCESS)
 		isc_socket_setname(listener->sock, "control", NULL);
+
+#ifndef ISC_ALLOW_MAPPED
+	if (result == ISC_R_SUCCESS)
+		isc_socket_ipv6only(listener->sock, ISC_TRUE);
+#endif
 
 	if (result == ISC_R_SUCCESS)
 		result = isc_socket_bind(listener->sock, &listener->address,

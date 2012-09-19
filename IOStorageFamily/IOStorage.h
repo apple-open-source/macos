@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -141,8 +141,6 @@ typedef UInt32 IOStorageAccess;
  * Force the request to access the media.
  * @constant kIOStorageOptionIsEncrypted
  * The data is already encrypted.
- * @constant kIOStorageOptionIsMeta
- * The data describes the structure of other content.
  */
 
 enum
@@ -150,8 +148,7 @@ enum
     kIOStorageOptionNone            = 0x00000000,
     kIOStorageOptionForceUnitAccess = 0x00000001,
     kIOStorageOptionIsEncrypted     = 0x00000010,
-    kIOStorageOptionIsMeta          = 0x00000040,
-    kIOStorageOptionReserved        = 0xFFFFFFAE
+    kIOStorageOptionReserved        = 0xFFFFFFEE
 };
 
 typedef UInt32 IOStorageOptions;

@@ -49,15 +49,10 @@ protected:
   PointerIntPair<InstrTy*, 1, bool> I;
 public:
   CallSiteBase() : I(0, false) {}
-  CallSiteBase(CallTy *CI) : I(reinterpret_cast<InstrTy*>(CI), true) {}
-  CallSiteBase(InvokeTy *II) : I(reinterpret_cast<InstrTy*>(II), false) {}
+  CallSiteBase(CallTy *CI) : I(CI, true) { assert(CI); }
+  CallSiteBase(InvokeTy *II) : I(II, false) { assert(II); }
   CallSiteBase(ValTy *II) { *this = get(II); }
-  CallSiteBase(InstrTy *II) {
-    assert(II && "Null instruction given?");
-    *this = get(II);
-    assert(I.getPointer());
-  }
-
+protected:
   /// CallSiteBase::get - This static method is sort of like a constructor.  It
   /// will create an appropriate call site for a Call or Invoke instruction, but
   /// it can also create a null initialized CallSiteBase object for something
@@ -66,13 +61,13 @@ public:
   static CallSiteBase get(ValTy *V) {
     if (InstrTy *II = dyn_cast<InstrTy>(V)) {
       if (II->getOpcode() == Instruction::Call)
-        return CallSiteBase(reinterpret_cast<CallTy*>(II));
+        return CallSiteBase(static_cast<CallTy*>(II));
       else if (II->getOpcode() == Instruction::Invoke)
-        return CallSiteBase(reinterpret_cast<InvokeTy*>(II));
+        return CallSiteBase(static_cast<InvokeTy*>(II));
     }
     return CallSiteBase();
   }
-
+public:
   /// isCall - true if a CallInst is enclosed.
   /// Note that !isCall() does not mean it is an InvokeInst enclosed,
   /// it also could signify a NULL Instruction pointer.
@@ -116,13 +111,13 @@ public:
 
   ValTy *getArgument(unsigned ArgNo) const {
     assert(arg_begin() + ArgNo < arg_end() && "Argument # out of range!");
-    return *(arg_begin()+ArgNo);
+    return *(arg_begin() + ArgNo);
   }
 
   void setArgument(unsigned ArgNo, Value* newVal) {
     assert(getInstruction() && "Not a call or invoke instruction!");
     assert(arg_begin() + ArgNo < arg_end() && "Argument # out of range!");
-    getInstruction()->setOperand(getArgumentOffset() + ArgNo, newVal);
+    getInstruction()->setOperand(ArgNo, newVal);
   }
 
   /// Given a value use iterator, returns the argument that corresponds to it.
@@ -143,7 +138,7 @@ public:
   IterTy arg_begin() const {
     assert(getInstruction() && "Not a call or invoke instruction!");
     // Skip non-arguments
-    return (*this)->op_begin() + getArgumentOffset();
+    return (*this)->op_begin();
   }
 
   IterTy arg_end() const { return (*this)->op_end() - getArgumentEndOffset(); }
@@ -152,7 +147,7 @@ public:
   
   /// getType - Return the type of the instruction that generated this call site
   ///
-  const Type *getType() const { return (*this)->getType(); }
+  Type *getType() const { return (*this)->getType(); }
 
   /// getCaller - Return the caller function for this call site
   ///
@@ -204,9 +199,9 @@ public:
     CALLSITE_DELEGATE_GETTER(isNoInline());
   }
   void setIsNoInline(bool Value = true) {
-    CALLSITE_DELEGATE_GETTER(setIsNoInline(Value));
+    CALLSITE_DELEGATE_SETTER(setIsNoInline(Value));
   }
-  
+
   /// @brief Determine if the call does not access memory.
   bool doesNotAccessMemory() const {
     CALLSITE_DELEGATE_GETTER(doesNotAccessMemory());
@@ -253,30 +248,41 @@ public:
   }
 
 private:
-  /// Returns the operand number of the first argument
-  unsigned getArgumentOffset() const {
-    if (isCall())
-      return 1; // Skip Function (ATM)
-    else
-      return 0; // Args are at the front
-  }
-
   unsigned getArgumentEndOffset() const {
     if (isCall())
-      return 0; // Unchanged (ATM)
+      return 1; // Skip Callee
     else
-      return 3; // Skip BB, BB, Function
+      return 3; // Skip BB, BB, Callee
   }
 
   IterTy getCallee() const {
-      // FIXME: this is slow, since we do not have the fast versions
-      // of the op_*() functions here. See CallSite::getCallee.
-      //
-    if (isCall())
-      return getInstruction()->op_begin(); // Unchanged (ATM)
-    else
-      return getInstruction()->op_end() - 3; // Skip BB, BB, Function
+    if (isCall()) // Skip Callee
+      return cast<CallInst>(getInstruction())->op_end() - 1;
+    else // Skip BB, BB, Callee
+      return cast<InvokeInst>(getInstruction())->op_end() - 3;
   }
+};
+
+class CallSite : public CallSiteBase<Function, Value, User, Instruction,
+                                     CallInst, InvokeInst, User::op_iterator> {
+  typedef CallSiteBase<Function, Value, User, Instruction,
+                       CallInst, InvokeInst, User::op_iterator> Base;
+public:
+  CallSite() {}
+  CallSite(Base B) : Base(B) {}
+  CallSite(Value* V) : Base(V) {}
+  CallSite(CallInst *CI) : Base(CI) {}
+  CallSite(InvokeInst *II) : Base(II) {}
+  CallSite(Instruction *II) : Base(II) {}
+
+  bool operator==(const CallSite &CS) const { return I == CS.I; }
+  bool operator!=(const CallSite &CS) const { return I != CS.I; }
+  bool operator<(const CallSite &CS) const {
+    return getInstruction() < CS.getInstruction();
+  }
+
+private:
+  User::op_iterator getCallee() const;
 };
 
 /// ImmutableCallSite - establish a view to a call site for examination
@@ -287,37 +293,7 @@ public:
   ImmutableCallSite(const CallInst *CI) : Base(CI) {}
   ImmutableCallSite(const InvokeInst *II) : Base(II) {}
   ImmutableCallSite(const Instruction *II) : Base(II) {}
-};
-
-class CallSite : public CallSiteBase<Function, Value, User, Instruction,
-                                     CallInst, InvokeInst, User::op_iterator> {
-  typedef CallSiteBase<Function, Value, User, Instruction,
-                       CallInst, InvokeInst, User::op_iterator> Base;
-public:
-  CallSite() {}
-  CallSite(Base B) : Base(B) {}
-  CallSite(CallInst *CI) : Base(CI) {}
-  CallSite(InvokeInst *II) : Base(II) {}
-  CallSite(Instruction *II) : Base(II) {}
-
-  bool operator==(const CallSite &CS) const { return I == CS.I; }
-  bool operator!=(const CallSite &CS) const { return I != CS.I; }
-
-  /// CallSite::get - This static method is sort of like a constructor.  It will
-  /// create an appropriate call site for a Call or Invoke instruction, but it
-  /// can also create a null initialized CallSite object for something which is
-  /// NOT a call site.
-  ///
-  static CallSite get(Value *V) {
-    return Base::get(V);
-  }
-
-  bool operator<(const CallSite &CS) const {
-    return getInstruction() < CS.getInstruction();
-  }
-
-private:
-  User::op_iterator getCallee() const;
+  ImmutableCallSite(CallSite CS) : Base(CS.getInstruction()) {}
 };
 
 } // End llvm namespace

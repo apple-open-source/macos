@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,6 +112,7 @@ public:
 	CFDataRef cdHash();
 	CFDataRef signature();
 	CFAbsoluteTime signingTime();
+	CFAbsoluteTime signingTimestamp();
 	bool isSigned() { return codeDirectory(false) != NULL; }
 	DiskRep *diskRep() { return mRep; }
 	std::string mainExecutablePath() { return mRep->mainExecutablePath(); }
@@ -139,7 +140,6 @@ public:
 	bool validatedExecutable() const	{ return mExecutableValidated; }
 	bool validatedResources() const	{ return mResourcesValidated; }
 
-	
 	void validateDirectory();
 	void validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
 	void validateNonResourceComponents();
@@ -170,11 +170,6 @@ protected:
 	bool verifySignature();
 	CFTypeRef verificationPolicy(SecCSFlags flags);
 
-	void defaultDesignatedAppleAnchor(Requirement::Maker &maker);
-	void defaultDesignatedNonAppleAnchor(Requirement::Maker &maker);
-	bool isAppleSDKSignature();
-	bool isAppleCaspianSignature();
-
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
 
 private:
@@ -198,6 +193,7 @@ private:
 	CFRef<CFDataRef> mDir;				// code directory data
 	CFRef<CFDataRef> mSignature;		// CMS signature data
 	CFAbsoluteTime mSigningTime;		// (signed) signing time
+	CFAbsoluteTime mSigningTimestamp;		// Timestamp time (from timestamping authority)
 	CFRef<CFDataRef> mCache[cdSlotCount]; // NULL => not tried, kCFNull => absent, other => present
 	
 	// alternative cache forms (storage may depend on cached contents above)

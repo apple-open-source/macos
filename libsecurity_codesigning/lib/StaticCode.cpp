@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 #include "StaticCode.h"
 #include "Code.h"
 #include "reqmaker.h"
+#include "drmaker.h"
 #include "reqdumper.h"
 #include "sigblob.h"
 #include "resources.h"
@@ -34,6 +35,7 @@
 #include "detachedrep.h"
 #include "csdatabase.h"
 #include "csutilities.h"
+#include "SecCode.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
@@ -369,6 +371,12 @@ CFAbsoluteTime SecStaticCode::signingTime()
 	return mSigningTime;
 }
 
+CFAbsoluteTime SecStaticCode::signingTimestamp()
+{
+	validateDirectory();
+	return mSigningTimestamp;
+}
+
 
 //
 // Verify the CMS signature on the CodeDirectory.
@@ -403,28 +411,29 @@ bool SecStaticCode::verifySignature()
 	if (status != kCMSSignerValid)
 		MacOSError::throwMe(errSecCSSignatureFailed);
 	
-	// get signing date (we've got the decoder handle right here)
-	mSigningTime = 0;		// "not present" marker (nobody could code sign on Jan 1, 2001 :-)
-	SecCmsMessageRef cmsg;
-	MacOSError::check(CMSDecoderGetCmsMessage(cms, &cmsg));
-	SecCmsSignedDataRef signedData = NULL;
-    int numContentInfos = SecCmsMessageContentLevelCount(cmsg);
-    for(int dex = 0; !signedData && dex < numContentInfos; dex++) {
-        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
-        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
-        switch(tag) {
-            case SEC_OID_PKCS7_SIGNED_DATA:
-				if (SecCmsSignedDataRef signedData = SecCmsSignedDataRef(SecCmsContentInfoGetContent(ci)))
-					if (SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, 0))
-						SecCmsSignerInfoGetSigningTime(signerInfo, &mSigningTime);
-                break;
-            default:
-                break;
-        }
-    }
+	// internal signing time (as specified by the signer; optional)
+	mSigningTime = 0;       // "not present" marker (nobody could code sign on Jan 1, 2001 :-)
+	switch (OSStatus rc = CMSDecoderCopySignerSigningTime(cms, 0, &mSigningTime)) {
+	case noErr:
+	case errSecSigningTimeMissing:
+		break;
+	default:
+		MacOSError::throwMe(rc);
+	}
 
+	// certified signing time (as specified by a TSA; optional)
+	mSigningTimestamp = 0;
+	switch (OSStatus rc = CMSDecoderCopySignerTimestamp(cms, 0, &mSigningTimestamp)) {
+	case noErr:
+	case errSecTimestampMissing:
+		break;
+	default:
+		MacOSError::throwMe(rc);
+	}
+    
 	// set up the environment for SecTrust
 	MacOSError::check(SecTrustSetAnchorCertificates(mTrust, cfEmptyArray())); // no anchors
+    MacOSError::check(SecTrustSetKeychains(mTrust, cfEmptyArray())); // no keychains
 	CSSM_APPLE_TP_ACTION_DATA actionData = {
 		CSSM_APPLE_TP_ACTION_VERSION,	// version of data structure
 		CSSM_TP_ACTION_IMPLICIT_ANCHORS	// action flags
@@ -441,7 +450,6 @@ bool SecStaticCode::verifySignature()
 		CODESIGN_EVAL_STATIC_SIGNATURE_RESULT(this, trustResult, mCertChain ? CFArrayGetCount(mCertChain) : 0);
 		switch (trustResult) {
 		case kSecTrustResultProceed:
-		case kSecTrustResultConfirm:
 		case kSecTrustResultUnspecified:
 			break;				// success
 		case kSecTrustResultDeny:
@@ -449,18 +457,19 @@ bool SecStaticCode::verifySignature()
 		case kSecTrustResultInvalid:
 			assert(false);		// should never happen
 			MacOSError::throwMe(CSSMERR_TP_NOT_TRUSTED);
-		case kSecTrustResultRecoverableTrustFailure:
-		case kSecTrustResultFatalTrustFailure:
-		case kSecTrustResultOtherError:
+		default:
 			{
 				OSStatus result;
 				MacOSError::check(SecTrustGetCssmResultCode(mTrust, &result));
-				if (((result == CSSMERR_TP_CERT_EXPIRED) || (result == CSSMERR_TP_CERT_NOT_VALID_YET))
-						&& !(actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED)) {
-					CODESIGN_EVAL_STATIC_SIGNATURE_EXPIRED(this);
-					actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED; // (this also allows postdated certs)
-					continue;		// retry validation
-				}
+				// if we have a valid timestamp, CMS validates against (that) signing time and all is well.
+				// If we don't have one, may validate against *now*, and must be able to tolerate expiration.
+				if (mSigningTimestamp == 0) // no timestamp available
+					if (((result == CSSMERR_TP_CERT_EXPIRED) || (result == CSSMERR_TP_CERT_NOT_VALID_YET))
+							&& !(actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED)) {
+						CODESIGN_EVAL_STATIC_SIGNATURE_EXPIRED(this);
+						actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED; // (this also allows postdated certs)
+						continue;		// retry validation while tolerating expiration
+					}
 				MacOSError::throwMe(result);
 			}
 		}
@@ -650,7 +659,7 @@ void SecStaticCode::validateResources()
 			throw;
 		}
 	}
-	assert(!validatedResources());
+	assert(validatedResources());
 	if (mResourcesValidResult)
 		MacOSError::throwMe(mResourcesValidResult);
 	if (mResourcesValidContext->osStatus() != noErr)
@@ -662,12 +671,14 @@ void SecStaticCode::checkOptionalResource(CFTypeRef key, CFTypeRef value, void *
 {
 	CollectingContext *ctx = static_cast<CollectingContext *>(context);
 	ResourceSeal seal(value);
-	if (!seal.optional())
+	if (!seal.optional()) {
 		if (key && CFGetTypeID(key) == CFStringGetTypeID()) {
 			ctx->reportProblem(errSecCSBadResource, kSecCFErrorResourceMissing,
 				CFTempURL(CFStringRef(key), false, ctx->code.resourceBase()));
-		} else
+		} else {
 			ctx->reportProblem(errSecCSBadResource, kSecCFErrorResourceSeal, key);
+		}
+	}
 }
 
 
@@ -869,8 +880,10 @@ const Requirement *SecStaticCode::internalRequirement(SecRequirementType type)
 
 
 //
-// Return the Designated Requirement. This can be either explicit in the
-// Internal Requirements resource, or implicitly generated.
+// Return the Designated Requirement (DR). This can be either explicit in the
+// Internal Requirements component, or implicitly generated on demand here.
+// Note that an explicit DR may have been implicitly generated at signing time;
+// we don't distinguish this case.
 //
 const Requirement *SecStaticCode::designatedRequirement()
 {
@@ -885,163 +898,31 @@ const Requirement *SecStaticCode::designatedRequirement()
 
 
 //
-// Generate the default (implicit) Designated Requirement for this StaticCode.
-// This is a heuristic of sorts, and may change over time (for the better, we hope).
-//
-// The current logic is this:
-// * If the code is ad-hoc signed, use the CodeDirectory hash directory.
-// * Otherwise, use the form anchor (anchor) and identifier (CodeDirectory identifier).
-// ** If the root CA is Apple's, we use the "anchor apple" construct. Otherwise,
-//	  we default to the leaf (directly signing) certificate.
+// Generate the default Designated Requirement (DR) for this StaticCode.
+// Ignore any explicit DR it may contain.
 //
 const Requirement *SecStaticCode::defaultDesignatedRequirement()
 {
-	validateDirectory();		// need the cert chain
-	Requirement::Maker maker;
-	
-	// if this is an ad-hoc (unsigned) object, return a cdhash requirement
 	if (flag(kSecCodeSignatureAdhoc)) {
+		// adhoc signature: return a plain cdhash requirement
+		Requirement::Maker maker;
 		SHA1 hash;
 		hash(codeDirectory(), codeDirectory()->length());
 		SHA1::Digest digest;
 		hash.finish(digest);
 		maker.cdhash(digest);
+		return maker.make();
 	} else {
-		// always require the identifier
-		maker.put(opAnd);
-		maker.ident(codeDirectory()->identifier());
-		
-		SHA1::Digest anchorHash;
-		hashOfCertificate(cert(Requirement::anchorCert), anchorHash);
-		if (!memcmp(anchorHash, Requirement::appleAnchorHash(), SHA1::digestLength)
-#if	defined(TEST_APPLE_ANCHOR)
-			|| !memcmp(anchorHash, Requirement::testAppleAnchorHash(), SHA1::digestLength)
-#endif
-			)
-			defaultDesignatedAppleAnchor(maker);
-		else
-			defaultDesignatedNonAppleAnchor(maker);
+		// full signature: Gin up full context and let DRMaker do its thing
+		validateDirectory();		// need the cert chain
+		Requirement::Context context(this->certificates(),
+			this->infoDictionary(),
+			this->entitlements(),
+			this->identifier(),
+			this->codeDirectory()
+		);
+		return DRMaker(context).make();
 	}
-		
-	return maker();
-}
-
-static const uint8_t adcSdkMarker[] = { APPLE_EXTENSION_OID, 2, 1 };		// iOS intermediate marker
-static const CSSM_DATA adcSdkMarkerOID = { sizeof(adcSdkMarker), (uint8_t *)adcSdkMarker };
-
-static const uint8_t caspianSdkMarker[] = { APPLE_EXTENSION_OID, 2, 6 }; // Caspian intermediate marker
-static const CSSM_DATA caspianSdkMarkerOID = { sizeof(caspianSdkMarker), (uint8_t *)caspianSdkMarker };
-static const uint8_t caspianLeafMarker[] = { APPLE_EXTENSION_OID, 1, 13 }; // Caspian leaf certificate marker
-static const CSSM_DATA caspianLeafMarkerOID = { sizeof(caspianLeafMarker), (uint8_t *)caspianLeafMarker };
-
-void SecStaticCode::defaultDesignatedAppleAnchor(Requirement::Maker &maker)
-{
-	if (isAppleSDKSignature()) {
-		// get the Common Name DN element for the leaf
-		CFRef<CFStringRef> leafCN;
-		MacOSError::check(SecCertificateCopySubjectComponent(cert(Requirement::leafCert),
-			&CSSMOID_CommonName, &leafCN.aref()));
-		
-		// apple anchor generic and ...
-		maker.put(opAnd);
-		maker.anchorGeneric();			// apple generic anchor and...
-		// ... leaf[subject.CN] = <leaf's subject> and ...
-		maker.put(opAnd);
-		maker.put(opCertField);			// certificate
-		maker.put(0);					// leaf
-		maker.put("subject.CN");		// [subject.CN]
-		maker.put(matchEqual);			// =
-		maker.putData(leafCN);			// <leaf CN>
-		// ... cert 1[field.<marker>] exists
-		maker.put(opCertGeneric);		// certificate
-		maker.put(1);					// 1
-		maker.putData(adcSdkMarkerOID.Data, adcSdkMarkerOID.Length); // [field.<marker>]
-		maker.put(matchExists);			// exists
-		return;
-	}
-	
-	if (isAppleCaspianSignature()) {
-		// get the Organizational Unit DN element for the leaf (it contains the TEAMID)
-		CFRef<CFStringRef> teamID;
-		MacOSError::check(SecCertificateCopySubjectComponent(cert(Requirement::leafCert),
-			&CSSMOID_OrganizationalUnitName, &teamID.aref()));
-
-		// apple anchor generic and ...
-		maker.put(opAnd);
-		maker.anchorGeneric();			// apple generic anchor and...
-		
-		// ... certificate 1[intermediate marker oid] exists and ...
-		maker.put(opAnd);
-		maker.put(opCertGeneric);		// certificate
-		maker.put(1);					// 1
-		maker.putData(caspianSdkMarker, sizeof(caspianSdkMarker));
-		maker.put(matchExists);			// exists
-		
-		// ... certificate leaf[Caspian cert oid] exists and ...
-		maker.put(opAnd);
-		maker.put(opCertGeneric);		// certificate
-		maker.put(0);					// leaf
-		maker.putData(caspianLeafMarker, sizeof(caspianLeafMarker));
-		maker.put(matchExists);			// exists
-
-		// ... leaf[subject.OU] = <leaf's subject>
-		maker.put(opCertField);			// certificate
-		maker.put(0);					// leaf
-		maker.put("subject.OU");		// [subject.OU]
-		maker.put(matchEqual);			// =
-		maker.putData(teamID);			// TEAMID
-		return;
-	}
-
-	// otherwise, claim this program for Apple Proper
-	maker.anchor();
-}
-
-bool SecStaticCode::isAppleSDKSignature()
-{
-	if (CFArrayRef certChain = certificates())		// got cert chain
-		if (CFArrayGetCount(certChain) == 3)		// leaf, one intermediate, anchor
-			if (SecCertificateRef intermediate = cert(1)) // get intermediate
-				if (certificateHasField(intermediate, CssmOid::overlay(adcSdkMarkerOID)))
-					return true;
-	return false;
-}
-
-bool SecStaticCode::isAppleCaspianSignature()
-{
-	if (CFArrayRef certChain = certificates())		// got cert chain
-		if (CFArrayGetCount(certChain) == 3)		// leaf, one intermediate, anchor
-			if (SecCertificateRef intermediate = cert(1)) // get intermediate
-				if (certificateHasField(intermediate, CssmOid::overlay(caspianSdkMarkerOID)))
-					return true;
-	return false;
-}
-
-void SecStaticCode::defaultDesignatedNonAppleAnchor(Requirement::Maker &maker)
-{
-	// get the Organization DN element for the leaf
-	CFRef<CFStringRef> leafOrganization;
-	MacOSError::check(SecCertificateCopySubjectComponent(cert(Requirement::leafCert),
-		&CSSMOID_OrganizationName, &leafOrganization.aref()));
-
-	// now step up the cert chain looking for the first cert with a different one
-	int slot = Requirement::leafCert;						// start at leaf
-	if (leafOrganization) {
-		while (SecCertificateRef ca = cert(slot+1)) {		// NULL if you over-run the anchor slot
-			CFRef<CFStringRef> caOrganization;
-			MacOSError::check(SecCertificateCopySubjectComponent(ca, &CSSMOID_OrganizationName, &caOrganization.aref()));
-			if (!caOrganization || CFStringCompare(leafOrganization, caOrganization, 0) != kCFCompareEqualTo)
-				break;
-			slot++;
-		}
-		if (slot == CFArrayGetCount(mCertChain) - 1)		// went all the way to the anchor...
-			slot = Requirement::anchorCert;					// ... so say that
-	}
-	
-	// nail the last cert with the leaf's Organization value
-	SHA1::Digest authorityHash;
-	hashOfCertificate(cert(slot), authorityHash);
-	maker.anchor(slot, authorityHash);
 }
 
 
@@ -1068,7 +949,7 @@ bool SecStaticCode::satisfiesRequirement(const Requirement *req, OSStatus failur
 {
 	assert(req);
 	validateDirectory();
-	return req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()), failure);
+	return req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()->identifier(), codeDirectory()), failure);
 }
 
 void SecStaticCode::validateRequirement(const Requirement *req, OSStatus failure)
@@ -1134,10 +1015,16 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	CFDictionaryAddValue(dict, kSecCodeInfoIdentifier, CFTempString(this->identifier()));
 	CFDictionaryAddValue(dict, kSecCodeInfoFormat, CFTempString(this->format()));
 	CFDictionaryAddValue(dict, kSecCodeInfoSource, CFTempString(this->signatureSource()));
-	if (CFDictionaryRef info = this->infoDictionary())
-		CFDictionaryAddValue(dict, kSecCodeInfoPList, info);
 	CFDictionaryAddValue(dict, kSecCodeInfoUnique, this->cdHash());
 	CFDictionaryAddValue(dict, kSecCodeInfoDigestAlgorithm, CFTempNumber(this->codeDirectory(false)->hashType));
+
+	//
+	// Deliver any Info.plist only if it looks intact
+	//
+	try {
+		if (CFDictionaryRef info = this->infoDictionary())
+			CFDictionaryAddValue(dict, kSecCodeInfoPList, info);
+	} catch (...) { }		// don't deliver Info.plist if questionable
 
 	//
 	// kSecCSSigningInformation adds information about signing certificates and chains
@@ -1152,6 +1039,9 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 		if (CFAbsoluteTime time = this->signingTime())
 			if (CFRef<CFDateRef> date = CFDateCreate(NULL, time))
 				CFDictionaryAddValue(dict, kSecCodeInfoTime, date);
+		if (CFAbsoluteTime time = this->signingTimestamp())
+			if (CFRef<CFDateRef> date = CFDateCreate(NULL, time))
+				CFDictionaryAddValue(dict, kSecCodeInfoTimestamp, date);
 	}
 	
 	//
@@ -1174,8 +1064,11 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			CFDictionaryAddValue(dict, kSecCodeInfoImplicitDesignatedRequirement, dreqRef);
 		}
 		
-	   if (CFDataRef ent = this->component(cdEntitlementSlot))
+	   if (CFDataRef ent = this->component(cdEntitlementSlot)) {
 		   CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
+		   if (CFDictionaryRef entdict = this->entitlements())
+				CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
+		}
 	}
 	
 	//

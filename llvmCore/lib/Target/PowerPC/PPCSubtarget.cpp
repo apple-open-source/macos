@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the PPC specific subclass of TargetSubtarget.
+// This file implements the PPC specific subclass of TargetSubtargetInfo.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,8 +15,13 @@
 #include "PPC.h"
 #include "llvm/GlobalValue.h"
 #include "llvm/Target/TargetMachine.h"
-#include "PPCGenSubtarget.inc"
+#include "llvm/Support/TargetRegistry.h"
 #include <cstdlib>
+
+#define GET_SUBTARGETINFO_TARGET_DESC
+#define GET_SUBTARGETINFO_CTOR
+#include "PPCGenSubtargetInfo.inc"
+
 using namespace llvm;
 
 #if defined(__APPLE__)
@@ -57,9 +62,10 @@ static const char *GetCurrentPowerPCCPU() {
 #endif
 
 
-PPCSubtarget::PPCSubtarget(const std::string &TT, const std::string &FS,
-                           bool is64Bit)
-  : StackAlignment(16)
+PPCSubtarget::PPCSubtarget(const std::string &TT, const std::string &CPU,
+                           const std::string &FS, bool is64Bit)
+  : PPCGenSubtargetInfo(TT, CPU, FS)
+  , StackAlignment(16)
   , DarwinDirective(PPC::DIR_NONE)
   , IsGigaProcessor(false)
   , Has64BitSupport(false)
@@ -68,17 +74,25 @@ PPCSubtarget::PPCSubtarget(const std::string &TT, const std::string &FS,
   , HasAltivec(false)
   , HasFSQRT(false)
   , HasSTFIWX(false)
+  , IsBookE(false)
   , HasLazyResolverStubs(false)
-  , DarwinVers(0) {
+  , IsJITCodeModel(false)
+  , TargetTriple(TT) {
 
   // Determine default and user specified characteristics
-  std::string CPU = "generic";
+  std::string CPUName = CPU;
+  if (CPUName.empty())
+    CPUName = "generic";
 #if defined(__APPLE__)
-  CPU = GetCurrentPowerPCCPU();
+  if (CPUName == "generic")
+    CPUName = GetCurrentPowerPCCPU();
 #endif
 
   // Parse features string.
-  ParseSubtargetFeatures(FS, CPU);
+  ParseSubtargetFeatures(CPUName, FS);
+
+  // Initialize scheduling itinerary for the specified CPU.
+  InstrItins = getInstrItineraryForCPU(CPUName);
 
   // If we are generating code for ppc64, verify that options make sense.
   if (is64Bit) {
@@ -91,19 +105,6 @@ PPCSubtarget::PPCSubtarget(const std::string &TT, const std::string &FS,
   // support it, ignore.
   if (use64BitRegs() && !has64BitSupport())
     Use64BitRegs = false;
-  
-  // Set the boolean corresponding to the current target triple, or the default
-  // if one cannot be determined, to true.
-  if (TT.length() > 7) {
-    // Determine which version of darwin this is.
-    size_t DarwinPos = TT.find("-darwin");
-    if (DarwinPos != std::string::npos) {
-      if (isdigit(TT[DarwinPos+7]))
-        DarwinVers = atoi(&TT[DarwinPos+7]);
-      else
-        DarwinVers = 8;  // Minimum supported darwin is Tiger.
-    }
-  }
 
   // Set up darwin-specific properties.
   if (isDarwin())
@@ -117,6 +118,9 @@ void PPCSubtarget::SetJITMode() {
   // everything is.  This matters for PPC64, which codegens in PIC mode without
   // stubs.
   HasLazyResolverStubs = false;
+
+  // Calls to external functions need to use indirect calls
+  IsJITCodeModel = true;
 }
 
 
@@ -125,7 +129,7 @@ void PPCSubtarget::SetJITMode() {
 /// is required to get the address of the global.
 bool PPCSubtarget::hasLazyResolverStub(const GlobalValue *GV,
                                        const TargetMachine &TM) const {
-  // We never hae stubs if HasLazyResolverStubs=false or if in static mode.
+  // We never have stubs if HasLazyResolverStubs=false or if in static mode.
   if (!HasLazyResolverStubs || TM.getRelocationModel() == Reloc::Static)
     return false;
   // If symbol visibility is hidden, the extra load is not needed if

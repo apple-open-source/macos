@@ -143,7 +143,7 @@ void CodeDirectory::checkIntegrity() const
 	// now check interior offsets for validity
 	if (!stringAt(identOffset))
 		MacOSError::throwMe(errSecCSSignatureFailed); // identifier out of blob range
-	if (!contains(hashOffset - hashSize * nSpecialSlots, hashSize * (nSpecialSlots + nCodeSlots)))
+	if (!contains(hashOffset - uint64_t(hashSize) * nSpecialSlots, hashSize * (uint64_t(nSpecialSlots) + nCodeSlots)))
 		MacOSError::throwMe(errSecCSSignatureFailed); // hash array out of blob range
 	if (const Scatter *scatter = this->scatterVector()) {
 		// the optional scatter vector is terminated with an element having (count == 0)

@@ -89,16 +89,50 @@
 
 - (IBAction)SaveOutput:(id)sender {
     NSSavePanel *sp = [NSSavePanel savePanel];
-    int result;
+    [sp setAllowedFileTypes:[NSArray arrayWithObjects:@"txt", @"plist", nil]];
+    [sp setDirectoryURL:[NSURL URLWithString:NSHomeDirectory()]];
+    [sp setNameFieldStringValue:@"IORegistry"];
+    [sp setExtensionHidden:NO];
     
-    [sp setRequiredFileType:@"txt"];
-    result = [sp runModalForDirectory:NSHomeDirectory() file:@"IORegistry"];
-    if (result == NSOKButton) {
-        NSString *finalString = [_rootNode stringRepresentationOfValues:0];
-
-        if (![finalString writeToFile:[sp filename] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
-            NSBeep();
-    }
+    NSRect exFrame;
+    exFrame.origin.x=0;
+    exFrame.origin.y=0;
+    exFrame.size.width=200;
+    exFrame.size.height=100;
+    ExtensionSelector *newExSel = [[ExtensionSelector alloc] initWithFrame:exFrame];
+    NSMutableDictionary *allowedTypesDictionary = [NSMutableDictionary dictionary];
+    [allowedTypesDictionary setValue:@"txt" forKey:@"Text"];
+    [allowedTypesDictionary setValue:@"plist" forKey:@"XML"];
+    [newExSel populatePopuButtonWithArray:allowedTypesDictionary];
+    [newExSel setCurrentSelection:@"Text"];
+    [sp setAccessoryView:newExSel];
+    newExSel.theSavePanel = sp;
+    
+    [sp beginSheetModalForWindow:[NSApp mainWindow] completionHandler:^(NSInteger returnCode){
+		
+        if (returnCode==NSOKButton)
+        {
+            NSString *selectedFileExtension = [[sp nameFieldStringValue] pathExtension];
+            if (NSOrderedSame != [selectedFileExtension caseInsensitiveCompare:@"plist"])
+            {
+				NSString *finalString = [_rootNode stringRepresentationOfValues:0];
+				
+                if (![finalString writeToURL:[sp URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
+                {
+                    NSBeep();
+                }
+            }
+            else
+            {
+                
+                if (![[_rootNode dictionaryVersionOfMe] writeToURL:[sp URL] atomically:YES])
+                {
+					NSBeep();
+				}
+			}
+        }
+    }];
+	[newExSel release];
 }
 
 - (IBAction)ToggleAutoRefresh:(id)sender {

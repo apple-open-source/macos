@@ -209,6 +209,7 @@ private:
     static IOReturn _framebufferEvent( OSObject * self, void * ref,
                     IOFramebuffer *framebuffer, IOIndex event, void * info );
 
+	void searchParameterHandlers(IORegistryEntry * entry);
     bool addParameterHandler( IODisplayParameterHandler * parameterHandler );
     bool removeParameterHandler( IODisplayParameterHandler * parameterHandler );
     static bool updateNumber( OSDictionary * params, const OSSymbol * key, SInt32 value );

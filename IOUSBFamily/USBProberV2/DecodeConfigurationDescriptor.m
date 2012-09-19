@@ -45,15 +45,18 @@
     Byte                            *p, *pend;
     char                            *cstr1;
     char                            str[500];
+    char							buf[128];
     IOReturn                        ret;
     UInt8                           descType = isOtherSpeedDesc ? kUSBOtherSpeedConfDesc : kUSBConfDesc;
+	UInt32							maxPower = 0;
+	UInt8							lastEPType = 0;
     
     if ( cfgHeader->wTotalLength == 0 )
     {
 		IOReturn	actErr;
 		
 		configBuf = malloc(sizeof(cfgHeader));
-	    ret = GetDescriptor(deviceIntf, descType, iconfig, configBuf, sizeof(cfgHeader), &actErr);
+	    (void) GetDescriptor(deviceIntf, descType, iconfig, configBuf, sizeof(cfgHeader), &actErr);
 
         // The device did not respond to a request for the first x bytes of the Configuration Descriptor  (We
         // encoded the value in the bDescriptorType field.
@@ -88,7 +91,7 @@
     if (strcmp(cstr1, "0x00") != 0) {
         if (!isOtherSpeedDesc)
 		{
-			if(cfg->bConfigurationValue==cconfig)	// Current config
+			if (cfg->bConfigurationValue == cconfig)	// Current config
 			{
 				[thisDevice addProperty:"Configuration Descriptor (current config): ......................" withValue:cstr1 atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
 			}
@@ -139,10 +142,28 @@
     strcat(str, ")");
     [thisDevice addProperty:"Attributes:" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
     
-    cstr1 = GetStringFromNumber(cfg->MaxPower, sizeof(cfg->MaxPower), kIntegerOutputStyle);
-    sprintf(str, "%d ma", [[NSString stringWithCString:cstr1 encoding:NSUTF8StringEncoding] intValue]*2);
-    [thisDevice addProperty:"MaxPower:" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
-    FreeString(cstr1);
+//    cstr1 = GetStringFromNumber(cfg->MaxPower, sizeof(cfg->MaxPower), kIntegerOutputStyle);
+//    sprintf(str, "%d ma", [[NSString stringWithCString:cstr1 encoding:NSUTF8StringEncoding] intValue]*2);
+//    [thisDevice addProperty:"MaxPower:" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
+//    FreeString(cstr1);
+    
+
+ #ifdef SUPPORTS_SS_USB
+   //  The MaxPower field of a configuration in USB 3 depends on whether the device is operating in SuperSpeed mode or 
+	//  not.  If it is not, then the units are 2ma.  If it is, they are 8mA.  USB3 does not require an OtherSpeed configuration descriptor
+    if ( ([thisDevice usbRelease] >= kUSBRel30) )
+    {
+        if ([thisDevice speed] == kUSBDeviceSpeedSuper)
+			maxPower = 8 * cfg->MaxPower;
+	}
+	else 
+#endif
+	{
+		maxPower = 2 * cfg->MaxPower;
+	}
+	sprintf(buf, "%u mA", (uint32_t)maxPower);
+	[thisDevice addProperty:"MaxPower:" withValue:buf atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
+
     
     
     pend = p + cfg->wTotalLength;
@@ -171,7 +192,10 @@
                 [thisDevice setCurrentInterfaceNumber:(int)((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber];
             }
 
-            [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:isOtherSpeedDesc isinCurrentConfig:cfg->bConfigurationValue==cconfig];
+            [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:(void *)&lastEPType isOtherSpeedDesc:isOtherSpeedDesc isinCurrentConfig:cfg->bConfigurationValue==cconfig];
+
+			if ( descType == kUSBEndpointDesc )
+				lastEPType = ((IOUSBEndpointDescriptor *)p)->bmAttributes & 0x03;
 
             p += descLen;
         }

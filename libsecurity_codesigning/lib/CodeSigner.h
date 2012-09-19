@@ -85,6 +85,10 @@ private:
 	bool mNoMachO;					// override to perform non-Mach-O signing
 	bool mDryRun;					// dry run (do not change target)
 	CFRef<CFNumberRef> mPageSize;	// main executable page size
+	CFRef<SecIdentityRef> mTimestampAuthentication;	// identity for client-side authentication to the Timestamp server
+	CFRef<CFURLRef> mTimestampService;		// URL for Timestamp server
+    bool mWantTimeStamp;          // use a Timestamp server
+    bool mNoTimeStampCerts;       // don't request certificates with timestamping request
 };
 
 

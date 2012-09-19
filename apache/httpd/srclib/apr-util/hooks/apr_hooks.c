@@ -243,6 +243,10 @@ APU_DECLARE(void) apr_hook_sort_all(void)
 #endif
     int n;
 
+    if (!s_aHooksToSort) {
+        s_aHooksToSort = apr_array_make(apr_hook_global_pool, 1, sizeof(HookSortEntry));
+    }
+        
     for(n=0 ; n < s_aHooksToSort->nelts ; ++n) {
 	HookSortEntry *pEntry=&((HookSortEntry *)s_aHooksToSort->elts)[n];
 	*pEntry->paHooks=sort_hook(*pEntry->paHooks,pEntry->szHookName);
@@ -260,6 +264,10 @@ APU_DECLARE(void) apr_hook_deregister_all(void)
     get_apd
 #endif
     int n;    
+
+    if (!s_aHooksToSort) {
+        return;
+    }
 
     for(n=0 ; n < s_aHooksToSort->nelts ; ++n) {
         HookSortEntry *pEntry=&((HookSortEntry *)s_aHooksToSort->elts)[n];

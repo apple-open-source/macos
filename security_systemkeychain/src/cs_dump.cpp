@@ -29,6 +29,7 @@
 #include <Security/SecCodePriv.h>
 #include <security_utilities/cfmunge.h>
 #include <security_codesigning/codedirectory.h>		// strictly for the data format
+#include <cmath>
 
 using namespace UnixPlusPlus;
 
@@ -134,12 +135,29 @@ void dump(const char *target)
 		}
 		if (extractCerts)
 			extractCertificates(extractCerts, certChain);
-		if (CFDateRef time = CFDateRef(CFDictionaryGetValue(api, kSecCodeInfoTime))) {
-			CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
-			CFRef<CFDateFormatterRef> format = CFDateFormatterCreate(NULL, userLocale,
-				kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-			CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, time);
+			
+		CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
+		CFRef<CFDateFormatterRef> format = CFDateFormatterCreate(NULL, userLocale,
+			kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
+		CFDateRef softTime = CFDateRef(CFDictionaryGetValue(api, kSecCodeInfoTime));
+		CFDateRef hardTime = CFDateRef(CFDictionaryGetValue(api, kSecCodeInfoTimestamp));
+		if (hardTime) {
+			CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, hardTime);
+			note(1, "Timestamp=%s", cfString(s).c_str());
+			if (CFAbsoluteTimeGetCurrent() < CFDateGetAbsoluteTime(hardTime) - timestampSlop)
+				fail("%s: postdated timestamp or bad system clock", target);
+			if (softTime) {
+				CFAbsoluteTime slop = abs(CFDateGetAbsoluteTime(softTime) - CFDateGetAbsoluteTime(hardTime));
+				if (slop > timestampSlop) {
+					CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, softTime);
+					fail("%s: timestamp mismatch: internal time %s (%g seconds apart)", target, cfString(s).c_str(), slop);
+				}
+			}
+		} else if (softTime) {
+			CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, softTime);
 			note(1, "Signed Time=%s", cfString(s).c_str());
+			if (CFAbsoluteTimeGetCurrent() < CFDateGetAbsoluteTime(softTime) - timestampSlop)
+				fail("%s: postdated signing date or bad system clock", target);
 		}
 	} else {
 		fprintf(stderr, "%s: no signature\n", target);
