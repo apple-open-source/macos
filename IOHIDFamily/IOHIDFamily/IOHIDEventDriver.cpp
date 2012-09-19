@@ -132,7 +132,7 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
 	
 	if ( !_interface )
 		return false;
-
+    
     IOService * service = provider->getProvider();
     
     // Check to see if this is a product of an IOHIDevice or IOHIDDevice shim
@@ -160,14 +160,21 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
     
     if (number) 
         bootProtocol = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
         
     setProperty("BootProtocol", number);
-
-    if ( !findElements ( _interface->createMatchingElements(), bootProtocol ))
-        return false;
+    OSSafeReleaseNULL(number);
+    
+    OSArray *elements = _interface->createMatchingElements();
+    bool result = false;
+    
+    if ( elements ) {
+        if ( findElements ( elements, bootProtocol )) {
+            result = true;
+        }
+	}
+    OSSafeRelease(elements);
         
-    return true;
+    return result;
 }
 
 //====================================================================================================
@@ -292,6 +299,7 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
     if ( elementArray )
     {
         _supportedElements = elementArray;
+        _supportedElements->retain();
             
         count = elementArray->getCount();
         

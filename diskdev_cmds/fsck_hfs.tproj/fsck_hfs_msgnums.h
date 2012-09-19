@@ -186,8 +186,9 @@ enum {
 	E_LinkChainNonLink	=  612, /* File record has hard link chain flag */
 	E_LinkHasData		= -613, /* Hard link record has data extents */
 	E_FileLinkCountError	=  614, /* File has incorrect link count */
-
-        E_LastError             =  614
+	E_BTreeSplitNode	=  615, /* B-tree node is split across extents */
+	
+        E_LastError             =  615
 };
 
 #endif

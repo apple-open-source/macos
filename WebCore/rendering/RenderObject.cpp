@@ -56,6 +56,7 @@
 #include "RenderRegion.h"
 #include "RenderRuby.h"
 #include "RenderRubyText.h"
+#include "RenderScrollbarPart.h"
 #include "RenderTableCaption.h"
 #include "RenderTableCell.h"
 #include "RenderTableCol.h"
@@ -222,7 +223,6 @@ RenderObject::RenderObject(Node* node)
 
 RenderObject::~RenderObject()
 {
-    ASSERT(!node() || documentBeingDestroyed() || !frame()->view() || frame()->view()->layoutRoot() != this);
 #ifndef NDEBUG
     ASSERT(!m_hasAXObject);
     renderObjectCounter.decrement();
@@ -329,12 +329,6 @@ void RenderObject::removeChild(RenderObject* oldChild)
     if (!children)
         return;
 
-    // We do this here instead of in removeChildNode, since the only extremely low-level uses of remove/appendChildNode
-    // cannot affect the positioned object list, and the floating object list is irrelevant (since the list gets cleared on
-    // layout anyway).
-    if (oldChild->isFloatingOrPositioned())
-        toRenderBox(oldChild)->removeFloatingOrPositionedChildFromBlockLists();
-        
     children->removeChildNode(this, oldChild);
 }
 
@@ -600,14 +594,26 @@ RenderBlock* RenderObject::firstLineBlock() const
 
 static inline bool objectIsRelayoutBoundary(const RenderObject* object)
 {
-    // FIXME: In future it may be possible to broaden this condition in order to improve performance.
-    // Table cells are excluded because even when their CSS height is fixed, their height()
-    // may depend on their contents.
-    return object->isTextControl()
+    // FIXME: In future it may be possible to broaden these conditions in order to improve performance.
+    if (object->isTextControl())
+        return true;
+
 #if ENABLE(SVG)
-        || object->isSVGRoot()
+    if (object->isSVGRoot())
+        return true;
 #endif
-        || (object->hasOverflowClip() && !object->style()->width().isIntrinsicOrAuto() && !object->style()->height().isIntrinsicOrAuto() && !object->style()->height().isPercent() && !object->isTableCell());
+
+    if (!object->hasOverflowClip())
+        return false;
+
+    if (object->style()->width().isIntrinsicOrAuto() || object->style()->height().isIntrinsicOrAuto() || object->style()->height().isPercent())
+        return false;
+
+    // Table parts can't be relayout roots since the table is responsible for layouting all the parts.
+    if (object->isTablePart())
+        return false;
+
+    return true;
 }
 
 void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, RenderObject* newRoot)
@@ -706,21 +712,39 @@ void RenderObject::setLayerNeedsFullRepaintForPositionedMovementLayout()
 RenderBlock* RenderObject::containingBlock() const
 {
     RenderObject* o = parent();
+    if (!o && isRenderScrollbarPart())
+        o = toRenderScrollbarPart(this)->rendererOwningScrollbar();
     if (!isText() && m_style->position() == FixedPosition) {
-        while (o && !o->isRenderView() && !(o->hasTransform() && o->isRenderBlock()))
+        while (o) {
+            if (o->isRenderView())
+                break;
+            if (o->hasTransform() && o->isRenderBlock())
+                break;
+#if ENABLE(SVG)
+            // foreignObject is the containing block for its contents.
+            if (o->isSVGForeignObject())
+                break;
+#endif
             o = o->parent();
+        }
+        ASSERT(!o->isAnonymousBlock());
     } else if (!isText() && m_style->position() == AbsolutePosition) {
-        while (o && (o->style()->position() == StaticPosition || (o->isInline() && !o->isReplaced())) && !o->isRenderView() && !(o->hasTransform() && o->isRenderBlock())) {
+        while (o) {
             // For relpositioned inlines, we return the nearest non-anonymous enclosing block. We don't try
             // to return the inline itself.  This allows us to avoid having a positioned objects
             // list in all RenderInlines and lets us return a strongly-typed RenderBlock* result
             // from this method.  The container() method can actually be used to obtain the
             // inline directly.
+            if (!o->style()->position() == StaticPosition && !(o->isInline() && !o->isReplaced()))
+                break;
+            if (o->isRenderView())
+                break;
+            if (o->hasTransform() && o->isRenderBlock())
+                break;
+
             if (o->style()->position() == RelativePosition && o->isInline() && !o->isReplaced()) {
-                RenderBlock* relPositionedInlineContainingBlock = o->containingBlock();
-                while (relPositionedInlineContainingBlock->isAnonymousBlock())
-                    relPositionedInlineContainingBlock = relPositionedInlineContainingBlock->containingBlock();
-                return relPositionedInlineContainingBlock;
+                o = o->containingBlock();
+                break;
             }
 #if ENABLE(SVG)
             if (o->isSVGForeignObject()) //foreignObject is the containing block for contents inside it
@@ -729,6 +753,9 @@ RenderBlock* RenderObject::containingBlock() const
 
             o = o->parent();
         }
+
+        while (o && o->isAnonymousBlock())
+            o = o->containingBlock();
     } else {
         while (o && ((o->isInline() && !o->isReplaced()) || !o->isRenderBlock()))
             o = o->parent();
@@ -1749,7 +1776,7 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
 #if USE(ACCELERATED_COMPOSITING)
         // We need to run through adjustStyleDifference() for iframes and plugins, so
         // style sharing is disabled for them. That should ensure that we never hit this code path.
-        ASSERT(!isRenderIFrame() && !isEmbeddedObject() &&!isApplet());
+        ASSERT(!isRenderIFrame() && !isEmbeddedObject());
 #endif
         return;
     }
@@ -1777,9 +1804,15 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
     if (m_style->outlineWidth() > 0 && m_style->outlineSize() > maximalOutlineSize(PaintPhaseOutline))
         toRenderView(document()->renderer())->setMaximalOutlineSize(m_style->outlineSize());
 
+    bool doesNotNeedLayout = !m_parent || isText();
+
     styleDidChange(diff, oldStyle.get());
 
-    if (!m_parent || isText())
+    // FIXME: |this| might be destroyed here. This can currently happen for a RenderTextFragment when
+    // its first-letter block gets an update in RenderTextFragment::styleDidChange. For RenderTextFragment(s),
+    // we will safely bail out with the doesNotNeedLayout flag. We might want to broaden this condition
+    // in the future as we move renderer changes out of layout and into style changes.
+    if (doesNotNeedLayout)
         return;
 
     // Now that the layer (if any) has been updated, we need to adjust the diff again,
@@ -2235,6 +2268,11 @@ RenderObject* RenderObject::container(RenderBoxModelObject* repaintContainer, bo
         while (o && o->parent() && !(o->hasTransform() && o->isRenderBlock())) {
             if (repaintContainerSkipped && o == repaintContainer)
                 *repaintContainerSkipped = true;
+#if ENABLE(SVG)
+            // foreignObject is the containing block for its contents.
+            if (o->isSVGForeignObject())
+                break;
+#endif
             o = o->parent();
         }
     } else if (pos == AbsolutePosition) {
@@ -2263,7 +2301,7 @@ bool RenderObject::isSelectionBorder() const
 
 inline void RenderObject::clearLayoutRootIfNeeded() const
 {
-    if (node() && !documentBeingDestroyed() && frame()) {
+    if (!documentBeingDestroyed() && frame()) {
         if (FrameView* view = frame()->view()) {
             if (view->layoutRoot() == this) {
                 ASSERT_NOT_REACHED();

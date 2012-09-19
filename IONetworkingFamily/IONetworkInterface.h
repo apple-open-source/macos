@@ -360,6 +360,7 @@ private:
 #endif
     void            pushInputQueue( IOMbufQueue * queue );
     void            pushInputPacket( mbuf_t packet, uint32_t length );
+    int             if_start_precheck( ifnet_t ifp );
     static int      performGatedCommand(void *, void *, void *, void *, void *);
     static void     powerChangeHandler(void *, void *, void *);
     static errno_t  if_ioctl(ifnet_t ifp, unsigned long cmd, void * data);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,9 +96,7 @@ protected:
 		IODMACommand		*_dmaCommand;							// used to get memory mapping
 		IOUSBCommand		*_bufferUSBCommand;						// points to another IOUSBCommand used for phase 2 of control transactions
 		IOUSBCommand		*_masterUSBCommand;						// points from the bufferUSBCommand back to the parent command
-#ifdef SUPPORTS_SS_USB
 		UInt32				_streamID;
-#endif
 		void *				_backTrace[kUSBCommandScratchBuffers];
     };
     ExpansionData * 		_expansionData;
@@ -141,9 +139,7 @@ public:
     void					SetTimeStamp(AbsoluteTime timeStamp);
 	void					SetIsSyncTransfer(bool);
 	inline void				SetDMACommand(IODMACommand *dmaCommand)					{ _expansionData->_dmaCommand = dmaCommand; }
-#ifdef SUPPORTS_SS_USB
 	inline void				SetStreamID(UInt32 streamID)					{ _expansionData->_streamID = streamID; }
-#endif
 	void					SetBufferUSBCommand(IOUSBCommand *bufferUSBCommand);
 	void					SetBT(UInt32 index, void * value);
 	
@@ -176,9 +172,7 @@ public:
     AbsoluteTime				GetTimeStamp(void);
 	bool						GetIsSyncTransfer(void);
 	inline IODMACommand *		GetDMACommand(void)							{return _expansionData->_dmaCommand; }
-#ifdef SUPPORTS_SS_USB
 	inline UInt32				GetStreamID(void)							{return _expansionData->_streamID; }
-#endif
 	inline IOUSBCommand *		GetBufferUSBCommand(void)					{return _expansionData->_bufferUSBCommand; }
 };
 

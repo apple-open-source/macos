@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 2006, 2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,11 +34,8 @@ class IOUSBHubPolicyMaker;
 enum {
 	kIOUSBHubDeviceIsRootHub			=	0x0001,
 	kIOUSBHubDeviceIsOnHighSpeedBus		=	0x0002,
-	kIOUSBHubDeviceCanSleep				=	0x0004
-#ifdef SUPPORTS_SS_USB
-    ,
+	kIOUSBHubDeviceCanSleep				=	0x0004,
     kIOUSBHubDeviceIsOnSuperSpeedBus    =   0x0008
-#endif
 };
 
 /*!
@@ -76,6 +73,8 @@ private:
 		UInt32					_canRequestExtraSleepPower;		// If 0, this hub does not support requesting extra sleep power from its parent, non-zero:  how much power we need to request in order to give out _extraPowerForPorts
 		UInt32					_standardPortSleepCurrent;		// Standard current that can be drawn in sleep -- usually 1 USB load
 		volatile SInt32			_unconnectedExternalPorts;		// Number of ports that have a connector and are presently empty
+		UInt32					_externalPorts;				// Number of SuperSpeed ports in the enclosure
+		UInt32					_revocablePower;				// Power that is allocated for charging and that we can ask to remove at some point
 	};
     ExpansionData			*_expansionData;
 	
@@ -85,17 +84,14 @@ protected:
 	virtual void			SetHubCharacteristics(UInt32);
 	virtual bool			InitializeCharacteristics(void);					// used at start
 	
-	// these are called through the workloop
-	static IOReturn			GatedRequestExtraPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-	static IOReturn			GatedReturnExtraPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-	static IOReturn			GatedRequestSleepPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-	static IOReturn			GatedReturnSleepPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 
 	// a non static but non-virtual function
-	IOReturn				RequestExtraPower(uint64_t requestedPower, uint64_t *powerAllocated);
-	IOReturn				RequestSleepPower(uint64_t requestedPower, uint64_t *powerAllocated);
-	IOReturn				ReturnExtraPower(uint64_t returnedPower);
-	IOReturn				ReturnSleepPower(uint64_t returnedPower);
+	IOReturn				RequestExtraWakePowerGated(uint64_t wakeType, uint64_t requestedPower, uint64_t *powerAllocated);
+	IOReturn				RequestSleepPowerGated(uint64_t requestedPower, uint64_t *powerAllocated);
+	IOReturn				ReturnExtraWakePowerGated(uint64_t wakeType, uint64_t returnedPower);
+	IOReturn				ReturnSleepPowerGated(uint64_t returnedPower);
+	
+	IOReturn				UpdateUnconnectedExternalPortsGated(SInt32 count, SInt32 * newCount);
 
 public:
 	// static constructor
@@ -106,6 +102,10 @@ public:
 	virtual bool			start( IOService * provider );
     virtual void			stop( IOService *provider );
     virtual void			free();
+	
+	// IOUSBDevice methods
+	virtual UInt32			RequestExtraPower(UInt32 type, UInt32 requestedPower);
+	virtual IOReturn		ReturnExtraPower(UInt32 type, UInt32 returnedPower);
 	
 	// public IOUSBHubDevice methods
 

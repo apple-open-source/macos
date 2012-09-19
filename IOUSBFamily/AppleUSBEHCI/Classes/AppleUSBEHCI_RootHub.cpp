@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -555,8 +554,6 @@ getPortSCForWriting(EHCIRegistersPtr _pEHCIRegisters, short port)
 	
 }
 
-#ifdef SUPPORTS_SS_USB
-
 
 IOReturn 
 AppleUSBEHCI::EHCIMuxedPortDeviceDisconnected(char *muxMethod)
@@ -576,7 +573,6 @@ AppleUSBEHCI::EHCIMuxedPortDeviceDisconnected(char *muxMethod)
 	return status;
 }
 
-#endif
 
 IOReturn 
 AppleUSBEHCI::EHCIRootHubPower(bool on)
@@ -1279,7 +1275,7 @@ AppleUSBEHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
 	
     // According to our device descriptor, index 1 is product, index 2 is Manufacturer
     //
-    if ( index > 2 )
+    if ( (index > 2) || (index == 0) )
         return kIOReturnBadArgument;
 	
     // Set the length of our strings

@@ -289,6 +289,7 @@ static OSStatus tls1DecryptRecord(
 {
 	OSStatus    err;
     SSLBuffer   content;
+	bool decryption_failed_or_bad_record_mac = false;
 
     if ((ctx->readCipher.symCipher->blockSize > 0) &&
         ((payload->length % ctx->readCipher.symCipher->blockSize) != 0)) {
@@ -301,8 +302,12 @@ static OSStatus tls1DecryptRecord(
     		payload->data, payload->length,
     		&ctx->readCipher,
     		ctx)) != 0)
-    {   SSLFatalSessionAlert(SSL_AlertDecryptError, ctx);
-        return errSSLDecryptionFail;
+    {
+		/* note: we no longer send a SSL_AlertDecryptError here;
+		 * all subsequent failures result in SSL_AlertBadRecordMac
+		 * being sent at the end of the function, to avoid leaking
+		 * differences between padding and decryption failures. */
+        decryption_failed_or_bad_record_mac = true;
     }
 
     /* Locate content within decrypted payload */
@@ -327,18 +332,16 @@ static OSStatus tls1DecryptRecord(
 		 * even size packets...beware... */
 		if(padSize > payload->length) {
             /* This is TLS 1.1 compliant - Do it for all protocols versions */
-			SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
         	sslErrorLog("tls1DecryptRecord: bad padding length (%d)\n",
         		(unsigned)payload->data[payload->length - 1]);
-            return errSSLDecryptionFail;
+			decryption_failed_or_bad_record_mac = true;
 		}
 		padChars = payload->data + payload->length - padSize;
 		while(padChars < (payload->data + payload->length)) {
 			if(*padChars++ != padSize) {
                 /* This is TLS 1.1 compliant - Do it for all protocols versions */
-				SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
 				sslErrorLog("tls1DecryptRecord: bad padding value\n");
-				return errSSLDecryptionFail;
+				decryption_failed_or_bad_record_mac = true;
 			}
 		}
 		/* Remove block size padding and its one-byte length */
@@ -350,9 +353,14 @@ static OSStatus tls1DecryptRecord(
 		/* Optimize away MAC for null case */
         if ((err = SSLVerifyMac(type, &content,
 				content.data + content.length, ctx)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
-            return errSSLBadRecordMac;
+        {
+			decryption_failed_or_bad_record_mac = true;
         }
+
+	if (decryption_failed_or_bad_record_mac) {
+		SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
+		return errSSLDecryptionFail;
+	}
 
     *payload = content;     /* Modify payload buffer to indicate content length */
 

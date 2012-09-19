@@ -241,6 +241,8 @@ public:
 public:
 	static DynamicHash *hashFor(HashAlgorithm hashType);		// create a DynamicHash subclass for (hashType) digests
 	DynamicHash *getHash() const { return hashFor(this->hashType); } // make one for me
+
+	std::string hexHash(const unsigned char *hash) const;		// encode any canonical-type hash as a hex string
 	
 protected:
 	static size_t generateHash(DynamicHash *hash, UnixPlusPlus::FileDesc fd, Hashing::Byte *digest, size_t limit = 0); // hash to count or end of file
@@ -255,6 +257,12 @@ public:
 	static const char *canonicalSlotName(SpecialSlot slot);
 	static unsigned slotAttributes(SpecialSlot slot);
 	IFDEBUG(static const char * const debugSlotName[]);
+	
+public:
+	//
+	// Canonical screening code. Requires a fully formed CodeDirectory.
+	//
+	std::string screeningCode() const;
 };
 
 

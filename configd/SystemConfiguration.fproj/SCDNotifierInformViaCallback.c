@@ -498,6 +498,7 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 {
 	dispatch_group_t		drainGroup	= NULL;
 	dispatch_queue_t		drainQueue	= NULL;
+	dispatch_group_t		group		= NULL;
 	mach_port_t			mp;
 	Boolean				ok		= FALSE;
 	dispatch_source_t		source;
@@ -562,7 +563,8 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 	// the group to empty and use the group's finalizer to release
 	// our reference to the SCDynamicStore.
 	//
-	storePrivate->dispatchGroup = dispatch_group_create();
+	group = dispatch_group_create();
+	storePrivate->dispatchGroup = group;
 	CFRetain(store);
 	dispatch_set_context(storePrivate->dispatchGroup, (void *)store);
 	dispatch_set_finalizer_f(storePrivate->dispatchGroup, (dispatch_function_t)CFRelease);
@@ -602,7 +604,7 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 		msgid = notify_msg.msg.header.msgh_id;
 
 		CFRetain(store);
-		dispatch_group_async(storePrivate->dispatchGroup, storePrivate->dispatchQueue, ^{
+		dispatch_group_async(group, queue, ^{
 			if (msgid == MACH_NOTIFY_NO_SENDERS) {
 				// re-establish notification and inform the client
 				(void)__SCDynamicStoreReconnectNotifications(store);

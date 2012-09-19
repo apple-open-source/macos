@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: t_resolver.c,v 1.2.2.3 2011-02-28 01:19:59 tbox Exp $ */
+/* $Id: t_resolver.c,v 1.2.2.3 2011/02/28 01:19:59 tbox Exp $ */
 
 #include <config.h>
 

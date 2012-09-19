@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dirdb.h,v 1.5 2007-06-19 23:47:07 tbox Exp $ */
+/* $Id: dirdb.h,v 1.5 2007/06/19 23:47:07 tbox Exp $ */
 
 #include <isc/types.h>
 

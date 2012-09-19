@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1997-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,7 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 //================================================================================================
 //
@@ -54,7 +52,6 @@
 #include <IOKit/usb/IOUSBWorkLoop.h>
 #include "USBTracepoints.h"
 #include "IOUSBFamilyInfoPlist.pch"
-
 
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 
@@ -217,6 +214,7 @@ const IORegistryPlane *		IOUSBController::gIOUSBPlane = 0;
 UInt32						IOUSBController::_busCount;
 bool						IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
 UInt32						IOUSBController::gExtraCurrentPropertiesInitialized = 0;
+volatile UInt32				IOUSBController::gExternalNonSSPortsUsingExtraCurrent = 0;
 
 //================================================================================================
 //
@@ -283,9 +281,7 @@ static SleepCurrentPerModel  gSleepCurrentInfo[] = {
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 #define _needToClose					_expansionData->_needToClose
 #define _isochMaxBusStall				_expansionData->_isochMaxBusStall
-#ifdef SUPPORTS_SS_USB
-	#define _rootHubDeviceSS				_expansionData->_rootHubDeviceSS
-#endif
+#define _rootHubDeviceSS				_expansionData->_rootHubDeviceSS
 
 #pragma mark Synchronous Callbacks
 //================================================================================================
@@ -407,9 +403,7 @@ IOUSBController::init(OSDictionary * propTable)
     // This needs to be set before start.
     _controllerSpeed = kUSBDeviceSpeedFull;	
 	
-#ifdef SUPPORTS_SS_USB
 	_rootHubDeviceSS = NULL;
-#endif
  
     return (true);
 }
@@ -712,11 +706,7 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
 {
 	
     USBLog(5,"%s[%p]::CreateDevice: addr=%d, speed=%s, power=%d", getName(), this,
-#ifdef SUPPORTS_SS_USB
 		   deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : ((speed == kUSBDeviceSpeedHigh) ? "high" : "super")), (int)powerAvailable*2);
-#else
-		   deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : "high"), (int)powerAvailable*2);
-#endif
    
     _addressPending[deviceAddress] = true;			// in case the INIT takes a long time
     do 
@@ -1926,6 +1916,7 @@ IOUSBController::DoControlTransfer(OSObject *owner, void *arg0, void *arg1, void
 				USBLog(7,"%s[%p]::DoControlTransfer DoAbortEP returned:  0x%x", controller->getName(), controller, ret);
 				ret = kIOReturnSuccess;
 			}
+
             inCommandSleep = false;
             //USBLog(6,"%s[%p]::DoControlTransfer woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), kr);
 			
@@ -2323,7 +2314,6 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
 		return NULL;
     }
 	
-#ifdef SUPPORTS_SS_USB
 	IOUSBControllerV3* me3 = OSDynamicCast(IOUSBControllerV3, this);
 	
 	if (me3)
@@ -2342,7 +2332,6 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
 			USBLog(6, "%s[%p]::MakeDevice  GetActualDeviceAddress returned 0x%x", getName(), this, (uint32_t) err);
 		}
 	}
-#endif
 
 	USBTrace_End( kUSBTController, kTPControllerMakeDevice, (uintptr_t)this, (uintptr_t)newDev, 0, 0);
 	
@@ -2385,7 +2374,6 @@ IOUSBController::MakeHubDevice(USBDeviceAddress *	address)
 		return NULL;
     }
 	
-#ifdef SUPPORTS_SS_USB
 	IOUSBControllerV3* me3 = OSDynamicCast(IOUSBControllerV3, this);
 	
 	if (me3)
@@ -2397,7 +2385,6 @@ IOUSBController::MakeHubDevice(USBDeviceAddress *	address)
 			*address = latestDeviceAddress;
 		}
 	}
-#endif
 	
 	USBTrace_End( kUSBTController, kTPControllerMakeHubDevice, (uintptr_t)this, (uintptr_t)newDev, 0, 0 );
 	
@@ -2438,9 +2425,7 @@ IOUSBController::PolledRead(short					functionNumber,
     command->SetRequest(0);            	// Not a device request
     command->SetAddress(functionNumber);
     command->SetEndpoint(endpointNumber);
-#ifdef SUPPORTS_SS_USB
     command->SetStreamID(0);
-#endif
     command->SetDirection(kUSBIn);
     command->SetType(kUSBInterrupt);
     command->SetBuffer(CBP);
@@ -2609,14 +2594,12 @@ IOUSBController::finalize(IOOptionBits options)
         _rootHubDevice = NULL;	    
     }
 	
-#ifdef SUPPORTS_SS_USB
 	if ( _rootHubDeviceSS )
     {
         _rootHubDeviceSS->detachFromParent(getRegistryRoot(), gIOUSBPlane);
         _rootHubDeviceSS->release();
         _rootHubDeviceSS = NULL;	    
     }
-#endif
 	
 	if (_provider->isOpen(this))
 	{
@@ -3095,9 +3078,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 		command->SetRequest(request);
 		command->SetAddress(address);
 		command->SetEndpoint(ep);
-#ifdef SUPPORTS_SS_USB
     	command->SetStreamID(0);
-#endif
 		command->SetDirection(kUSBAnyDirn);
 		command->SetType(kUSBControl);
 		command->SetBuffer(0);											// no buffer for device requests
@@ -3416,9 +3397,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *co
 		command->SetRequest((IOUSBDevRequest *)request);
 		command->SetAddress(address);
 		command->SetEndpoint(ep);
-#ifdef SUPPORTS_SS_USB
     	command->SetStreamID(0);
-#endif
 		command->SetDirection(kUSBAnyDirn);
 		command->SetType(kUSBControl);
 		command->SetClientCompletion(*completion);
@@ -3584,9 +3563,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	const char *				parentLocation;
 	IOPCIDevice *				pciDevice = OSDynamicCast(IOPCIDevice, provider);
 	bool						sleepExtraCurrentExists = false;
-#ifdef SUPPORTS_SS_USB
 	IOUSBControllerV3			*me3 = NULL;
-#endif
 	UInt8						localSpeed = _controllerSpeed; 
 	UInt32						localPower = kUSB500mAAvailable;
 	
@@ -3603,7 +3580,6 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         goto ErrorExit;
     }
 	
-#ifdef SUPPORTS_SS_USB
 	me3 = OSDynamicCast(IOUSBControllerV3, this);
 	
 	if (me3 && (_controllerSpeed == kUSBDeviceSpeedSuper))
@@ -3630,7 +3606,6 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 		address	|=	(localSpeed << kUSBSpeed_Shift) & kUSBSpeed_Mask;
 	}
 	else
-#endif
 	{
 		// EHCI Root hub HS
 		address = GetNewAddress();
@@ -3746,13 +3721,12 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	// SuperSpeed bus:  The top bit of the second byte in the locationID will now be 1 for SS RH Simulations.  For example
 	// if the bus number is 0x7C, then the locationID of the SS simulation will be 0x7C800000 and the 2.0 Simulation: 0x7C000000
     pseudoBus = (bus & 0xff) << 24;
-#ifdef SUPPORTS_SS_USB
 	if ( localSpeed == kUSBDeviceSpeedSuper )
 	{
 		pseudoBus |= 0x00800000;
 		USBLog(6,"%s[%p]::CreateRootHubDevice  Added SS bit to locationID: 0x%x", getName(), this, (uint32_t)pseudoBus);
 	}
-#endif
+
     provider->setProperty(kUSBDevicePropertyLocationID, pseudoBus, 32);
 	
 	
@@ -3823,11 +3797,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	{
 		sleepExtraCurrentExists = true;
         (*rootHubDevice)->setProperty(kAppleCurrentExtraInSleep, aProperty);
-#ifdef SUPPORTS_SS_USB
 		(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, _controllerSpeed == kUSBDeviceSpeedSuper ?  kUSB3MaxPowerPerPort : kUSB2MaxPowerPerPort, 32);
-#else
-		(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
-#endif
 		aProperty->release();
 	}
 	
@@ -3856,11 +3826,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 			if (matched)
 			{
 				// Update our properties with those from the table.  Also, for root hubs, we do always provide at least 500mA in sleep
-#ifdef SUPPORTS_SS_USB
 				(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, _controllerSpeed == kUSBDeviceSpeedSuper ?  kUSB3MaxPowerPerPort : kUSB2MaxPowerPerPort, 32);
-#else
-				(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
-#endif
 
 				if ( gSleepCurrentInfo[i].totalExtraWakeCurrent != 0)
 				{
@@ -3936,6 +3902,11 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 			{
 				gExtraCurrentPropertiesInitialized = 0;
 			}
+			
+			// Need to create these to do our accounting for extra power on SuperSpeed ports
+			ioResources->setProperty(kAppleUnconnectedSuperSpeedPorts, (unsigned long long) 0LL, 32);
+			ioResources->setProperty(kAppleExternalSuperSpeedPorts, (unsigned long long) 0LL, 32);
+			ioResources->setProperty(kAppleRevocableExtraCurrent, (unsigned long long) 0LL, 32);
 		}
 		else 
 		{
@@ -4096,13 +4067,11 @@ const char *DecodeUSBConnectorType( UInt8 type )
 		case kUSBTypeAConnector			: return "Type A connector";	
 		case kUSBTypeMiniABConnector	: return "Mini-AB connector";	
 		case kUSBTypeExpressCard		: return "ExpressCard";				
-#ifdef SUPPORTS_SS_USB
 		case kUSB3TypeStdAConnector		: return "USB 3 Standard-A connector";			
 		case kUSB3TypeStdBConnector		: return "USB 3 Standard-B connector";			
 		case kUSB3TypeMicroBConnector	: return "USB 3 Micro-B connector";				
 		case kUSB3TypeMicroABConnector	: return "USB 3 Micro-AB connector";				
 		case kUSB3TypePowerBConnector	: return "USB 3 Power-B connector";	
-#endif	
 		case kUSBProprietaryConnector	: return "Proprietary connector";
 		default							: return "Unknown/Reserved connector";
 	}
@@ -4123,11 +4092,7 @@ IOUSBController::calculateUSBDepth(UInt32 locationID)
 {
 	SInt32		shift;
 	int			ret = 0;
-#ifdef SUPPORTS_SS_USB
 	UInt32		realLocationID = (_controllerSpeed == kUSBDeviceSpeedSuper) ? locationID & 0xff7FFFFF : locationID;
-#else
-	UInt32		realLocationID = locationID;
-#endif
 	for ( shift = 20; shift >= 0; shift -= 4)
 	{
 		if ((realLocationID & (0x0f << shift)) == 0)
@@ -4313,7 +4278,6 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 		return false;
 	}
 	
-#ifdef SUPPORTS_SS_USB
     if( (acpiDevice != NULL) )
 	{
 		UInt32					assertVal	= 0;
@@ -4330,7 +4294,6 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
         }
 		
 	}
-#endif
     
 	do {
 		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
@@ -4479,26 +4442,6 @@ IOUSBController::ExpressCardPort( IORegistryEntry* provider )
 	return(portNum);
 }
 
-#ifdef SUPPORTS_SS_USB
-bool 
-IOUSBController::IsPortMuxed(IORegistryEntry * provider, UInt32 portnum, UInt32 locationID, char *muxName)
-{
-    IOACPIPlatformDevice *	acpiDevice;
-	bool					isMuxed = false;
-	
-	acpiDevice = CopyACPIDevice( provider );
-	if (acpiDevice)
-	{
-		isMuxed = CheckACPIUPCTableForMuxedMethods( acpiDevice, portnum, locationID, muxName );	
-		acpiDevice->release();
-		acpiDevice = NULL;
-	}
-	
-    USBLog(5, "IOUSBController(%s)[%p]::IsPortMuxed(%s) - provider(%p) portNum(%d) locationID(0x%x)", getName(), this, isMuxed?"true":"false", provider, (int)portnum, (int)locationID);
-
-	return isMuxed;
-}
-#endif
 
 bool       
 IOUSBController::GetInternalHubErrataBits(IORegistryEntry * provider, UInt32 portnum, UInt32 locationID, UInt32 *errataBits)
@@ -4769,7 +4712,6 @@ IOUSBController::CheckACPIUPCTableForInternalHubErrataBits( IORegistryEntry* acp
 }
 
 
-#ifdef SUPPORTS_SS_USB
 //================================================================================================
 //
 //	bool IsControllerMuxed
@@ -4814,18 +4756,6 @@ IOUSBController::IsControllerMuxed( IORegistryEntry * provider, UInt32 locationI
 	return isMuxedController;
 }
 
-bool 
-IOUSBController::CheckACPIUPCTableForMuxedMethods( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID, char* muxName )
-{
-	const IORegistryPlane*	acpiPlane;
-	bool					match = false;
-	IORegistryIterator*		iter = NULL;
-	IORegistryEntry*		entry;
-	
-    
-	return match;
-}
-#endif
 
 OSMetaClassDefineReservedUnused(IOUSBController,  19);
 

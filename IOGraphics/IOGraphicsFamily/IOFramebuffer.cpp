@@ -165,6 +165,7 @@ static uint32_t             gIOFBSystemPowerMuxAckRef;
 static UInt32               gIOFBLastMuxMessage = kIOMessageSystemHasPoweredOn;
 static bool					gIOFBSwitching;
 bool                        gIOFBSystemPower = true;
+bool						gIOFBSystemDark;
 static bool					gIOFBWSState = true;
 static bool					gIOFBPostWakeNeeded;
 static bool					gIOFBProbeCaptured;
@@ -3963,15 +3964,6 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 			__private->controller->powerThread = saveThread;
 		}
 
-		if (this == gIOFBConsoleFramebuffer)
-		{
-			getPMRootDomain()->removeProperty(kIOHibernatePreviewBufferKey);
-			getProvider()->removeProperty(kIOHibernatePreviewActiveKey);
-		}
-		IOFreePageable( __private->saveFramebuffer, __private->saveLength );
-		__private->saveFramebuffer = 0;
-		__private->saveLength      = 0;
-
 		ret = kIOReturnSuccess;
 	}
 
@@ -3979,6 +3971,7 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 	{
 		if (__private->gammaDataLen && __private->gammaData && !__private->scaledMode)
 		{
+			DEBG1(thisName, " set gamma\n");
 			setGammaTable( __private->gammaChannelCount, __private->gammaDataCount, 
 							__private->gammaDataWidth, __private->gammaData );
 		}
@@ -4072,6 +4065,20 @@ IOReturn IOFramebuffer::notifyServer( UInt8 state )
     {
 		if (!gChosenEntry) gChosenEntry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
 		if (gChosenEntry && !state) gChosenEntry->removeProperty(kIOScreenLockStateKey);
+		if (state)
+		{
+			if (this == gIOFBConsoleFramebuffer)
+			{
+				getPMRootDomain()->removeProperty(kIOHibernatePreviewBufferKey);
+				getProvider()->removeProperty(kIOHibernatePreviewActiveKey);
+			}
+			if (__private->saveFramebuffer)
+			{
+				IOFreePageable( __private->saveFramebuffer, __private->saveLength );
+				__private->saveFramebuffer = 0;
+				__private->saveLength      = 0;
+			}
+		}
 
         serverNotified = state;
 
@@ -4700,7 +4707,8 @@ void IOFramebuffer::controllerAsyncWork(OSObject * owner,
 	if (kWorkPower & asyncWork)
 	{
 		uint32_t newState = controller->fbs[0]->pendingPowerState;
-		DEBG1(controller->name, " async kIODriverPowerAttribute(%d)\n",  newState);
+		DEBG1(controller->name, " async kIODriverPowerAttribute(%d, %d)\n", 
+				newState, controller->fbs[0]->pendingPowerState);
 		for (idx = 0; (fb = controller->fbs[idx]); idx++)
 			fb->setAttribute(kIODriverPowerAttribute, newState);
 		controllerDidWork(controller, kWorkPower);
@@ -4765,6 +4773,8 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 	{
 		uintptr_t newState = pendingPowerState;
 
+		DEBG1(thisName, " pendingPowerState(%ld)\n", newState);
+
     	__private->controller->powerThread = current_thread();
 
 		device = __private->controller->device;
@@ -4777,6 +4787,7 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 				num = OSDynamicCast(OSNumber, getPMRootDomain()->getProperty(kIOHibernateOptionsKey));
 				uint32_t options = 0;
 				if (num) options = num->unsigned32BitValue();
+				DEBG1(thisName, " kIOHibernateOptionsKey %p (0x%x)\n", num, options);
 				if (kIOHibernateOptionDarkWake & options)
 				{
 					stateData = 0;
@@ -4786,17 +4797,20 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 					device->setProperty(kIOHibernateStateKey, stateData);
 					device->setProperty(kIOHibernateEFIGfxStatusKey,
 										getPMRootDomain()->getProperty(kIOHibernateGfxStatusKey));
+					if (newState == 1) newState = 2;
 				}
 			}
 		}
 
-		if ((newState == 1) && (kIODisplayOptionDimDisable & __private->displayOptions))
+		if ((newState == 1) 
+			&& (kIODisplayOptionDimDisable & __private->displayOptions) 
+			&& !gIOFBSystemDark)
 		{
 			newState = 2;
 		}
+
 		setAttribute(kIOPowerStateAttribute, newState);
 		DEBG1(thisName, " did kIOPowerStateAttribute(%ld)\n", newState);
-
 		if (stateData)
 		{
 			device->setProperty(kIOHibernateStateKey, gIOFBZero32Data);
@@ -5383,7 +5397,10 @@ IOReturn IOFramebuffer::matchController(IOFBController * controller)
 IOReturn IOFramebuffer::setPowerState( unsigned long powerStateOrdinal,
                                        IOService * whichDevice )
 {
-    DEBG1(thisName, " (%ld)\n", powerStateOrdinal);
+	IOReturn ret = kIOPMAckImplied;
+
+    DEBG1(thisName, " (%ld) mute %d, now %d\n",
+    	 powerStateOrdinal, __private->controller->mute, (int)getPowerState());
 
 	if (gIOFBSystemPowerAckTo && !powerStateOrdinal)
 		IOLog("graphics notify timeout (%d, %d)", serverState, serverNotified);
@@ -5394,9 +5411,11 @@ IOReturn IOFramebuffer::setPowerState( unsigned long powerStateOrdinal,
 	pendingPowerChange = true;
 
 	startControllerThread(__private->controller);
+    ret = kPowerStateTimeout * 1000 * 1000;
+
     FBUNLOCK(this);
 
-    return (kPowerStateTimeout * 1000 * 1000);
+    return (ret);
 }
 
 IOReturn IOFramebuffer::powerStateWillChangeTo( IOPMPowerFlags flags,
@@ -5630,6 +5649,8 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 				((params->fromCapabilities & kIOPMSystemCapabilityGraphics) == 0) &&
 				(params->toCapabilities & kIOPMSystemCapabilityGraphics))
 			{
+
+		if (kIOMessageSystemHasPoweredOn != gIOFBLastMuxMessage)
 				muxPowerMessage(kIOMessageSystemWillPowerOn);
 			}
 			else if ((params->changeFlags & kIOPMSystemCapabilityDidChange) &&
@@ -5638,6 +5659,59 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 			{
 				muxPowerMessage(kIOMessageSystemHasPoweredOn);
 			}
+
+			else if ((params->changeFlags & kIOPMSystemCapabilityDidChange) &&
+				((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
+				(params->toCapabilities & kIOPMSystemCapabilityCPU))
+			{
+				muxPowerMessage(kIOMessageSystemHasPoweredOn);
+			}
+			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
+				((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
+				(params->toCapabilities & kIOPMSystemCapabilityCPU))
+			{
+				muxPowerMessage(kIOMessageSystemWillPowerOn);
+				SYSLOCK();
+				gIOFBSystemPower       = true;
+				gIOGraphicsSystemPower = true;
+				gIOFBSystemDark        = true;
+				SYSUNLOCK();
+			}
+			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
+				(params->fromCapabilities & kIOPMSystemCapabilityCPU) &&
+				((params->toCapabilities & kIOPMSystemCapabilityCPU) == 0))
+			{
+
+if (gIOFBSystemPower)
+{
+				ret = muxPowerMessage(kIOMessageSystemWillSleep);
+	
+				SYSLOCK();
+
+//				gIOFBClamshellState = kIOPMDisableClamshell;
+//				getPMRootDomain()->receivePowerNotification(kIOPMDisableClamshell);
+			
+				gIOFBSystemPower       = false;
+				gIOFBSystemPowerAckRef = (void *) params->notifyRef;
+				gIOFBSystemPowerAckTo  = service;
+#if 0
+				gIOFBSwitching = (kIOReturnNotReady == ret);
+				if (gIOFBSwitching)
+				{
+					DEBG1("PWR", " agc not ready\n");
+				}
+#endif
+				startThread(false);
+				gIOGraphicsSystemPower = false;
+			
+				SYSUNLOCK();
+			
+				// We will ack within gIOGNotifyTO seconds
+				params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
+				ret                    = kIOReturnSuccess;
+}
+			}
+
 #if 0
 			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
 				((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
@@ -5664,10 +5738,9 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 			ret = muxPowerMessage(kIOMessageSystemWillSleep);
 
 			SYSLOCK();
-		
-			gIOFBClamshellState = kIOPMDisableClamshell;
+ 			gIOFBClamshellState = kIOPMDisableClamshell;
 			getPMRootDomain()->receivePowerNotification(kIOPMDisableClamshell);
-		
+
 			gIOFBSystemPower       = false;
 			gIOFBSystemPowerAckRef = params->powerRef;
 			gIOFBSystemPowerAckTo  = service;
@@ -5677,12 +5750,11 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 				DEBG1("PWR", " agc not ready\n");
 			}
 			startThread(false);
-		
+			gIOGraphicsSystemPower = false;
 			SYSUNLOCK();
-		
+
 			// We will ack within gIOGNotifyTO seconds
 			params->returnValue    = gIOGNotifyTO * 1000 * 1000;
-			gIOGraphicsSystemPower = false;
             ret                    = kIOReturnSuccess;
             break;
 		}
@@ -5691,6 +5763,10 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 		{
 			IOPowerStateChangeNotification * params = (typeof params) messageArgument;
 
+			gIOFBSystemDark        = false;
+
+if (!gIOFBSystemPower)
+{
 			muxPowerMessage(kIOMessageSystemWillPowerOn);
 
 			SYSLOCK();
@@ -5702,7 +5778,7 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 			gIOGraphicsSystemPower = true;
 		
 			SYSUNLOCK();
-
+}
             params->returnValue    = 0;
             ret                    = kIOReturnSuccess;
             break;
@@ -7030,6 +7106,8 @@ void IOFramebuffer::findConsole(void)
             || !look->__private->framebufferWidth 
             || !look->__private->framebufferHeight
             || !look->__private->online 
+            || !look->__private->controller
+            || !look->__private->controller->device
             || !look->__private->consoleDepth 
             || (look->__private->consoleDepth > 32))
             continue;
@@ -10016,7 +10094,7 @@ void IOFramebuffer::dpProcessInterrupt(void)
 
         if (data[1] == bits)
         {
-            IOLog("dp events not cleared: 0x%02x\n", data[1]);
+            DEBG("dp events not cleared: 0x%02x\n", data[1]);
             break;
         }
     }

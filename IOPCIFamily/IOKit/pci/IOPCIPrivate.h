@@ -147,6 +147,10 @@ enum
 
 #define kIOPCIDeviceDiagnosticsClassKey  "IOPCIDeviceDiagnosticsClass"
 
+#ifndef kIOMemoryDescriptorOptionsKey
+#define kIOMemoryDescriptorOptionsKey	 "IOMemoryDescriptorOptions"
+#endif
+
 extern const IORegistryPlane * gIOPCIACPIPlane;
 extern const OSSymbol *        gIOPlatformDeviceASPMEnableKey;
 

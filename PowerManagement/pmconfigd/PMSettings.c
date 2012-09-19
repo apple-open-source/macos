@@ -50,7 +50,6 @@ enum {
     kIOPMRemoveUnsupportedSettings = true
 };
 
-
 /* Global - energySettings
  * Keeps track of current Energy Saver settings.
  */
@@ -340,7 +339,6 @@ _copyPMSettings(bool removeUnsupported)
         return IOPMCopyUnabridgedActivePMPreferences();
     }
 }
-
 
 /**************************************************/
 

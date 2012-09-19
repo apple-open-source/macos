@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: netaddr_multicast.c,v 1.12 2007-06-19 23:47:00 tbox Exp $ */
+/* $Id: netaddr_multicast.c,v 1.12 2007/06/19 23:47:00 tbox Exp $ */
 
 #include <config.h>
 

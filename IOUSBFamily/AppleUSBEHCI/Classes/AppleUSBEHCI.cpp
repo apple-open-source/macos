@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright ï¿½ 1998-2010 Apple Inc.  All rights reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -22,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #include <TargetConditionals.h>
 
 #include <libkern/OSByteOrder.h>
@@ -30,7 +28,6 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
-
 
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -369,9 +366,8 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
             break;
         }
 		
-#ifdef SUPPORTS_SS_USB
         CheckForSharedXHCIController();
-#endif		
+
 		// determine whether this is a 32 bit or 64 bit machine
 		hccparams = USBToHostLong(_pEHCICapRegisters->HCCParams);
 		if (!(_errataBits & kErrataUse32bitEHCI) && (hccparams & kEHCI64Bit))
@@ -522,9 +518,26 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
     return(err);
 }
 
+bool
+AppleUSBEHCI::XHCIControllerMatchingNotifcationHandler(void * refCon, IOService * newController)
+{
+#pragma unused(refCon)
+    _workLoop->CloseGate();
+    
+    USBLog(3, "AppleUSBEHCI[%p]::XHCIControllerMatchingNotifcationHandler got matching notification from %p", this, newController);
+    
+    if (newController && _xhciControllerArray)
+    {
+        _xhciControllerArray->setObject(newController);
+    }
+    
+    _workLoop->Wakeup(_xhciController, true);
+    
+    _workLoop->OpenGate();
+    
+    return true;
+}
 
-
-#ifdef SUPPORTS_SS_USB
 void
 AppleUSBEHCI::CheckForSharedXHCIController(void)
 {
@@ -542,15 +555,18 @@ AppleUSBEHCI::CheckForSharedXHCIController(void)
 	
 	UInt32					assertVal	= 0;                    // this value is returned from the ACPI tables
     UInt32                  xhciBitmap = 0;                     // this value is a compilation of all of the matching XHCI we have found
+    IONotifier *            notifier = NULL;
+    bool                    done = false;
+    IOServiceMatchingNotificationHandler notificationHandler;
     
 	if ( !isInactive() )
-	{	
+	{
         _xhciController = NULL;                 // just to make sure
         
         acpiDevice = CopyACPIDevice( _device );
         if (acpiDevice == NULL)
         {
-            USBLog(3, "IOUSBController[%p]::CheckForSharedXHCIController acpiDevice not found", this);
+            USBLog(3, "AppleUSBEHCI[%p]::CheckForSharedXHCIController acpiDevice not found", this);
             return;
         }
         
@@ -561,7 +577,7 @@ AppleUSBEHCI::CheckForSharedXHCIController(void)
         
         if (status != kIOReturnSuccess)
         {
-            USBLog(3, "IOUSBController[%p]::CheckForSharedXHCIController XHCN method not found", this);
+            USBLog(3, "AppleUSBEHCI[%p]::CheckForSharedXHCIController XHCN method not found", this);
             return;
         }
         
@@ -569,74 +585,127 @@ AppleUSBEHCI::CheckForSharedXHCIController(void)
         // since we have an XHCN method in our ACPI table, we know that we are MUXed with an XHCI controller
         // we will now wait for an AppleUSBXHCI driver to show up and verify that it's provider
         // matches the one to which we are MUXed
-        matchingDictionary = serviceMatching("AppleUSBXHCI");                   // waitForMatchingServices does not consume this
+        matchingDictionary = serviceMatching("AppleUSBXHCI");
         if (!matchingDictionary)
         {
-            USBLog(3, "IOUSBController[%p]::CheckForSharedXHCIController could not get matching dictionary (very unusual)", this);
+            USBLog(3, "AppleUSBEHCI[%p]::CheckForSharedXHCIController could not get matching dictionary (very unusual)", this);
             return;
         }
         
-        xhciCandidate = waitForMatchingService( matchingDictionary,  kSecondScale * seconds);           // we have a reference to this candidate
+        // A notification handler will be installed that will be invoked for every existing AppleUSBXHCI object
+        // that has been matched and for every new AppleUSBXHCI object that will be matched as long as the
+        // notification handler is queued.
+        // After intalling the notifier this thread sleeps. When the notification handler is invoked it adds the
+        // object to _xhciControllerArray and wakes this thread up.
+        notificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &AppleUSBEHCI::XHCIControllerMatchingNotifcationHandler);
 
-        if( !xhciCandidate )
+        _xhciControllerArray = OSArray::withCapacity(1);
+        if (!_xhciControllerArray)
         {
-            USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController could not discover AppleUSBXHCI in %lld secs", this, seconds);
-            matchingDictionary->release();
+            USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController failed to allocated array", this);
             return;
         }
         
-        USBLog(6, "AppleUSBEHCI[%p]::CheckForSharedXHCIController found AppleUSBXHCI %p", this, xhciCandidate);
-
-        
-        xhciProvider = xhciCandidate->getParentEntry(gIOServicePlane);
-        xhciProviderName = xhciProvider->getName();
-        
-        // The name is a cstring which should be of the form "XHCn" where "n" is a digit from 1 to ??
-        // The n is a bit position (1 is bit 0, 2 is bit 1) in the assertVal retrieved above
-        
-        if (strncmp(xhciProviderName, "XHC", 3) == 0)
+        notifier = addMatchingNotification( gIOMatchedNotification, matchingDictionary, notificationHandler, this);
+        if (!notifier)
         {
-            char    myNum = xhciProviderName[3];
-            int     val = myNum - '1';
-            if ((val >=0) && (val < 10))
+            USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController could not set up matching notification", this);
+            return;
+        }
+ 		
+        // Grab the workloop lock to synchronize access to _xhciControllerArray and to facilitate sleep
+        _workLoop->CloseGate();
+        
+        do
+        {
+            int sleepResult = 0;
+            
+            while (_xhciControllerArray->getCount() == 0)
             {
-                xhciBitmap |= (1 << val);
+                sleepResult = _workLoop->SleepWithTimeout(_xhciController, kSecondScale * seconds);
+                if (sleepResult == THREAD_TIMED_OUT)
+                {
+                    USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController timed out waiting for muxed XHCI controller", this);
+                    break;
+                }
             }
-        }
-        
-        // in the simple case, there is only one XHCn in the system, and we will match to it
-        if ((xhciBitmap & assertVal) == assertVal)
-        {
+            
+            xhciCandidate = (IOService *)_xhciControllerArray->getObject(0);
+            
+            if (!xhciCandidate)
+            {
+                USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController error getting XHCI controller", this);
+                break;
+            }
+			
+            xhciCandidate->retain();
+            _xhciControllerArray->removeObject(0);
+            
+            USBLog(3, "AppleUSBEHCI[%p]::CheckForSharedXHCIController found XHCI candidate %p", this, xhciCandidate);
+            
+            if (!xhciCandidate->metaCast("AppleUSBXHCI"))
+            {
+                USBLog(3,  "AppleUSBEHCI[%p]::CheckForSharedXHCIController %p is not AppleUSBXHCI\n", this, xhciCandidate);
+                continue;
+            }
+            
+            xhciProvider = xhciCandidate->getParentEntry(gIOServicePlane);
+            xhciProviderName = xhciProvider->getName();
+            
+            // The name is a cstring which should be of the form "XHCn" where "n" is a digit from 1 to ??
+            // The n is a bit position (1 is bit 0, 2 is bit 1) in the assertVal retrieved above
+            
+            if (strncmp(xhciProviderName, "XHC", 3) == 0)
+            {
+                char    myNum = xhciProviderName[3];
+                int     val = myNum - '1';
+                if ((val >=0) && (val < 10))
+                {
+                    xhciBitmap |= (1 << val);
+                }
+            }
+            
+            // in the simple case, there is only one XHCn in the system, and we will match to it
+            if ((xhciBitmap & assertVal) == assertVal)
+            {
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-            uint64_t	ourObject = (uint64_t) xhciCandidate;
-            setProperty("xhci", ourObject, 64);
+                uint64_t    ourObject = (uint64_t) xhciCandidate;
+                setProperty("xhci", ourObject, 64);
 #endif
-            _xhciController = xhciCandidate;						// we still have the reference given to us
-            _xhciController->retain();								// 10397671: retain this copy since we will need to release the other reference if this is not the correct one                
-        }
-        else
-        {
-            if ((xhciBitmap != 0) && (assertVal != 0))
-            {
-                USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController - unable to find the correct XHCI xhciBitmap(0x%08x) assertVal(0x%08x)", this, (unsigned int)xhciBitmap, (unsigned int)assertVal);
+                _xhciController = xhciCandidate;                        // we still have the reference given to us
+                _xhciController->retain();                                // 10397671: retain this copy since we will need to release the other reference if this is not the correct one
+                done = true;
             }
+            
+            xhciCandidate->release();
+        } while (!done);
+        
+        _workLoop->OpenGate();
+        
+        if (notifier)
+        {
+            notifier->remove();
+            notifier = NULL;
         }
         
-	}
-	
-	if (xhciCandidate)								// Note, this is not our iVar, but is a local copy with its own reference
-	{
-		xhciCandidate->release();
-		xhciCandidate = NULL;
-	}
-    
-    if (matchingDictionary)
-    {
-        matchingDictionary->release();
-        matchingDictionary = NULL;
+        if (_xhciControllerArray)
+        {
+            _xhciControllerArray->flushCollection();
+            _xhciControllerArray->release();
+            _xhciControllerArray = NULL;
+        }
+        
+        if (matchingDictionary)
+        {
+            matchingDictionary->release();
+        }
+         
+        if ((xhciBitmap & assertVal) == 0)
+        {
+            USBError(1, "AppleUSBEHCI[%p]::CheckForSharedXHCIController - unable to find the correct XHCI xhciBitmap(0x%08x) assertVal(0x%08x)", this, (unsigned int)xhciBitmap, (unsigned int)assertVal);
+        }
     }
 }
-#endif
 
 
 
@@ -927,13 +996,11 @@ AppleUSBEHCI::UIMFinalize(void)
 		IOSync();
     }
 
-#ifdef SUPPORTS_SS_USB
 	if( _xhciController )
 	{
 		_xhciController->release();
         _xhciController = NULL;
 	}
-#endif
 
 	// Free the TD memory blocks
     if (_tdMBHead)
@@ -1284,7 +1351,7 @@ AppleUSBEHCI::DeallocateED (AppleEHCIQueueHead *pED)
     USBLog(7, "AppleUSBEHCI[%p]::DeallocateED - AsyncListAddr(%08x) deallocating %08x and smashing physical link",  this, (int)_pEHCIRegisters->AsyncListAddr, (int)pED->_sharedPhysical);
     pED->_logicalNext = NULL;
 	pED->SetPhysicalLink(0xFEDCBA98);
-	
+
     if (_pLastFreeQH)
     {
         _pLastFreeQH->_logicalNext = pED;
@@ -1882,11 +1949,10 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 	
 	switch (type)
 	{
-#ifdef SUPPORTS_SS_USB
         case kIOUSBMessageHubPortDeviceDisconnected:
             EHCIMuxedPortDeviceDisconnected((char*)argument);
             break;
-#endif            
+
 		case kIOUSBMessageExpressCardCantWake:
 			nub = (IOService*)argument;
 			usbPlane = getPlane(kIOUSBPlane);

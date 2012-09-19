@@ -39,6 +39,7 @@ GenerateKey::database(const Db &inDb)
 
 void GenerateKey::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		check(CSSM_CSP_CreateKeyGenContext(attachment()->handle(), mAlgorithm,

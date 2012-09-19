@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1075,6 +1075,9 @@ create_resolver(CFDictionaryRef dns)
 							  0,
 							  &kCFTypeDictionaryKeyCallBacks,
 							  &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(targetOptions,
+				     kSCNetworkReachabilityOptionServerBypass,
+				     kCFBooleanTrue);
 		if (targetInterface != NULL) {
 			CFDictionarySetValue(targetOptions,
 					     kSCNetworkReachabilityOptionInterface,

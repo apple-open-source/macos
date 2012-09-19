@@ -387,7 +387,6 @@ __BEGIN_DECLS
 0x8B, 0x8B, 0x77, 0x05, 0x7C, 0x8C, 0xE0, 0xCE)
 
 
-#ifdef SUPPORTS_SS_USB
 // A33CF047-4B5B-48E2-B57D-0207FCEAE13B
 /*!
  @defined kIOUSBDeviceInterfaceID500
@@ -421,7 +420,6 @@ __BEGIN_DECLS
 0xA3, 0x3C, 0xF0, 0x47, 0x4B, 0x5B, 0x48, 0xE2, 												\
 0xB5, 0x7D, 0x02, 0x07, 0xFC, 0xEA, 0xE1, 0x3B)
 
-#endif
 
 
 // 4923AC4C-4896-11D5-9208-000A27801E86
@@ -698,7 +696,6 @@ __BEGIN_DECLS
                 the one shipped with Mac OS X version 10.0. 
 	*/
 
-#ifdef SUPPORTS_SS_USB
 // 6C0D38C3-B093-4EA7-809B-09FB5DDDAC16
 /*!
  @defined kIOUSBInterfaceInterfaceID500
@@ -731,7 +728,6 @@ __BEGIN_DECLS
 #define kIOUSBInterfaceInterfaceID500 CFUUIDGetConstantUUIDWithBytes(kCFAllocatorSystemDefault, \
 	0x6C, 0x0D, 0x38, 0xC3, 0xB0, 0x93, 0x4E, 0xA7, 											\
 	0x80, 0x9B, 0x09, 0xFB, 0x5D, 0xDD, 0xAC, 0x16)
-#endif
 
 /*!
  @interface IOUSBDeviceInterface
@@ -901,7 +897,6 @@ typedef struct IOUSBDeviceStruct {
 
     IOReturn (*GetDeviceBusPowerAvailable)(void *self, UInt32 *powerAvailable);
     
-#ifdef SUPPORTS_SS_USB
     /*!
 	 @function GetDeviceSpeed
 	 @abstract   Returns the speed of the device.
@@ -910,16 +905,6 @@ typedef struct IOUSBDeviceStruct {
 	 @param      devSpeed Pointer to UInt8 to hold the speed (kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, kUSBDeviceSpeedHigh, or kUSBDeviceSpeedSuper).
 	 @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
 	 */
-#else
-    /*!
-	 @function GetDeviceSpeed
-	 @abstract   Returns the speed of the device.
-	 @discussion The device does not have to be open to use this function.
-	 @param      self Pointer to the IOUSBDeviceInterface.
-	 @param      devSpeed Pointer to UInt8 to hold the speed (kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, or kUSBDeviceSpeedHigh).
-	 @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-	 */
-#endif
     IOReturn (*GetDeviceSpeed)(void *self, UInt8 *devSpeed);
     
     /*!
@@ -1036,7 +1021,8 @@ typedef struct IOUSBDeviceStruct {
                 to select an alternate setting on an interface.
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      req Pointer to an IOUSBDevRequest containing the request.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async port upon completion.
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually transferred.  
+	 			A message addressed to this callback is posted to the Async port upon completion.
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 kIOReturnNotOpen if the device is not open for exclusive access, or kIOUSBNoAsyncPortErr if no Async 
@@ -1141,7 +1127,8 @@ typedef struct IOUSBDeviceStruct182 {
     @availability This function is only available with IOUSBDeviceInterface182 and above.
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      req Pointer to an IOUSBDevRequestTO containing the request.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the 
+	 @param     callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually transferred
+	 			in the DeviceRequest.  A message addressed to this callback is posted to the 
                 Async port upon completion.
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
@@ -1573,7 +1560,6 @@ typedef struct IOUSBDeviceStruct320 {
 	
 } IOUSBDeviceInterface320;
 
-#ifdef SUPPORTS_SS_USB
 /*!
  @interface IOUSBDeviceInterface500
  @abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version 3.2.0 and above.
@@ -1643,7 +1629,6 @@ typedef struct IOUSBDeviceStruct500 {
     IOReturn (*GetBandwidthAvailableForDevice)(void *self, UInt32 *bandwidth);
 	
 } IOUSBDeviceInterface500;
-#endif
 
 	/*!
     @interface IOUSBInterfaceInterface
@@ -1916,7 +1901,8 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      pipeRef Index of the control pipe to use. Use zero for the default control pipe on the device.
     @param      req Pointer to an IOUSBDevRequest containing the request.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async 
+	 @param     callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually transferred.
+	 			A message addressed to this callback is posted to the Async 
                 port upon completion.
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
@@ -2042,7 +2028,8 @@ typedef struct IOUSBInterfaceStruct {
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
     @param      buf Buffer to hold the data.
     @param      size The size of the buffer pointed to by buf.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async 
+	@param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually read.
+	 			A message addressed to this callback is posted to the Async 
                 port upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
@@ -2060,7 +2047,8 @@ typedef struct IOUSBInterfaceStruct {
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
     @param      buf Buffer to hold the data.
     @param      size The size of the buffer pointed to by buf.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually written.
+	 			A message addressed to this callback is posted to the Async 
                 port upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
@@ -2079,8 +2067,8 @@ typedef struct IOUSBInterfaceStruct {
     @param      frameStart The bus frame number on which to start the read (obtained from GetBusFrameNumber).
     @param      numFrames The number of frames for which to transfer data.
     @param      frameList A pointer to an array of IOUSBIsocFrame structures describing the frames.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async 
-                port upon completion.
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the framelist pointer, which can be used to associate the completion with a particular request.
+	 			A message addressed to this callback is posted to the Async port upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
@@ -2099,7 +2087,8 @@ typedef struct IOUSBInterfaceStruct {
     @param      frameStart The bus frame number on which to start the write (obtained from GetBusFrameNumber).
     @param      numFrames The number of frames for which to transfer data.
     @param      frameList A pointer to an array of IOUSBIsocFrame structures describing the frames.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the framelist pointer, which can be used to associate the completion with a particular request.
+	 			A message addressed to this callback is posted to the Async 
                 port upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
@@ -2185,7 +2174,8 @@ typedef struct IOUSBInterfaceStruct182 {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      pipeRef Index of the control pipe to use. Use zero for the default control pipe on the device.
     @param      req Pointer to an IOUSBDevRequestTO containing the request.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually transferred.
+	 			A message addressed to this callback is posted to the Async 
                 port upon completion.
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
@@ -2268,7 +2258,8 @@ typedef struct IOUSBInterfaceStruct182 {
                 data is transferred in this amount of time, the request will be aborted and returned.
     @param      completionTimeout Specifies a time value in milliseconds. Once the request is queued on the bus, if 
                 the entire request is not completed in this amount of time, the request will be aborted and returned.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async port 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually read.
+	 			A message addressed to this callback is posted to the Async port 
                 upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
@@ -2296,7 +2287,8 @@ typedef struct IOUSBInterfaceStruct182 {
                 data is transferred in this amount of time, the request will be aborted and returned.
     @param      completionTimeout Specifies a time value in milliseconds. Once the request is queued on the bus, if 
                 the entire request is not completed in this amount of time, the request will be aborted and returned.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to the Async port 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the number of bytes that were actually written.
+	   			A message addressed to this callback is posted to the Async port 
                 upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
@@ -2651,7 +2643,8 @@ typedef struct IOUSBInterfaceStruct192 {
     @param      updateFrequency Specifies how often, in milliseconds, the frame list data should be updated. Valid 
                 range is 0 - 8. If 0, it means that the framelist should be updated at the end of the transfer.
     @param      frameList A pointer to an array of IOUSBLowLatencyIsocFrame structures describing the frames.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the framelist pointer, which can be used to associate the completion with a particular request.
+	 			A message addressed to this callback is posted to 
                 the Async port upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
@@ -2722,7 +2715,8 @@ typedef struct IOUSBInterfaceStruct192 {
     @param      updateFrequency Specifies how often, in milliseconds, should the frame list data be updated. Valid 
                 range is 0 - 8. If 0, it means that the framelist should be updated at the end of the transfer.
     @param      frameList A pointer to an array of IOUSBLowLatencyIsocFrame structures describing the frames.
-    @param      callback An IOAsyncCallback1 method. A message addressed to this callback is posted to 
+    @param      callback An IOAsyncCallback1 method. Upon completion, the arg0 argument of the AsyncCallback1 will contain the framelist pointer, which can be used to associate the completion with a particular request.
+	 			A message addressed to this callback is posted to 
                 the Async port upon completion.
     @param      refcon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
@@ -3121,7 +3115,6 @@ typedef struct IOUSBInterfaceStruct300{
 } IOUSBInterfaceInterface300;
 
 
-#ifdef SUPPORTS_SS_USB
 typedef struct IOUSBInterfaceStruct500{
     IUNKNOWN_C_GUTS;
     IOReturn (*CreateInterfaceAsyncEventSource)(void *self, CFRunLoopSourceRef *source);
@@ -3184,7 +3177,6 @@ typedef struct IOUSBInterfaceStruct500{
     IOUSBDescriptorHeader * (*FindNextAltInterface)(void *self, const void *current, IOUSBFindInterfaceRequest *request);
     IOReturn (*GetBusFrameNumberWithTime)(void *self, UInt64 *frame, AbsoluteTime *atTime);
 	
-#ifdef SUPPORTS_SS_USB
     /*!
 	 @function GetPipePropertiesV2
 	 @abstract   Gets the properties for a pipe, including the USB SuperSpeed endpoint companion properties.
@@ -3205,9 +3197,7 @@ typedef struct IOUSBInterfaceStruct500{
 	 or kIOReturnNotOpen if the interface is not open for exclusive access.
 	 */
     IOReturn (*GetPipePropertiesV2)(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *number, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval);
-#endif
 } IOUSBInterfaceInterface500;
-#endif
 
 #define kIOUSBDeviceClassName		"IOUSBDevice"
 #define kIOUSBInterfaceClassName	"IOUSBInterface"

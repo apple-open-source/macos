@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -338,7 +338,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
             {
                 userList = SCDynamicStoreCopyConsoleInformation( session );
 
-                if ( userList ) /* not Mac OS X Installer */
+                if ( userList ) /* not OS X Installer */
                 {
                     CFRelease( user );
                     CFRelease( userList );
@@ -375,66 +375,88 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
         DALogDebug( "  console user = none." );
 
-        count = CFArrayGetCount( gDADiskList );
+        count = 0;
 
-        for ( index = 0; index < count; index++ )
+        if ( gDAConsoleUserList )
         {
-            DADiskRef disk;
-
-            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
-            /*
-             * Unmount this volume.
-             */
-
-            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
-            {
-                Boolean unmount;
-
-                unmount = FALSE;
-
-                if ( DADiskGetUserUID( disk ) )
-                {
-                    if ( DADiskGetUserUID( disk ) == previousUserUID )
-                    {
-                        unmount = TRUE;
-                    }
-                }
-
-                if ( unmount )
-                {
-                    DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
-                }
-            }
+            count = CFArrayGetCount( gDAConsoleUserList );
         }
 
         for ( index = 0; index < count; index++ )
         {
-            DADiskRef disk;
+            CFDictionaryRef dictionary;
 
-            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+            dictionary = CFArrayGetValueAtIndex( gDAConsoleUserList, index );
 
-            /*
-             * Eject this disk.
-             */
-
-            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
+            if ( ___CFDictionaryGetIntegerValue( dictionary, kSCConsoleSessionUID ) == previousUserUID )
             {
-                Boolean eject;
+                break;
+            }
+        }
 
-                eject = FALSE;
+        if ( index == count )
+        {
+            count = CFArrayGetCount( gDADiskList );
 
-                if ( DADiskGetUserUID( disk ) )
+            for ( index = 0; index < count; index++ )
+            {
+                DADiskRef disk;
+
+                disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+                /*
+                 * Unmount this volume.
+                 */
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
                 {
-                    if ( DADiskGetUserUID( disk ) == previousUserUID )
+                    Boolean unmount;
+
+                    unmount = FALSE;
+
+                    if ( DADiskGetUserUID( disk ) )
                     {
-                        eject = TRUE;
+                        if ( DADiskGetUserUID( disk ) == previousUserUID )
+                        {
+                            unmount = TRUE;
+                        }
+                    }
+
+                    if ( unmount )
+                    {
+                        DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
                     }
                 }
+            }
 
-                if ( eject )
+            for ( index = 0; index < count; index++ )
+            {
+                DADiskRef disk;
+
+                disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+                /*
+                 * Eject this disk.
+                 */
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
                 {
-                    DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
+                    Boolean eject;
+
+                    eject = FALSE;
+
+                    if ( DADiskGetUserUID( disk ) )
+                    {
+                        if ( DADiskGetUserUID( disk ) == previousUserUID )
+                        {
+                            eject = TRUE;
+                        }
+                    }
+
+                    if ( eject )
+                    {
+                        DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
+                    }
                 }
             }
         }
@@ -512,6 +534,8 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
         /*
          * A console user is not logged in.
          */
+
+        DAPreferenceListRefresh( );
 
         count = CFArrayGetCount( gDADiskList );
 
@@ -643,7 +667,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
         if ( disk )
         {
             __DAMediaPropertyChangedCallback( NULL, media, NULL );
-        }
+                }
         else
         {
             io_object_t busyNotification;

@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dlopen.c,v 1.1.4.2 2011-03-10 04:29:16 each Exp $ */
+/* $Id: dlopen.c,v 1.1.4.2 2011/03/10 04:29:16 each Exp $ */
 
 #include <config.h>
 

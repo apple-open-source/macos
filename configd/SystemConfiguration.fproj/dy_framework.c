@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,6 +180,19 @@ _IORegistryEntryCreateIterator(mach_port_t masterPort, const io_name_t plane, IO
 
 
 __private_extern__ kern_return_t
+_IORegistryEntryGetLocationInPlane(io_registry_entry_t entry, const io_name_t plane, io_name_t location)
+{
+#undef IORegistryEntryGetLocationInPlane
+	static typeof (IORegistryEntryGetLocationInPlane) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IORegistryEntryGetLocationInPlane");
+	}
+	return dyfunc ? dyfunc(entry, plane, location) : KERN_FAILURE;
+}
+
+
+__private_extern__ kern_return_t
 _IORegistryEntryGetName(io_registry_entry_t entry, io_name_t name)
 {
 	#undef IORegistryEntryGetName
@@ -189,6 +202,19 @@ _IORegistryEntryGetName(io_registry_entry_t entry, io_name_t name)
 		if (image) dyfunc = dlsym(image, "IORegistryEntryGetName");
 	}
 	return dyfunc ? dyfunc(entry, name) : KERN_FAILURE;
+}
+
+
+__private_extern__ kern_return_t
+_IORegistryEntryGetNameInPlane(io_registry_entry_t entry, const io_name_t plane, io_name_t name)
+{
+	#undef IORegistryEntryGetNameInPlane
+	static typeof (IORegistryEntryGetNameInPlane) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IORegistryEntryGetNameInPlane");
+	}
+	return dyfunc ? dyfunc(entry, plane, name) : KERN_FAILURE;
 }
 
 

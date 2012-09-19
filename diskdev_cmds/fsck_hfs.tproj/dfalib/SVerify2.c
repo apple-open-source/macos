@@ -331,12 +331,91 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	if ( (calculatedBTCB->treeDepth == 0) || (calculatedBTCB->rootNode == 0) )
 	{
 		/* If both are zero, empty BTree */
-		if ( calculatedBTCB->treeDepth == calculatedBTCB->rootNode )
-			goto exit;	/* empty BTree */
-
-		RcdError( GPtr, E_BTDepth );
-		goto RebuildBTreeExit;
+		if ( calculatedBTCB->treeDepth != calculatedBTCB->rootNode )
+		{
+			RcdError( GPtr, E_BTDepth );
+			goto RebuildBTreeExit;
+		}
 	}		
+
+	/*
+	 * Check the extents for the btree.
+	 * HFS+ considers it an error for a node to be split across
+	 * extents, on a journaled filesystem.
+	 *
+	 * If debug is set, then it continues examining the tree; otherwise,
+	 * it exits with a rebuilt error.
+	 */
+	if (CheckIfJournaled(GPtr, true) &&
+	    header->nodeSize > calculatedBTCB->fcbPtr->fcbVolume->vcbBlockSize) {
+		/* If it's journaled, it's HFS+ */
+		HFSPlusExtentRecord *extp = &calculatedBTCB->fcbPtr->fcbExtents32;
+		int i;
+		int blocksPerNode = header->nodeSize / calculatedBTCB->fcbPtr->fcbVolume->vcbBlockSize;	// How many blocks in a node
+		UInt32 totalBlocks = 0;
+		
+		/*
+		 * First, go through the first 8 extents
+		 */
+		for (i = 0; i < kHFSPlusExtentDensity; i++) {
+			if (((*extp)[i].blockCount % blocksPerNode) != 0) {
+				result = errRebuildBtree;
+				*statusFlag |= S_RebuildBTree;
+				fsckPrint(GPtr->context, E_BTreeSplitNode, calculatedBTCB->fcbPtr->fcbFileID);
+				if (debug == 0) {
+					goto exit;
+				} else {
+					plog("Improperly split node in file id %u, offset %u (extent #%d), Extent <%u, %u>\n", calculatedBTCB->fcbPtr->fcbFileID, totalBlocks, i, (*extp)[i].startBlock, (*extp)[i].blockCount);
+				}
+			}
+			totalBlocks += (*extp)[i].blockCount;
+
+		}
+		/*
+		 * Now, iterate through the extents overflow file if necessary.
+		 * Style note:  This is in a block so I can have local variables.
+		 * It used to have a conditional, but that wasn't needed.
+		 */
+		{
+			int err;
+			BTreeIterator iterator;
+			FSBufferDescriptor btRecord;
+			HFSPlusExtentKey *key = (HFSPlusExtentKey*)&iterator.key;
+			HFSPlusExtentRecord extRecord;
+			UInt16	recordSize;
+			UInt32	fileID = calculatedBTCB->fcbPtr->fcbFileID;
+			static const int kDataForkType = 0;
+
+			memset(&iterator, 0, sizeof(iterator));
+			memset(&btRecord, 0, sizeof(btRecord));
+			memset(&extRecord, 0, sizeof(extRecord));
+			BuildExtentKey( true, kDataForkType, fileID, 0, (void*)key );
+			btRecord.bufferAddress = &extRecord;
+			btRecord.itemCount = 1;
+			btRecord.itemSize = sizeof(extRecord);
+
+			while (noErr == (err = BTIterateRecord(GPtr->calculatedExtentsFCB, kBTreeNextRecord, &iterator, &btRecord, &recordSize))) {
+				if (key->fileID != fileID ||
+				    key->forkType != kDataForkType) {
+					break;
+				}
+				for (i = 0; i < kHFSPlusExtentDensity; i++) {
+					if ((extRecord[i].blockCount % blocksPerNode) != 0) {
+						result = errRebuildBtree;
+						*statusFlag |= S_RebuildBTree;
+						fsckPrint(GPtr->context, E_BTreeSplitNode, fileID);
+						if (debug == 0) {
+							goto exit;
+						} else {
+							plog("Improperly split node in file id %u, startBlock %u, index %d (offset %u), extent <%u, %u>\n", fileID, key->startBlock, i, totalBlocks, extRecord[i].startBlock, extRecord[i].blockCount);
+						}
+					}
+					totalBlocks += extRecord[i].blockCount;
+				}
+				memset(&extRecord, 0, sizeof(extRecord));
+			}
+		}
+	}
 
 #if 0
 	plog( "\nB-Tree header rec: \n" );
@@ -349,6 +428,10 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	plog( "    freeNodes     = %d \n", header->freeNodes );
 #endif
 		
+	if (calculatedBTCB->rootNode == 0) {
+		// Empty btree, no need to continue
+		goto exit;
+	}
 	/*
 	 * Set up tree path record for root level
 	 */
@@ -678,9 +761,9 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 
 	calculatedBTCB->leafRecords = leafRecords;
 	
+exit:
 	if (result == noErr && (*statusFlag & S_RebuildBTree))
 		result = errRebuildBtree;
-exit:
 	if (node.buffer != NULL)
 		(void) ReleaseNode(calculatedBTCB, &node);
 		

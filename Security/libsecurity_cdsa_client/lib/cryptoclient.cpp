@@ -40,6 +40,7 @@ void Crypt::key(const Key &key)
 void
 Crypt::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
         // Key is required unless we have a NULL algorithm (cleartext wrap/unwrap),

@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -25,7 +24,6 @@
 
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
-
 
 
 #include "AppleUSBHSHubUserClient.h"

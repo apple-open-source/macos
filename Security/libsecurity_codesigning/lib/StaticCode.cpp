@@ -383,6 +383,7 @@ CFAbsoluteTime SecStaticCode::signingTimestamp()
 // or throws if it is not. As a side effect, a successful return sets up the
 // cached certificate chain for future use.
 // Returns true if the signature is expired (the X.509 sense), false if it's not.
+// Expiration is fatal (throws) if a secure timestamp is included, but not otherwise.
 //
 bool SecStaticCode::verifySignature()
 {
@@ -472,6 +473,30 @@ bool SecStaticCode::verifySignature()
 				MacOSError::throwMe(result);
 			}
 		}
+		
+		if (mSigningTimestamp) {
+			CFIndex rootix = CFArrayGetCount(mCertChain);
+			if (SecCertificateRef mainRoot = SecCertificateRef(CFArrayGetValueAtIndex(mCertChain, rootix-1)))
+				if (isAppleCA(mainRoot)) {
+					// impose policy: if the signature itself draws to Apple, then so must the timestamp signature
+					CFRef<CFArrayRef> tsCerts;
+					MacOSError::check(CMSDecoderCopySignerTimestampCertificates(cms, 0, &tsCerts.aref()));
+					CFIndex tsn = CFArrayGetCount(tsCerts);
+					bool good = tsn > 0 && isAppleCA(SecCertificateRef(CFArrayGetValueAtIndex(tsCerts, tsn-1)));
+#ifndef WORKAROUND_12007637
+					// TS certificates are reordered weirdly; check them all
+					for (CFIndex n = 0; n < tsn; n++)
+						if (SecCertificateRef tsRoot = SecCertificateRef(CFArrayGetValueAtIndex(tsCerts, n)))
+							if ((good = isAppleCA(tsRoot))) {
+								secdebug("BUG", "Apple root at TS cert %ld", n);
+								break;
+							}
+#endif //WORKAROUND_12007637
+					if (!good)
+						MacOSError::throwMe(CSSMERR_TP_NOT_TRUSTED);
+				}
+		}
+		
 		return actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED;
 	}
 }

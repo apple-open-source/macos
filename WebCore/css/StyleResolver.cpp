@@ -467,14 +467,14 @@ void StyleResolver::collectFeatures()
 }
 
 #if ENABLE(STYLE_SCOPED)
-const ContainerNode* StyleResolver::determineScope(const StyleSheetInternal* sheet)
+const ContainerNode* StyleResolver::determineScope(const CSSStyleSheet* sheet)
 {
     ASSERT(sheet);
 
     if (!RuntimeEnabledFeatures::styleScopedEnabled())
         return 0;
 
-    Node* ownerNode = sheet->singleOwnerNode();
+    Node* ownerNode = sheet->ownerNode();
     if (!ownerNode || !ownerNode->isHTMLElement() || !ownerNode->hasTagName(HTMLNames::styleTag))
         return 0;
 
@@ -513,7 +513,7 @@ void StyleResolver::appendAuthorStylesheets(unsigned firstNew, const Vector<RefP
             continue;
         StyleSheetInternal* sheet = cssSheet->internal();
 #if ENABLE(STYLE_SCOPED)
-        const ContainerNode* scope = determineScope(sheet);
+        const ContainerNode* scope = determineScope(cssSheet);
         if (scope) {
             ScopedRuleSetMap::AddResult addResult = m_scopedAuthorStyles.add(scope, nullptr);
             if (addResult.isNewEntry)
@@ -1313,6 +1313,8 @@ bool StyleResolver::canShareStyleWithElement(StyledElement* element) const
         return false;
     if (element->inlineStyle())
         return false;
+    if (element->needsStyleRecalc())
+        return false;
 #if ENABLE(SVG)
     if (element->isSVGElement() && static_cast<SVGElement*>(element)->animatedSMILStyleProperties())
         return false;
@@ -1604,12 +1606,15 @@ PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderS
 
     m_style = RenderStyle::create();
 
+    RefPtr<RenderStyle> cloneForParent;
+
     if (m_parentStyle)
         m_style->inheritFrom(m_parentStyle);
     else {
-        m_parentStyle = style();
         // Make sure our fonts are initialized if we don't inherit them from our parent style.
         m_style->font().update(0);
+        cloneForParent = RenderStyle::clone(style());
+        m_parentStyle = cloneForParent.get();
     }
 
     // Even if surrounding content is user-editable, shadow DOM should act as a single unit, and not necessarily be editable
@@ -1635,6 +1640,9 @@ PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderS
     adjustRenderStyle(style(), m_parentStyle, element);
 
     initElement(0); // Clear out for the next resolve.
+
+    if (cloneForParent)
+        m_parentStyle = 0;
 
     // Now return the style.
     return m_style.release();

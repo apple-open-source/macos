@@ -54,6 +54,7 @@
 #import <OpenGL/glu.h>
 #import <algorithm>
 #import <sys/time.h>
+#import <vector>
 
 using std::min;
 
@@ -998,6 +999,70 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	glPopAttrib();
 }
 
+- (void) drawGloss
+{
+	//
+	// Save normal projection and superimpose an Ortho projection
+	//
+	glPushMatrix();
+	glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	NSRect b = [self bounds];
+	gluOrtho2D(NSMinX(b), NSMaxX(b), NSMinY(b), NSMaxY(b));
+	glMatrixMode(GL_MODELVIEW);
+
+    glPushAttrib(GL_ENABLE_BIT);	/* Save states */
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_BLEND);
+
+    GLfloat kBaseColor[3] = {0.25f, 0.25f, 0.25f};
+    GLfloat kTopColor[3]  = {0.6f, 0.6f, 0.6f};
+    GLfloat kMidColor[3]  = {0.3f, 0.3f, 0.3f};
+    const int kSegments   = 32;
+    GLfloat kAspectRatio  = b.size.width/b.size.height;
+    GLfloat kMidX         = b.size.width*0.5f;
+    GLfloat kMidY         = b.size.height*3.0f*kAspectRatio;
+    GLfloat kSecY         = b.size.height*0.55f;
+    GLfloat kRadius       = hypotf(kMidX, kMidY-kSecY);
+    GLfloat kRadius2      = kRadius*kRadius;
+    
+    glColor3fv(kBaseColor);
+    glBegin(GL_QUADS);
+    glVertex3f(NSMinX(b), NSMinY(b), 0.0f);
+    glVertex3f(NSMaxX(b), NSMinY(b), 0.0f);
+    glVertex3f(NSMaxX(b), NSMaxY(b), 0.0f);
+    glVertex3f(NSMinX(b), NSMaxY(b), 0.0f);
+    glEnd();
+    
+    glBegin(GL_TRIANGLE_STRIP);
+    for (int i=0; i<=kSegments; ++i) {
+        GLfloat x   =   b.origin.x+b.size.width*i/kSegments;
+        GLfloat dx  =   kMidX-x;
+        GLfloat y0  =   kMidY-sqrtf(kRadius2-dx*dx);
+        GLfloat y1  =   b.origin.y+b.size.height;
+        
+        glColor3fv(kMidColor);
+        glVertex3f(x, y0, 0.0f);
+        glColor3fv(kTopColor);
+        glVertex3f(x, y1, 0.0f);
+    }
+    glEnd();
+    
+	//
+	// Restore projection
+	//
+    glPopAttrib();
+	glPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+}
+
 - (void) update
 {
 	[super update];
@@ -1039,6 +1104,8 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	if (fBoardReflectivity)
 		glClear(GL_STENCIL_BUFFER_BIT);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    [self drawGloss];
 
 	/* Place lights */
 	[self placeLights];
@@ -1140,9 +1207,7 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	if (fInBoardManipulation)
 		[self drawManipulator];
 
-	// Update the GL context
-	if (fIsFloating) 
-		[self makeBoardSolid];
+    [self makeBoardSolid];
 
 	//
 	// Work around OpenGL driver issue

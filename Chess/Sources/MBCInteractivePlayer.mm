@@ -246,9 +246,8 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 
 - (void)allowedToListen:(BOOL)allowed
 {
-    if (allowed)
-        [self updateNeedMouse:self];
-    else if (fRecSystem)
+    [self updateNeedMouse:self];
+    if (fRecSystem && !allowed)
         SRStopListening(fRecognizer);
 }
 
@@ -276,6 +275,8 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 - (void)dealloc
 {
     [self removeChessObservers];
+    [fSpeechHelp release];
+    [fLanguageModel release];
     [super dealloc];
 }
 

@@ -151,7 +151,6 @@ LDestAligned:
 	negl    %edx                    // now generate offset to 1st byte to be copied
 	testl   $15,%esi                // is source aligned too?
 	jnz     LUnalignedLoop          // no
-
 	cmpl    $(kFastUCode),%eax      // long enough for the fastpath in microcode?
 	jb  LAlignedLoop                // no, use SSE
 	cld                             // we'll move forward

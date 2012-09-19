@@ -16,7 +16,6 @@
 #include <new>
 #include <assert.h>
 
-
 #ifdef DEBUGGING
 
 #include <string>
@@ -3622,6 +3621,8 @@ public:
     }
     virtual bool is_function() const
     {
+        if (__left_ == 0)
+            return false;
         return __left_->is_function();
     }
     virtual bool is_cv_qualifer() const
@@ -3848,6 +3849,91 @@ public:
     virtual bool fix_forward_references(__node** t_begin, __node** t_end)
     {
         return __right_->fix_forward_references(t_begin, t_end);
+    }
+};
+
+class __lambda
+    : public __node
+{
+public:
+    __lambda(__node* params, const char *number, size_t number_size)
+    {
+        __right_ = params;
+        __name_ = number;
+        __size_ = number_size;
+    }
+  
+    virtual size_t first_size() const
+    {
+        if (__cached_size_ == -1)
+        {
+            size_t r = 2;
+            r += sizeof("'lambda'")-1;
+            if (__right_)
+                r += __right_->size();
+            r += __size_;
+            const_cast<long&>(__cached_size_) = static_cast<long>(r);
+        }
+        return static_cast<size_t>(__cached_size_);
+    }
+    virtual char* first_demangled_name(char* buf) const
+    {
+        size_t n = sizeof("'lambda") - 1;
+        strncpy(buf, "'lambda", n);
+        buf += n;
+        if (__size_)
+        {
+            strncpy(buf, __name_, __size_);
+            buf += __size_;
+        }
+        *buf++ = '\'';
+        *buf++ = '(';
+        if (__right_)
+          buf = __right_->get_demangled_name(buf);
+        *buf++ = ')';
+        return buf;
+    }
+    virtual bool fix_forward_references(__node** t_begin, __node** t_end)
+    {
+        if (__right_)
+            return __right_->fix_forward_references(t_begin, t_end);
+        return true;
+    }
+};
+
+class __unnamed
+    : public __node
+{
+public:
+    __unnamed(const char *number, size_t number_size)
+    {
+        __name_ = number;
+        __size_ = number_size;
+    }
+  
+    virtual size_t first_size() const
+    {
+        if (__cached_size_ == -1)
+        {
+            size_t r = 0;
+            r += sizeof("'unnamed'")-1;
+            r += __size_;
+            const_cast<long&>(__cached_size_) = static_cast<long>(r);
+        }
+        return static_cast<size_t>(__cached_size_);
+    }
+    virtual char* first_demangled_name(char* buf) const
+    {
+        size_t n = sizeof("'unnamed") - 1;
+        strncpy(buf, "'unnamed", n);
+        buf += n;
+        if (__size_)
+        {
+            strncpy(buf, __name_, __size_);
+            buf += __size_;
+        }
+        *buf++ = '\'';
+        return buf;
     }
 };
 
@@ -6792,12 +6878,55 @@ __demangle_tree::__parse_unnamed_type_name(const char* first, const char* last)
 {
     if (last - first > 2 && first[0] == 'U')
     {
-        switch (first[1])
+        char type = first[1];
+        switch (type)
         {
         case 't':
         case 'l':
             first += 2;
-            __status_ = not_yet_implemented;
+
+            if (type == 'l')
+            {
+                __root_ = 0;
+                if (first[0] == 'v')
+                {
+                    // void lambda
+                    ++first;
+                    if (first[0] == 'E')
+                        ++first;
+                    else
+                        return first;
+                }
+                else
+                {
+                    while (first[0] && first[0] != 'E')
+                    {
+                        const char *old = first;
+                        first = __parse_type(first, last);
+                        if (first == old)
+                            break;
+                    }
+                    if (first[0] == 'E')
+                        ++first;
+                    else
+                        return first;
+                }
+            }
+            const char *number_start = first;
+            first = __parse_number(first, last);
+            const char *number_end = first;
+            if (first[0] == '_')
+            {
+                ++first;
+            }
+            else
+                return first;
+              
+            if (type == 'l')
+                __make<__lambda>(__root_, number_start, static_cast<size_t>(number_end - number_start));
+            else
+                __make<__unnamed>(number_start, static_cast<size_t>(number_end - number_start));
+            
             break;
         }
     }
@@ -8986,7 +9115,7 @@ __demangle_tree::__parse_operator_name(const char* first, const char* last, int*
             case 'v':
                 // cast <type>
                 {
-                const char* t = __parse_type(first+2, last, false);
+                const char* t = __parse_type(first+2, last, false, true);
                 if (t != first+2)
                 {
                     __node* cast_type = __root_;
@@ -10179,8 +10308,9 @@ __demangle_tree::__parse_nested_name(const char* first, const char* last)
                 }
                 break;
             case 'U':
-                // assert(!"__parse_nested_name U");
-                // could have following <template-args>
+                t1 = __parse_unnamed_type_name(t0, last);
+                if (t1 == t0 || t1 == last)
+                  return first;
                 break;
             case 'T':
                 t1 = __parse_template_param(t0, last);

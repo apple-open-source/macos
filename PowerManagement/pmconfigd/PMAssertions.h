@@ -75,7 +75,6 @@
 #define kIOPMrootDomainWakeTypeLowBattery   CFSTR("LowBattery")
 #endif
 
-
 /* IOPMAssertion levels
  * 
  * Each assertion type has a corresponding bitfield index, here.

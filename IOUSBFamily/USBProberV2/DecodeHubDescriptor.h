@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -41,7 +40,6 @@ struct IOUSBHubDescriptor {
 
 typedef struct IOUSBHubDescriptor IOUSBHubDescriptor;
 
-#ifdef SUPPORTS_SS_USB
 // To cope with the extra fields in a USB3 hub descriptor
 
 struct IOUSB3HubDescriptor {
@@ -60,7 +58,6 @@ struct IOUSB3HubDescriptor {
 };
 
 typedef struct IOUSB3HubDescriptor IOUSB3HubDescriptor;
-#endif
 
 @interface DecodeHubDescriptor : NSObject {
 

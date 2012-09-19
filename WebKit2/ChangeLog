@@ -1,3 +1,803 @@
+2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r127319.
+
+    2012-08-31  Brady Eidson  <beidson@apple.com>
+
+       REGRESSION (r127252): incomplete repaint on Flash element after pinch to zoom
+       <rdar://problem/12217897> and https://bugs.webkit.org/show_bug.cgi?id=95607
+
+       Reviewed by Simon Fraser.
+
+       * WebProcess/Plugins/PluginView.cpp:
+       (WebKit::PluginView::viewGeometryDidChange): Only give the window coordinate clip rect a chance
+         to override the boundsRect() if the page scale factor is 1.
+
+2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r127272.
+
+    2012-08-31  Brady Eidson  <beidson@apple.com>
+
+        REGRESSION (127047): Crash in PluginProxy::windowVisibilityChanged when changing tabs
+        <rdar://problem/12211180> and https://bugs.webkit.org/show_bug.cgi?id=95515
+
+        Reviewed by Dan Bernstein.
+
+        Plug-ins created in background tabs don't get initialized until they first become visible,
+        so telling them they are now invisible leads to messaging on behalf of an uninitialized plug-in.
+
+        Many other methods related to visibility and focus only call through if the plug-in is initialized,
+        so setWindowIsVisible should do the same.
+
+        * WebProcess/Plugins/PluginView.cpp:
+        (WebKit::PluginView::setWindowIsVisible): Only tell initialized plug-ins of window visibility changes.
+
+2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r127047.
+
+    2012-08-29  Brady Eidson  <beidson@apple.com>
+
+        REGRESSION: Not sending NPP_SetWindow is causing Flash to not throttle itself
+        <rdar://problem/12133021> and https://bugs.webkit.org/show_bug.cgi?id=95274
+
+        Reviewed by Sam Weinig.
+
+        * UIProcess/API/mac/WKView.mm:
+        (-[WKView viewDidMoveToWindow]): Previously we'd only update window visibility when the window is hidden.
+          Now we also update window visibility when the window is shown.
+
+        * WebProcess/Plugins/Netscape/NetscapePlugin.cpp:
+        (WebKit::NetscapePlugin::callSetWindowInvisible): Call set window with a manufactured empty clip rect to tell
+          the plug-in that it is complete hidden.
+        (WebKit):
+        * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+        (NetscapePlugin):
+        * WebProcess/Plugins/Netscape/mac/NetscapePluginMac.mm:
+        (WebKit::NetscapePlugin::windowVisibilityChanged): Call "callSetWindow" or "callSetWindowInvisible" as appropriate.
+
+        * WebProcess/Plugins/PluginView.cpp:
+        (WebKit::PluginView::setWindowIsVisible): Tell the plugin that its visibility changed.
+        (WebKit::PluginView::viewGeometryDidChange): Grab a clip rect that - although incorrect - at least is correct if
+          the PluginView is completely hidden.
+
+2012-09-04  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r127252.
+
+2012-09-04  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r127276.
+
+    2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+            Merge r127047.
+
+        2012-08-29  Brady Eidson  <beidson@apple.com>
+
+            REGRESSION: Not sending NPP_SetWindow is causing Flash to not throttle itself
+            <rdar://problem/12133021> and https://bugs.webkit.org/show_bug.cgi?id=95274
+
+            Reviewed by Sam Weinig.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView viewDidMoveToWindow]): Previously we'd only update window visibility when the window is hidden.
+              Now we also update window visibility when the window is shown.
+
+            * WebProcess/Plugins/Netscape/NetscapePlugin.cpp:
+            (WebKit::NetscapePlugin::callSetWindowInvisible): Call set window with a manufactured empty clip rect to tell
+              the plug-in that it is complete hidden.
+            (WebKit):
+            * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+            (NetscapePlugin):
+            * WebProcess/Plugins/Netscape/mac/NetscapePluginMac.mm:
+            (WebKit::NetscapePlugin::windowVisibilityChanged): Call "callSetWindow" or "callSetWindowInvisible" as appropriate.
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::setWindowIsVisible): Tell the plugin that its visibility changed.
+            (WebKit::PluginView::viewGeometryDidChange): Grab a clip rect that - although incorrect - at least is correct if
+              the PluginView is completely hidden.
+
+2012-08-14  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout 127322.
+
+    2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+            Merge r127272.
+
+        2012-08-31  Brady Eidson  <beidson@apple.com>
+
+            REGRESSION (127047): Crash in PluginProxy::windowVisibilityChanged when changing tabs
+            <rdar://problem/12211180> and https://bugs.webkit.org/show_bug.cgi?id=95515
+
+            Reviewed by Dan Bernstein.
+
+            Plug-ins created in background tabs don't get initialized until they first become visible,
+            so telling them they are now invisible leads to messaging on behalf of an uninitialized plug-in.
+
+            Many other methods related to visibility and focus only call through if the plug-in is initialized,
+            so setWindowIsVisible should do the same.
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::setWindowIsVisible): Only tell initialized plug-ins of window visibility changes.
+
+2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r127319.
+
+    2012-08-31  Brady Eidson  <beidson@apple.com>
+
+       REGRESSION (r127252): incomplete repaint on Flash element after pinch to zoom
+       <rdar://problem/12217897> and https://bugs.webkit.org/show_bug.cgi?id=95607
+
+       Reviewed by Simon Fraser.
+
+       * WebProcess/Plugins/PluginView.cpp:
+       (WebKit::PluginView::viewGeometryDidChange): Only give the window coordinate clip rect a chance
+         to override the boundsRect() if the page scale factor is 1.
+
+2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r127272.
+
+    2012-08-31  Brady Eidson  <beidson@apple.com>
+
+        REGRESSION (127047): Crash in PluginProxy::windowVisibilityChanged when changing tabs
+        <rdar://problem/12211180> and https://bugs.webkit.org/show_bug.cgi?id=95515
+
+        Reviewed by Dan Bernstein.
+
+        Plug-ins created in background tabs don't get initialized until they first become visible,
+        so telling them they are now invisible leads to messaging on behalf of an uninitialized plug-in.
+
+        Many other methods related to visibility and focus only call through if the plug-in is initialized,
+        so setWindowIsVisible should do the same.
+
+        * WebProcess/Plugins/PluginView.cpp:
+        (WebKit::PluginView::setWindowIsVisible): Only tell initialized plug-ins of window visibility changes.
+
+2012-08-31  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r127047.
+
+    2012-08-29  Brady Eidson  <beidson@apple.com>
+
+        REGRESSION: Not sending NPP_SetWindow is causing Flash to not throttle itself
+        <rdar://problem/12133021> and https://bugs.webkit.org/show_bug.cgi?id=95274
+
+        Reviewed by Sam Weinig.
+
+        * UIProcess/API/mac/WKView.mm:
+        (-[WKView viewDidMoveToWindow]): Previously we'd only update window visibility when the window is hidden.
+          Now we also update window visibility when the window is shown.
+
+        * WebProcess/Plugins/Netscape/NetscapePlugin.cpp:
+        (WebKit::NetscapePlugin::callSetWindowInvisible): Call set window with a manufactured empty clip rect to tell
+          the plug-in that it is complete hidden.
+        (WebKit):
+        * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+        (NetscapePlugin):
+        * WebProcess/Plugins/Netscape/mac/NetscapePluginMac.mm:
+        (WebKit::NetscapePlugin::windowVisibilityChanged): Call "callSetWindow" or "callSetWindowInvisible" as appropriate.
+
+        * WebProcess/Plugins/PluginView.cpp:
+        (WebKit::PluginView::setWindowIsVisible): Tell the plugin that its visibility changed.
+        (WebKit::PluginView::viewGeometryDidChange): Grab a clip rect that - although incorrect - at least is correct if
+          the PluginView is completely hidden.
+
+2012-08-20  Mark Rowe  <mrowe@apple.com>
+
+        Merge r126041.
+
+    2012-08-18  John Sullivan  <sullivan@apple.com>
+
+        <https://bugs.webkit.org/show_bug.cgi?id=94486>
+        <rdar://problem/12128557>
+        REGRESSION (r121482, Lion-only): Closing a popover containing a WKView can crash
+        
+        Reviewed by Darin Adler.
+
+        * UIProcess/API/mac/WKView.mm:
+        (-[WKView viewWillMoveToWindow:]):
+        Avoid calling the code added in 121482 that ensures that the undo stack is cleaned up
+        before the WKView is moved from one window to another when the WKView is being moved
+        out of a popover window. This avoids a bug in OS X 10.7 that was fixed in 10.8.
+        While this technically reopens a potentially crashing code path that 121482 closed,
+        it only reopens it for WKViews that are used for text editing and that are removed
+        from an NSPopover at some time earlier than tear-down of the NSPopover.
+
+2012-08-14  Lucas Forschler  <lforschler@apple.com>
+
+    Merge r125319.
+
+    2012-08-09  Jer Noble  <jer.noble@apple.com>
+
+            Crash exiting from HTML5 FS mode to normal mode via ESC key
+            https://bugs.webkit.org/show_bug.cgi?id=93663
+
+            Reviewed by Eric Carlson.
+
+            Crash is due to a refcount underrun with _watchdogTimer due to adopting an autoreleased NSTimer.
+            Use the non-autoreleased NSTimer creation method and manually add to the main NSRunLoop.
+
+            * UIProcess/mac/WKFullScreenWindowController.mm:
+            (-[WKFullScreenWindowController cancelOperation:]):
+
+2012-08-10  Lucas Forschler  <lforschler@apple.com>
+
+    Merge r124799.
+
+    2012-08-06  Anders Carlsson  <andersca@apple.com>
+
+            If the Apple Java plug-in is blocked and no runtime is installed, don't load it
+            https://bugs.webkit.org/show_bug.cgi?id=93289
+            <rdar://problem/11730092>
+
+            Reviewed by Dan Bernstein.
+
+            If the Apple Java plug-in is blocked, but there's no Java runtime installed (or the Java plug-in is disabled),
+            don't even include it in the plug-in info store.
+
+            * UIProcess/Plugins/PluginInfoStore.cpp:
+            (WebKit::PluginInfoStore::shouldBlockPlugin):
+            Since this is static now, it shouldn't be const.
+
+            * UIProcess/Plugins/PluginInfoStore.h:
+            (PluginInfoStore):
+            shouldBlockPlugin can be static.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::PluginInfoStore::shouldUsePlugin):
+            Return false if the Apple Java plug-in is blocked but Java isn't installed or enabled.
+
+            (WebKit::PluginInfoStore::shouldBlockPlugin):
+            Since this is static now, it shouldn't be const.
+
+2012-08-010  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r124944.
+    This was 124961 on trunk.
+
+2012-08-010  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r124956.
+    This was 124649 on trunk.
+
+2012-08-010  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r124959.
+    This was 124652 on branch.
+
+2012-08-010  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r124961.
+    This was 124815 on trunk.
+
+2012-08-07  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 125081
+
+    2012-08-08  Anders Carlsson  <andersca@apple.com>
+
+            Make the Silverlight CAOpenGLLayer opaque if we know the plug-in contents is opaque to reduce blending
+            https://bugs.webkit.org/show_bug.cgi?id=93508
+            <rdar://problem/12056765>
+
+            Reviewed by Simon Fraser.
+
+            * Shared/Plugins/Netscape/mac/NetscapePluginModuleMac.mm:
+            (WebKit::NetscapePluginModule::determineQuirks):
+            * Shared/Plugins/PluginQuirks.h:
+            Rename the MakeTransparentIfBackgroundAttributeExists quirk to MakeOpaqueUnlessTransparentSilverlightBackgroundAttributeExists
+            since we'll explicitly check for opaque background colors (at least one opaque background color for now), instead of just making the
+            plug-in transparent whenever there's a background specified.
+
+            * WebProcess/Plugins/Netscape/NetscapePlugin.cpp:
+            (WebKit::isTransparentSilverlightBackgroundValue):
+            Helper function for determining if a background value is transparent. Just check for opaque black now and treat everything else as transparent.
+
+            (WebKit::NetscapePlugin::initialize):
+            Call isTransparentSilverlightBackgroundValue.
+
+            * WebProcess/Plugins/Netscape/mac/NetscapePluginMac.mm:
+            (WebKit::makeCGLPresentLayerOpaque):
+            Helper function for grabbing the CGLPresentLayer from the layer hierarchy and setting it to be opaque.
+
+            (WebKit::NetscapePlugin::updatePluginLayer):
+            Call makeCGLPresentLayerOpaque if the plug-in has the MakeOpaqueUnlessTransparentSilverlightBackgroundAttributeExists quirk and
+            the plug-in is not transparent.
+
+2012-08-07  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 124815
+
+    2012-08-03  Brady Eidson  <beidson@apple.com>
+
+            Out-of-process plug-ins should support asynchronous initialization
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Reviewed by Anders Carlsson.
+
+            If a plug-in has been deemed capable of asynchronous initialization when run out of process...
+            ...then do that!
+
+            Add flags to communicate that this plugin create is meant to create a plug-in already requested asynchronously and
+            to include whether or not the initialize call should include an artificial delay (for testing):
+            * PluginProcess/PluginCreationParameters.cpp:
+            (WebKit::PluginCreationParameters::PluginCreationParameters):
+            (WebKit::PluginCreationParameters::encode):
+            (WebKit::PluginCreationParameters::decode):
+            * PluginProcess/PluginCreationParameters.h:
+            (PluginCreationParameters):
+
+            Add a flag for the UI Process to tell the PluginProcess that it supports asynchronous initialization:
+            * Shared/Plugins/PluginProcessCreationParameters.cpp:
+            (WebKit::PluginProcessCreationParameters::PluginProcessCreationParameters):
+            (WebKit::PluginProcessCreationParameters::encode):
+            (WebKit::PluginProcessCreationParameters::decode):
+            * Shared/Plugins/PluginProcessCreationParameters.h:
+            (PluginProcessCreationParameters):
+
+            Allow the UI Process to pass along whether the plug-on supports asynchronous initialization:
+            * UIProcess/Plugins/PluginProcessProxy.cpp:
+            (WebKit::PluginProcessProxy::pluginProcessCrashedOrFailedToLaunch):
+            (WebKit::PluginProcessProxy::didCreateWebProcessConnection):
+            * UIProcess/Plugins/PluginProcessProxy.h:
+            (PluginProcessProxy):
+            * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+            (WebKit::PluginProcessProxy::platformInitializePluginProcess):
+            * UIProcess/WebProcessProxy.messages.in:
+
+            Allow the Plugin Process to pass whether or not it supports asynchronous initialization, originally determined
+            in the UI Process, along to the WebProcess:
+            * PluginProcess/PluginProcess.cpp:
+            (WebKit::PluginProcess::PluginProcess):
+            (WebKit::PluginProcess::initializePluginProcess):
+            (WebKit::PluginProcess::createWebProcessConnection):
+            * PluginProcess/PluginProcess.h:
+            (PluginProcess):
+            * UIProcess/Plugins/PluginProcessProxy.messages.in:
+
+            Add a flag so PluginProcessConnections remember whether or not they support asynchronous initialization:
+            * WebProcess/Plugins/PluginProcessConnection.cpp:
+            (WebKit::PluginProcessConnection::PluginProcessConnection):
+            (WebKit::PluginProcessConnection::setSupportsAsynchronousPluginInitialization):
+            (WebKit):
+            * WebProcess/Plugins/PluginProcessConnection.h:
+            (WebKit::PluginProcessConnection::create):
+            (WebKit::PluginProcessConnection::supportsAsynchronousPluginInitialization):
+            (PluginProcessConnection):
+
+            Create PluginProcessConnections with the flag passed down from the PluginProcess about whether or not they
+            support asynchronous initialization:
+            * WebProcess/Plugins/PluginProcessConnectionManager.cpp:
+            (WebKit::PluginProcessConnectionManager::getPluginProcessConnection):
+
+            Responding to messages from the WebProcess, most of the heavy decision making in asynchronous initialization is here:
+            * PluginProcess/WebProcessConnection.cpp:
+            (WebKit::asynchronousInstanceIDsToIgnore): A set of instance IDs to *not* create asynchronously later because we know
+              we no longer need to.
+            (WebKit):
+            (WebKit::WebProcessConnection::didReceiveMessage):
+            (WebKit::WebProcessConnection::destroyPlugin): If the plug-in doesn't exist but is awaiting asynchronous creation, flag 
+              this instance ID in the "asynchronous ignore set".
+            (WebKit::WebProcessConnection::createPluginInternal): Renamed from createPlugin, actually does the plug-in creation.
+            (WebKit::WebProcessConnection::createPlugin): Adds the instance ID to the "asynchronous ignore set" then calls createPluginInternal.
+            (WebKit::WebProcessConnection::createPluginAsynchronously): If the instance ID is in the "asynchronous ignore set", remove it from the
+              set and do nothing else. Otherwise, perform the initialization and then send the asynchronous result back to the WebProcess.
+            * PluginProcess/WebProcessConnection.h:
+            (WebProcessConnection):
+            * PluginProcess/WebProcessConnection.messages.in:
+
+            Add helpers for asynchronous initialization that all plug-in types must implement:
+            * WebProcess/Plugins/Plugin.h:
+            (Plugin):
+
+            Add helpers for asynchronous initialization that plug-in controllers can override:
+            * WebProcess/Plugins/PluginController.h:
+            (PluginController):
+            (WebKit::PluginController::asynchronousPluginInitializationEnabled):
+            (WebKit::PluginController::asynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::PluginController::artificialPluginInitializationDelayEnabled):
+
+            Give PluginProxys the ability to initialize either asynchronously or synchronously, and also the ability to synchronously
+            wait for previously asynchronous initialization (in case their PluginScriptObject is required):
+            * WebProcess/Plugins/PluginProxy.cpp:
+            (WebKit::PluginProxy::PluginProxy):
+            (WebKit::PluginProxy::initialize): Store the plugin creation parameters as a member, and decide whether to try synchronous
+              or asynchronous initialization.
+            (WebKit):
+            (WebKit::PluginProxy::canInitializeAsynchronously): Answer based on preferences and what the PluginProcessConnection says
+              that it supports.
+            (WebKit::PluginProxy::waitForAsynchronousInitialization): Synchronously wait on initialization when asynchronous initialization
+              was previously requested.
+            (WebKit::PluginProxy::initializeSynchronously):
+            (WebKit::PluginProxy::didCreatePlugin): Double-check that we're still expecting asynchronous initialization, then call
+              through to didCreatePluginInternal.
+            (WebKit::PluginProxy::didCreatePluginInternal): Handle completion of initialization (both synchronously and asynchronously)
+            (WebKit::PluginProxy::didFailToCreatePlugin): Double-check that we're still expecting asynchronous initialization, then call
+              through to didFailToCreatePluginInternal.
+            (WebKit::PluginProxy::didFailToCreatePluginInternal): Handle failure to initialize (both synchronously and asynchronously)
+            (WebKit::PluginProxy::destroy):
+            * WebProcess/Plugins/PluginProxy.h:
+            (WebKit):
+            (WebKit::PluginProxy::isInitializingAsynchronously):
+            (PluginProxy):
+            * WebProcess/Plugins/PluginProxy.messages.in:
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::PluginView):
+            (WebKit::PluginView::~PluginView): Always destroy the plug-in even if it hasn't been initialized yet, as it might be initializing
+              right now.
+            (WebKit::PluginView::initializePlugin): Don't handle the result of initialization immediately. Break that out in to two
+              methods that will be called later.
+            (WebKit):
+            (WebKit::PluginView::didFailToInitializePlugin):
+            (WebKit::PluginView::didInitializePlugin):
+            (WebKit::PluginView::scriptObject): If we truly need the script object, then wait for a synchronous initialization of the plug-in.
+            (WebKit::PluginView::asynchronousPluginInitializationEnabled):
+            (WebKit::PluginView::asynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::PluginView::artificialPluginInitializationDelayEnabled):
+            * WebProcess/Plugins/PluginView.h:
+            (PluginView):
+
+            These methods shouldn't be called in the PluginProcess, only in the WebProcess:
+            * PluginProcess/PluginControllerProxy.cpp:
+            (WebKit::PluginControllerProxy::didInitializePlugin):
+            (WebKit):
+            (WebKit::PluginControllerProxy::didFailToInitializePlugin):
+            * PluginProcess/PluginControllerProxy.h:
+            (PluginControllerProxy):
+
+            NetscapePlugin is for in-process plug-ins:
+            * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+            (NetscapePlugin):
+            (WebKit::NetscapePlugin::waitForAsynchronousInitialization):
+            (WebKit::NetscapePlugin::isInitializingAsynchronously):
+
+            Built-in PDFView is currently only in-process:
+            * WebProcess/Plugins/PDF/BuiltInPDFView.h:
+            (BuiltInPDFView):
+            (WebKit::BuiltInPDFView::waitForAsynchronousInitialization):
+            (WebKit::BuiltInPDFView::isInitializingAsynchronously):
+
+2012-08-07  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 124652
+
+    2012-08-03  Brady Eidson  <beidson@apple.com>
+
+            Small part of "Out-of-process plug-ins should support asynchronous initialization."
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Unreviewed (build fix).
+
+            * Shared/WebPreferencesStore.h:
+            (WebKit): Include this file which has the declaration of the new pref.
+
+2012-08-07  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 124649
+
+    2012-08-03  Brady Eidson  <beidson@apple.com>
+
+            Small part of "Out-of-process plug-ins should support asynchronous initialization."
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Reviewed by Anders Carlsson.
+
+            -Add API-level preferences for forcing asynchronous initialization of all plug-ins (for testing).
+            -Make sure "overridePreference" is hooked up properly for all needed preferences.
+
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetAsynchronousPluginInitializationEnabledForAllPlugins):
+            (WKPreferencesGetAsynchronousPluginInitializationEnabledForAllPlugins):
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+
+            * WebProcess/InjectedBundle/InjectedBundle.cpp:
+            (WebKit::InjectedBundle::overrideBoolPreferenceForTestRunner):
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage):
+            (WebKit::WebPage::updatePreferences):
+            * WebProcess/WebPage/WebPage.h:
+            (WebKit::WebPage::setAsynchronousPluginInitializationEnabled):
+            (WebKit::WebPage::asynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::WebPage::setAsynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::WebPage::setArtificialPluginInitializationDelayEnabled):
+            (WebPage):
+
+2012-08-07  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 124393
+
+    2012-08-01  Brady Eidson  <beidson@apple.com>
+
+            Small part of "Out-of-process plug-ins should support asynchronous initialization."
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Reviewed by Anders Carlsson.
+
+            Add API-level preferences for:
+            - Is asynchronous plug-in initialization enabled.
+            - Is an artificial initialization delay (for testing purposes) enabled.
+
+            * Shared/WebPreferencesStore.h:
+            (WebKit):
+
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetAsynchronousPluginInitializationEnabled):
+            (WKPreferencesGetAsynchronousPluginInitializationEnabled):
+            (WKPreferencesSetArtificialPluginInitializationDelayEnabled):
+            (WKPreferencesGetArtificialPluginInitializationDelayEnabled):
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage):
+            (WebKit::WebPage::updatePreferences):
+            * WebProcess/WebPage/WebPage.h:
+            (WebKit::WebPage::asynchronousPluginInitializationEnabled):
+            (WebKit::WebPage::artificialPluginInitializationDelayEnabled):
+            (WebPage):
+
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123907
+
+    2012-07-27  Anders Carlsson  <andersca@apple.com>
+
+            Show the unavailable plug-in indicator for Java applets as well
+            https://bugs.webkit.org/show_bug.cgi?id=92521
+
+            Reviewed by Sam Weinig.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::unavailablePluginButtonClicked):
+            This can now be called on applet elements as well.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::createJavaAppletWidget):
+            Get the MIME type from the applet element.
+
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 124259
+
+    2012-07-31  Anders Carlsson  <andersca@apple.com>
+
+            Prefer the Oracle Java plug-in over the Apple Java plug-in
+            https://bugs.webkit.org/show_bug.cgi?id=92780
+
+            Reviewed by Oliver Hunt.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::findPluginWithBundleIdentifier):
+            Add a new helper for finding a plug-in with the given bundle identifier.
+
+            (WebKit::checkForPreferredPlugin):
+            Helper function for making sure that an old plug-in is never loaded if a new plug-in is found, and that the old plug-in
+            is removed from the list of loaded plug-ins if the new plug-in is found.
+
+            (WebKit::PluginInfoStore::shouldUsePlugin):
+            Prefer the Oracle Java plug-in over the Apple Java plug-in.
+
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123778
+
+    2012-07-26  Jer Noble  <jer.noble@apple.com>
+
+            Add a ChromeClient method to send diagnostic logging messages from WebCore to the client.
+            https://bugs.webkit.org/show_bug.cgi?id=92340
+
+            Reviewed by Anders Carlsson.
+
+            Pipe the ChromeClient logDiagnosticMessage() function through WebKit2 to a new bundle class
+            InjectedBundlePageDiagnosticLoggingClient, to be implemented by the client.
+
+            * WebProcess/InjectedBundle/API/c/WKBundlePage.cpp:
+            (WKBundlePageSetDiagnosticLoggingClient): Added.
+            * WebProcess/InjectedBundle/API/c/WKBundlePage.h:
+            * WebProcess/InjectedBundle/InjectedBundlePageDiagnosticLoggingClient.cpp: Added.
+            (WebKit::InjectedBundlePageDiagnosticLoggingClient::logDiagnosticMessage):
+            * WebProcess/InjectedBundle/InjectedBundlePageDiagnosticLoggingClient.h: Added.
+            (InjectedBundlePageDiagnosticLoggingClient):
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::logDiagnosticMessage):
+            * WebProcess/WebCoreSupport/WebChromeClient.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::initializeInjectedBundleDiagnosticLoggingClient):
+            * WebProcess/WebPage/WebPage.h:
+            (WebKit::WebPage::injectedBundleDiagnosticLoggingClient):
+
+            Add a convenience class to retrieve the diagnostic message keys:
+            * WebProcess/InjectedBundle/InjectedBundlePageDiagnosticLoggingClient.cpp: Added.
+            (WebKit::InjectedBundlePageDiagnosticLoggingClient::logDiagnosticMessage):
+            * WebProcess/InjectedBundle/InjectedBundlePageDiagnosticLoggingClient.h: Added.
+            (InjectedBundlePageDiagnosticLoggingClient):
+
+            Add the InjectedBundlePageDiagnosticLoggingClient.cpp,h files.
+            * CMakeLists.txt:
+            * GNUmakefile.list.am:
+            * Target.pri:
+            * win/WebKit2.vcproj:
+            * WebKit2.xcodeproj/project.pbxproj: 
+
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123775
+
+    2012-07-25  Jer Noble  <jer.noble@apple.com>
+
+            Add setting to enable and disable diagnostic logging.
+            https://bugs.webkit.org/show_bug.cgi?id=92337
+
+            Reviewed by Anders Carlsson.
+
+            Add a WebKit2 WKPreferences API to set set the WebCore diagnosticLoggingEnabled setting.
+
+            * Shared/WebPreferencesStore.h:
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetDiagnosticLoggingEnabled):
+            (WKPreferencesGetDiagnosticLoggingEnabled):
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences): Ensure this preference is propagated to Settings
+                whenever the preferences change.
+
+2012-08-02  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 122676
+
+    2012-07-14  Eric Carlson  <eric.carlson@apple.com>
+
+            Enable AVCF hardware video decoding
+            https://bugs.webkit.org/show_bug.cgi?id=90015
+            <rdar://problem/10770317>
+
+            Reviewed by Anders Carlsson.
+
+            * DerivedSources.make: Define HAVE_AVCF if necessary.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit):
+            (WebKit::WebChromeClient::graphicsDeviceAdapter): New, return the layer tree host's
+                graphics adapter.
+            * WebProcess/WebCoreSupport/WebChromeClient.h:
+            (WebChromeClient):
+            * WebProcess/WebPage/LayerTreeHost.h:
+            (WebCore):
+            (LayerTreeHost):
+            (WebKit::LayerTreeHost::graphicsDeviceAdapter): New, default implementation.
+
+            * WebProcess/WebPage/ca/win/LayerTreeHostCAWin.h:
+            (LayerTreeHostCAWin):
+
+2012-08-02  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123915
+
+    2012-07-27  Anders Carlsson  <andersca@apple.com>
+
+            Don't use an NSUserDefault for disabling the web process sandbox
+            https://bugs.webkit.org/show_bug.cgi?id=92542
+            <rdar://problem/11976060>
+
+            Reviewed by Mark Rowe.
+
+            The user default was really helpful during WebKit2 bringup, but we no longer need to pay the IPC cost of initializing NSUserDefaults at startup,
+            so get rid of the preference and use a good old #ifdef instead.
+
+            * WebProcess/mac/WebProcessMac.mm:
+            (WebKit::initializeSandbox):
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123658
+
+    2012-07-25  Anders Carlsson  <andersca@apple.com>
+
+            Crash when calling PluginView::pluginFocusOrWindowFocusChanged when the web page is null
+            https://bugs.webkit.org/show_bug.cgi?id=92289
+            <rdar://problem/11785352>
+
+            Reviewed by Andreas Kling.
+
+            Plug-in views that outlive their containing web page for various reasons (such as being protected from
+            destruction) need to null check the web page.
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::pluginFocusOrWindowFocusChanged):
+            (WebKit::PluginView::setComplexTextInputState):
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123649
+
+    2012-07-25  Anders Carlsson  <andersca@apple.com>
+
+            Crash when a web page is closed with outstanding scrolling thread barriers
+            https://bugs.webkit.org/show_bug.cgi?id=92280
+            <rdar://problem/11630200>
+
+            Reviewed by Andreas Kling.
+
+            There was a check in forceRepaintAsync to handle the drawing area going away before the block had
+            been invoked,  but this check needs to be done earlier (as the FIXME suggested).
+            Move this check to dispatchAfterEnsuringUpdatedScrollPosition instead.
+
+            * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+            (WebKit::TiledCoreAnimationDrawingArea::forceRepaintAsync):
+            (WebKit::TiledCoreAnimationDrawingArea::dispatchAfterEnsuringUpdatedScrollPosition):
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123630
+
+    2012-07-25  Alexey Proskuryakov  <ap@apple.com>
+
+            Chinese IM receives incorrect/duplicated key events in text fields in webpages in Safari.
+            https://bugs.webkit.org/show_bug.cgi?id=89048
+            <rdar://problem/11786384>
+
+            Reviewed by Andreas Kling.
+
+            Cannot test text input from UI process side.
+
+            Stop relying on IPC to handle key events in order. There are too many complications
+            where out of order delivery is performed. Instead, queue the events at UI process
+            side.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::handleKeyboardEvent):
+            (WebKit::WebPageProxy::didReceiveEvent):
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 122520
+
+    2012-07-12  Timothy Hatcher  <timothy@apple.com>
+
+            Make the "Inspect Element" context menu item appear in nightly builds again.
+
+            https://webkit.org/b/89323
+
+            Reviewed by Anders Carlsson.
+
+            * Shared/API/c/WKContextMenuItem.cpp:
+            (compatibleContextMenuItemTag): Added. Checks for the specific version of Safari 6 that needs the
+            tag fixed up to match values it expects.
+            (WKContextMenuItemGetTag): On Mac platforms call compatibleContextMenuItemTag to fix up the tag
+            before returning it.
+            * Shared/API/c/WKContextMenuItemTypes.h: Fix the order of the WKContextMenuItemTag enum
+            to be binary compatible with older versions of WebKit2.
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 121482
+
+    2012-06-28  John Sullivan  <sullivan@apple.com>
+
+            <https://bugs.webkit.org/show_bug.cgi?id=90216>
+            <rdar://problem/11766518>
+            Undo handling in WebKit2 is not robust against some page-closing code paths
+
+            Reviewed by Enrica Casucci.
+
+            * UIProcess/API/mac/PageClientImpl.h:
+            Declared public function viewWillMoveToAnotherWindow().
+
+            * UIProcess/API/mac/PageClientImpl.mm:
+            (WebKit::PageClientImpl::viewWillMoveToAnotherWindow):
+            New function, calls clearAllEditCommands() to remove any Undo actions from the stack.
+            This guarantees that no Undo actions will be abandoned when the PageClientImpl is dealloc'ed.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView viewWillMoveToWindow:]):
+            Now informs PageClientImpl via new function PageClientImpl::viewWillMoveToAnotherWindow().
+
 2012-06-25  Lucas Forschler  <lforschler@apple.com>
 
     Rollout 120377 from branch.
@@ -46501,3 +47301,5 @@
         socketpair().
 
 == Rolled over to ChangeLog-2011-06-04 ==
+.
+.

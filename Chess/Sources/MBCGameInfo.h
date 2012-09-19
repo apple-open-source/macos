@@ -1,7 +1,7 @@
 /*
 	File:		MBCGameInfo.h
 	Contains:	Managing information about the current game
-	Copyright:	Â© 2003-2011 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2012 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -84,6 +84,7 @@
 - (IBAction) updateStyles:(id)sender;
 - (NSString *)gameTitle;
 - (NSString *)describeMove:(int)move;
+- (void) removeChessObservers;
 
 @end
 

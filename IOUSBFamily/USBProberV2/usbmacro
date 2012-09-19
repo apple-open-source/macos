@@ -27,20 +27,23 @@ define showallEHCIQHead
 			printf "showallEHCIQHead: No active QHeads available\n"
 		end
 		while $ehciQHead > 0
-			set $fn	= (*(AppleEHCIQueueHead *)$ehciQHead)->_functionNumber
-			set $ep	= (*(AppleEHCIQueueHead *)$ehciQHead)->_endpointNumber
+			set $fn	= (*(struct AppleEHCIQueueHead *)$ehciQHead)->_functionNumber
+			set $ep	= (*(struct AppleEHCIQueueHead *)$ehciQHead)->_endpointNumber
 			
-			set $qTD		= (*(AppleEHCIQueueHead *)$ehciQHead)->_qTD
-			set $tailTD		= (*(AppleEHCIQueueHead *)$ehciQHead)->_TailTD
-			set $hBitSet	= ((*(struct EHCIQueueHeadShared*)((*(AppleEHCIQueueHead *)$ehciQHead)->_sharedLogical))->flags & (0x8000)) >> 15
-			set $td			= (struct EHCIGeneralTransferDescriptor*)$qTD
+			set $qTD		    = (*(struct AppleEHCIQueueHead *)$ehciQHead)->_qTD
+			set $tailTD		    = (*(struct AppleEHCIQueueHead *)$ehciQHead)->_TailTD
+			set $hBitSet	    = ((*(struct EHCIQueueHeadShared*)((*(struct AppleEHCIQueueHead *)$ehciQHead)->_sharedLogical))->flags & (0x8000)) >> 15
+			set $td			    = (struct EHCIGeneralTransferDescriptor*)$qTD
+			set $logicalNext    = (*(struct AppleEHCIQueueHead *)$ehciQHead)->_logicalNext
+			set $sharedPhys     = (*(struct AppleEHCIQueueHead *)$ehciQHead)->_sharedPhysical
 
 			printf "AppleEHCIQueueHead[%d]: 0x%x ======================================================\n", $qHeadIndex, $ehciQHead
 			printf "fn: %x ep: %x qTD: 0x%x tailTD: 0x%x hBitSet: 0x%x\n", $fn, $ep, $qTD, $tailTD, $hBitSet
+			printf "_sharedPhysical: 0x%x _logicalNext: 0x%x\n", $sharedPhys, $logicalNext
 			
 			# print transfer overlay area
 			printf "transfer overlay area "
-			p/x *(struct EHCIQueueHeadShared*)(*(AppleEHCIQueueHead *)$ehciQHead)->_sharedLogical
+			p/x *(struct EHCIQueueHeadShared*)(*(struct AppleEHCIQueueHead *)$ehciQHead)->_sharedLogical
 			
 			# print the td list if they are available
 			set $tdIndex = 1
@@ -53,7 +56,7 @@ define showallEHCIQHead
 			end
 			
 			set $qHeadIndex	= $qHeadIndex + 1
-			set $ehciQHead	= (*(AppleEHCIQueueHead *)$ehciQHead)->_logicalNext
+			set $ehciQHead	= $logicalNext
 		end
 	else
 		printf "\n\tshowallEHCIQHead <object ptr>\n"

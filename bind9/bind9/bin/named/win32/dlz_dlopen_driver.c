@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dlz_dlopen_driver.c,v 1.4.2.3 2011-03-17 09:41:07 fdupont Exp $ */
+/* $Id: dlz_dlopen_driver.c,v 1.4.2.3 2011/03/17 09:41:07 fdupont Exp $ */
 
 #include <config.h>
 

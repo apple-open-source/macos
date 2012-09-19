@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBEHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>APPLEUSBEHCI_VERSION, Copyright © 2000-APPLEUSBEHCI_LAST_CHANGE_YEAR Apple Inc.  All Rights Reserved.</string>
+	<string>APPLEUSBEHCI_VERSION, Copyright © 2000-APPLEUSBEHCI_LAST_CHANGE_YEAR Apple Inc.  All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>

@@ -840,8 +840,8 @@ void IOPMConnectionSetDispatchQueue(
 /*****************************************************************************/
 
 IOReturn IOPMConnectionCreate(
-    CFStringRef myName, 
-    IOPMSystemPowerStateCapabilities interests, 
+    CFStringRef myName,
+    IOPMCapabilityBits interests,
     IOPMConnection *newConnection)
 {
     __IOPMConnection        *connection = NULL;
@@ -1085,37 +1085,90 @@ exit:
 /*****************************************************************************/
 /*****************************************************************************/
 
-#define SYSTEM_ON_CAPABILITIES (kIOPMSystemPowerStateCapabilityCPU | kIOPMSystemPowerStateCapabilityVideo \
-                            | kIOPMSystemPowerStateCapabilityAudio | kIOPMSystemPowerStateCapabilityNetwork  \
-                            | kIOPMSystemPowerStateCapabilityDisk)
+#define SYSTEM_ON_CAPABILITIES (kIOPMCapabilityCPU | kIOPMCapabilityVideo | kIOPMCapabilityAudio \
+                                | kIOPMCapabilityNetwork | kIOPMCapabilityDisk)
 
-IOPMSystemPowerStateCapabilities IOPMConnectionGetSystemCapabilities(void)
+IOPMCapabilityBits IOPMConnectionGetSystemCapabilities(void)
 {
-    CFNumberRef                         capabilities = NULL;
-    io_service_t                        service = IO_OBJECT_NULL;
-    IOPMSystemPowerStateCapabilities    ret_cap = SYSTEM_ON_CAPABILITIES;
-    
-    service = IORegistryEntryFromPath(kIOMasterPortDefault, 
-            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
 
-    if (IO_OBJECT_NULL != service) {
-        capabilities = IORegistryEntryCreateCFProperty(service, CFSTR("System Capabilities"), 0, 0);
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    kern_return_t           kern_result;
+    IOPMCapabilityBits      ret_cap = SYSTEM_ON_CAPABILITIES;
+    IOReturn                return_code = kIOReturnError;
 
-        if (capabilities) {
-            CFNumberGetValue(capabilities, kCFNumberIntType, &ret_cap);
-            CFRelease(capabilities);
-        }
-        
-        IOObjectRelease(service);
-    }
-    // This is a workaround for <rdar://problem/10464793>
-    // FIXME: IOPMConnectionGetSystemCapabilities should eventually get its 
-    // capability bits from powerd
-    if(ret_cap & kIOPMSystemPowerStateCapabilityCPU)
-        return (ret_cap | kIOPMSystemPowerStateCapabilityDisk);
-    else
-        return ret_cap;
+    return_code = _pm_connect(&pm_server);
+
+    if(pm_server == MACH_PORT_NULL)
+      return ret_cap; 
+
+    kern_result = io_pm_get_capability_bits(pm_server, &ret_cap, &return_code);
+
+    _pm_disconnect(pm_server);
+
+    return ret_cap;
+
+
 }
+
+
+bool IOPMIsADarkWake(IOPMCapabilityBits c)
+{
+    return ((c & kIOPMCapabilityCPU) && !(c & kIOPMCapabilityVideo));
+}
+
+bool IOPMAllowsBackgroundTask(IOPMCapabilityBits c)
+{
+    return (0 != (c & kIOPMCapabilityBackgroundTask));
+}
+
+bool IOPMAllowsPushServiceTask(IOPMCapabilityBits c)
+{
+    return (0 != (c & kIOPMCapabilityPushServiceTask));
+}
+
+bool IOPMIsAUserWake(IOPMCapabilityBits c)
+{
+    return (0 != (c & kIOPMCapabilityVideo));
+}
+
+bool IOPMIsASleep(IOPMCapabilityBits c)
+{
+    return (0 == (c & kIOPMCapabilityCPU));
+}
+
+bool IOPMGetCapabilitiesDescription(char *buf, int buf_size, IOPMCapabilityBits in_caps)
+{
+    uint64_t caps = (uint64_t)in_caps;
+    int printed_total = 0;
+    char *on_sleep_dark = "";
+    
+    if (IOPMIsASleep(caps))
+    {
+        on_sleep_dark = "Sleep";
+    } else if (IOPMIsADarkWake(caps))
+    {
+        on_sleep_dark = "DarkWake";
+    } else if (IOPMIsAUserWake(caps))
+    {
+        on_sleep_dark = "FullWake";
+    } else
+    {
+        on_sleep_dark = "Unknown";
+    }
+    
+    printed_total = snprintf(buf, buf_size, "%s:%s%s%s%s%s%s%s",
+                             on_sleep_dark,
+                             (caps & kIOPMCapabilityCPU) ? "cpu ":"<off> ",
+                             (caps & kIOPMCapabilityDisk) ? "disk ":"",
+                             (caps & kIOPMCapabilityNetwork) ? "net ":"",
+                             (caps & kIOPMCapabilityAudio) ? "aud ":"",
+                             (caps & kIOPMCapabilityVideo) ? "vid ":"",
+                             (caps & kIOPMCapabilityPushServiceTask) ? "push ":"",
+                             (caps & kIOPMCapabilityBackgroundTask) ? "bg ":"");
+    
+    return (printed_total <= buf_size);
+}
+
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -1236,7 +1289,7 @@ IOReturn IOPMSetBTWakeInterval(uint32_t newInterval, uint32_t *oldInterval)
 
 #if 0
 bool IOPMSystemPowerStateSupportsAcknowledgementOption(
-    IOPMSystemPowerStateCapabilities stateDescriptor,
+    IOPMCapabilityBits stateDescriptor,
     CFStringRef acknowledgementOption)
 {
     if (!acknowledgementOption)

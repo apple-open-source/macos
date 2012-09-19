@@ -252,6 +252,33 @@ size_t CodeDirectory::generateHash(DynamicHash *hasher, const void *data, size_t
 }
 
 
+//
+// Turn a hash of canonical type into a hex string
+//
+std::string CodeDirectory::hexHash(const unsigned char *hash) const
+{
+	size_t size = this->hashSize;
+	char result[2*size+1];
+	for (unsigned n = 0; n < size; n++)
+		sprintf(result+2*n, "%02.2x", hash[n]);
+	return result;
+}
+
+
+//
+// Generate a screening code string from a (complete) CodeDirectory.
+// This can be used to make a lightweight pre-screening code from (just) a CodeDirectory.
+//
+std::string CodeDirectory::screeningCode() const
+{
+	if (slotIsPresent(-cdInfoSlot))		// has Info.plist
+		return "I" + hexHash((*this)[-cdInfoSlot]); // use Info.plist hash
+	if (pageSize == 0)					// good-enough proxy for "not a Mach-O file"
+		return "M" + hexHash((*this)[0]); // use hash of main executable
+	return "N";							// no suitable screening code
+}
+
+
 }	// CodeSigning
 }	// Security
 

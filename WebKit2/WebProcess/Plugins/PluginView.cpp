@@ -401,10 +401,10 @@ void PluginView::webPageDestroyed()
 #if PLATFORM(MAC)    
 void PluginView::setWindowIsVisible(bool windowIsVisible)
 {
-    if (!m_plugin)
+    if (!m_isInitialized || !m_plugin)
         return;
 
-    // FIXME: Implement.
+    m_plugin->windowVisibilityChanged(windowIsVisible);
 }
 
 void PluginView::setWindowIsFocused(bool windowIsFocused)
@@ -756,8 +756,19 @@ void PluginView::viewGeometryDidChange()
     transform.translate(scaledLocationInRootViewCoordinates.x(), scaledLocationInRootViewCoordinates.y());
     transform.scale(pageScaleFactor);
 
-    // FIXME: The clip rect isn't correct.
+    // FIXME: The way we calculate this clip rect isn't correct.
+    // But it is still important to distinguish between empty and non-empty rects so we can notify the plug-in when it becomes invisible.
+    // Making the rect actually correct is covered by https://bugs.webkit.org/show_bug.cgi?id=95362
     IntRect clipRect = boundsRect();
+    
+    // FIXME: We can only get a semi-reliable answer from clipRectInWindowCoordinates() when the page is not scaled.
+    // Fixing that is tracked in <rdar://problem/9026611> - Make the Widget hierarchy play nicely with transforms, for zoomed plug-ins and iframes
+    if (pageScaleFactor == 1) {
+        clipRect = clipRectInWindowCoordinates();
+        if (!clipRect.isEmpty())
+            clipRect = boundsRect();
+    }
+    
     m_plugin->geometryDidChange(size(), clipRect, transform);
 }
 
@@ -1163,12 +1174,14 @@ void PluginView::scheduleWindowedPluginGeometryUpdate(const WindowGeometry& geom
 #if PLATFORM(MAC)
 void PluginView::pluginFocusOrWindowFocusChanged(bool pluginHasFocusAndWindowHasFocus)
 {
-    m_webPage->send(Messages::WebPageProxy::PluginFocusOrWindowFocusChanged(m_plugin->pluginComplexTextInputIdentifier(), pluginHasFocusAndWindowHasFocus));
+    if (m_webPage)
+        m_webPage->send(Messages::WebPageProxy::PluginFocusOrWindowFocusChanged(m_plugin->pluginComplexTextInputIdentifier(), pluginHasFocusAndWindowHasFocus));
 }
 
 void PluginView::setComplexTextInputState(PluginComplexTextInputState pluginComplexTextInputState)
 {
-    m_webPage->send(Messages::WebPageProxy::SetPluginComplexTextInputState(m_plugin->pluginComplexTextInputIdentifier(), pluginComplexTextInputState));
+    if (m_webPage)
+        m_webPage->send(Messages::WebPageProxy::SetPluginComplexTextInputState(m_plugin->pluginComplexTextInputIdentifier(), pluginComplexTextInputState));
 }
 
 mach_port_t PluginView::compositingRenderServerPort()

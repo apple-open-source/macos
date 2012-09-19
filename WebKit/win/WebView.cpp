@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012 Apple, Inc.  All rights reserved.
  * Copyright (C) 2009, 2010, 2011 Appcelerator, Inc. All rights reserved.
  * Copyright (C) 2011 Brent Fulgham. All rights reserved.
  *
@@ -3193,8 +3193,8 @@ HRESULT STDMETHODCALLTYPE WebView::stringByEvaluatingJavaScriptFromString(
     if (!scriptExecutionResult)
         return E_FAIL;
     else if (scriptExecutionResult.isString()) {
-        JSLock lock(JSC::SilenceAssertionsOnly);
         JSC::ExecState* exec = coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec();
+        JSC::JSLockHolder lock(exec);
         *result = BString(ustringToString(scriptExecutionResult.getString(exec)));
     }
 
@@ -5851,8 +5851,8 @@ HRESULT STDMETHODCALLTYPE WebView::reportException(
     if (!context || !exception)
         return E_FAIL;
 
-    JSLock lock(JSC::SilenceAssertionsOnly);
     JSC::ExecState* execState = toJS(context);
+    JSC::JSLockHolder lock(execState);
 
     // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a WebView.
     if (!toJSDOMWindow(execState->lexicalGlobalObject()))
@@ -5878,8 +5878,9 @@ HRESULT STDMETHODCALLTYPE WebView::elementFromJS(
     if (!nodeObject)
         return E_FAIL;
 
-    JSLock lock(JSC::SilenceAssertionsOnly);
-    Element* elt = toElement(toJS(toJS(context), nodeObject));
+    JSC::ExecState* exec = toJS(context);
+    JSC::JSLockHolder lock(exec);
+    Element* elt = toElement(toJS(exec, nodeObject));
     if (!elt)
         return E_FAIL;
 
@@ -6525,6 +6526,15 @@ void WebView::setAcceleratedCompositing(bool accelerated)
         m_backingLayer = nullptr;
         m_isAcceleratedCompositing = false;
     }
+}
+#endif
+
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+WebCore::GraphicsDeviceAdapter* WebView::graphicsDeviceAdapter() const
+{
+    if (!m_layerTreeHost)
+        return 0;
+    return m_layerTreeHost->graphicsDeviceAdapter();
 }
 #endif
 

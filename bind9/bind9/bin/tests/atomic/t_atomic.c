@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: t_atomic.c,v 1.2 2011-01-11 23:47:12 tbox Exp $ */
+/* $Id: t_atomic.c,v 1.2 2011/01/11 23:47:12 tbox Exp $ */
 
 #include <config.h>
 

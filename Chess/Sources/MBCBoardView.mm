@@ -109,18 +109,40 @@ void MBCColor::SetColor(NSColor * newColor)
 	};
 	NSOpenGLPixelFormat *	pixelFormat = 
 		[[NSOpenGLPixelFormat alloc] initWithAttributes:(fsaaSamples > 0) ? fsaa_attr : jaggy_attr];
+    if (fsaaSamples > 0) {
+        //
+        // We don't accept any substitutes
+        //
+        GLint actualFsaa;
+        [pixelFormat getValues:&actualFsaa forAttribute:NSOpenGLPFASamples forVirtualScreen:0];
+        if (actualFsaa != fsaaSamples) {
+            [pixelFormat release];
+            
+            return nil;
+        }
+    }
 
 	return [pixelFormat autorelease];
 }
 
-static int MaxAntiAliasing()
+- (int) maxAntiAliasing
 {
     //
     //  Analyze VRAM configuration and limit FSAA for low memory configurations.
+    //  On retina displays, always limit FSAA, because the VRAM consumption is even more
+    //  staggering and the payoff just isn't there.
     //
 	static int sMax = -1;
 
 	if (sMax < 0) {
+        //
+        // Test for retina display
+        //
+        if ([[self window] backingScaleFactor] > 1.5f)
+            return sMax = 4;
+        //
+        // Test VRAM size
+        //
 		GLint min_vram = 0;
 		CGLRendererInfoObj rend;
 		GLint n_rend = 0;
@@ -149,13 +171,15 @@ static int MaxAntiAliasing()
 	// hardware lets use get away with it.
 	//
 	NSOpenGLPixelFormat * pixelFormat = nil;
-	for (fMaxFSAA = MaxAntiAliasing()+2; !pixelFormat; )
+	for (fMaxFSAA = [self maxAntiAliasing]+2; !pixelFormat; )
 		pixelFormat = [self pixelFormatWithFSAA:(fMaxFSAA -= 2)];
 	fCurFSAA = fMaxFSAA;
+    NSLog(@"FSAA %d\n", fCurFSAA);
     [super initWithFrame:rect pixelFormat:pixelFormat];
     [self setWantsBestResolutionOpenGLSurface:YES];
     [[self openGLContext] makeCurrentContext];
-	glEnable(GL_MULTISAMPLE);
+    if (fCurFSAA)
+        glEnable(GL_MULTISAMPLE);
 	
 	//
 	// Determine some of our graphics limit
@@ -203,6 +227,22 @@ static int MaxAntiAliasing()
     return self;
 }
 
+- (void)dealloc
+{
+    [fBoardAttr release];
+    [fPieceAttr release];
+    [fBoardStyle release];
+    [fPieceStyle release];
+    [fBoardDrawStyle[0] release];
+    [fBoardDrawStyle[1] release];
+    [fPieceDrawStyle[0] release];
+    [fPieceDrawStyle[1] release];
+    [fBorderDrawStyle release];
+    [fSelectedPieceDrawStyle release];
+    
+    [super dealloc];
+}
+
 - (void)updateTrackingAreas 
 {
     [self removeTrackingArea:fTrackingArea];
@@ -227,19 +267,27 @@ static int MaxAntiAliasing()
 	} else {
 		if (fCurFSAA == fMaxFSAA || curSize >= fLastFSAASize)
 			return; // Won't get any better
-		fCurFSAA 		= fMaxFSAA+2;
+		fCurFSAA 		= fMaxFSAA*2;
 		fLastFSAASize	= 2000000000;
 	}
 	fIsPickingFormat = true;
+    NSOpenGLPixelFormat * pixelFormat;
 	do {
-		fCurFSAA -= 2;
-		[self clearGLContext];
-		[self setPixelFormat:[self pixelFormatWithFSAA:fCurFSAA]];
-		[[self openGLContext] setView:self];
-	} while (fCurFSAA && [[self openGLContext] view] != self);
+        fCurFSAA    = (fCurFSAA > 1) ? fCurFSAA/2 : 0;
+        pixelFormat = [self pixelFormatWithFSAA:fCurFSAA];
+        if (pixelFormat) {
+            [self clearGLContext];
+            [self setPixelFormat:pixelFormat];
+            [[self openGLContext] setView:self];
+        } 
+	} while (fCurFSAA && (!pixelFormat || [[self openGLContext] view] != self));
 	[[self openGLContext] makeCurrentContext];
+	[self loadStyles];
+    fNeedStaticModels	= true;
 	if (fCurFSAA)
 		glEnable(GL_MULTISAMPLE);
+    else
+        glDisable(GL_MULTISAMPLE);
 	fIsPickingFormat 	= false;
 	NSLog(@"Size is now %.0fx%.0f FSAA = %d [Max %d]\n", bounds.size.width, bounds.size.height, fCurFSAA, fMaxFSAA);
 }
@@ -535,6 +583,21 @@ static int MaxAntiAliasing()
 - (void) animationDone
 {
 	fInAnimation	= false;
+}
+
+- (IBAction)increaseFSAA:(id)sender
+{
+    fMaxFSAA = fMaxFSAA ? fMaxFSAA * 2 : 2;
+    [self pickPixelFormat:NO];
+    fMaxFSAA = fCurFSAA;
+	[self needsUpdate];
+}
+
+- (IBAction)decreaseFSAA:(id)sender
+{
+    fMaxFSAA = fMaxFSAA > 2 ? fMaxFSAA / 2 : 0;
+    [self pickPixelFormat:NO];
+	[self needsUpdate];
 }
 
 @end

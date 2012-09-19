@@ -28,24 +28,6 @@
 
 #include <sys/kdebug.h>
 
-#if !KERNEL
-    #include <AvailabilityMacros.h>
-
-	// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
-	#if 0
-		#if defined(MAC_OS_X_VERSION_10_8)
-			#undef SUPPORTS_SS_USB
-		#else
-			#define SUPPORTS_SS_USB 1
-		#endif
-	#else
-		#define SUPPORTS_SS_USB 1
-	#endif
-#else
-    #define SUPPORTS_SS_USB 1
-#endif
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -83,13 +65,11 @@ extern "C" {
   		kUSBDontAllowHubLowPower		= 5,	// bit 5 (0x20) prevents hubs from being automatically suspended
 		kUSBDebugRetryCountShift		= 8,	// bits 8 and 9 will set the retry count for low level bus transactions
 		kUSBDebugRetryCountReserved		= 9,	// must be 1, 2, or 3 (0 is invalid, 3 is the default)
-#ifdef SUPPORTS_SS_USB
 		kUSBDisableMuxedPorts			= 11,	// bit 11 prevents xMuxing EHCI
 		kUSBEnableAllXHCIControllers	= 12,	// bit 12: Will allow XHCI driver to match to any vendor/productID
 		kUSBUASControl					= 13,	// bit 13: Disable UAS support
         kUSBMasterAbortLogging          = 14,
         kUSBMasterAbortPanic            = 15,
-#endif
 		
 		kUSBEnableDebugLoggingMask			= (1 << kUSBEnableDebugLoggingBit),
 		kUSBEnableTracePointsMask			= (1 << kUSBEnableTracePointsBit),
@@ -97,13 +77,11 @@ extern "C" {
 		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit),
 		kUSBForceCompanionControllersMask	= (1 << kUSBForceCompanionControllers),
 		kUSBDontAllowHubLowPowerMask		= (1 << kUSBDontAllowHubLowPower),
-#ifdef SUPPORTS_SS_USB
 		kUSBDisableMuxedPortsMask			= (1 << kUSBDisableMuxedPorts),
 		kUSBEnableAllXHCIControllersMask	= (1 << kUSBEnableAllXHCIControllers),
 		kUSBUASControlMask					= (1 << kUSBUASControl),
         kUSBMasterAbortLoggingMask          = (1 << kUSBMasterAbortLogging),
         kUSBMasterAbortPanicMask            = (1 << kUSBMasterAbortPanic)
-#endif
 	};
 	
 	
@@ -170,12 +148,10 @@ extern "C" {
 		kUSBTEHCIInterrupts			= 23,
 		kUSBTEHCIDumpQueues			= 24,
 		
-#ifdef SUPPORTS_SS_USB		
 		kUSBTXHCI					= 28,
 		kUSBTXHCIInterrupts			= 29,
 		kUSBTXHCIRootHubs			= 30,
 		kUSBTXHCIPrintTRB			= 31,
-#endif
 
 		// 30-33 reserved
 
@@ -235,7 +211,8 @@ extern "C" {
 		kTPDoIOTransferIntrSync						= 37,
 		kTPDoIOTransferBulkSync						= 38,
 		kTPBulkPacketHandlerData					= 39,
-		kTPInterruptPacketHandlerData				= 40
+		kTPInterruptPacketHandlerData				= 40,
+        kTPControllerPutTDOnDoneQueue               = 41
 	};
 	
 	// USB Device Tracepoints			
@@ -332,13 +309,11 @@ extern "C" {
 		kTPHSHubUCSetPortPower					= 13,
 		kTPHSHubUCDisablePwrMgmt				= 14,
 		kTPHSHubUCSetPortReset					= 15,
-#ifdef SUPPORTS_SS_USB
 		kTPHSHubUCSetPortWarmReset				= 16,
 		kTPHSHubUCSetPortLinkState				= 17,
 		kTPHSHubUCSetPortU1Timeout				= 18,
 		kTPHSHubUCSetPortU2Timeout				= 19,
 		kTPHSHubUCSetPortRemoteWakeMask			= 20
-#endif		
 	};
 	
 	// USB Hub Tracepoints			
@@ -380,7 +355,9 @@ extern "C" {
 		kTPHubWaitForPowerOn					= 33,
 		kTPHubDoPortActionLock					= 34,
 		kTPHubCheckForDeadDevice				= 35,
-		kTPHubPortDeviceDisconnected			= 36
+		kTPHubPortDeviceDisconnected			= 36,
+		kTPHubGetPortStatus						= 37,
+		kTPHubGetPortStatusErrors				= 38,
 	};
 	
 	// USB HubPort Tracepoints			
@@ -402,9 +379,8 @@ extern "C" {
 		kTPHubPortWakeSuspendCommand				= 13,
 		kTPHubPortWaitForSuspendCommand				= 14,
 		kTPHubPortEnablePowerAfterOvercurrent		= 15,
-#ifdef SUPPORTS_SS_USB
-		kTPHubPortRetrySSDevice						= 16
-#endif
+		kTPHubPortRetrySSDevice						= 16,
+		kTPHubPortRemoveDevice						= 17
 	};
 	
 	// USB HID Tracepoints			
@@ -653,7 +629,6 @@ extern "C" {
 	};
 	//
 	
-#ifdef SUPPORTS_SS_USB
 	// USB XHCI Tracepoints			
 	// kUSBTXHCI
 	enum
@@ -671,6 +646,7 @@ extern "C" {
         kTPXHCIReInitTransferRing               = 13,
         kTPXHCIFilterEventRing                  = 14,
         kTPXHCIPollEventRing2                   = 15,
+		kTPXHCIPollForCMDCompletion				= 16,
         kTPXHCICheckEPForTimeOuts               = 17,
         kTPXHCICheckForTimeouts                 = 18,
         kTPXHCIResetEndpoint                    = 19,
@@ -693,7 +669,15 @@ extern "C" {
         kTPXHCIAsyncEPScavengeTD                = 32,
         kTPXHCIAsyncEPUpdateTimeout             = 33,
         kTPXHCIAsyncEPAbort                     = 34,
-        kTPXHCIAsyncEPComplete                  = 35
+        kTPXHCIAsyncEPComplete                  = 35,
+		
+        // 40-49 for register access
+        kTPXHCIRead8Reg                         = 40,
+        kTPXHCIRead16Reg                        = 41,
+        kTPXHCIRead32Reg                        = 42,
+        kTPXHCIRead64Reg                        = 43,
+        kTPXHCIWrite32Reg                       = 44,
+        kTPXHCIWrite64Reg                       = 45,
    };
 	
 	// USB XHCI Interrupt Tracepoints			
@@ -710,7 +694,8 @@ extern "C" {
 		kTPXHCIRootHubResetPort					= 1,
 		kTPXHCIRootHubPortEnable				= 2,
 		kTPXHCIRootHubPortSuspend				= 3,
-		kTPXHCIRootHubResetResetChange			= 4
+		kTPXHCIRootHubResetResetChange			= 4,
+		kTPXHCIRootHubResetPortCallout			= 5
 	};
 	
 	// kUSBTXHCIPrintTRB
@@ -720,7 +705,6 @@ extern "C" {
 		kTPXHCIPrintTRBEvent					= 2,
 		kTPXHCIPrintTRBCommand					= 3
 	};
-#endif
     
 	// USB HubPolicyMaker Tracepoints			
 	// kUSBTHubPolicyMaker
@@ -796,12 +780,10 @@ extern "C" {
 #define USB_EHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTEHCIInterrupts, code, DBG_FUNC_NONE )
 #define USB_EHCI_DUMPQS_TRACE(code)				USB_TRACE( kUSBTEHCIDumpQueues, code, DBG_FUNC_NONE )
 
-#ifdef SUPPORTS_SS_USB
-	#define USB_XHCI_TRACE(code)					USB_TRACE( kUSBTXHCI, code, DBG_FUNC_NONE )
-	#define USB_XHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTXHCIInterrupts, code, DBG_FUNC_NONE )
-	#define USB_XHCI_ROOTHUBS_TRACE(code)			USB_TRACE( kUSBTXHCIRootHubs, code, DBG_FUNC_NONE )
-	#define USB_XHCI_PRINTTRB_TRACE(code)			USB_TRACE( kUSBTXHCIPrintTRB, code, DBG_FUNC_NONE )
-#endif
+#define USB_XHCI_TRACE(code)					USB_TRACE( kUSBTXHCI, code, DBG_FUNC_NONE )
+#define USB_XHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTXHCIInterrupts, code, DBG_FUNC_NONE )
+#define USB_XHCI_ROOTHUBS_TRACE(code)			USB_TRACE( kUSBTXHCIRootHubs, code, DBG_FUNC_NONE )
+#define USB_XHCI_PRINTTRB_TRACE(code)			USB_TRACE( kUSBTXHCIPrintTRB, code, DBG_FUNC_NONE )
 
 #define USB_HUB_POLICYMAKER_TRACE(code)			USB_TRACE( kUSBTHubPolicyMaker, code, DBG_FUNC_NONE )
 #define USB_COMPOSITE_DRIVER_TRACE(code)		USB_TRACE( kUSBTCompositeDriver, code, DBG_FUNC_NONE )

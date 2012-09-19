@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: win32os.c,v 1.5 2007-06-19 23:47:19 tbox Exp $ */
+/* $Id: win32os.c,v 1.5 2007/06/19 23:47:19 tbox Exp $ */
 
 #include <windows.h>
 

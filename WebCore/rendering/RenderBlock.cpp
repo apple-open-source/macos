@@ -601,7 +601,13 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
     RenderBoxModelObject* curr = toRenderBoxModelObject(parent());
     RenderBoxModelObject* currChild = this;
     RenderObject* currChildNextSibling = currChild->nextSibling();
-    
+    bool documentUsesBeforeAfterRules = document()->usesBeforeAfterRules(); 
+
+    // Note: |this| can be destroyed inside this loop if it is an empty anonymous
+    // block and we try to call updateBeforeAfterContent inside which removes the
+    // generated content and additionally cleans up |this| empty anonymous block.
+    // See RenderBlock::removeChild(). DO NOT reference any local variables to |this|
+    // after this point.
     while (curr && curr != fromBlock) {
         ASSERT(curr->isRenderBlock());
         
@@ -628,11 +634,17 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
         // has to move into the inline continuation.  Call updateBeforeAfterContent to ensure that the inline's :after
         // content gets properly destroyed.
         bool isLastChild = (currChildNextSibling == blockCurr->lastChild());
-        if (document()->usesBeforeAfterRules())
+        if (documentUsesBeforeAfterRules)
             blockCurr->children()->updateBeforeAfterContent(blockCurr, AFTER);
         if (isLastChild && currChildNextSibling != blockCurr->lastChild())
             currChildNextSibling = 0; // We destroyed the last child, so now we need to update
                                       // the value of currChildNextSibling.
+
+        // It is possible that positioned objects under blockCurr are going to be moved to cloneBlock.
+        // Since we are doing layout anyway, it is easier to blow away the entire list, than
+        // traversing down the subtree looking for positioned children and then remove them
+        // from our positioned objects list.
+        blockCurr->removePositionedObjects(0);
 
         // Now we need to take all of the children starting from the first child
         // *after* currChild and append them all to the clone.
@@ -1764,6 +1776,9 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
     Node* runInNode = child->node();
     if (runInNode && runInNode->hasTagName(selectTag))
         return false;
+    
+    if (runInNode && runInNode->hasTagName(progressTag)) 
+        return false;
 
     RenderBlock* blockRunIn = toRenderBlock(child);
     RenderObject* curr = blockRunIn->nextSibling();
@@ -2431,17 +2446,9 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren)
                 r->computeLogicalWidth();
             oldLogicalTop = logicalTopForChild(r);
         }
-        
+            
         r->layoutIfNeeded();
-
-        // Adjust the static position of a center-aligned inline positioned object with a block child now that the child's width has been computed.
-        if (!r->parent()->isRenderView() && r->parent()->isRenderBlock() && r->firstChild() && r->style()->position() == AbsolutePosition
-            && r->style()->isOriginalDisplayInlineType() && (r->style()->textAlign() == CENTER || r->style()->textAlign() == WEBKIT_CENTER)) {
-            RenderBlock* block = toRenderBlock(r->parent());
-            LayoutUnit blockHeight = block->logicalHeight();
-            block->setStaticInlinePositionForChild(r, blockHeight, block->startAlignedOffsetForLine(r, blockHeight, false));
-        }
-
+        
         // Lay out again if our estimate was wrong.
         if (needsBlockDirectionLocationSetBeforeLayout && logicalTopForChild(r) != oldLogicalTop) {
             r->setChildNeedsLayout(true, MarkOnlyThis);
@@ -3361,15 +3368,15 @@ RenderBlock* RenderBlock::blockBeforeWithinSelectionRoot(LayoutSize& offset) con
     if (isSelectionRoot())
         return 0;
 
-    const RenderBox* object = this;
+    const RenderObject* object = this;
     RenderObject* sibling;
     do {
         sibling = object->previousSibling();
         while (sibling && (!sibling->isRenderBlock() || toRenderBlock(sibling)->isSelectionRoot()))
             sibling = sibling->previousSibling();
 
-        offset -= LayoutSize(object->logicalLeft(), object->logicalTop());
-        object = object->parentBox();
+        offset -= LayoutSize(toRenderBlock(object)->logicalLeft(), toRenderBlock(object)->logicalTop());
+        object = object->parent();
     } while (!sibling && object && object->isRenderBlock() && !toRenderBlock(object)->isSelectionRoot());
 
     if (!sibling)
@@ -3780,16 +3787,48 @@ HashSet<RenderBox*>* RenderBlock::percentHeightDescendants() const
     return gPercentHeightDescendantsMap ? gPercentHeightDescendantsMap->get(this) : 0;
 }
 
-#if !ASSERT_DISABLED
+bool RenderBlock::hasPercentHeightContainerMap()
+{
+    return gPercentHeightContainerMap;
+}
+
 bool RenderBlock::hasPercentHeightDescendant(RenderBox* descendant)
 {
-    ASSERT(descendant);
-    if (!gPercentHeightContainerMap)
-        return false;
-    HashSet<RenderBlock*>* containerSet = gPercentHeightContainerMap->take(descendant);
-    return containerSet && containerSet->size();
+    // We don't null check gPercentHeightContainerMap since the caller
+    // already ensures this and we need to call this function on every
+    // descendant in clearPercentHeightDescendantsFrom().
+    ASSERT(gPercentHeightContainerMap);
+    return gPercentHeightContainerMap->contains(descendant);
 }
-#endif
+
+void RenderBlock::removePercentHeightDescendantIfNeeded(RenderBox* descendant)
+{
+    // We query the map directly, rather than looking at style's
+    // logicalHeight()/logicalMinHeight()/logicalMaxHeight() since those
+    // can change with writing mode/directional changes.
+    if (!hasPercentHeightContainerMap())
+        return;
+
+    if (!hasPercentHeightDescendant(descendant))
+        return;
+
+    removePercentHeightDescendant(descendant);
+}
+
+void RenderBlock::clearPercentHeightDescendantsFrom(RenderBox* parent)
+{
+    ASSERT(gPercentHeightContainerMap);
+    for (RenderObject* curr = parent->firstChild(); curr; curr = curr->nextInPreOrder(parent)) {
+        if (!curr->isBox())
+            continue;
+ 
+        RenderBox* box = toRenderBox(curr);
+        if (!hasPercentHeightDescendant(box))
+            continue;
+
+        removePercentHeightDescendant(box);
+    }
+}
 
 template <RenderBlock::FloatingObject::Type FloatTypeValue>
 inline void RenderBlock::FloatIntervalSearchAdapter<FloatTypeValue>::collectIfNeeded(const IntervalType& interval) const
@@ -5938,6 +5977,9 @@ void RenderBlock::updateFirstLetterStyle(RenderObject* firstLetterBlock, RenderO
             remainingText->setFirstLetter(newFirstLetter);
             toRenderBoxModelObject(newFirstLetter)->setFirstLetterRemainingText(remainingText);
         }
+        // To prevent removal of single anonymous block in RenderBlock::removeChild and causing
+        // |nextSibling| to go stale, we remove the old first letter using removeChildNode first.
+        firstLetterContainer->virtualChildren()->removeChildNode(firstLetterContainer, firstLetter);
         firstLetter->destroy();
         firstLetter = newFirstLetter;
         firstLetterContainer->addChild(firstLetter, nextSibling);

@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -52,11 +51,7 @@ typedef struct
 } portStatusChangeVector;
 
 enum{
-#ifdef SUPPORTS_SS_USB
     kNumChangeHandlers = 8
-#else
-    kNumChangeHandlers = 5
-#endif
 };
 
 typedef enum
@@ -103,11 +98,7 @@ protected:
     AppleUSBHub *					_hub;
     IOCommandGate *						_gate;
     IOWorkLoop *						_workLoop;
-#ifdef SUPPORTS_SS_USB
     IOUSB3HubDescriptor *			_hubDesc;
-#else
-    IOUSBHubDescriptor *			_hubDesc;
-#endif
     IOUSBDevice *					_portDevice;
 	USBHubPortPMState				_portPMState;
     bool							_devZero;
@@ -159,12 +150,9 @@ private:
 	UInt16							_cachedBadExpressCardPID;
 	bool							_isInactive;
 	bool							_hadResumePendingAndDisconnect;
-#ifdef SUPPORTS_SS_USB
     bool                            _muxed;
-    char                            _muxedMethod[kIOUSBMuxMethodNameLength];
 	UInt16							_portLinkErrorCount;
     UInt32                          _portLinkState;                                     // Saved when we get a PLC
-#endif
 	
     static void						PortInitEntry(OSObject *target);					// this will run on its own thread
     static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
@@ -179,16 +167,10 @@ private:
     
 protected:
 		
-#ifdef SUPPORTS_SS_USB
     virtual IOReturn				init(AppleUSBHub *	parent, int portNum, UInt32 powerAvailable, bool captive, bool hasExternalConnector, bool muxed, char *methodName);
-#else
-    virtual IOReturn				init(AppleUSBHub *	parent, int portNum, UInt32 powerAvailable, bool captive, bool hasExternalConnector);
-#endif
     virtual void					PortInit(void);
     virtual void					PortStatusChangedHandler(void);
-#ifdef SUPPORTS_SS_USB
 	virtual	IOReturn				CallAddDeviceResetChangeHandlerDirectly(UInt16 portChange, UInt16 portStatus);
-#endif
 
 public:
 
@@ -211,11 +193,9 @@ protected:
     IOReturn						DefaultSuspendChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
     IOReturn						DefaultEnableChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
     IOReturn						DefaultConnectionChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-#ifdef SUPPORTS_SS_USB
     IOReturn						DefaultBHResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
     IOReturn						DefaultPortLinkStateChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
     IOReturn						DefaultPortConfigErrChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-#endif	
 	
     IOReturn						AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
     IOReturn						HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags);
@@ -232,9 +212,7 @@ protected:
     void							DisplayOverCurrentNotice(bool individual);
 	void							EnablePowerAfterOvercurrent();
 	bool							HasExpressCardCantWake();
-#ifdef SUPPORTS_SS_USB
 	IOReturn						HandleLinkState(UInt16 changeFlags, UInt16 statusFlags);
-#endif
 
 	// Accessors
     AppleUSBHub *					GetHub()					{ return _hub; }

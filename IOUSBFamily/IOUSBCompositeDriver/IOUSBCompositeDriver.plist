@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBCompositeDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOUSBCOMPOSITEDRIVER_VERSION, Copyright © 2000-IOUSBCOMPOSITEDRIVER_LAST_CHANGE_YEAR Apple Inc.  All Rights Reserved.</string>
+	<string>IOUSBCOMPOSITEDRIVER_VERSION, Copyright © 2000-IOUSBCOMPOSITEDRIVER_LAST_CHANGE_YEAR Apple Inc.  All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright © 2003-2005 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-* © Copyright 2001-2005 Apple Computer, Inc. All rights reserved.
+* © Copyright 2001-2005 Apple Inc.  All rights reserved.
 *
 * IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in 
 * consideration of your agreement to the following terms, and your use, installation, 

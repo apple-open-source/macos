@@ -621,6 +621,11 @@ void RenderListBox::setScrollOffset(const IntPoint& offset)
     scrollTo(offset.y());
 }
 
+IntPoint RenderListBox::scrollPosition() const
+{
+    return IntPoint(0, m_indexOffset);
+}
+
 void RenderListBox::scrollTo(int newOffset)
 {
     if (newOffset == m_indexOffset)
@@ -831,7 +836,7 @@ PassRefPtr<Scrollbar> RenderListBox::createScrollbar()
     RefPtr<Scrollbar> widget;
     bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
-        widget = RenderScrollbar::createCustomScrollbar(this, VerticalScrollbar, this);
+        widget = RenderScrollbar::createCustomScrollbar(this, VerticalScrollbar, this->node());
     else {
         widget = Scrollbar::createNativeScrollbar(this, VerticalScrollbar, theme()->scrollbarControlSizeForPart(ListboxPart));
         didAddVerticalScrollbar(widget.get());

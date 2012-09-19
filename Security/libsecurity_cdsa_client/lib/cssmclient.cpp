@@ -193,6 +193,7 @@ CssmImpl::standard()
 void
 CssmImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		// currently, no choices on PVC mode and key hierarchy
@@ -213,6 +214,7 @@ CssmImpl::activate()
 void
 CssmImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;
@@ -396,6 +398,7 @@ ModuleImpl::appNotifyCallback(RawModuleEvents *handler)
 void
 ModuleImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		session()->init();
@@ -411,6 +414,7 @@ ModuleImpl::activate()
 void
 ModuleImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!isIdle())
 		Error::throwMe(Error::objectBusy);
 	if (mActive)
@@ -463,6 +467,7 @@ AttachmentImpl::make(CSSM_SERVICE_TYPE subserviceType)
 void
 AttachmentImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		module()->load();
@@ -483,6 +488,7 @@ AttachmentImpl::activate()
 void
 AttachmentImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;

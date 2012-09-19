@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,6 @@
 
 #include <IOKit/usb/IOUSBHubDevice.h>
 
-#ifdef SUPPORTS_SS_USB
 typedef struct 
 {
 	UInt32 request;
@@ -34,7 +33,6 @@ typedef struct
 }RHCommandHeader;
 
 typedef RHCommandHeader*	RHCommandHeaderPtr;
-#endif
 
 /*!
  @class IOUSBRootHubDevice
@@ -55,7 +53,9 @@ private:
 	{
 		IOService *		X_IOResourcesEntry;						// deprecated
 		UInt8			_myControllerSpeed;
-		bool			_builtInController;
+		bool			_builtInController;						// Actually used to indicate whether the controller support the extra current APIs
+		bool			_hasBuiltInProperty;
+		bool			_hasTunnelledProperty;
 	};
     ExpansionData *_expansionData;
 
@@ -76,19 +76,21 @@ public:
 
 	// IOUSBHubDevice methods
 	virtual bool			IsRootHub(void);
-	virtual UInt32			RequestExtraPower(UInt32 requestedPower);
-	virtual void			ReturnExtraPower(UInt32 returnedPower);
 
 	// 
 	virtual UInt32			RequestSleepPower(UInt32 requestedPower);
 	virtual void			ReturnSleepPower(UInt32 returnedPower);
 	
 	// a non static but non-virtual function
-	IOReturn DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion);
-    
+	IOReturn 				DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion);
+	UInt32					RequestExtraWakePower(UInt32 wakeType, UInt32 requestedPower, bool *retry);
+	void					ReturnExtraWakePower(UInt32 wakeType, UInt32 requestedPower);
+   
 	// IOUSBDevice methods overriden here
-    virtual IOReturn DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion = 0);
-    virtual IOReturn DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion = 0);
+	virtual UInt32			RequestExtraPower(UInt32 type, UInt32 requestedPower);
+	virtual IOReturn		ReturnExtraPower(UInt32 type, UInt32 returnedPower);
+    virtual IOReturn 		DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion = 0);
+    virtual IOReturn 		DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion = 0);
 
     OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  0);
 	virtual IOReturn		GetDeviceInformation(UInt32 *info);

@@ -592,6 +592,7 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 	if ((sd->p_year == ctm.tm_year) && (sd->p_month == ctm.tm_mon) && (sd->p_day == ctm.tm_mday) && (sd->path != NULL)) return ASL_STATUS_OK;
 
 	if (sd->store != NULL) asl_file_close(sd->store);
+	sd->store = NULL;
 
 	sd->p_year = 0;
 	sd->p_month = 0;

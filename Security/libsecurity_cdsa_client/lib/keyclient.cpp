@@ -57,6 +57,7 @@ KeyImpl::~KeyImpl()
 void
 KeyImpl::deleteKey(const CSSM_ACCESS_CREDENTIALS *cred)
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive=false;
@@ -104,11 +105,13 @@ KeyImpl::changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
 
 void KeyImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	mActive=true;
 }
 
 void KeyImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive=false;

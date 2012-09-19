@@ -81,7 +81,7 @@ public:
     bool hasInterchangeNewlineAtEnd() const { return m_hasInterchangeNewlineAtEnd; }
     
     void removeNode(PassRefPtr<Node>);
-    void removeNodePreservingChildren(Node*);
+    void removeNodePreservingChildren(PassRefPtr<Node>);
 
 private:
     PassRefPtr<StyledElement> insertFragmentForTestRendering(Node* rootEditableNode);
@@ -211,14 +211,14 @@ Node *ReplacementFragment::lastChild() const
     return m_fragment ? m_fragment->lastChild() : 0; 
 }
 
-void ReplacementFragment::removeNodePreservingChildren(Node *node)
+void ReplacementFragment::removeNodePreservingChildren(PassRefPtr<Node> node)
 {
     if (!node)
         return;
 
     while (RefPtr<Node> n = node->firstChild()) {
         removeNode(n);
-        insertNodeBefore(n.release(), node);
+        insertNodeBefore(n.release(), node.get());
     }
     removeNode(node);
 }
@@ -329,18 +329,12 @@ void ReplacementFragment::removeInterchangeNodes(Node* container)
     
     node = container->firstChild();
     while (node) {
-        Node *next = node->traverseNextNode();
+        RefPtr<Node> next = node->traverseNextNode();
         if (isInterchangeConvertedSpaceSpan(node)) {
-            RefPtr<Node> n = 0;
-            while ((n = node->firstChild())) {
-                removeNode(n);
-                insertNodeBefore(n, node);
-            }
-            removeNode(node);
-            if (n)
-                next = n->traverseNextNode();
+            next = node->traverseNextSibling();
+            removeNodePreservingChildren(node);
         }
-        node = next;
+        node = next.get();
     }
 }
 
@@ -1299,7 +1293,7 @@ bool ReplaceSelectionCommand::performTrivialReplace(const ReplacementFragment& f
     if (nodeToSplitToAvoidPastingIntoInlineNodesWithStyle(endingSelection().start()))
         return false;
 
-    Node* nodeAfterInsertionPos = endingSelection().end().downstream().anchorNode();
+    RefPtr<Node> nodeAfterInsertionPos = endingSelection().end().downstream().anchorNode();
     Text* textNode = toText(fragment.firstChild());
     // Our fragment creation code handles tabs, spaces, and newlines, so we don't have to worry about those here.
 
@@ -1308,8 +1302,9 @@ bool ReplaceSelectionCommand::performTrivialReplace(const ReplacementFragment& f
     if (end.isNull())
         return false;
 
-    if (nodeAfterInsertionPos && nodeAfterInsertionPos->hasTagName(brTag) && shouldRemoveEndBR(nodeAfterInsertionPos, positionBeforeNode(nodeAfterInsertionPos)))
-        removeNodeAndPruneAncestors(nodeAfterInsertionPos);
+    if (nodeAfterInsertionPos && nodeAfterInsertionPos->parentNode() && nodeAfterInsertionPos->hasTagName(brTag)
+        && shouldRemoveEndBR(nodeAfterInsertionPos.get(), positionBeforeNode(nodeAfterInsertionPos.get())))
+        removeNodeAndPruneAncestors(nodeAfterInsertionPos.get());
 
     VisibleSelection selectionAfterReplace(m_selectReplacement ? start : end, end);
 

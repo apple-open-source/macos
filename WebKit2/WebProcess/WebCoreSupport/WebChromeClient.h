@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -185,6 +185,10 @@ private:
     }
 #endif
 
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+    virtual WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const OVERRIDE;
+#endif
+
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool) OVERRIDE;
 #endif
@@ -211,6 +215,8 @@ private:
     
     virtual void numWheelEventHandlersChanged(unsigned) OVERRIDE;
     virtual void numTouchEventHandlersChanged(unsigned) OVERRIDE { }
+
+    virtual void logDiagnosticMessage(const String& message, const String& description, const String& success) OVERRIDE;
 
     String m_cachedToolTip;
     mutable RefPtr<WebFrame> m_cachedFrameSetLargestFrame;

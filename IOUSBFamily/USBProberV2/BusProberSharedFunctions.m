@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -327,11 +326,9 @@ BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls) {
                 case 2:
                     protocol = @"High Speed Multiple Transaction Translators";
                     break;
-#ifdef SUPPORTS_SS_USB
                 case 3:
                     protocol = @"SuperSpeed";
                     break;
-#endif
                 case 0:
                 default:
                     protocol = @"Full/Low Speed";

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 2001-2006 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,9 @@ public:
     
     void CloseGate(void);
     void OpenGate(void);
+    
+    int SleepWithTimeout(void *token, UInt64 timeout);
+    void Wakeup(void *token, bool oneThread);
 };
 
 #endif

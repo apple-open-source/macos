@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,7 +20,6 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 #import "IORegInfoGatherer.h"
 
@@ -389,9 +387,7 @@ void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char
 		// Scan USB controllers or any RUSBController
 		if ( (classCode == (0x000c0310)) || (classCode == (0x000c0320)) || (classCode == (0x000c0300)) ||  
 			 (classCode == (0x10030c00)) || (classCode == (0x20030c00)) || (classCode == (0x00030c00)) ||
-#ifdef SUPPORTS_SS_USB
 			 (classCode == (0x000c0330)) ||
-#endif
 			!strncmp("RUSBController", class, 14))
         {
             scan(intfService, FALSE, 0, 0, rootNode,plane);

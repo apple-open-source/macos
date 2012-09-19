@@ -210,6 +210,7 @@ MultiDLDbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data,
 void
 MultiDLDbDbCursorImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		mListRef = multiDLDb()->listRef();
@@ -222,6 +223,7 @@ MultiDLDbDbCursorImpl::activate()
 void
 MultiDLDbDbCursorImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;

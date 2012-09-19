@@ -74,22 +74,22 @@ void HTMLImageLoader::notifyFinished(CachedResource*)
 {
     CachedImage* cachedImage = image();
 
-    Element* elem = element();
+    RefPtr<Element> protectElement = element();
     ImageLoader::notifyFinished(cachedImage);
 
     bool loadError = cachedImage->errorOccurred() || cachedImage->response().httpStatusCode() >= 400;
 #if USE(JSC)
     if (!loadError) {
-        if (!elem->inDocument()) {
-            JSC::JSLock lock(JSC::SilenceAssertionsOnly);
+        if (!protectElement->inDocument()) {
             JSC::JSGlobalData* globalData = JSDOMWindowBase::commonJSGlobalData();
+            JSC::JSLockHolder lock(globalData);
             globalData->heap.reportExtraMemoryCost(cachedImage->encodedSize());
         }
     }
 #endif
 
-    if (loadError && elem->hasTagName(HTMLNames::objectTag))
-        static_cast<HTMLObjectElement*>(elem)->renderFallbackContent();
+    if (loadError && protectElement->hasTagName(HTMLNames::objectTag))
+        static_cast<HTMLObjectElement*>(protectElement.get())->renderFallbackContent();
 }
 
 }

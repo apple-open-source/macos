@@ -487,12 +487,11 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
                 repaintOnCompositingChange(layer);
 
             layer->ensureBacking();
-
-            // The RenderLayer's needs to update repaint rects here, because the target
-            // repaintContainer may have changed after becoming a composited layer.
-            // https://bugs.webkit.org/show_bug.cgi?id=80641
-            if (layer->parent())
-                layer->computeRepaintRects();
+            
+            // This layer and all of its descendants have cached repaints rects that are relative to 
+            // the repaint container, so change when compositing changes; we need to update them here. 
+            if (layer->parent()) 
+                layer->computeRepaintRectsIncludingDescendants();
 
             layerChanged = true;
         }
@@ -511,10 +510,10 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
             
             layer->clearBacking();
             layerChanged = true;
-
-            // The layer's cached repaints rects are relative to the repaint container, so change when
-            // compositing changes; we need to update them here.
-            layer->computeRepaintRects();
+            
+            // This layer and all of its descendants have cached repaints rects that are relative to 
+             // the repaint container, so change when compositing changes; we need to update them here. 
+             layer->computeRepaintRectsIncludingDescendants();
 
             // If we need to repaint, do so now that we've removed the backing
             if (shouldRepaint == CompositingChangeRepaintNow)
@@ -535,7 +534,7 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
         if (innerCompositor && innerCompositor->inCompositingMode())
             innerCompositor->updateRootLayerAttachment();
     }
-
+    
     return layerChanged;
 }
 
@@ -1585,8 +1584,7 @@ bool RenderLayerCompositor::requiresCompositingForPlugin(RenderObject* renderer)
     if (!(m_compositingTriggers & ChromeClient::PluginTrigger))
         return false;
 
-    bool composite = (renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing())
-                  || (renderer->isApplet() && toRenderApplet(renderer)->allowsAcceleratedCompositing());
+    bool composite = renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing();
     if (!composite)
         return false;
 
@@ -1779,7 +1777,7 @@ void RenderLayerCompositor::documentBackgroundColorDidChange()
         return;
 
     GraphicsLayer* graphicsLayer = backing->graphicsLayer();
-    if (!graphicsLayer->client()->shouldUseTileCache(graphicsLayer))
+    if (!graphicsLayer->client()->usingTileCache(graphicsLayer))
         return;
 
     Color backgroundColor = m_renderView->frameView()->documentBackgroundColor();

@@ -205,7 +205,7 @@ bool  TTYKeepAwakeConsiderAssertion( void )
     time_t time_to_idle = 0;
 
     active = ttys_are_active(&time_to_idle);
-
+    
     if (active && settingTTYSPreventSleep) 
     {
         time_to_idle = MAX(time_to_idle, kMinIdleCheckTime);

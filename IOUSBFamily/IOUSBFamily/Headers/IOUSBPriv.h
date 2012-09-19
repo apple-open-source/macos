@@ -1,5 +1,5 @@
 /*
- * Copyright � 2009-2011 Apple Inc.  All rights reserved.
+ * Copyright © 2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,19 +32,7 @@
 extern "C" {
 #endif
 
-	
-// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
-#if 0
-	#if VERSION_MAJOR > 11
-  	  #undef SUPPORTS_SS_USB
-	#else
- 	   #define SUPPORTS_SS_USB 1
-	#endif
-#else
-	#define SUPPORTS_SS_USB 1
-#endif
-	
-	/*!
+    /*!
 	 @defined Private IOUSBFamily message codes
 	 @discussion  Messages specific to the IOUSBFamily which should not be public.  Note that the iokit_usb_msg(x) translates to 0xe0004xxx, where xxx is the value in parenthesis as a hex number.
 	 */

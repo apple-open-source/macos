@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -148,7 +147,6 @@
 //    FreeString(cstr1);
     
 
- #ifdef SUPPORTS_SS_USB
    //  The MaxPower field of a configuration in USB 3 depends on whether the device is operating in SuperSpeed mode or 
 	//  not.  If it is not, then the units are 2ma.  If it is, they are 8mA.  USB3 does not require an OtherSpeed configuration descriptor
     if ( ([thisDevice usbRelease] >= kUSBRel30) )
@@ -157,7 +155,6 @@
 			maxPower = 8 * cfg->MaxPower;
 	}
 	else 
-#endif
 	{
 		maxPower = 2 * cfg->MaxPower;
 	}

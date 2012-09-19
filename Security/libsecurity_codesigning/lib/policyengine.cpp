@@ -35,6 +35,11 @@
 #include <security_utilities/unix++.h>
 #include <notify.h>
 
+#include "diskrep.h"
+#include "codedirectory.h"
+#include "csutilities.h"
+#include "StaticCode.h"
+
 #include <CoreServices/CoreServicesPriv.h>
 #include "SecCodePriv.h"
 #undef check // Macro! Yech.
@@ -58,7 +63,7 @@ enum {
 
 
 static void authorizeUpdate(SecAssessmentFlags flags, CFDictionaryRef context);
-static void normalizeTarget(CFRef<CFTypeRef> &target, CFDictionary &context, bool signUnsigned = false);
+static void normalizeTarget(CFRef<CFTypeRef> &target, CFDictionary &context, std::string *signUnsigned = NULL);
 static bool codeInvalidityExceptions(SecStaticCodeRef code, CFMutableDictionaryRef result);
 static CFTypeRef installerPolicy() CF_RETURNS_RETAINED;
 
@@ -80,6 +85,9 @@ PolicyEngine::~PolicyEngine()
 //
 void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result)
 {
+	// update GKE
+	installExplicitSet(gkeAuthFile, gkeSigsFile);
+
 	switch (type) {
 	case kAuthorityExecute:
 		evaluateCode(path, kAuthorityExecute, flags, context, result);
@@ -98,10 +106,71 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 
 
 //
+// Whitelist pre-screen processing.
+// Whitelist-matching unsigned code is expensive since we have to generate a full code signature
+// just to see if we match a whitelist authority entry. This class generates a light(er)-weight
+// prescreen and matches it against a hint in an authority record generated from the (detached recorded)
+// code signature at time of whitelist recording.
+// This is just a heuristic to cheaply rule out guaranteed mismatches. When in doubt, we go ahead
+// and do the full work.
+//
+class WhitelistPrescreen {
+public:
+	WhitelistPrescreen(SecStaticCodeRef code)
+		: mRep(SecStaticCode::requiredStatic(code)->diskRep()) { }
+
+	bool reject(const char *screen, const char *remarks);
+	
+private:
+	std::string create(char type, SHA1 &hash);
+
+	RefPointer<DiskRep> mRep;	// DiskRep representing the code
+	std::string mScreen;	// calculated screen (on demand)
+};
+
+bool WhitelistPrescreen::reject(const char *screen, const char *remarks)
+{
+	if (!screen) {	// authority record has no screen to match - apply heuristic
+		if (remarks && mRep->mainExecutablePath() != remarks)	// not an allow record (or moved)
+			return true;
+		else
+			return false;	// can't rule out; proceed
+	}
+
+	if (mScreen.empty()) {
+		if (CFRef<CFDataRef> info = mRep->component(cdInfoSlot)) {
+			SHA1 hash;
+			hash.update(CFDataGetBytePtr(info), CFDataGetLength(info));
+			mScreen = create('I', hash);
+		} else if (mRep->mainExecutableImage()) {
+			mScreen = "N";
+		} else {
+			SHA1 hash;
+			hashFileData(mRep->mainExecutablePath().c_str(), &hash);
+			mScreen = create('M', hash);
+		}
+	}
+
+	return screen != mScreen;
+}
+
+std::string WhitelistPrescreen::create(char type, SHA1 &hash)
+{
+	SHA1::Digest digest;
+	hash.finish(digest);
+	char buffer[2*SHA1::digestLength + 2] = { type };
+	for (size_t n = 0; n < SHA1::digestLength; n++)
+		sprintf(buffer + 1 + 2*n, "%02.2x", digest[n]);
+	return buffer;
+}
+
+
+//
 // Executable code.
 // Read from disk, evaluate properly, cache as indicated. The whole thing, so far.
 //
-void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result)
+void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result,
+	bool handleUnsignedCode /* = true */)
 {
 	FileQuarantine qtn(cfString(path).c_str());
 	if (qtn.flag(QTN_FLAG_HARD))
@@ -109,11 +178,14 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	
 	CFRef<SecStaticCodeRef> code;
 	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
+	OSStatus rc = noErr;	// last validation error
 	
 	const SecCSFlags validationFlags = kSecCSEnforceRevocationChecks;
+	
+	WhitelistPrescreen whitelistScreen(code); // pre-screening filter for whitelist pre-screening (only)
 
 	SQLite::Statement query(*this,
-		"SELECT allow, requirement, id, label, expires, flags, disabled FROM scan_authority"
+		"SELECT allow, requirement, id, label, expires, flags, disabled, filter_unsigned, remarks FROM scan_authority"
 		" WHERE type = :type"
 		" ORDER BY priority DESC;");
 	query.bind(":type").integer(type);
@@ -127,12 +199,22 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 		double expires = query[4];
 		sqlite3_int64 ruleFlags = query[5];
 		SQLite3::int64 disabled = query[6];
+		const char *filter = query[7];
+		const char *remarks = query[8];
 		
 		CFRef<SecRequirementRef> requirement;
 		MacOSError::check(SecRequirementCreateWithString(CFTempString(reqString), kSecCSDefaultFlags, &requirement.aref()));
-		OSStatus rc = SecStaticCodeCheckValidity(code, validationFlags, requirement);
+		rc = SecStaticCodeCheckValidity(code, validationFlags, requirement);
 		
-		if (rc == errSecCSUnsigned) {
+		// ad-hoc sign unsigned code, skip of Gatekeeper is off or the rule is disabled; but always do it for whitelist recording
+		if (rc == errSecCSUnsigned && handleUnsignedCode && (!(disabled || overrideAssessment()) || SYSPOLICY_RECORDER_MODE_ENABLED())) {
+			if (!SYSPOLICY_RECORDER_MODE_ENABLED()) {
+				// apply whitelist pre-screening to speed things up for non-matches
+				if (ruleFlags & kAuthorityFlagDefault)	// can't ever match standard rules with unsigned code
+					continue;
+				if (whitelistScreen.reject(filter, remarks))	// apply whitelist pre-filter
+					continue;
+			}
 			try {
 				// ad-hoc sign the code and attach the signature
 				CFRef<CFDataRef> signature = CFDataCreateMutable(NULL, 0);
@@ -141,7 +223,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 				MacOSError::check(SecCodeSignerCreate(arguments, kSecCSDefaultFlags, &signer.aref()));
 				MacOSError::check(SecCodeSignerAddSignature(signer, code, kSecCSDefaultFlags));
 				MacOSError::check(SecCodeSetDetachedSignature(code, signature, kSecCSDefaultFlags));
-				
+								
 				// if we're in GKE recording mode, save that signature and report its location
 				if (SYSPOLICY_RECORDER_MODE_ENABLED()) {
 					int status = recorder_code_unable;	// ephemeral signature (not recorded)
@@ -182,8 +264,10 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 				SYSPOLICY_ASSESS_OUTCOME_BROKEN(cfString(path).c_str(), type, true);
 			// treat as unsigned to fix problems in the field
 		case errSecCSUnsigned:
-			cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
-			addAuthority(result, "no usable signature");
+			if (handleUnsignedCode) {
+				cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
+				addAuthority(result, "no usable signature");
+			}
 			return;
 		case errSecCSReqFailed: // requirement missed, but otherwise okay
 			continue;
@@ -239,8 +323,14 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 		addAuthority(result, label, id);
 		return;
 	}
+
+	if (rc == errSecCSUnsigned) {	// skipped all applicable rules due to pre-screening
+		cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
+		addAuthority(result, "no usable signature");
+		return;
+	}
 	
-	// no applicable authority. Deny by default
+	// no applicable authority (but signed, perhaps temporarily). Deny by default
 	CFRef<CFDictionaryRef> info;
 	MacOSError::check(SecCodeCopySigningInformation(code, kSecCSSigningInformation, &info.aref()));
 	if (flags & kSecAssessmentFlagRequestOrigin) {
@@ -428,9 +518,16 @@ void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDi
 			} else if (qtn.flag(QTN_FLAG_ASSESSMENT_OK)) {
 				cfadd(result, "{%O=#T}", kSecAssessmentAssessmentVerdict);
 				addAuthority(result, "Prior Assessment");
-			} else {
-				cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
-				addAuthority(result, "_XProtect");
+			} else if (!overrideAssessment()) {		// no need to do more work if we're off
+				try {
+					evaluateCode(path, kAuthorityExecute, flags, context, result, false);
+				} catch (...) {
+					// some documents can't be code signed, so this may be quite benign
+				}
+				if (CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict) == NULL) {	// no code signature to help us out
+				   cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
+				   addAuthority(result, "_XProtect");
+				}
 			}
 			addToAuthority(result, kLSDownloadRiskCategoryKey, riskCategory);
 			return;
@@ -480,10 +577,11 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 	CFDictionary ctx(context, errSecCSInvalidAttributeValues);
 	CFCopyRef<CFTypeRef> target = inTarget;
 	CFRef<CFDataRef> bookmark = NULL;
+	std::string filter_unsigned;
 
 	switch (type) {
 	case kAuthorityExecute:
-		normalizeTarget(target, ctx, true);
+		normalizeTarget(target, ctx, &filter_unsigned);
 		// bookmarks are untrusted and just a hint to callers
 		bookmark = ctx.get<CFDataRef>(kSecAssessmentRuleKeyBookmark);
 		break;
@@ -538,8 +636,8 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 	MacOSError::check(SecRequirementCopyString(target.as<SecRequirementRef>(), kSecCSDefaultFlags, &requirementText.aref()));
 	SQLite::Transaction xact(*this, SQLite3::Transaction::deferred, "add_rule");
 	SQLite::Statement insert(*this,
-		"INSERT INTO authority (type, allow, requirement, priority, label, expires, remarks)"
-		"	VALUES (:type, :allow, :requirement, :priority, :label, :expires, :remarks);");
+		"INSERT INTO authority (type, allow, requirement, priority, label, expires, filter_unsigned, remarks)"
+		"	VALUES (:type, :allow, :requirement, :priority, :label, :expires, :filter_unsigned, :remarks);");
 	insert.bind(":type").integer(type);
 	insert.bind(":allow").integer(allow);
 	insert.bind(":requirement") = requirementText.get();
@@ -547,6 +645,7 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 	if (!label.empty())
 		insert.bind(":label") = label;
 	insert.bind(":expires") = expires;
+	insert.bind(":filter_unsigned") = filter_unsigned.empty() ? NULL : filter_unsigned.c_str();
 	if (!remarks.empty())
 		insert.bind(":remarks") = remarks;
 	insert.execute();
@@ -635,6 +734,9 @@ CFDictionaryRef PolicyEngine::find(CFTypeRef target, AuthorityType type, SecAsse
 
 CFDictionaryRef PolicyEngine::update(CFTypeRef target, SecAssessmentFlags flags, CFDictionaryRef context)
 {
+	// update GKE
+	installExplicitSet(gkeAuthFile, gkeSigsFile);
+
 	AuthorityType type = typeFor(context, kAuthorityInvalid);
 	CFStringRef edit = CFStringRef(CFDictionaryGetValue(context, kSecAssessmentContextKeyUpdate));
 	CFDictionaryRef result;
@@ -665,7 +767,8 @@ void PolicyEngine::selectRules(SQLite::Statement &action, std::string phrase, st
 {
 	CFDictionary ctx(context, errSecCSInvalidAttributeValues);
 	CFCopyRef<CFTypeRef> target = inTarget;
-	normalizeTarget(target, ctx);
+	std::string filter_unsigned;	// ignored; used just to trigger ad-hoc signing
+	normalizeTarget(target, ctx, &filter_unsigned);
 
 	string label;
 	if (CFStringRef lab = ctx.get<CFStringRef>(kSecAssessmentUpdateKeyLabel))
@@ -804,7 +907,7 @@ static void authorizeUpdate(SecAssessmentFlags flags, CFDictionaryRef context)
 //
 // Perform common argument normalizations for update operations
 //
-static void normalizeTarget(CFRef<CFTypeRef> &target, CFDictionary &context, bool signUnsigned)
+static void normalizeTarget(CFRef<CFTypeRef> &target, CFDictionary &context, std::string *signUnsigned)
 {
 	// turn CFURLs into (designated) SecRequirements
 	if (target && CFGetTypeID(target) == CFURLGetTypeID()) {
@@ -828,6 +931,10 @@ static void normalizeTarget(CFRef<CFTypeRef> &target, CFDictionary &context, boo
 				MacOSError::check(SecCodeSignerAddSignature(signer, code, kSecCSDefaultFlags));
 				MacOSError::check(SecCodeSetDetachedSignature(code, signature, kSecCSDefaultFlags));
 				MacOSError::check(SecCodeCopyDesignatedRequirement(code, kSecCSDefaultFlags, (SecRequirementRef *)&target.aref()));
+				CFRef<CFDictionaryRef> info;
+				MacOSError::check(SecCodeCopySigningInformation(code, kSecCSInternalInformation, &info.aref()));
+				if (CFDataRef cdData = CFDataRef(CFDictionaryGetValue(info, kSecCodeInfoCodeDirectory)))
+					*signUnsigned = ((const CodeDirectory *)CFDataGetBytePtr(cdData))->screeningCode();
 				break;
 			}
 			MacOSError::check(rc);

@@ -86,6 +86,7 @@
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
 #include "ScaleTransformOperation.h"
+#include "ScrollAnimator.h"
 #include "Scrollbar.h"
 #include "ScrollbarTheme.h"
 #include "Settings.h"
@@ -206,6 +207,8 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
         // We save and restore only the scrollOffset as the other scroll values are recalculated.
         Element* element = toElement(node);
         m_scrollOffset = element->savedLayerScrollOffset();
+        if (!m_scrollOffset.isZero())
+            scrollAnimator()->setCurrentPosition(FloatPoint(m_scrollOffset.width(), m_scrollOffset.height()));
         element->setSavedLayerScrollOffset(IntSize());
     }
 }
@@ -470,6 +473,17 @@ void RenderLayer::computeRepaintRects(LayoutPoint* offsetFromRoot)
     RenderBoxModelObject* repaintContainer = renderer()->containerForRepaint();
     m_repaintRect = renderer()->clippedOverflowRectForRepaint(repaintContainer);
     m_outlineBox = renderer()->outlineBoundsForRepaint(repaintContainer, offsetFromRoot);
+}
+
+
+void RenderLayer::computeRepaintRectsIncludingDescendants()
+{
+    // FIXME: computeRepaintRects() has to walk up the parent chain for every layer to compute the rects.
+    // We should make this more efficient.
+    computeRepaintRects();
+
+    for (RenderLayer* layer = firstChild(); layer; layer = layer->nextSibling())
+        layer->computeRepaintRectsIncludingDescendants();
 }
 
 void RenderLayer::clearRepaintRects()
@@ -2186,7 +2200,7 @@ PassRefPtr<Scrollbar> RenderLayer::createScrollbar(ScrollbarOrientation orientat
     RenderObject* actualRenderer = renderer()->node() ? renderer()->node()->shadowAncestorNode()->renderer() : renderer();
     bool hasCustomScrollbarStyle = actualRenderer->isBox() && actualRenderer->style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
-        widget = RenderScrollbar::createCustomScrollbar(this, orientation, toRenderBox(actualRenderer));
+        widget = RenderScrollbar::createCustomScrollbar(this, orientation, actualRenderer->node());
     else {
         widget = Scrollbar::createNativeScrollbar(this, orientation, RegularScrollbar);
         if (orientation == HorizontalScrollbar)
@@ -2202,14 +2216,10 @@ void RenderLayer::destroyScrollbar(ScrollbarOrientation orientation)
 {
     RefPtr<Scrollbar>& scrollbar = orientation == HorizontalScrollbar ? m_hBar : m_vBar;
     if (scrollbar) {
-        if (scrollbar->isCustomScrollbar())
-            toRenderScrollbar(scrollbar.get())->clearOwningRenderer();
-        else {
-            if (orientation == HorizontalScrollbar)
-                willRemoveHorizontalScrollbar(scrollbar.get());
-            else
-                willRemoveVerticalScrollbar(scrollbar.get());
-        }
+        if (orientation == HorizontalScrollbar)
+            willRemoveHorizontalScrollbar(scrollbar.get());
+        else
+            willRemoveVerticalScrollbar(scrollbar.get());
 
         scrollbar->removeFromParent();
         scrollbar->disconnectFromScrollableArea();
@@ -2895,10 +2905,6 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* context,
     
     // If this layer is totally invisible then there is nothing to paint.
     if (!renderer()->opacity())
-        return;
-
-    // Non self-painting leaf layers don't need to be painted as their renderer() should properly paint itself.
-    if (!isSelfPaintingLayer() && !firstChild())
         return;
 
     if (paintsWithTransparency(paintBehavior))
@@ -4659,7 +4665,6 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
                 || renderer()->isCanvas()
                 || renderer()->isVideo()
                 || renderer()->isEmbeddedObject()
-                || renderer()->isApplet()
                 || renderer()->isRenderIFrame()
                 || renderer()->style()->specifiesColumns())
             && !renderer()->isPositioned()
@@ -4680,7 +4685,6 @@ bool RenderLayer::isSelfPaintingLayer() const
         || renderer()->isCanvas()
         || renderer()->isVideo()
         || renderer()->isEmbeddedObject()
-        || renderer()->isApplet()
         || renderer()->isRenderIFrame();
 }
 

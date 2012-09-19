@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000-2002  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: tests.sh,v 1.73.14.12 2011-05-26 04:25:08 each Exp $
+# $Id$
 
 SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
@@ -58,10 +58,16 @@ checkprivate () {
 # Check the example. domain
 
 echo "I:checking that zone transfer worked ($n)"
-ret=0
-$DIG $DIGOPTS a.example. @10.53.0.2 a > dig.out.ns2.test$n || ret=1
-$DIG $DIGOPTS a.example. @10.53.0.3 a > dig.out.ns3.test$n || ret=1
-$PERL ../digcomp.pl dig.out.ns2.test$n dig.out.ns3.test$n || ret=1
+for i in 1 2 3 4 5 6 7 8 9
+do
+	ret=0
+	$DIG $DIGOPTS a.example. @10.53.0.2 a > dig.out.ns2.test$n || ret=1
+	$DIG $DIGOPTS a.example. @10.53.0.3 a > dig.out.ns3.test$n || ret=1
+	$PERL ../digcomp.pl dig.out.ns2.test$n dig.out.ns3.test$n > /dev/null || ret=1
+	[ $ret = 0 ] && break
+	sleep 1
+done
+$PERL ../digcomp.pl dig.out.ns2.test$n dig.out.ns3.test$n > /dev/null || ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
@@ -127,6 +133,24 @@ $DIG $DIGOPTS a.wild.example. @10.53.0.4 a > dig.out.ns4.test$n || ret=1
 $PERL ../digcomp.pl dig.out.ns2.test$n dig.out.ns4.test$n || ret=1
 grep "flags:.*ad.*QUERY" dig.out.ns4.test$n > /dev/null || ret=1
 grep "status: NOERROR" dig.out.ns4.test$n > /dev/null || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking positive wildcard answer NSEC3 ($n)"
+ret=0
+$DIG $DIGOPTS a.wild.nsec3.example. @10.53.0.3 a > dig.out.ns3.test$n || ret=1
+grep "AUTHORITY: 4," dig.out.ns3.test$n > /dev/null || ret=1
+grep "status: NOERROR" dig.out.ns3.test$n > /dev/null || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking positive wildcard answer NSEC3 ($n)"
+ret=0
+$DIG $DIGOPTS a.wild.nsec3.example. @10.53.0.3 a > dig.out.ns3.test$n || ret=1
+grep "AUTHORITY: 4," dig.out.ns3.test$n > /dev/null || ret=1
+grep "status: NOERROR" dig.out.ns3.test$n > /dev/null || ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
@@ -1039,6 +1063,9 @@ $DIG $DIGOPTS normalthenrrsig.secure.example. @10.53.0.4 a > /dev/null || ret=1
 ans=`$DIG $DIGOPTS +short normalthenrrsig.secure.example. @10.53.0.4 rrsig` || ret=1
 expect=`$DIG $DIGOPTS +short normalthenrrsig.secure.example. @10.53.0.3 rrsig | grep '^A' ` || ret=1
 test "$ans" = "$expect" || ret=1
+# also check that RA is set
+$DIG $DIGOPTS normalthenrrsig.secure.example. @10.53.0.4 rrsig > dig.out.ns4.test$n || ret=1
+grep "flags:.*ra.*QUERY" dig.out.ns4.test$n > /dev/null || ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
@@ -1049,6 +1076,9 @@ echo "I:checking RRSIG query not in cache ($n)"
 ret=0
 ans=`$DIG $DIGOPTS +short rrsigonly.secure.example. @10.53.0.4 rrsig` || ret=1
 test -z "$ans" || ret=1
+# also check that RA is cleared
+$DIG $DIGOPTS rrsigonly.secure.example. @10.53.0.4 rrsig > dig.out.ns4.test$n || ret=1
+grep "flags:.*ra.*QUERY" dig.out.ns4.test$n > /dev/null && ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
@@ -1113,12 +1143,26 @@ else
     echo "I:The DNSSEC update test requires the Net::DNS library." >&2
 fi
 
+echo "I:checking managed key maintenance has not started yet ($n)"
+ret=0
+[ -f "ns4/managed-keys.bind.jnl" ] && ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
 # Reconfigure caching server to use "dnssec-validation auto", and repeat
 # some of the DNSSEC validation tests to ensure that it works correctly.
 echo "I:switching to automatic root key configuration"
 cp ns4/named2.conf ns4/named.conf
 $RNDC -c ../common/rndc.conf -s 10.53.0.4 -p 9953 reconfig 2>&1 | sed 's/^/I:ns4 /'
 sleep 5
+
+echo "I:checking managed key maintenance timer has now started ($n)"
+ret=0
+[ -f "ns4/managed-keys.bind.jnl" ] || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
 
 echo "I:checking positive validation NSEC ($n)"
 ret=0
@@ -1165,10 +1209,31 @@ n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
+echo "I:checking that root DS queries validate ($n)"
+ret=0
+$DIG $DIGOPTS +noauth . @10.53.0.1 ds > dig.out.ns1.test$n || ret=1
+$DIG $DIGOPTS +noauth . @10.53.0.4 ds > dig.out.ns4.test$n || ret=1
+$PERL ../digcomp.pl dig.out.ns1.test$n dig.out.ns4.test$n || ret=1
+grep "flags:.*ad.*QUERY" dig.out.ns4.test$n > /dev/null || ret=1
+grep "status: NOERROR" dig.out.ns4.test$n > /dev/null || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
 echo "I:checking expired signatures remain with "'"allow-update { none; };"'" and no keys available ($n)"
 ret=0
-$DIG $DIGOPTS +noauth expired.example. +dnssec @10.53.0.3 soa > dig.out.ns2.test$n || ret=1
-grep "RRSIG.SOA" dig.out.ns2.test$n > /dev/null || ret=1
+$DIG $DIGOPTS +noauth expired.example. +dnssec @10.53.0.3 soa > dig.out.ns3.test$n || ret=1
+grep "RRSIG.SOA" dig.out.ns3.test$n > /dev/null || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+
+status=`expr $status + $ret`
+echo "I:checking expired signatures do not validate ($n)"
+ret=0
+$DIG $DIGOPTS +noauth expired.example. +dnssec @10.53.0.4 soa > dig.out.ns4.test$n || ret=1
+grep "SERVFAIL" dig.out.ns4.test$n > /dev/null || ret=1
+grep "flags:.*ad.*QUERY" dig.out.ns4.test$n > /dev/null && ret=1
+grep "expired.example .*: RRSIG has expired" ns4/named.run > /dev/null || ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`

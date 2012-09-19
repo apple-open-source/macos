@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: compress_test.c,v 1.34 2007-06-18 23:47:26 tbox Exp $ */
+/* $Id: compress_test.c,v 1.34 2007/06/18 23:47:26 tbox Exp $ */
 
 /*! \file */
 

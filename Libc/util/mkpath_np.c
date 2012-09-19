@@ -63,9 +63,14 @@ _mkpath_np(const char *path, mode_t omode, const char ** firstdir)
 		case ENOENT:
 			break;
 		case EEXIST:
-			if (stat(path, &sbuf) == 0 &&
-			    !S_ISDIR(sbuf.st_mode)) {
-				retval = ENOTDIR;
+			if (stat(path, &sbuf) == 0) {
+			    if (S_ISDIR(sbuf.st_mode)) {
+					retval = EEXIST;
+				} else {
+					retval = ENOTDIR;
+				}
+			} else {
+				retval = EIO;
 			}
 			goto mkpath_exit;
 		case EISDIR: /* <rdar://problem/10288022> */

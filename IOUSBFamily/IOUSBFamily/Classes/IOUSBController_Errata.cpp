@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  * 
- * Copyright © 1998-20010 Apple Inc.  All rights reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -24,7 +23,6 @@
 
 #include <IOKit/system.h>
 #include <IOKit/IOPlatformExpert.h>
-
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -120,8 +118,6 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x1c26, 0x00, 0xff, kErrataDontUseCompanionController },	// CPT EHCI #1
 	{0x8086, 0x1c2d, 0x00, 0xff, kErrataDontUseCompanionController },	// CPT EHCI #2
 
-#ifdef SUPPORTS_SS_USB
-#endif
 
 	{0x10de, 0x0d9d, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature },			// MCP89 EHCI #1,2
 	{0x10de, 0x0d9c, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature },			// MCP89 OHCI #1,2

@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2007 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #include <IOKit/usb/IOUSBLog.h>
 

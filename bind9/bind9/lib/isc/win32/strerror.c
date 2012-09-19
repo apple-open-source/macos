@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: strerror.c,v 1.8 2007-06-19 23:47:19 tbox Exp $ */
+/* $Id: strerror.c,v 1.8 2007/06/19 23:47:19 tbox Exp $ */
 
 #include <config.h>
 

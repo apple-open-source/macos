@@ -1,26 +1,25 @@
 /*
-*
-* @APPLE_LICENSE_HEADER_START@
-* 
  * Copyright © 1997-2011 Apple Inc.  All rights reserved.
-* 
-* This file contains Original Code and/or Modifications of Original Code
-* as defined in and that are subject to the Apple Public Source License
-* Version 2.0 (the 'License'). You may not use this file except in
-* compliance with the License. Please obtain a copy of the License at
-* http://www.opensource.apple.com/apsl/ and read it before using this
-* file.
-* 
-* The Original Code and all software distributed under the License are
-* distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
-* EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-* INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
-* Please see the License for the specific language governing rights and
-* limitations under the License.
-* 
-* @APPLE_LICENSE_HEADER_END@
-*/
+ * 
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 
 //================================================================================================
@@ -72,13 +71,11 @@ uint32_t *				IOUSBControllerV3::_gHibernateState;
 #define	_onThunderbolt					_v3ExpansionData->_onThunderbolt
 #define	_thunderboltModelID				_v3ExpansionData->_thunderboltModelID
 #define	_thunderboltVendorID			_v3ExpansionData->_thunderboltVendorID
-#ifdef SUPPORTS_SS_USB
-	#define	_rootHubNumPortsSS				_v3ExpansionData->_rootHubNumPortsSS
-	#define	_rootHubNumPortsHS				_v3ExpansionData->_rootHubNumPortsHS
-	#define	_outstandingSSRHTrans			_v3ExpansionData->_outstandingSSRHTrans
-	#define	_rootHubPortsSSStartRange		_v3ExpansionData->_rootHubPortsSSStartRange
-	#define	_rootHubPortsHSStartRange		_v3ExpansionData->_rootHubPortsHSStartRange
-#endif
+#define	_rootHubNumPortsSS				_v3ExpansionData->_rootHubNumPortsSS
+#define	_rootHubNumPortsHS				_v3ExpansionData->_rootHubNumPortsHS
+#define	_outstandingSSRHTrans			_v3ExpansionData->_outstandingSSRHTrans
+#define	_rootHubPortsSSStartRange		_v3ExpansionData->_rootHubPortsSSStartRange
+#define	_rootHubPortsHSStartRange		_v3ExpansionData->_rootHubPortsHSStartRange
 
 #ifndef kIOPMPCISleepResetKey
 	#define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
@@ -295,25 +292,52 @@ IOUSBControllerV3::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 	}
 	else
 	{
-		ret = super::maxCapabilityForDomainState(domainState);
+        ret = super::maxCapabilityForDomainState(domainState);
 
 		// add in the kIOPMClockNormal flag if it is already part of our inputRequirement for the ON state (KeyLargo systems)
 		IOPMPowerFlags		domainStateForDoze = kIOPMDoze | (_myPowerStates[kUSBPowerStateOn].inputPowerRequirement & kIOPMClockNormal);
 
 		// if we are currently asleep, check to see if we are waking from hibernation
-		if ( (_myPowerState == kUSBPowerStateSleep) && _gHibernateState && (*_gHibernateState == kIOHibernateStateWakingFromHibernate) && !_wakingFromHibernation)
+		if ( (_myPowerState == kUSBPowerStateSleep) && _gHibernateState && (*_gHibernateState == kIOHibernateStateWakingFromHibernate) && !_wakingFromHibernation && !_v3ExpansionData->_wakingFromStandby)
 		{
 			UInt16	configCommand = _device->configRead16(kIOPCIConfigCommand);
 			
 			// make sure that the PCI config space is set up to allow memory access. this appears to fix some OHCI controllers
-			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - waking from hibernation - setting flag - kIOPCIConfigCommand(%p)", getName(), this, (void*)configCommand);
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - waking from hibernation - setting flag - kIOPCIConfigCommand(0x%04x)", getName(), this, (int)configCommand);
 			_device->configWrite16(kIOPCIConfigCommand, configCommand | kIOPCICommandMemorySpace);
 			USBLog(5, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - new kIOPCIConfigCommand(%p)", getName(), this, (void*)_device->configRead16(kIOPCIConfigCommand));
 			
-			ResetControllerState();
-			EnableAllEndpoints(true);
-			_wakingFromHibernation = true;
-			ret = kUSBPowerStateOff;
+			UInt8			pciPMCapOffset = 0;
+			UInt16			pmControlStatus = 0;
+			UInt16			pmcsr =    0;
+			
+			// 9760024 - if we think we are doing a wake from hibernation (which is normally from S5)
+			// get the PCI Power Management CSR register (if possible) and if the PME_EN bit is set
+			// then asssume that we are waking from S4 instead and that all of the USB controller bits are still intact
+			_device->findPCICapability(kIOPCIPowerManagementCapability, &pciPMCapOffset);
+			if (pciPMCapOffset > kIOPCIConfigMaximumLatency)					// kIOPCIConfigMaximumLatency (0x3f) is the end of the standard header
+			{
+				pmControlStatus = pciPMCapOffset + kPCIPMRegBlockPMCSR;
+			}	
+			
+			if (pmControlStatus)
+			{
+				pmcsr = _device->configRead16(pmControlStatus);
+				if (pmcsr & kPCIPMCSPMEEnable)
+				{
+					// if the enable bit is set, then this is a wake from S4 and USB did not lose power
+                    _v3ExpansionData->_wakingFromStandby = true;
+					USBLog(1, "IOUSBControllerV3(%s)[%p]::maxCapabilityForDomainState - PME_EN bit is set - will wake from S4", getName(), this);
+				}
+			}
+			
+			if (!_v3ExpansionData->_wakingFromStandby)
+			{
+				ResetControllerState();
+				EnableAllEndpoints(true);
+				_wakingFromHibernation = true;
+				ret = kUSBPowerStateOff;
+			}
 		}
 		else if (_restarting)
 		{
@@ -483,6 +507,12 @@ IOUSBControllerV3::powerChangeDone ( unsigned long fromState)
 {
 	USBLog((fromState == _myPowerState) ? 7 : 5, "IOUSBControllerV3(%s)[%p]::powerChangeDone - fromState (%d) current state (%d) _wakingFromHibernation(%s) _needToAckPowerDown(%s)", getName(), this, (int)fromState, (int)_myPowerState, _wakingFromHibernation ? "true" : "false", _needToAckPowerDown ? "true" : "false");
 	_powerStateChangingTo = kUSBPowerStateStable;
+    if (_v3ExpansionData && (_v3ExpansionData->_wakingFromStandby))
+    {
+        USBLog(1, "IOUSBControllerV3(%s)[%p]::powerChangeDone - clearing _wakingFromStandby", getName(), this);
+        _v3ExpansionData->_wakingFromStandby = false;
+    }
+    
 	if (_wakingFromHibernation)
 	{
 		USBLog(5, "IOUSBControllerV3(%s)[%p]::powerChangeDone - OFF while _wakingFromHibernation - turning ON", getName(), this);		
@@ -1062,9 +1092,7 @@ void
 IOUSBControllerV3::ControllerOn(void)
 {
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::ControllerOn - current state (%d) _ehciController(%p)", getName(), this, (int)_myPowerState, _ehciController);
-	
-#ifdef SUPPORTS_SS_USB
-    
+	    
     UInt16 statusRegister = 0;
     statusRegister = _device->configRead16(kIOPCIConfigStatus);
     if ( statusRegister & kIOPCIStatusMasterAbortActive )
@@ -1080,8 +1108,6 @@ IOUSBControllerV3::ControllerOn(void)
         }
         
     }
-    
-#endif
     
 	// how we turn on depends on the current state
 	switch(_myPowerState)
@@ -1177,7 +1203,6 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 		{
 			IOReturn err;
 			
-#ifdef SUPPORTS_SS_USB
 			if( (me->_expansionData) && (me->_controllerSpeed == kUSBDeviceSpeedSuper) )
 			{
 				USBLog(5, "IOUSBControllerV3(%s)[%p]::GatedPowerChange - calling CreateRootHubDevice for SS Controller", me->getName(), me);
@@ -1194,7 +1219,6 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 					me->_rootHubDeviceSS->registerService(kIOServiceRequired | kIOServiceSynchronous);
 				}
 			}
-#endif
 			
 			USBLog(5, "IOUSBControllerV3(%s)[%p]::GatedPowerChange - calling CreateRootHubDevice", me->getName(), me);
 			err = me->CreateRootHubDevice( me->_device, &(me->_rootHubDevice) );
@@ -1339,13 +1363,11 @@ IOUSBControllerV3::EnsureUsability(void)
 		_rootHubDevice->GetPolicyMaker()->EnsureUsability();
 	}
 
-#ifdef SUPPORTS_SS_USB
 	if (_rootHubDeviceSS && _rootHubDeviceSS->GetPolicyMaker())
 	{
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::EnsureUsability - passing on to root hub policy maker[%p]", getName(), this, _rootHubDeviceSS->GetPolicyMaker());
 		_rootHubDeviceSS->GetPolicyMaker()->EnsureUsability();
 	}
-#endif
 	
 	return kIOReturnSuccess;
 }
@@ -1378,7 +1400,6 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired", me->getName(), me);
 	}
 	
-#ifdef SUPPORTS_SS_USB
 	if (me->_rootHubDeviceSS && me->_rootHubDeviceSS->GetPolicyMaker())
 	{
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired - PolicyMaker[%p] powerState[%d] _powerStateChangingTo[%d]", me->getName(), me, me->_rootHubDeviceSS->GetPolicyMaker(), (int)me->_rootHubDeviceSS->GetPolicyMaker()->getPowerState(),(int)me->_powerStateChangingTo);
@@ -1392,7 +1413,6 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 	{
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired", me->getName(), me);
 	}
-#endif
 		
 	USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)me, (uintptr_t)me->_rootHubDevice->GetPolicyMaker(), (uintptr_t)me->_rootHubDevice->GetPolicyMaker()->getPowerState(), 4 );
 	me->CheckForRootHubChanges();
@@ -1472,7 +1492,7 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 			if (_rootHubDevice->GetPolicyMaker())
 			{
 				USBLog(5, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - making sure root hub driver AppleUSBHub[%p] is usable", getName(), this, _rootHubDevice->GetPolicyMaker());
-				_rootHubDevice->GetPolicyMaker()->EnsureUsability();	// this will cause the interrupt read timer to fire if it isn't already
+				_rootHubDevice->GetPolicyMaker()->EnsureUsability();            // this will cause the interrupt read timer to fire if it isn't already
 			}
 			else
 			{
@@ -1481,13 +1501,12 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 			}
 		}
 		
-#ifdef SUPPORTS_SS_USB
 		if (_rootHubDeviceSS)
 		{
 			if (_rootHubDeviceSS->GetPolicyMaker())
 			{
 				USBLog(5, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - making sure root hub driver SS AppleUSBHub[%p] is usable", getName(), this, _rootHubDeviceSS->GetPolicyMaker());
-				_rootHubDevice->GetPolicyMaker()->EnsureUsability();	// this will cause the interrupt read timer to fire if it isn't already
+				_rootHubDeviceSS->GetPolicyMaker()->EnsureUsability();          // this will cause the interrupt read timer to fire if it isn't already
 			}
 			else
 			{
@@ -1530,7 +1549,6 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 			}
 		}
 		else 
-#endif
 		{
 			RHCompleteTransaction(_outstandingRHTrans);
 		}
@@ -1601,7 +1619,6 @@ IOUSBControllerV3::RootHubQueueInterruptRead(IOMemoryDescriptor *buf, UInt32 buf
 
 	IOUSBRootHubInterruptTransactionPtr outstandingRHXaction = _outstandingRHTrans;
 		
-#ifdef SUPPORTS_SS_USB
 	if (_controllerSpeed == kUSBDeviceSpeedSuper) 
 	{
 		UInt8			speed = 0;
@@ -1616,7 +1633,6 @@ IOUSBControllerV3::RootHubQueueInterruptRead(IOMemoryDescriptor *buf, UInt32 buf
 			outstandingRHXaction = _outstandingSSRHTrans;
 		}
 	}
-#endif
 	
 	status = RHQueueTransaction(buf, bufLen, completion, outstandingRHXaction);
 	
@@ -1659,13 +1675,11 @@ IOUSBControllerV3::RootHubAbortInterruptRead()
 	
 	RootHubStopTimer();
 	
-#ifdef SUPPORTS_SS_USB
 	// if SS Controller then process SS RH xactions
 	if( _controllerSpeed == kUSBDeviceSpeedSuper )
 	{
 		RHAbortTransaction(_outstandingSSRHTrans);
 	}
-#endif
 	
 	RHAbortTransaction(_outstandingRHTrans);
 	
@@ -1779,7 +1793,6 @@ IOUSBControllerV3::CheckPMAssertions(IOUSBDevice *forDevice, bool deviceBeingAdd
 }
 
 
-#ifdef SUPPORTS_SS_USB
 IOReturn
 IOUSBControllerV3::GetRootHubBOSDescriptor(OSData *data)
 {
@@ -1882,8 +1895,6 @@ IOUSBControllerV3::DoCreateStreams(OSObject *owner, void *arg0, void *arg1, void
 
 	return me->UIMCreateStreams(functionNumber, endpointNumber, direction, maxStream);
 }
-
-#endif
 
 #pragma mark ¥¥¥¥¥ IOUSBController methods ¥¥¥¥¥
 //
@@ -2008,28 +2019,10 @@ IOUSBControllerV3::ClosePipe(USBDeviceAddress address, Endpoint *endpoint)
 IOReturn
 IOUSBControllerV3::AbortPipe(USBDeviceAddress address, Endpoint *endpoint)
 {
-#ifdef SUPPORTS_SS_USB
 	USBLog(7, "IOUSBControllerV3(%s)[%p]::AbortPipe - Deprecated version called (no stream ID)", getName(), this);
 	return AbortPipe(0, address, endpoint);
-#else
-	IOReturn	kr;
-	
-	// if we are in the middle of termination, then we can go ahead and allow the call, since we won't be touching any hardware regs
-	if (!isInactive())
-	{
-	// we can  abort the pipe without being fully on, as long as we know what state we are in
-		if (!(_controllerAvailable || _wakingFromHibernation || _restarting || _poweringDown))
-		{
-			kr = CheckPowerModeBeforeGatedCall((char *) "AbortPipe");
-			if ( kr != kIOReturnSuccess )
-				return kr;
-		}
-	}
-	return IOUSBController::AbortPipe(address, endpoint);
-#endif
 }
 
-#ifdef SUPPORTS_SS_USB
 IOReturn
 IOUSBControllerV3::AbortPipe(UInt32 streamID, USBDeviceAddress address, Endpoint *endpoint)
 {
@@ -2059,7 +2052,6 @@ IOUSBControllerV3::DoAbortStream(OSObject *owner, void *arg0, void *arg1, void *
 	
 	return me->UIMAbortStream((UInt32)(uintptr_t)arg0, (short)(uintptr_t) arg1, (short)(uintptr_t) arg2, (short)(uintptr_t) arg3);
 }
-#endif
 
 
 IOReturn
@@ -2100,20 +2092,9 @@ IOUSBControllerV3::ClearPipeStall(USBDeviceAddress address, Endpoint *endpoint)
 IOReturn
 IOUSBControllerV3::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
 {
-#ifdef SUPPORTS_SS_USB
     return Read(0, buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
-#else
-	IOReturn	kr;
-	
-	kr = CheckPowerModeBeforeGatedCall((char *) "Read");
-	if ( kr != kIOReturnSuccess )
-		return kr;
-	
-	return IOUSBController::Read(buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
-#endif
 }
 
-#ifdef SUPPORTS_SS_USB
 IOReturn
 IOUSBControllerV3::Read(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
 {
@@ -2125,26 +2106,14 @@ IOUSBControllerV3::Read(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceAd
 	
 	return IOUSBControllerV2::ReadStream(streamID, buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
 }
-#endif
 
 IOReturn
 IOUSBControllerV3::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
 {
-#ifdef SUPPORTS_SS_USB
 	USBLog(7, "IOUSBControllerV3(%s)[%p]::Write deprecated method called (no stream ID)", getName(), this);
 	return Write(0, buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
-#else
-	IOReturn	kr;
-	
-	kr = CheckPowerModeBeforeGatedCall((char *) "Write");
-	if ( kr != kIOReturnSuccess )
-		return kr;
-
-	return IOUSBController::Write(buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
-#endif
 }
 
-#ifdef SUPPORTS_SS_USB
 IOReturn
 IOUSBControllerV3::Write(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
 {
@@ -2156,7 +2125,6 @@ IOUSBControllerV3::Write(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceA
 
 	return IOUSBControllerV2::WriteStream(streamID, buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
 }
-#endif
 
 
 IOReturn
@@ -2196,20 +2164,9 @@ IOUSBControllerV3::IsocIO(IOMemoryDescriptor *buffer, UInt64 frameStart, UInt32 
 IOReturn
 IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *endpoint)
 {
-#ifdef SUPPORTS_SS_USB
 	return OpenPipe(address, speed, endpoint, 0, 0);
-#else
-	IOReturn	kr;
-	
-	kr = CheckPowerModeBeforeGatedCall((char *) "OpenPipe");
-	if ( kr != kIOReturnSuccess )
-		return kr;
-
-	return IOUSBControllerV2::OpenPipe(address, speed, endpoint);
-#endif
 }
 
-#ifdef SUPPORTS_SS_USB
 IOReturn
 IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurst)
 {	
@@ -2229,7 +2186,6 @@ IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *end
 	}
 
 }
-#endif
 
 
 IOReturn
@@ -2419,7 +2375,7 @@ IOUSBControllerV3::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisi
 				USBLog(5,"IOUSBControllerV3[%p]::GetErrataBits  found PCI-Thunderbolt property, adding the errata", this);
 				errataBits |= kErrataDontUseCompanionController;
 			}
-					
+			
 			// mark the root hub port as having port 1 captive
 			if (_device->getProperty(kAppleInternalUSBDevice) == NULL)
 				_device->setProperty(kAppleInternalUSBDevice, (unsigned long long)2, 8);
@@ -2559,7 +2515,6 @@ IOUSBControllerV3::FixupNECControllerConfigRegisters(void)
 	}
 }
 
-#ifdef SUPPORTS_SS_USB
 USBDeviceAddress 
 IOUSBControllerV3::UIMGetActualDeviceAddress(USBDeviceAddress current)
 {
@@ -2648,12 +2603,9 @@ IOUSBControllerV3::GetBandwidthAvailableForDevice(IOUSBDevice *forDevice,  UInt3
     return ret;
 }
 
-#endif
-
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  0);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  1);
 
-#ifdef SUPPORTS_SS_USB
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  2);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  3);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  4);
@@ -2672,26 +2624,6 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV3,  16);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  17);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  18);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  19);
-#else
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  2);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  3);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  4);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  5);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  6);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  7);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  8);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  9);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  10);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  11);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  12);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  13);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  14);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  15);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  16);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  17);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  18);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  19);
-#endif
 
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  20);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  21);

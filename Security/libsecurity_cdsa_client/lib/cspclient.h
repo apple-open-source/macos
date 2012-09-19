@@ -130,6 +130,7 @@ protected:
 	CSSM_CC_HANDLE mHandle;			// CSSM CC handle
 	bool mStaged;					// staged in progress
 	const AccessCredentials *mCred;	// if explicitly set
+    RecursiveMutex mActivateMutex;
 };
 
 

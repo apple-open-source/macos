@@ -1,7 +1,7 @@
 /*
 	File:		MBCPlayer.h
 	Contains:	Infrastructure for agents participating in game
-	Copyright:	Â© 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -89,6 +89,7 @@ extern NSString * const kMBCEnginePlayer;
 // or neither side (in observation mode).
 // 
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay;
+- (void) removeChessObservers;
 
 @end
 

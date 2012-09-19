@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2007, 2011  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2001, 2002  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,10 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: setup.sh,v 1.5.814.3 2011-03-11 00:47:27 marka Exp $
+# $Id$
+
+SYSTEMTESTTOP=..
+. $SYSTEMTESTTOP/conf.sh
 
 sh clean.sh
 
@@ -26,4 +29,6 @@ sh ../genzone.sh 6 3 >ns6/master.db
 sh ../genzone.sh 7 >ns7/master2.db
 
 rm -f ns4/*.db ns4/*.jnl
+cp -f ns4/root.db.in ns4/root.db
+$PERL -e 'for ($i=0;$i<10000;$i++){ printf("x%u 0 in a 10.53.0.1\n", $i);}' >> ns4/root.db
 cp -f ns4/named.conf.base ns4/named.conf

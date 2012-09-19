@@ -62,7 +62,7 @@ void
 MBCDebug::SetDebugFlags(int flag, bool val)
 {
     if (val)
-        sDebugFlags |=  val;
+        sDebugFlags |=  flag;
     else 
-        sDebugFlags &= ~val;
+        sDebugFlags &= ~flag;
 }

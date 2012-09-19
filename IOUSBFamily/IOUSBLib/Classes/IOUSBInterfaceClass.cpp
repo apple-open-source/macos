@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,11 +120,7 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
 #endif
 	
 	DEBUGPRINT("IOUSBInterfaceClass[%p]::IOUSBInterfaceClass\n", this);
-#ifdef SUPPORTS_SS_USB
     fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV500;
-#else
-    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV300;
-#endif
     fUSBInterface.obj = this;
 }
 
@@ -198,9 +194,7 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID245)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID300)
              || CFEqual(uuid, kIOUSBInterfaceInterfaceID)
-#ifdef SUPPORTS_SS_USB
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID500)
-#endif
 			 )
     {
         *ppv = &fUSBInterface;
@@ -1508,7 +1502,6 @@ IOUSBInterfaceClass::GetPipeProperties(UInt8 pipeRef, UInt8 *direction, UInt8 *n
 }
 
 
-#ifdef SUPPORTS_SS_USB
 IOReturn 
 IOUSBInterfaceClass::GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 *number, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval)
 {
@@ -1571,7 +1564,6 @@ IOUSBInterfaceClass::GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 
 			   this, ret, pipeRef, *direction, *number, *transferType, *maxPacketSize, *interval, *maxBurst, *mult, *bytesPerInterval);
     return ret;
 }
-#endif
 
 IOReturn
 IOUSBInterfaceClass::GetPipeStatus(UInt8 pipeRef)
@@ -2693,13 +2685,8 @@ IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-#ifdef SUPPORTS_SS_USB
 IOUSBInterfaceStruct500 
 IOUSBInterfaceClass::sUSBInterfaceInterfaceV500 = {
-#else
-	IOUSBInterfaceStruct300 
-	IOUSBInterfaceClass::sUSBInterfaceInterfaceV300 = {
-#endif
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -2766,10 +2753,8 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV500 = {
     &IOUSBInterfaceClass::interfaceFindNextAltInterface,
     // ---------- new with 3.0.0
     &IOUSBInterfaceClass::interfaceGetBusFrameNumberWithTime,
-#ifdef SUPPORTS_SS_USB
     // ---------- new with 5.0.0
     &IOUSBInterfaceClass::interfaceGetPipePropertiesV2
-#endif
 };
 
 
@@ -3042,13 +3027,11 @@ IOUSBInterfaceClass::interfaceFindNextAltInterface( void *self, const void *curr
 IOReturn
 IOUSBInterfaceClass::interfaceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime)
     { return getThis(self)->GetBusFrameNumberWithTime(frame, atTime); }
-#ifdef SUPPORTS_SS_USB
 //--------------- added in 5.0.0
 IOReturn
 IOUSBInterfaceClass::interfaceGetPipePropertiesV2(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *address, UInt8 *attributes, 
 												UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval)
 { return getThis(self)->GetPipePropertiesV2(pipeRef, direction, address, attributes, maxpacketSize, interval, maxBurst, mult, bytesPerInterval); }
-#endif
 
 
 

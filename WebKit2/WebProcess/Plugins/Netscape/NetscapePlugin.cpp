@@ -508,6 +508,20 @@ void NetscapePlugin::callSetWindow()
     m_hasCalledSetWindow = true;
 }
 
+void NetscapePlugin::callSetWindowInvisible()
+{
+    NPWindow invisibleWindow = m_npWindow;
+    
+    invisibleWindow.window = 0;
+    invisibleWindow.clipRect.top = 0;
+    invisibleWindow.clipRect.left = 0;
+    invisibleWindow.clipRect.bottom = 0;
+    invisibleWindow.clipRect.right = 0;
+    
+    NPP_SetWindow(&invisibleWindow);
+    m_hasCalledSetWindow = true;
+}
+
 bool NetscapePlugin::shouldLoadSrcURL()
 {
     // Check if we should cancel the load
@@ -546,6 +560,18 @@ bool NetscapePlugin::allowPopups() const
     return false;
 }
 
+#if PLUGIN_ARCHITECTURE(MAC)
+static bool isTransparentSilverlightBackgroundValue(const String& backgroundValue)
+{
+    // FIXME: We should handle all the cases from http://msdn.microsoft.com/en-us/library/cc838148(VS.95).aspx here
+    // instead of just hard-coding black.
+    if (backgroundValue == "#000000")
+        return false;
+
+    return true;
+}
+#endif
+
 bool NetscapePlugin::initialize(const Parameters& parameters)
 {
     uint16_t mode = parameters.isFullFramePlugin ? NP_FULL : NP_EMBED;
@@ -579,10 +605,10 @@ bool NetscapePlugin::initialize(const Parameters& parameters)
     }
 
 #if PLUGIN_ARCHITECTURE(MAC)
-    if (m_pluginModule->pluginQuirks().contains(PluginQuirks::MakeTransparentIfBackgroundAttributeExists)) {
+    if (m_pluginModule->pluginQuirks().contains(PluginQuirks::MakeOpaqueUnlessTransparentSilverlightBackgroundAttributeExists)) {
         for (size_t i = 0; i < parameters.names.size(); ++i) {
             if (equalIgnoringCase(parameters.names[i], "background")) {
-                setIsTransparent(true);
+                setIsTransparent(isTransparentSilverlightBackgroundValue(parameters.values[i]));
                 break;
             }
         }

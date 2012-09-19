@@ -257,7 +257,7 @@ struct smbmount {
 	time_t			sm_statfstime; /* sm_statfsbuf cache time */
 	lck_mtx_t		sm_statfslock; /* sm_statsbuf lock */
 	struct vfsstatfs	sm_statfsbuf; /* cached statfs data */
-	lck_mtx_t		sm_renamelock; /* mount rename lock */
+	lck_mtx_t		sm_reclaim_renamelock; /* mount reclaim/rename lock */
 	void			*notify_thread;	/* pointer to the notify thread structure */
 	int32_t			tooManyNotifies;
 };

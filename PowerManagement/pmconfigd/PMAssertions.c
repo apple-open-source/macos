@@ -181,6 +181,10 @@ dispatch_source_t       logDispatch = NULL;
 static uint32_t         gNextAssertionIdx = 0;
 extern uint32_t         gDebugFlags;
 
+// Maximum delay allowed(in Mins) for turning off the display after the
+// PreventDisplayIdleSleep assertion is released
+#define kPMMaxDisplayTurnOffDelay  (5)
+
 #pragma mark -
 #pragma mark MIG
 
@@ -1452,7 +1456,10 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
 
         if (isA_CFString(wakeReason) && CFEqual(wakeReason, kIORootDomainWakeReasonDarkPME))
         {
-             _AssertForDeviceEnumeration( );
+            if (isA_CFString(wakeType) && CFEqual(wakeType, kIOPMRootDomainWakeTypeNetwork))
+                _DarkWakeHandleNetworkWake( );
+            else
+                _AssertForDeviceEnumeration( );
         }
         else if (isA_CFString(wakeType))
         {
@@ -1495,6 +1502,59 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
 
 }
 
+/*
+ * Takes an assertion to keep display on for up to
+ * a max of 'kPMMaxDisplayTurnOffDelay' minutes
+ */
+void delayDisplayTurnOff( )
+{
+   
+   CFNumberRef  levelNum = NULL;
+   CFNumberRef  Timeout_num = NULL;
+   CFTimeInterval   delay = 0;
+
+   IOPMAssertionLevel        level = kIOPMAssertionLevelOn;
+   static IOPMAssertionID    id = kIOPMNullAssertionID; 
+   CFMutableDictionaryRef    dict = NULL;
+
+   delay = gDisplaySleepTimer > kPMMaxDisplayTurnOffDelay ?
+        kPMMaxDisplayTurnOffDelay : gDisplaySleepTimer;
+
+   delay *= 60;
+
+   if (id == kIOPMNullAssertionID) 
+   {
+      dict = _IOPMAssertionDescriptionCreate(
+                    kIOPMAssertionTypePreventUserIdleDisplaySleep,
+                    CFSTR("com.apple.powermanagement.delayDisplayOff"),
+                    NULL, CFSTR("Proxy to delay display off"), NULL, 
+                    (CFTimeInterval)delay, kIOPMAssertionTimeoutActionTurnOff);
+
+      if (dict) {
+         doCreate(getpid(), dict, &id);    
+         CFRelease(dict);
+      }
+   }
+   else 
+   {
+      dict = CFDictionaryCreateMutable(0, 0, 
+           &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+      levelNum = CFNumberCreate(0, kCFNumberIntType, &level);
+      Timeout_num = CFNumberCreate(0, kCFNumberDoubleType, &delay);
+
+      if (dict && levelNum && Timeout_num)
+      {
+         CFDictionarySetValue(dict, kIOPMAssertionLevelKey, levelNum);
+         CFDictionarySetValue(dict, kIOPMAssertionTimeoutKey, Timeout_num);
+         doSetProperties(getpid(), id, dict);
+      }
+      if (dict) CFRelease(dict);
+      if (levelNum) CFRelease(levelNum);
+      if (Timeout_num) CFRelease(Timeout_num);
+   }
+
+
+}
 
 static bool propertiesDictRequiresRoot(CFDictionaryRef props)
 {
@@ -1803,6 +1863,7 @@ void handleAssertionTimeout(assertionType_t *assertType)
     uint64_t        currtime = getMonotonicTime( );
     uint32_t        timedoutCnt = 0;
     CFStringRef     timeoutAction = NULL;
+    bool            displayProxy = false;
 
     while( (assertion = LIST_FIRST(&assertType->activeTimed)) )
     {
@@ -1830,6 +1891,9 @@ void handleAssertionTimeout(assertionType_t *assertType)
 
         logASLAssertionEvent(kPMASLAssertionActionTimeOut, assertion);
 
+        if ( (assertion->kassert == kPreventDisplaySleepIndex) && (assertion->pid != getpid()))
+           displayProxy = true;
+
         timeoutAction = CFDictionaryGetValue(assertion->props, kIOPMAssertionTimeoutActionKey);
         if (isA_CFString(timeoutAction) && CFEqual(kIOPMAssertionTimeoutActionRelease, timeoutAction))
         { 
@@ -1851,6 +1915,8 @@ void handleAssertionTimeout(assertionType_t *assertType)
     if ( !timedoutCnt ) return;
 
     resetAssertionTimer(assertType);
+
+    if (displayProxy) delayDisplayTurnOff( );
 
     if (assertType->handler)
         (*assertType->handler)(assertType, kAssertionOpRelease);
@@ -1963,6 +2029,8 @@ static void releaseAssertion(assertion_t *assertion, bool callHandler)
 
     assertType = &gAssertionTypes[assertion->kassert]; 
 
+    if ( (assertion->kassert == kPreventDisplaySleepIndex) && (assertion->pid != getpid()))
+       delayDisplayTurnOff( );
     if (assertion->state & kAssertionStateTimed)
         removeTimedAssertion(assertion, assertType);
     else if (assertion->state & kAssertionStateInactive)
@@ -2094,6 +2162,7 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
 {
     assertion_t *assertion = (assertion_t *)context;
     assertionType_t *assertType = NULL;
+    CFTimeInterval      timeout = 0;
     int level, idx;
 
     if (!isA_CFString(key))
@@ -2116,10 +2185,10 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
     }
     else if (CFEqual(key, kIOPMAssertionTimeoutKey)) {
         if (!isA_CFNumber(value)) return;
-        CFNumberGetValue(value, kCFNumberDoubleType, &assertion->timeout);
+        CFNumberGetValue(value, kCFNumberDoubleType, &timeout);
 
-        if (assertion->timeout) {
-            assertion->timeout += getMonotonicTime(); // Absolute time at which assertion expires
+        if (timeout) {
+            assertion->timeout = (uint64_t)timeout + getMonotonicTime(); // Absolute time at which assertion expires
         }
 
         assertion->mods |= kAssertionModTimer;
@@ -2206,6 +2275,9 @@ static IOReturn doSetProperties(pid_t pid,
             /* Add to inActive list */
             insertInactiveAssertion(assertion, assertType);
 
+            if ( (assertion->kassert == kPreventDisplaySleepIndex) && 
+                            (assertion->pid != getpid()))
+                delayDisplayTurnOff( );
             if (assertType->handler)
                 (*assertType->handler)(assertType, kAssertionOpRelease);
 
@@ -2559,6 +2631,7 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
          */
         if ( !(kerAssertionBits & assertBit) || activeExists)
             return;
+
     }
     else { // op == kAssertionOpEval
 

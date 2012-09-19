@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright © 2003-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,7 +27,7 @@
                         callbacks when a USB device is attached to or removed from the system.
                         It also shows how to associate arbitrary data with each device instance.
                 
-    Copyright:		© Copyright 2001 Apple Computer, Inc. All rights reserved.
+    Copyright:		© Copyright 2001 Apple Inc.  All rights reserved.
 	
     Disclaimer:		IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc.
                         ("Apple") in consideration of your agreement to the following terms, and your

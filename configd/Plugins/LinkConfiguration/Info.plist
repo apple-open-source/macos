@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.12</string>
+	<string>1.12.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.12</string>
+	<string>1.12.2</string>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.InterfaceNamer</string>

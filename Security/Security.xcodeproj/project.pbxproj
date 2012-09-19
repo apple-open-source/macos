@@ -39,6 +39,7 @@
 			);
 			dependencies = (
 				186F779114E5A00F00434E1F /* PBXTargetDependency */,
+				C2432A2515C726B50096DB5B /* PBXTargetDependency */,
 			);
 			name = Security_executables;
 			productName = Other;
@@ -976,6 +977,20 @@
 			remoteGlobalIDString = 52200F8F14F2B88000F7F6E7;
 			remoteInfo = XPCTimeStampingService;
 		};
+		C2432A0715C7112A0096DB5B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1879B657146DE756007E536C /* libsecurity_codesigning.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C209696015BF52040093035F;
+			remoteInfo = gkunpack;
+		};
+		C2432A2415C726B50096DB5B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1879B657146DE756007E536C /* libsecurity_codesigning.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C209695F15BF52040093035F;
+			remoteInfo = gkunpack;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -1865,6 +1880,7 @@
 				1879B666146DE757007E536C /* libsecurity_codesigning.a */,
 				1879B66A146DE757007E536C /* libintegrity.a */,
 				1879B66C146DE757007E536C /* libcodehost.a */,
+				C2432A0815C7112A0096DB5B /* gkunpack */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2776,6 +2792,13 @@
 			remoteRef = 52B5A8F5151928B400664F11 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		C2432A0815C7112A0096DB5B /* gkunpack */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = gkunpack;
+			remoteRef = C2432A0715C7112A0096DB5B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 /* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -3142,6 +3165,11 @@
 			isa = PBXTargetDependency;
 			name = XPCTimeStampingService;
 			targetProxy = 529FF21F1523BD7F0029D842 /* PBXContainerItemProxy */;
+		};
+		C2432A2515C726B50096DB5B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = gkunpack;
+			targetProxy = C2432A2415C726B50096DB5B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

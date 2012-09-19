@@ -206,3 +206,10 @@ routine io_pm_set_sleepservice_wake_time_cap(
 ServerAuditToken token  : audit_token_t;
             in  cap_time   : int;
             out return_val : int);
+
+routine io_pm_get_capability_bits(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            out capBits : uint32_t;
+            out return_val : int);
+

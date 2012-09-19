@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBHIDDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOUSBHIDDRIVER_VERSION, Copyright © 2000-IOUSBHIDDRIVER_LAST_CHANGE_YEAR Apple Inc.  All Rights Reserved.</string>
+	<string>IOUSBHIDDRIVER_VERSION, Copyright © 2000-IOUSBHIDDRIVER_LAST_CHANGE_YEAR Apple Inc.  All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>

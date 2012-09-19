@@ -258,6 +258,7 @@ _getSleepReason(
 	return ret;
 }
 
+/* Returns Wake reason and Wake type in on concatenated string */
 __private_extern__ bool
 _getWakeReason(
 	char *buf,
@@ -267,7 +268,9 @@ _getWakeReason(
  	io_service_t    iopm_rootdomain_ref = getRootDomain();
  	CFStringRef		wakeReasonString = NULL;
  	CFStringRef		wakeTypeString = NULL;
+    char            wr[25], wt[25];
 
+    wr[0] = wt[0] = 0;
     // This property may not exist on all platforms.
 	wakeReasonString = IORegistryEntryCreateCFProperty(
 							iopm_rootdomain_ref,
@@ -275,35 +278,31 @@ _getWakeReason(
 							kCFAllocatorDefault, 0);
 
 	if (wakeReasonString) {
-		if (CFStringGetCString(wakeReasonString, buf, buflen, 
-								kCFStringEncodingUTF8) && buf[0]) 
+		if (CFStringGetCString(wakeReasonString, wr, sizeof(wr), 
+								kCFStringEncodingUTF8) && wr[0]) 
 		{
        ret = true;
 		}
+	    CFRelease(wakeReasonString);
 	}
 
-  if ( ret ) 
-    goto exit;
 
-  // If there is no Wake Reason, try getting Wake Type.
-  // That sheds some light on why system woke up.
-  wakeTypeString = IORegistryEntryCreateCFProperty(
+    wakeTypeString = IORegistryEntryCreateCFProperty(
               iopm_rootdomain_ref,
               CFSTR(kIOPMRootDomainWakeTypeKey),
               kCFAllocatorDefault, 0);
 
-  if (wakeTypeString) {
-    if (CFStringGetCString(wakeTypeString, buf, buflen, 
-                kCFStringEncodingUTF8) && buf[0]) 
-    {
-      ret = true;
+    if (wakeTypeString) {
+       if (CFStringGetCString(wakeTypeString, wt, sizeof(wt), 
+                   kCFStringEncodingUTF8) && wt[0]) 
+       {
+        ret = true;
+       }
+       CFRelease(wakeTypeString);
     }
-  }
-	if (wakeTypeString) CFRelease(wakeTypeString);
 
-exit:
-	if (wakeReasonString) CFRelease(wakeReasonString);
-	return ret;
+  snprintf(buf, buflen, "%s/%s", wr, wt);
+    return ret;
 }
 
 __private_extern__ bool
@@ -649,6 +648,30 @@ static void sendEnergySettingsToKernel(
         }
     }
 
+    // AutoPowerOffEnable
+    // Defaults to on
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMAutoPowerOffEnabledKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain, 
+                                     CFSTR(kIOPMAutoPowerOffEnabledKey),
+                                     (p->fAutoPowerOffEnable?kCFBooleanTrue:kCFBooleanFalse));
+    }
+
+    // AutoPowerOffDelay
+    // In seconds
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMAutoPowerOffDelayKey), providing_power, _supportedCached))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fAutoPowerOffDelay);
+        if (num) {
+            IORegistryEntrySetCFProperty(PMRootDomain, 
+                                         CFSTR(kIOPMAutoPowerOffDelayKey),
+                                         num);
+            CFRelease(num);
+        }
+    }
+
 #ifndef __I_AM_PMSET__
     if ( !_platformSleepServiceSupport && !_platformBackgroundTaskSupport)
     {
@@ -741,7 +764,9 @@ static int getAggressivenessFactorsFromProfile(
     getAggressivenessValue(p, CFSTR(kIOPMGPUSwitchKey), kCFNumberSInt32Type, &agg->fGPU);
     getAggressivenessValue(p, CFSTR(kIOPMDeepSleepEnabledKey), kCFNumberSInt32Type, &agg->fDeepSleepEnable);
     getAggressivenessValue(p, CFSTR(kIOPMDeepSleepDelayKey), kCFNumberSInt32Type, &agg->fDeepSleepDelay);
-    
+    getAggressivenessValue(p, CFSTR(kIOPMAutoPowerOffEnabledKey), kCFNumberSInt32Type, &agg->fAutoPowerOffEnable);
+    getAggressivenessValue(p, CFSTR(kIOPMAutoPowerOffDelayKey), kCFNumberSInt32Type, &agg->fAutoPowerOffDelay);
+
     return 0;
 }
 
@@ -2800,7 +2825,7 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t ro
     else
         modeNum = NULL;
     
-    if (modeValue
+    if ((modeValue || IOPMFeatureIsAvailable(CFSTR(kIOPMAutoPowerOffEnabledKey), NULL))
         && (obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey)))
         && isA_CFString(obj))
         do

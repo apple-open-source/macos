@@ -51,10 +51,6 @@
 
 #import <GameKit/GameKit.h>
 
-//
-// Private Framework
-//
-#import <GeoKit/GeoKit.h>
 
 #include <sys/types.h>
 #include <regex.h>
@@ -95,11 +91,8 @@ NSString * kMBCHumanLast		= @"MBCHumanLast";
 	// 
 	// Get the city we might be in. 
 	//
-	// PGN wants IOC codes for countries, which we're too lazy to convert.
-	//
-	GEOCity *		cityInfo = [GEOCity systemCity];
-	NSString *		city 	= cityInfo ? [cityInfo displayName] : @"?";
-	NSString *		country	= cityInfo ? [[cityInfo country] displayName] : @"?";
+	NSString *		city 	= @"?";
+	NSString *		country	= @"?";
 
 	NSString * event = 
 		[NSLocalizedString(@"casual_game", @"Casual Game") retain];

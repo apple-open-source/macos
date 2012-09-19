@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -451,9 +450,9 @@ AppleUSBOHCI::SaveControllerStateForSleep(void)
 	// set the bit again, probably when we actually put the individual ports into suspend. So we need to clear it before we
 	// put the controller into global suspend.
 	_device->findPCICapability(kIOPCIPowerManagementCapability, &pciPMCapOffset);
-	if (pciPMCapOffset > 0x3f)					// must be > 3f, section 3.1
+	if (pciPMCapOffset > kIOPCIConfigMaximumLatency)					// kIOPCIConfigMaximumLatency (0x3f) is the end of the standard header
 	{
-		pmControlStatus = pciPMCapOffset + 4;
+		pmControlStatus = pciPMCapOffset + kPCIPMRegBlockPMCSR;
 	}	
 	
 	if (pmControlStatus)

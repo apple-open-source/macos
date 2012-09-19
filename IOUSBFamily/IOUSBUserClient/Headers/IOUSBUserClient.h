@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,9 +46,7 @@ enum {
 	kUSBDeviceUserClientRequestExtraPower,
 	kUSBDeviceUserClientReturnExtraPower,
 	kUSBDeviceUserClientGetExtraPowerAllocated,
-#ifdef SUPPORTS_SS_USB
 	kUSBDeviceUserClientGetBandwidthAvailableForDevice,
-#endif
     kIOUSBLibDeviceUserClientNumCommands
     };
 
@@ -81,9 +79,7 @@ enum {
     kUSBInterfaceUserClientLowLatencyReadIsochPipe,
     kUSBInterfaceUserClientLowLatencyWriteIsochPipe,
 	kUSBInterfaceUserClientGetConfigDescriptor,
-#ifdef SUPPORTS_SS_USB
 	kUSBInterfaceUserClientGetPipePropertiesV2,
-#endif
     kIOUSBLibInterfaceUserClientNumCommands
     };
 

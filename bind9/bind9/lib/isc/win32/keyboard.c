@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: keyboard.c,v 1.7 2007-06-19 23:47:19 tbox Exp $ */
+/* $Id: keyboard.c,v 1.7 2007/06/19 23:47:19 tbox Exp $ */
 
 #include <config.h>
 

@@ -45,13 +45,8 @@ class IONDRVFramebuffer : public IOFramebuffer
     OSDeclareDefaultStructors(IONDRVFramebuffer)
 
 protected:
-/*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of this class in the future.
-    */    
+/*    Reserved for future use.  (Internal use only)  */
     struct ExpansionData { };
-
-/*! @var reserved
-    Reserved for future use.  (Internal use only)  */
     ExpansionData * reserved;
 
 protected:

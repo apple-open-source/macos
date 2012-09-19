@@ -24,6 +24,7 @@ LD_DYLIB_INSTALL_NAME = /usr/lib/system/$(EXECUTABLE_NAME)
 
 BUILD_VARIANTS = normal debug
 
+// clang is desired over llvm-gcc for OSAtomics. However, it isn't capable of building armv6 correctly on Sundance
 GCC_VERSION = com.apple.compilers.llvm.clang.1_0
 GCC_VERSION[arch=armv6] = com.apple.compilers.llvmgcc42
 
@@ -58,6 +59,7 @@ ARCH_FAMILY_x86_64 = x86_64
 ARCH_FAMILY_i386 = i386
 ARCH_FAMILY_armv6 = arm
 ARCH_FAMILY_armv7 = arm
+ARCH_FAMILY_armv7s = arm
 ARCH_FAMILY_armv7f = arm
 ARCH_FAMILY_armv7k = arm
 
@@ -69,6 +71,7 @@ FreeBSD_EXCLUDED_SOURCE_GDTOA = gdtoa/FreeBSD/machdep* gdtoa-strtopx.c
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_x86_64 = gdtoa-strtopx.c machdep_ldisx.c
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_i386 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_x86_64)
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7 = machdep_ldisd.c
+FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7s = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7k = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7f = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv6 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
@@ -90,6 +93,7 @@ BASE_EXCLUDED_SOURCE_FILE_NAMES = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_$(CURRENT_AR
 BASE_EXCLUDED_SOURCE_FILE_NAMES_x86_64 = MKGetTimeBaseInfo.c bcmp.c context-stubs.c kvm.c memcmp.c memset.c memset_pattern.c nlist.c strcpy.c strlcat.c strlcpy.c strlen.c strncmp.c strncpy.c
 BASE_EXCLUDED_SOURCE_FILE_NAMES_i386 = bcmp.c context-stubs.c memcmp.c memset.c memset_pattern.c strcpy.c strlcat.c strlcpy.c strlen.c strncmp.c strncpy.c
 BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7 = bcmp.c memcmp.c memset.c memset_pattern.c strchr.c strlen.c strncmp.c strnlen.c strstr.c
+BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7s = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7k = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7f = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_armv6 = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)

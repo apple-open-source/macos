@@ -335,6 +335,7 @@ int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop,
 				  uint16_t fid, int ioflag, vfs_context_t context);
 void smbfs_reconnect(struct smbmount *smp);
 int32_t smbfs_IObusy(struct smbmount *smp);
+void smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent);
 
 
 #define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)

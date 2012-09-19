@@ -1333,9 +1333,13 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
                         OSObject *obj;
                         while (!done && (NULL != (obj = itr->getNextObject()))) {
                             OSNumber *num = OSDynamicCast(OSNumber, obj);
-                            if (num && (num->numberOfBits() <= 64)) {
-                                if (num->unsigned64BitValue() == reportID) {
-                                	// Block
+                            if (num) {
+                                uint8_t excludedReportID =  (num->unsigned64BitValue() >> 16) & 0xff;
+                                uint8_t excludedReportType =(num->unsigned64BitValue() >> 24) & 0xff;
+                                
+                                if ((excludedReportID == reportID) && (excludedReportType == (reportType + 1))) {
+                                 	// Block
+                                    IOLog("IOHIDLibUserClient::setReport %02x/%02x blocked due to lack of privileges\n", reportID, reportType);
                                     done = true;
                                     ret = kIOReturnNotPrivileged;
                                 }

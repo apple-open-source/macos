@@ -40,9 +40,10 @@ using namespace CodeSigning;
 //
 struct _SecAssessment : private CFRuntimeBase {
 public:
-	_SecAssessment(CFURLRef p, CFDictionaryRef r) : path(p), result(r) { }
+	_SecAssessment(CFURLRef p, AuthorityType typ, CFDictionaryRef r) : path(p), type(typ), result(r) { }
 	
 	CFCopyRef<CFURLRef> path;
+	AuthorityType type;
 	CFRef<CFDictionaryRef> result;
 
 public:
@@ -149,7 +150,7 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 		// check the object cache first unless caller denied that or we need extended processing
 		if (!(flags & (kSecAssessmentFlagRequestOrigin | kSecAssessmentFlagIgnoreCache))) {
 			if (gDatabase().checkCache(path, type, result))
-				return new SecAssessment(path, result.yield());
+				return new SecAssessment(path, type, result.yield());
 		}
 		
 		if (flags & kSecAssessmentFlagDirect) {
@@ -178,13 +179,13 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 			throw;		// let it go as an error
 		cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
 	}
-	return new SecAssessment(path, result.yield());
+	return new SecAssessment(path, type, result.yield());
 
 	END_CSAPI_ERRORS1(NULL)
 }
 
 
-static void traceResult(SecAssessment &assessment, CFDictionaryRef result)
+static void traceResult(SecAssessment &assessment, AuthorityType type, CFDictionaryRef result)
 {
 	if (CFDictionaryGetValue(result, CFSTR("assessment:remote")))
 		return;		// just traced in syspolicyd
@@ -219,6 +220,7 @@ static void traceResult(SecAssessment &assessment, CFDictionaryRef result)
 	
 	MessageTrace trace("com.apple.security.assessment.outcome", NULL);
 	trace.add("signature2", "bundle:%s", identifier.c_str());
+	trace.add("signature4", "%d", type);
 	if (CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict) == kCFBooleanFalse) {
 		trace.add("signature", "denied:%s", authority.c_str());
 		trace.add("signature3", sanitized.c_str());
@@ -263,7 +265,7 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessmentRef,
 			result = adulterated.get();
 		}
 	}
-	traceResult(assessment, result);
+	traceResult(assessment, assessment.type, result);
 	return result.yield();
 
 	END_CSAPI_ERRORS1(NULL)
@@ -367,11 +369,15 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 		CFTemp<CFDictionaryRef> ctx("{%O=%s}", kSecAssessmentUpdateKeyLabel, "Developer ID");
 		if (CFDictionaryRef result = gEngine().enable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx))
 			CFRelease(result);
+		MessageTrace trace("com.apple.security.assessment.state", "enable-devid");
+		trace.send("enable Developer ID approval");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable-devid"))) {
 		CFTemp<CFDictionaryRef> ctx("{%O=%s}", kSecAssessmentUpdateKeyLabel, "Developer ID");
 		if (CFDictionaryRef result = gEngine().disable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx))
 			CFRelease(result);
+		MessageTrace trace("com.apple.security.assessment.state", "disable-devid");
+		trace.send("disable Developer ID approval");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-get-devid"))) {
 		CFBooleanRef &result = *(CFBooleanRef*)(arguments);

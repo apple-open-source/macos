@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -23,7 +22,6 @@
  */
 
 #include <libkern/version.h>
-
 
 #include <libkern/OSDebug.h>
 #include <IOKit/IOLib.h>
@@ -618,9 +616,7 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		usbCommand->SetIsSyncTransfer(FALSE);
 		for ( int i=0; i < kUSBCommandScratchBuffers; i++)
 			usbCommand->SetUIMScratch(i, POISONVALUE);
-#ifdef SUPPORTS_SS_USB
 		usbCommand->SetStreamID(POISONVALUE);
-#endif
 		
 		if ( usbCommand->GetBufferUSBCommand() != NULL )
 		{

@@ -44,6 +44,7 @@
 #include <security_utilities/logging.h>
 #include <sys/sysctl.h>
 #include <security_utilities/debugging.h>
+#include <math.h>
 
 /* when true, action() called every 15 seconds */
 #define ENTROPY_QUICK_UPDATE	0
@@ -88,6 +89,48 @@ void EntropyManager::action()
 }
 
 
+static const double kBytesOfEntropyToCollect = 240;
+// that gives us a minimum of 2.16 * 10^609 possible combinations.  It's a finite number to be sure...
+
+static const int kExpectedLoops = 10;
+
+// Calculate the amount of entropy in the buffer (per Shannon's Entropy Calculation)
+static double CalculateEntropy(const void* buffer, size_t bufferSize)
+{
+    double sizef = bufferSize;
+    const u_int8_t* charBuffer = (const u_int8_t*) buffer;
+    
+    // zero the tabulation array
+    int counts[256];
+    memset(counts, 0, sizeof(counts));
+
+    // tabulate the occurances of each byte in the array
+    size_t i;
+    for (i = 0; i < bufferSize; ++i)
+    {
+        counts[charBuffer[i]] += 1;
+    }
+    
+    // calculate the number of bits/byte of entropy
+    double entropy = 0.0;
+    
+    for (i = 0; i < 256; ++i)
+    {
+        if (counts[i] > 0)
+        {
+            double p = ((double) counts[i]) / sizef;
+            double term = p * -log2(p);
+            entropy += term;
+        }
+    }
+    
+    double entropicBytes = bufferSize * entropy / 8.0;
+    
+    return entropicBytes;
+}
+
+
+
 //
 // Collect system timings and seed into the RNG.
 // Note that the sysctl will block until the buffer is full or the timeout expires.
@@ -106,46 +149,53 @@ void EntropyManager::collectEntropy()
     mib[2] = KERN_KDGETENTROPY;
     mib[3] = 1;	// milliseconds maximum delay
 	
-	/*
-		The kernel doesn't follow the specification for sysctl.
-		The documentation clearly states that the oldlenp and
-		newlenp point to the size of the buffer to be processed.
-		Unfortunately, the KDGETENTROPY call wants the NUMBER of
-		mach_timespec_t values in the buffer, not the buffer size.
-	*/
-	
-	int numTimings = timingsToCollect + 1;
-	mach_timespec_t buffer[numTimings];
+	mach_timespec_t buffer[timingsToCollect];
 	
 	int result;
 	
-	size_t size = timingsToCollect;
+	size_t size = sizeof(mach_timespec_t) * timingsToCollect;
 	
-	result = sysctl(mib,4, buffer, &size, NULL, 0);
-	if (result == -1) {
-        Syslog::alert("entropy measurement returned no entropy (errno=%d)", errno);
-	}
-	else if (size == 0)
-	{
-		Syslog::alert("entropy measurement returned no entropy.");
-	}
-	
-	// add a little more jitter to the buffer
-	mach_timebase_info_data_t    sTimebaseInfo;
-	mach_timebase_info(&sTimebaseInfo);
-	double seconds = (double) mach_absolute_time() * sTimebaseInfo.numer / sTimebaseInfo.denom * 1000000000.0;
-	buffer[numTimings].tv_sec = (int) seconds;
-	buffer[numTimings].tv_nsec = (int) ((seconds - buffer[numTimings].tv_sec) * 1000000000.0);
-	
-	/*
-		Yes, we don't check to see if we filled the entire buffer.
-		In entropy collection, something is better than nothing.
-		Please don't fiddle with this code unless you really
-		have determined that you know what you are doing.
-	*/
-	
-	SECURITYD_ENTROPY_SEED((void *)buffer, sizeof(buffer));
-    addEntropy(buffer, sizeof(buffer));
+    double bytesRemaining = kBytesOfEntropyToCollect;
+    
+    int loopCount = 0;
+    
+    while (bytesRemaining >= 0)
+    {
+        result = sysctl(mib,4, buffer, &size, NULL, 0);
+        if (result == -1) {
+            Syslog::alert("entropy measurement returned no entropy (errno=%d)", errno);
+        }
+        else if (size == 0)
+        {
+            Syslog::alert("entropy measurement returned no entropy.");
+        }
+
+        // remove the non-entropic pieces from the buffer
+        u_int16_t nonEnt[timingsToCollect];
+        
+        // treat the received buffer as an array of u_int16 and only take the first two bytes of each
+        u_int16_t *rawEnt = (u_int16_t*) buffer;
+        
+        int i;
+        for (i = 0; i < timingsToCollect; ++i)
+        {
+            nonEnt[i] = *rawEnt;
+            rawEnt += 4;
+        }
+        
+        SECURITYD_ENTROPY_SEED((void *)nonEnt, (unsigned int) sizeof(nonEnt));
+        addEntropy(nonEnt, sizeof(nonEnt));
+        
+        double entropyRead = CalculateEntropy(nonEnt, sizeof(nonEnt));
+        bytesRemaining -= entropyRead;
+        
+        loopCount += 1;
+    }
+    
+    if (loopCount > kExpectedLoops)
+    {
+        Syslog::alert("Entropy collection fulfillment took %d loops", loopCount);
+    }
 }
 
 

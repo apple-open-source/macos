@@ -1,10 +1,25 @@
-//
-//  PortStatusGatherer.m
-//  USBProber
-//
-//  Created by Russvogel on 10/14/10.
-//  Copyright 2010 Apple. All rights reserved.
-//
+/*
+ * Copyright © 2010-2012 Apple Inc.  All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #import "PortStatusGatherer.h"
 
@@ -22,18 +37,37 @@
 
 #include <AvailabilityMacros.h>
 
-// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
-#if 0
-	#if defined(MAC_OS_X_VERSION_10_8)
-	    #undef SUPPORTS_SS_USB
-	#else
-	    #define SUPPORTS_SS_USB 1
-	#endif
-#else
-	#define SUPPORTS_SS_USB 1
-#endif
-
 //============= Stuff from USBHub.h that is not public =============
+
+// Index for user client methods
+//
+enum
+{
+    kAppleUSBHSHubUserClientOpen = 0,
+    kAppleUSBHSHubUserClientClose,
+    kAppleUSBHSHubUserClientIsEHCIRootHub,
+    kAppleUSBHSHubUserClientEnterTestMode,
+    kAppleUSBHSHubUserClientLeaveTestMode,
+    kAppleUSBHSHubUserClientGetNumberOfPorts,
+    kAppleUSBHSHubUserClientPutPortIntoTestMode,
+    kAppleUSBHSHubUserClientGetLocationID,
+	kAppleUSBHSHubUserClientSupportsIndicators,
+	kAppleUSBHSHubUserClientSetIndicatorForPort,
+	kAppleUSBHSHubUserClientGetPortIndicatorControl,
+	kAppleUSBHSHubUserClientSetIndicatorsToAutomatic,
+	kAppleUSBHSHubUserClientGetPowerSwitchingMode,
+	kAppleUSBHSHubUserClientSetPortPower,
+	kAppleUSBHSHubUserClientGetPortPower,
+	kAppleUSBHSHubUserClientDisablePowerManagement,
+	kAppleUSBHSHubUserClientPortReset,
+	kAppleUSBHSHubUserClientPortWarmReset,
+	kAppleUSBHSHubUserClientPortLinkState,
+	kAppleUSBHSHubUserClientPortU1Timeout,
+	kAppleUSBHSHubUserClientPortU2Timeout,
+	kAppleUSBHSHubUserClientPortRemoteWakeMask,
+	kAppleUSBHSHubUserClientGetPortPwrMgrState,
+    kNumUSBHSHubMethods
+};
 
 /*!
  @enum HubPortStatus
@@ -45,7 +79,6 @@ enum {
 	kSSHubPortStatusOverCurrentBit	= 3,
 	kSSHubPortStatusResetBit		= 4,
 	
-#ifdef SUPPORTS_SS_USB
 	// USB 3.0
 	kSSHubPortStatusLinkStateShift		= 5,
 	kSSHubPortStatusPowerBit			= 9,
@@ -53,7 +86,6 @@ enum {
 	kSSHubPortChangeBHResetBit			= 5,
 	kSSHubPortChangePortLinkStateBit 	= 6,
 	kSSHubPortChangePortConfigErrBit	= 7,
-#endif
 	
     kHubPortConnection		= 0x0001,
     kHubPortEnabled			= 0x0002,
@@ -65,7 +97,6 @@ enum {
     kHubPortHighSpeed		= 0x0400,
     kHubPortTestMode		= 0x0800,
     kHubPortIndicator		= 0x1000,
-#ifdef SUPPORTS_SS_USB
     kHubPortSuperSpeed		= 0x2000,					// This is a synthesized bit that is using a reserved bit from the Hub Port Status definition in USB 2.0.
 	
 	// USB 3.0
@@ -92,7 +123,6 @@ enum {
 	kSSHubPortLinkStateHotReset		= 9,
 	kSSHubPortLinkStateComplianceMode	= 10,
 	kSSHubPortLinkStateLoopBack		= 11,
-#endif
 
     // these are the bits which cause the hub port state machine to keep moving (USB 2.0)
     kHubPortStateChangeMask		= (kHubPortConnection | kHubPortEnabled | kHubPortSuspend | kHubPortOverCurrent | kHubPortBeingReset)
@@ -108,7 +138,6 @@ typedef IOUSBHubStatus *    IOUSBHubStatusPtr;
 
 typedef struct IOUSBHubStatus   IOUSBHubPortStatus;
 
-#ifdef SUPPORTS_SS_USB
 /*!
  @enum USB 3 Hub Class Request
  @discussion Specifies values for the bRequest field of a Device Request.
@@ -117,7 +146,6 @@ enum {
 	kUSBHubRqSetHubDepth	= 12,
 	kUSBHubRqGetPortErrorCount	= 13
 };
-#endif
 
 //==============================================================================================
 
@@ -141,7 +169,6 @@ enum {
 	[super dealloc];
 }
 
-#ifdef SUPPORTS_SS_USB
 - (NSMutableString *) decodeSSPortStatus:(IOUSBHubPortStatus) portStatus
 {
 	NSMutableString * portStatusString = [[NSMutableString alloc] initWithCapacity:1];
@@ -246,7 +273,6 @@ enum {
 	
 	return portStatusString;
 }
-#endif
 
 - (NSMutableString *) decodePortStatus:(IOUSBHubPortStatus) portStatus
 {
@@ -325,13 +351,11 @@ enum {
 	NSMutableString *			returnString = [[NSMutableString alloc] initWithCapacity:1] ;
 	[returnString setString:@""];
     
-#ifdef SUPPORTS_SS_USB
 	// SS devices have an extra bit that we need to temporarily remove to look at the first non-zero nibble
 	if (deviceSpeed == kUSBDeviceSpeedSuper )
 	{
 		parentLocationID &= 0xff7FFFFF;
 	}
-#endif
 	
 	// First, create the locationID for the port
 	// Start looking at the nibble at the 3rd nibble for a 0
@@ -342,13 +366,11 @@ enum {
 	
 	locationID = parentLocationID | (port << (4*nibble));
 	
-#ifdef SUPPORTS_SS_USB
 	// Add back the ss bit
 	if (deviceSpeed == kUSBDeviceSpeedSuper )
 	{
 		locationID |= 0x00800000;
 	}
-#endif
 									 
     // IOServiceMatching is a convenience function to create a dictionary with the key kIOProviderClassKey and 
     // the specified value.
@@ -400,7 +422,6 @@ enum {
     while ( (usbDeviceRef = IOIteratorNext(matchingServicesIterator)) )
     {
 		io_name_t	name;
-#ifdef SUPPORTS_SS_USB
 		IOCFPlugInInterface				**iodev = NULL;		// requires <IOKit/IOCFPlugIn.h>
 		IOUSBDeviceInterface500			**dev = NULL;
 		SInt32							score;
@@ -421,7 +442,6 @@ enum {
 			break;
 		}
 		err = (*dev)->GetBandwidthAvailableForDevice(dev, bandwidth);
-#endif
 
 		kernResult = IORegistryEntryGetName(usbDeviceRef, name);
 		if (KERN_SUCCESS != kernResult) 
@@ -439,7 +459,49 @@ ErrorExit:
 	return returnString;
 }
 
-#ifdef SUPPORTS_SS_USB
+- (void) GetPowerManagerStateForPorts:(io_service_t) hubEntry  portState:(UInt32*)portState
+{
+	io_connect_t		hubUserClientConnection = 0;
+	uint64_t			input[2];
+	uint64_t			output[2];
+	uint32_t			inLen = 1;
+	uint32_t			outLen = 1;
+	IOReturn			kr = kIOReturnSuccess;
+	UInt32				ports;
+	int					i;
+	
+	kr = IOServiceOpen(hubEntry, mach_task_self(), 0, &hubUserClientConnection);
+	if(kr != KERN_SUCCESS)
+	{  
+		goto Exit;
+	}
+	
+	kr = IOConnectCallScalarMethod( hubUserClientConnection, kAppleUSBHSHubUserClientGetNumberOfPorts, 0, 0, output, &outLen);
+	if(kr != KERN_SUCCESS)
+	{  
+		goto Exit;
+	}
+	ports = output[0];
+	
+	// Get the Power Management state for each port
+	for ( i = 1; i <= ports;  i++)
+	{
+		input[0] = i;
+		inLen = 1;
+		kr = IOConnectCallScalarMethod( hubUserClientConnection, kAppleUSBHSHubUserClientGetPortPwrMgrState, input, inLen, output, &outLen);
+		if(kr != KERN_SUCCESS)
+		{  
+			continue;        
+		}
+		portState[i-1] = output[0];
+	}
+	
+	IOConnectRelease(hubUserClientConnection);
+	
+Exit:
+	return;
+}
+
 - (int) getPortErrorCount:(IOUSBDeviceInterface500 **) dev port:(int)port
 {
 	IOUSBDevRequest		request;
@@ -463,17 +525,12 @@ ErrorExit:
 	return errorCount;
 	
 }
-#endif
 
 - (IOReturn) dealWithDevice:(io_service_t) usbDeviceRef
 {
     IOReturn						err;
     IOCFPlugInInterface				**iodev = NULL;		// requires <IOKit/IOCFPlugIn.h>
-#ifdef SUPPORTS_SS_USB
     IOUSBDeviceInterface500			**dev = NULL;
-#else
-    IOUSBDeviceInterface320			**dev = NULL;
-#endif
     SInt32							score;
 	uint32_t						locationID = 0;
 	uint32_t						ports = 0;
@@ -483,20 +540,18 @@ ErrorExit:
 	OutlineViewNode *				aDeviceNode = nil;
 	OutlineViewNode *				aPortNode = nil;
 	UInt8							deviceSpeed = 0;
-#ifdef SUPPORTS_SS_USB
 	UInt32							bandwidth = 0;
-#endif	
+
+	UInt32							hubCurrentPowerState;
+	UInt32							portState[64];
+
     err = IOCreatePlugInInterfaceForService(usbDeviceRef, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &iodev, &score);
     if (err || !*iodev || !iodev)
     {
 		NSLog(@"PortStatusGather dealWithDevice: unable to create plugin. ret = %08x, iodev = %p\n", err, iodev);
 		goto finish;
     }
-#ifdef SUPPORTS_SS_USB
     err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID500), (LPVOID)&dev);
-#else
-    err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID320), (LPVOID)&dev);
-#endif
 	IODestroyPlugInInterface(iodev);				// done with this
 	
     if (err || !*dev || !dev)
@@ -524,12 +579,52 @@ ErrorExit:
 			ports = 7;
 		}
 		
-#ifdef SUPPORTS_SS_USB
 		err = (*dev)->GetBandwidthAvailableForDevice(dev, &bandwidth);
-#endif
 		
+		// Look for the 'AppleUSBHub' child for this Hub
+		io_registry_entry_t hubEntry = IO_OBJECT_NULL;
+		io_iterator_t		childIterator;
+		kern_return_t		kr;
+		kr = IORegistryEntryGetChildIterator(usbDeviceRef, kIOServicePlane, &childIterator);
+		if ( kr == KERN_SUCCESS)
+		{
+			while ((hubEntry = IOIteratorNext(childIterator)))
+			{
+				if ( IOObjectConformsTo(hubEntry, "AppleUSBHub"))
+					break;
+			}
+		}
+		if ( hubEntry != IO_OBJECT_NULL)
+		{
+			// Open a user client connection to the AppleUSBHub and get
+			// 1.  The port power state for each port
+			// 2.  Use the entry to get at the IOPowerManagement dictionary to get the CurrentPowerState
+			// Get the IOPowerManagment property so that we can tell the state of the AppleUSBHub
+			CFDictionaryRef powerMgrDictRef = IORegistryEntryCreateCFProperty(hubEntry, CFSTR("IOPowerManagement"), NULL, 0);
+			if ( powerMgrDictRef != NULL )
+			{
+				CFNumberRef	current = CFDictionaryGetValue(powerMgrDictRef, CFSTR("CurrentPowerState"));
+				CFNumberGetValue((CFNumberRef)current, kCFNumberLongLongType, &hubCurrentPowerState);
+				CFRelease(powerMgrDictRef);
+
+				NSMutableString * portString = [[NSMutableString alloc] initWithCapacity:1];
+				[portString setString: [NSString stringWithFormat:@"Hub Power State: %s", hubCurrentPowerState == 4 ? "ON" : (hubCurrentPowerState == 3 ? "LOW POWER" : "Unknown")]];
+				
+				// The following commented lines are necessary if we want to have a separate entry below the hub into with the Power State
+//				aPortNode  =  [[OutlineViewNode alloc] initWithName:@"PortInfo" value:portString];
+//				[aDeviceNode addChild:aPortNode ];
+//				[aPortNode release];
+				[portString release];
+			}
+			
+			for ( port = 1; port <= ports ; port++ )
+				portState[port-1] = 0;
+			
+			[self GetPowerManagerStateForPorts:hubEntry portState:portState];
+		}
+
 		// aDeviceNode  =  [[OutlineViewNode alloc] initWithName:@"DeviceInfo" value:[NSString stringWithFormat:@"Hub (%s) @ 0x%8.8x with %d ports (Available Bandwidth: %d)", name, locationID, ports, bandwidth]];
-		aDeviceNode  =  [[OutlineViewNode alloc] initWithName:@"DeviceInfo" value:[NSString stringWithFormat:@"Hub (%s) @ 0x%8.8x with %d ports", name, locationID, ports]];
+		aDeviceNode  =  [[OutlineViewNode alloc] initWithName:@"DeviceInfo" value:[NSString stringWithFormat:@"Hub (%s) @ 0x%8.8x with %d ports (Hub Power State: %s)", name, locationID, ports, hubCurrentPowerState == 4 ? "ON" : (hubCurrentPowerState == 3 ? "LOW POWER" : "Unknown")]];
 		[_rootNode addChild:aDeviceNode ];
 		[aDeviceNode release];
 	}	
@@ -596,13 +691,11 @@ ErrorExit:
 		{
 			NSMutableString *bitStatusChangeString = NULL;
 			
-#ifdef SUPPORTS_SS_USB
 			if (deviceSpeed == kUSBDeviceSpeedSuper )
 			{
 				bitStatusChangeString = [self decodeSSPortStatus: status];
 			}
 			else
-#endif
 			{
 				bitStatusChangeString = [self decodePortStatus: status];
 			}
@@ -614,7 +707,6 @@ ErrorExit:
 				[aNode release];
 				[bitStatusChangeString release];
 			}
-#ifdef SUPPORTS_SS_USB
 			if (deviceSpeed == kUSBDeviceSpeedSuper )
 			{
 				NSMutableString * errorCountString = [[NSMutableString alloc] initWithCapacity:1];
@@ -639,8 +731,24 @@ ErrorExit:
 				[aNode release];
 			}
 			[bandwidthString release];
-#endif
 		}
+		
+		// We want this even if we can't talk to the hub
+		NSMutableString * stateString = [[NSMutableString alloc] initWithCapacity:1];
+		[stateString appendString:[NSString stringWithFormat:@"Port Power State: %s", portState[port-1] == 0 ? "Uninitialized" : 
+								   (portState[port-1] == 1 ? "Suspended (PwrMgr)" : 
+									(portState[port-1] == 2) ? "Suspended (Driver)" :
+									(portState[port-1] == 3) ? "ON" :
+									(portState[port-1] == 5) ? "No connection" :
+									"Unknown" )
+								   ]];
+		if( [stateString length] > 0 )
+		{
+			OutlineViewNode *aNode  =  [[OutlineViewNode alloc] initWithName:@"PortPowerState" value:stateString];
+			[aPortNode addChild:aNode ];
+			[aNode release];
+		}
+		[stateString release];
 		[aPortNode release];
 	}
 	

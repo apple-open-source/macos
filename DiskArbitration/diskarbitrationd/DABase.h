@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,8 @@ extern "C" {
 #define ___kCFUUIDNull CFUUIDGetConstantUUIDWithBytes( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
 
 #define ___ATTR_INVISIBLE 0x4000
+
+#define ___PREFS_DEFAULT_DIR "/Library/Preferences/SystemConfiguration"
 
 typedef uint16_t ___attr_t;
 

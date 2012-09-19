@@ -92,7 +92,7 @@ enum {
 	errSecCSNoMatches =					-67027,	/* no matches for search or update operation */
 	errSecCSFileHardQuarantined =		-67026,	/* File created by an AppSandbox, exec/open not allowed */
 	errSecCSOutdated =					-67025,	/* presented data is out of date */
-	errSecCSDbCorrupt =					-67024,	/* a system database of file is corrupt */
+	errSecCSDbCorrupt =					-67024,	/* a system database or file is corrupt */
 };
 
 

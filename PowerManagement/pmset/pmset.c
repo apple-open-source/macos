@@ -99,6 +99,8 @@
 #define ARG_HIBERNATEFILE      "hibernatefile"
 #define ARG_HIBERNATEFREERATIO "hibernatefreeratio"
 #define ARG_HIBERNATEFREETIME  "hibernatefreetime"
+#define ARG_AUTOPOWEROFF       "autopoweroff"
+#define ARG_AUTOPOWEROFFDELAY  "autopoweroffdelay"
 
 #define ARG_RING            "ring"
 #define ARG_AUTORESTART     "autorestart"
@@ -246,8 +248,9 @@ PMFeature all_features[] =
     { kIOPMDarkWakeBackgroundTaskKey, ARG_DARKWAKES },
     { kIOPMTTYSPreventSleepKey,     ARG_TTYKEEPAWAKE },
     { kIOHibernateModeKey,          ARG_HIBERNATEMODE },
-    { kIOHibernateFileKey,          ARG_HIBERNATEFILE }
-     
+    { kIOHibernateFileKey,          ARG_HIBERNATEFILE },
+    { kIOPMAutoPowerOffEnabledKey,  ARG_AUTOPOWEROFF },
+    { kIOPMAutoPowerOffDelayKey,    ARG_AUTOPOWEROFFDELAY }     
 };
 
 #define kNUM_PM_FEATURES    (sizeof(all_features)/sizeof(PMFeature))
@@ -3103,18 +3106,20 @@ static void _snprintSystemPowerStateDescription(char *sysBuf, int sysBufLen, uin
     char *on_sleep_dark = "";
     if (0 == caps) {
         on_sleep_dark = "*To Sleep*";
-    } else if (caps & kIOPMSystemPowerStateCapabilityDisk && !(caps &kIOPMSystemPowerStateCapabilityVideo)) {
+    } else if (caps & kIOPMCapabilityDisk && !(caps &kIOPMCapabilityVideo)) {
         on_sleep_dark = "*To Dark*";
-    } else if (caps & kIOPMSystemPowerStateCapabilityCPU) {
+    } else if (caps & kIOPMCapabilityCPU) {
         on_sleep_dark = "*Waking*";
     }
     
-    snprintf(sysBuf, sysBufLen, "Capabilities: %s%s%s%s%s%s",
-        (caps & kIOPMSystemPowerStateCapabilityCPU) ? "cpu ":"<none> ",
-        (caps & kIOPMSystemPowerStateCapabilityDisk) ? "disk ":"",
-        (caps & kIOPMSystemPowerStateCapabilityNetwork) ? "net ":"",
-        (caps & kIOPMSystemPowerStateCapabilityAudio) ? "aud ":"",
-        (caps & kIOPMSystemPowerStateCapabilityVideo) ? "vid ":"",
+    snprintf(sysBuf, sysBufLen, "Capabilities: %s%s%s%s%s%s%s%s",
+        (caps & kIOPMCapabilityCPU) ? "cpu ":"<none> ",
+        (caps & kIOPMCapabilityDisk) ? "disk ":"",
+        (caps & kIOPMCapabilityNetwork) ? "net ":"",
+        (caps & kIOPMCapabilityAudio) ? "aud ":"",
+        (caps & kIOPMCapabilityVideo) ? "vid ":"",
+        (caps & kIOPMCapabilityBackgroundTask) ? "BT ":"",
+        (caps & kIOPMCapabilityPushServiceTask) ? "push ":"",
         on_sleep_dark);
 }
 
@@ -3244,7 +3249,7 @@ void myPMConnectionHandler(
         printf("PMConnection: API IOPMConnectionGetSystemCapabilities() returns 0x%04x, should have returned 0x%04x\n", (uint32_t)fromAPI, (uint32_t)capabilities);
     }
     
-    if (!(kIOPMSystemPowerStateCapabilityCPU & capabilities))
+    if (!(kIOPMCapabilityCPU & capabilities))
     {
         printSleepAndWakeReasons(kJustPrintSleep);
     } else {
@@ -3271,10 +3276,10 @@ static void install_listen_PM_connection(void)
     
     ret = IOPMConnectionCreate(
                         CFSTR("SleepWakeLogTool"),
-                        kIOPMSystemPowerStateCapabilityDisk 
-                            | kIOPMSystemPowerStateCapabilityNetwork
-                            | kIOPMSystemPowerStateCapabilityAudio 
-                            | kIOPMSystemPowerStateCapabilityVideo,
+                        kIOPMCapabilityDisk 
+                            | kIOPMCapabilityNetwork
+                            | kIOPMCapabilityAudio 
+                            | kIOPMCapabilityVideo,
                         &myConnection);
 
     if (kIOReturnSuccess != ret) {
@@ -4837,6 +4842,22 @@ static int parseArgs(int argc,
                 }
                 modified |= kModSettings;
                 i+=2;
+            } else if(0 == strncmp(argv[i], ARG_AUTOPOWEROFF, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMAutoPowerOffEnabledKey), 
+                                             apply, false, kNoMultiplier,
+                                             ac, battery, ups))
+                    return kParseBadArgs;
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strncmp(argv[i], ARG_AUTOPOWEROFFDELAY, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMAutoPowerOffDelayKey), 
+                                             apply, false, kNoMultiplier,
+                                             ac, battery, ups))
+                    return kParseBadArgs;
+                modified |= kModSettings;
+                i+=2;        
             } else {
                 // Determine if this is a number.
                 // If so, the user is setting the active power profile

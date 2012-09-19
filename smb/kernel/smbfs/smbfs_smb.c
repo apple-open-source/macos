@@ -3010,6 +3010,14 @@ smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 	 */
 	if (share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) {
 		createopt |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+
+		if (np && (np->n_dosattr & SMB_EFA_OFFLINE)) {
+            /*
+             * File has been moved to offline storage, do not open with a
+             * reparse point in this case.  See <rdar://problem/10836961>.
+             */
+            createopt &= ~NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+		}
 	}
 	mb_put_uint32le(mbp, createopt);
 	mb_put_uint32le(mbp, NTCREATEX_IMPERSONATION_IMPERSONATION); /* (?) */
@@ -5110,6 +5118,16 @@ smbfs_setsec(struct smb_share *share, uint16_t fid, uint32_t selector,
 	ntp->nt_maxpcount = 0;
 	ntp->nt_maxdcount = 0;
 	error = smb_nt_request(ntp);
+    
+	if ((error != 0) && (ntp->nt_status == STATUS_INVALID_SID)) {
+		/*
+		 * If the server returns STATUS_INVALID_SID, then just pretend that
+		 * we set the security info even though it "failed".
+		 * See <rdar://problem/10852453>.
+		 */
+		error = 0;
+    }
+    
 	smb_nt_done(ntp);
 	return (error);
 }

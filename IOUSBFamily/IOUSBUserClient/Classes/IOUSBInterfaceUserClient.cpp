@@ -27,7 +27,6 @@
 //
 //================================================================================================
 //
-
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/IOKitKeys.h>
 
@@ -246,13 +245,11 @@ IOUSBInterfaceUserClientV2::sMethods[kIOUSBLibInterfaceUserClientNumCommands] = 
 		1, 0,
 		0, 0xffffffff
     },
-#ifdef SUPPORTS_SS_USB
     {	 //    kUSBInterfaceUserClientGetPipePropertiesV2
 		(IOExternalMethodAction) &IOUSBInterfaceUserClientV2::_GetPipePropertiesV2,
 		1, 0,
 		8, 0
     },
-#endif
 };
 
 
@@ -1078,7 +1075,6 @@ IOUSBInterfaceUserClientV2::GetBandwidthAvailable(uint64_t *pBandwidth)
 	
     if (fOwner && !isInactive())
     {
-#ifdef SUPPORTS_SS_USB
 		IOUSBDevice *myDevice = fOwner->GetDevice();
 		
 		if (myDevice && myDevice->_expansionData)
@@ -1092,7 +1088,6 @@ IOUSBInterfaceUserClientV2::GetBandwidthAvailable(uint64_t *pBandwidth)
 			}
 		}
 		if (ret != kIOReturnSuccess)
-#endif
 		{
 			// default to the old bahavior
 			bandwidth = fOwner->GetDevice()->GetBus()->GetBandwidthAvailable();
@@ -1142,11 +1137,7 @@ IOUSBInterfaceUserClientV2::GetFrameListTime(uint64_t *microsecondsInFrame)
         //
         speed  = fOwner->GetDevice()->GetSpeed();
 		
-#ifdef SUPPORTS_SS_USB
        if ( (speed == kUSBDeviceSpeedHigh) || (speed == kUSBDeviceSpeedSuper) )
-#else
-       if ( speed == kUSBDeviceSpeedHigh )
-#endif
         {
             *microsecondsInFrame = kUSBHighSpeedMicrosecondsInFrame;
         }
@@ -1913,7 +1904,6 @@ IOUSBInterfaceUserClientV2::GetPipeProperties(UInt8 pipeRef, uint64_t *direction
 }
 
 
-#ifdef SUPPORTS_SS_USB
 IOReturn IOUSBInterfaceUserClientV2::_GetPipePropertiesV2(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
 #pragma unused (reference)
@@ -1995,7 +1985,6 @@ IOUSBInterfaceUserClientV2::GetPipePropertiesV2(UInt8 pipeRef, uint64_t *directi
     DecrementOutstandingIO();
     return ret;
 }
-#endif
 
 IOReturn IOUSBInterfaceUserClientV2::_GetPipeStatus(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
@@ -4822,12 +4811,8 @@ OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2,  9);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 10);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 11);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 12);
-
-#ifdef SUPPORTS_SS_USB
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 13);
-#else
-OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 13);
-#endif
+
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 14);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 15);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 16);

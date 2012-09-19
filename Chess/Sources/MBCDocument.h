@@ -62,7 +62,7 @@
 @property (nonatomic,readonly)  MBCVariant              variant;
 @property (nonatomic,readonly)  MBCPlayers              players;
 @property (nonatomic,retain)    GKTurnBasedMatch *      match;
-@property (nonatomic,readonly)  NSMutableDictionary *   properties;
+@property (nonatomic,assign,readonly)  NSMutableDictionary *   properties;
 @property (nonatomic)           BOOL                    offerDraw;
 @property (nonatomic)           BOOL                    ephemeral;
 @property (nonatomic)           BOOL                    needNewGameSheet;

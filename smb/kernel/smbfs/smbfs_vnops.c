@@ -1573,7 +1573,6 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	vnode_t dvp;
 	struct smbnode *np = NULL;
 	struct smbmount *smp = NULL;
-    SInt32 old_child_refcnt;
 	
 	(void) smbnode_lock(VTOSMB(vp), SMBFS_RECLAIM_LOCK);
 	np = VTOSMB(vp);
@@ -1589,33 +1588,39 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	}
 #endif // SMB_DEBUG
 
+    lck_mtx_lock(&smp->sm_reclaim_renamelock);
 	SET(np->n_flag, NTRANSIT);
 	
-	dvp = (np->n_parent && (np->n_flag & NREFPARENT)) ?
+	dvp = ( (np->n_parent && (np->n_flag & NREFPARENT)) &&
+            ((np->n_parent->n_flag & NTRANSIT) != NTRANSIT)) ?
 			np->n_parent->n_vnode : NULL;
     
     if (dvp != NULL) {
-        /* Remove the child refcnt from the parent we just added above */
-        old_child_refcnt = OSDecrementAtomic(&VTOSMB(dvp)->n_child_refcnt);
-        
-        if (old_child_refcnt == 0) {
-            /* parent's child_refcnt just went negative */
-            if (vnode_getname(vp) != NULL) {
-                SMBERROR("%s: parent refcnt underflow, child: %s\n", __FUNCTION__, vnode_getname(vp));
-            } else {
-                SMBERROR("%s: parent refcnt underflow\n", __FUNCTION__);
-            }
-        }
+        /* Parent exists and is not being reclaimed, remove child's refcount */
+        OSDecrementAtomic(&VTOSMB(dvp)->n_child_refcnt);
+        np->n_parent = NULL;
     }
-    
+	
     /* child_refcnt better be zero */
-    if (np->n_child_refcnt) {
+    if ( (np->n_child_refcnt) && !(vfs_isforce(vnode_mount(vp)))) {
+        /*
+         * Forced unmounts are very brutal, and it's not unusual for a parent
+         * node being reclaimed to have a non-zero child refcount.  So we only
+         * log an error if this is not a forced unmount, which we do care about.
+         */
         if (vnode_getname(vp) != NULL) {
-            SMBERROR("%s: node: %s, n_child_refcnt not zero like it should be: %ld\n", __FUNCTION__, vnode_getname(vp), (long) np->n_child_refcnt);
+            SMBERROR("%s: node: %s, n_child_refcnt not zero like it should be: %ld\n",
+                     __FUNCTION__, vnode_getname(vp), (long) np->n_child_refcnt);
         } else {
-            SMBERROR("%s: n_child_refcnt not zero like it should be: %ld\n", __FUNCTION__, (long) np->n_child_refcnt);
+            SMBERROR("%s: n_child_refcnt not zero like it should be: %ld\n",
+                     __FUNCTION__, (long) np->n_child_refcnt);
         }
     }
+	if (np->n_child_refcnt) {
+		smbfs_ClearChildren(smp, np);
+	}
+   
+    lck_mtx_unlock(&smp->sm_reclaim_renamelock);
 
 	smb_vhashrem(np);
 
@@ -1648,9 +1653,11 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	SMB_FREE(np->n_name, M_SMBNODENAME);
 	SMB_FREE(np->n_sname, M_SMBNODENAME);
 	
-	smbnode_unlock(np);
-
+	/* Clear the private data pointer *before* unlocking the node, so we don't
+	 * race with another thread doing a 'np = VTOSMB(vp)'.
+	 */
 	vnode_clearfsnode(vp);
+	smbnode_unlock(np);
 
 	CLR(np->n_flag, (NALLOC|NTRANSIT));
 	if (ISSET(np->n_flag, NWALLOC) || ISSET(np->n_flag, NWTRANSIT)) {
@@ -3510,7 +3517,7 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 	 * to lock in parent child order if we can. If they are not the parent of 
 	 * each other then lock in address order.
 	 */
-	lck_mtx_lock(&smp->sm_renamelock);
+	lck_mtx_lock(&smp->sm_reclaim_renamelock);
 	if (fdvp == tdvp)
 		lock_order[lock_cnt++] = VTOSMB(fdvp);
 	else if (VTOSMB(fdvp)->n_parent && (VTOSMB(fdvp)->n_parent == VTOSMB(tdvp))) {
@@ -3549,7 +3556,7 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 	/* Make sure there are now duplicates, this would be a design flaw */
 	DBG_LOCKLIST_ASSERT(lock_cnt, lock_order);
 
-	lck_mtx_unlock(&smp->sm_renamelock);
+	lck_mtx_unlock(&smp->sm_reclaim_renamelock);
 		
 	for (ii=0; ii<lock_cnt; ii++) {
 		if (error)
@@ -6489,7 +6496,13 @@ smbfs_vnop_access(struct vnop_access_args *ap)
 	/* KAUTH_VNODE_EXECUTE for files and KAUTH_VNODE_SEARCH for directories */
 	if (action & KAUTH_VNODE_EXECUTE) {
 		if (vnode_isdir(vp) && 
-			((maxAccessRights & SMB2_FILE_TRAVERSE) != SMB2_FILE_TRAVERSE)) {
+			((maxAccessRights & SMB2_FILE_TRAVERSE) != SMB2_FILE_TRAVERSE) &&
+			((maxAccessRights & SMB2_FILE_LIST_DIRECTORY) != SMB2_FILE_LIST_DIRECTORY)) {
+			/*
+			 * See <rdar://problem/11151288> for more details, we use to require
+			 * SMB2_FILE_TRAVERSE for granting directory search access, but now
+			 * we also accept SMB2_FILE_LIST_DIRECTORY as well.
+			 */
 			SMBDEBUG("%s action = 0x%x KAUTH_VNODE_SEARCH denied\n", VTOSMB(vp)->n_name, action);
 			error = EACCES;
 			goto done;

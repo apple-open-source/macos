@@ -56,6 +56,7 @@ protected:
 	Key mKey;
 	const CssmData *mInitVector;
 	CSSM_PADDING mPadding;
+    RecursiveMutex mActivateMutex;
 };
 
 

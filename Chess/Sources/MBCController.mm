@@ -142,6 +142,7 @@
     MBCDocument * doc = [[MBCDocument alloc] initForNewGameSheet:nil];
     [doc makeWindowControllers];
     [doc showWindows];
+    [doc autorelease];
 }
 
 - (BOOL) hideDebugMenu
@@ -327,6 +328,7 @@
     MBCDocument * doc = [[MBCDocument alloc] initForNewGameSheet:playersToInvite];
     [doc makeWindowControllers];
     [doc showWindows];
+    [doc autorelease];
 }
 
 - (void)handleTurnEventForMatch:(GKTurnBasedMatch *)match

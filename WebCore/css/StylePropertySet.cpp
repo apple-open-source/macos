@@ -23,6 +23,7 @@
 #include "StylePropertySet.h"
 
 #include "CSSParser.h"
+#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
@@ -837,6 +838,16 @@ void StylePropertySet::addSubresourceStyleURLs(ListHashSet<KURL>& urls, StyleShe
     size_t size = m_properties.size();
     for (size_t i = 0; i < size; ++i)
         m_properties[i].value()->addSubresourceStyleURLs(urls, contextStyleSheet);
+}
+
+bool StylePropertySet::hasFailedOrCanceledSubresources() const
+{
+    unsigned size = propertyCount();
+    for (unsigned i = 0; i < size; ++i) {
+        if (propertyAt(i).value()->hasFailedOrCanceledSubresources())
+            return true;
+    }
+    return false;
 }
 
 // This is the list of properties we want to copy in the copyBlockProperties() function.

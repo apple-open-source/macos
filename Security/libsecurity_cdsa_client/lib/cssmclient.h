@@ -100,6 +100,7 @@ public:
 
 protected:
 	bool mActive;					// loaded, attached, etc.
+    RecursiveMutex mActivateMutex;
 	mutable Allocator *mAllocator; // allocator hierarchy (NULL => TBD)
 	
 	template <class Obj> Obj parent() const

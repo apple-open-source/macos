@@ -1912,6 +1912,7 @@ bool IONetworkInterface::requestTerminate(
     IOService *     provider,
     IOOptionBits    options )
 {
+#if EVALUATE_FOR_LATER_REMOVAL
     // Early indication that provider started termination
     if (provider == _driver)
     {
@@ -1922,6 +1923,7 @@ bool IONetworkInterface::requestTerminate(
             getName(), provider->getName());
         haltOutputThread( kTxThreadStateDetach );
     }
+#endif
 
     return super::requestTerminate(provider, options);
 }
@@ -2301,20 +2303,53 @@ errno_t IONetworkInterface::if_output_pre_enqueue( ifnet_t ifp, mbuf_t packet )
     return ret;
 }
 
+int IONetworkInterface::if_start_precheck( ifnet_t ifp )
+{
+    int halted = 0;
+
+    if (__builtin_expect((_txThreadState != 0), 0))
+    {
+        IOLockLock(_privateLock);
+        if (_txThreadState & kTxThreadStateInit)
+        {
+            // The initial if_start call
+            assert(_txStartThread == 0);
+            _txStartThread = current_thread();
+            _txThreadState &= ~kTxThreadStateInit;
+        }
+        if (_txThreadState & (kTxThreadStateStop | kTxThreadStateDetach))
+        {
+            // Disable request or interface detached from DLIL
+            _txThreadState &= ~kTxThreadStateStop;
+            _txThreadState |=  kTxThreadStateHalted;
+            thread_wakeup(&_txThreadState);
+        }
+        if (_txThreadState & kTxThreadStateHalted)
+        {
+            halted = true;
+        }
+        IOLockUnlock(_privateLock);
+
+        if (halted)
+        {
+            // Thread will be halted before we drop our open/retain
+            // on the controller.
+            if (_txThreadState & kTxThreadStatePurge)
+                ifnet_purge(ifp);
+        }
+    }
+    
+    return halted;
+}
+
 void IONetworkInterface::if_start( ifnet_t ifp )
 {
     IONetworkInterface *    me = IFNET_TO_THIS(ifp);
     IONetworkController *   driver;
 
     assert(ifp == me->_backingIfnet);
-
-    // Thread will be halted before we drop our open/retain on the controller.
-    if (me->_txThreadState & kTxThreadStateHalted)
-    {
-        if (me->_txThreadState & kTxThreadStatePurge)
-            ifnet_purge(ifp);
+    if (me->if_start_precheck(ifp))
         return;
-    }
 
     driver = me->_driver;
     assert(driver);
@@ -2335,14 +2370,8 @@ void IONetworkInterface::if_start_gated( ifnet_t ifp )
     IONetworkController *   driver;
 
     assert(ifp == me->_backingIfnet);
-
-    // Queue will be halted before we drop our open/retain on the controller.
-    if (me->_txThreadState & kTxThreadStateHalted)
-    {
-        if (me->_txThreadState & kTxThreadStatePurge)
-            ifnet_purge(ifp);
+    if (me->if_start_precheck(ifp))
         return;
-    }
 
     driver = me->_driver;
     assert(driver);
@@ -2382,36 +2411,6 @@ void IONetworkInterface::drainOutputQueue(
 
     while (true)
     {
-        // must respond to queue state transitions before exiting the loop
-        if (__builtin_expect((_txThreadState != 0), 0))
-        {
-            bool halted = false;
-
-            IOLockLock(_privateLock);
-            if (_txThreadState & kTxThreadStateInit)
-            {
-                // The initial if_start call
-                assert(_txStartThread == 0);
-                _txStartThread = current_thread();
-                _txThreadState &= ~kTxThreadStateInit;
-            }
-            if (_txThreadState & (kTxThreadStateStop | kTxThreadStateDetach))
-            {
-                // Disable request or interface detached from DLIL
-                _txThreadState &= ~kTxThreadStateStop;
-                _txThreadState |=  kTxThreadStateHalted;
-                thread_wakeup(&_txThreadState);
-            }
-            if (_txThreadState & kTxThreadStateHalted)
-            {
-                halted = true;
-            }
-            IOLockUnlock(_privateLock);
-
-            if (halted)
-                break;
-        }
-
         // check for queue empty
         if (ifnet_get_sndq_len(ifp, &count) || !count)
             break;

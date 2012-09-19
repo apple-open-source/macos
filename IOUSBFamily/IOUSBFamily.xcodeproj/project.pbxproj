@@ -196,7 +196,6 @@
 		3E99F11B152B7DA700F97A0C /* usbtracer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 301DB0930EF8920B009BF777 /* usbtracer */; };
 		3E9EABF90F545CE000522032 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E9EABF80F545CE000522032 /* libutil.dylib */; };
 		3EA78B2615504B7F003BD04D /* USB Prober.app in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E99F0D6152B6A1D00F97A0C /* USB Prober.app */; };
-		3EA78B2815504DD8003BD04D /* KLog.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8B180B5D42870029974F /* KLog.kext */; };
 		3EAF89BE0B5D42860029974F /* IOUSBRootHubDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA3DFFBA18947F000001 /* IOUSBRootHubDevice.h */; settings = {ATTRIBUTES = (); }; };
 		3EAF89BF0B5D42860029974F /* IOUSBBus.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA4FFFBA190D7F000001 /* IOUSBBus.h */; settings = {ATTRIBUTES = (); }; };
 		3EAF89C00B5D42860029974F /* IOUSBController.h in Headers */ = {isa = PBXBuildFile; fileRef = 0179BA50FFBA190D7F000001 /* IOUSBController.h */; settings = {ATTRIBUTES = (); }; };
@@ -358,6 +357,7 @@
 		3EC47B77140D978100A30455 /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
 		3EC47B78140D978100A30455 /* IOUSBPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EC47B73140D96FB00A30455 /* IOUSBPriv.h */; };
 		3EC6B5FD0D9221310096A601 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3EC6B5FB0D9221310096A601 /* Localizable.strings */; };
+		3ED21AC115BDFBE7001910A5 /* KLog.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8B180B5D42870029974F /* KLog.kext */; };
 		3EEFE80A14D7A2ED007E8A42 /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
 		3EF4FF9D0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */; };
 		3EFE2F1B0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */; };
@@ -535,15 +535,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		3E99F0D0152B6A1D00F97A0C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3E99F10D152B709300F97A0C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -574,16 +565,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				3EA78B2615504B7F003BD04D /* USB Prober.app in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		3EA78B2715504DBA003BD04D /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "/AppleInternal/Applications/USB Prober.app/Contents/Resources";
-			dstSubfolderSpec = 0;
-			files = (
-				3EA78B2815504DD8003BD04D /* KLog.kext in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -658,6 +639,16 @@
 			files = (
 				3EC47B77140D978100A30455 /* USBTracepoints.h in CopyFiles */,
 				3EC47B78140D978100A30455 /* IOUSBPriv.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		3ED21AC015BDFBB2001910A5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "/AppleInternal/Applications/USB Prober.app/Contents/Resources";
+			dstSubfolderSpec = 0;
+			files = (
+				3ED21AC115BDFBE7001910A5 /* KLog.kext in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -797,20 +788,20 @@
 		3EC47B63140D5D4800A30455 /* ExtensionSelector.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = ExtensionSelector.m; path = USBProberV2/ExtensionSelector.m; sourceTree = "<group>"; };
 		3EC47B73140D96FB00A30455 /* IOUSBPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBPriv.h; path = IOUSBFamily/Headers/IOUSBPriv.h; sourceTree = "<group>"; };
 		3EC6B5FC0D9221310096A601 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = AppleUSBMergeNub/Strings/English.lproj/Localizable.strings; sourceTree = "<group>"; };
-		3ECD84DD04F3CB07003312CD /* BusProbeClass.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BusProbeClass.h; path = USBProberV2/BusProbeClass.h; sourceTree = "<group>"; };
-		3ECD84DE04F3CB07003312CD /* BusProbeClass.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = BusProbeClass.m; path = USBProberV2/BusProbeClass.m; sourceTree = "<group>"; };
-		3ECD84DF04F3CB07003312CD /* BusProbeController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BusProbeController.h; path = USBProberV2/BusProbeController.h; sourceTree = "<group>"; };
-		3ECD84E004F3CB07003312CD /* BusProbeController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = BusProbeController.m; path = USBProberV2/BusProbeController.m; sourceTree = "<group>"; };
-		3ECD84E104F3CB07003312CD /* BusProbeDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BusProbeDevice.h; path = USBProberV2/BusProbeDevice.h; sourceTree = "<group>"; };
-		3ECD84E204F3CB07003312CD /* BusProbeDevice.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = BusProbeDevice.m; path = USBProberV2/BusProbeDevice.m; sourceTree = "<group>"; };
-		3ECD84E304F3CB07003312CD /* BusProber.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BusProber.h; path = USBProberV2/BusProber.h; sourceTree = "<group>"; };
+		3ECD84DD04F3CB07003312CD /* BusProbeClass.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = BusProbeClass.h; path = USBProberV2/BusProbeClass.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		3ECD84DE04F3CB07003312CD /* BusProbeClass.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = BusProbeClass.m; path = USBProberV2/BusProbeClass.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		3ECD84DF04F3CB07003312CD /* BusProbeController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = BusProbeController.h; path = USBProberV2/BusProbeController.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		3ECD84E004F3CB07003312CD /* BusProbeController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = BusProbeController.m; path = USBProberV2/BusProbeController.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		3ECD84E104F3CB07003312CD /* BusProbeDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = BusProbeDevice.h; path = USBProberV2/BusProbeDevice.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		3ECD84E204F3CB07003312CD /* BusProbeDevice.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = BusProbeDevice.m; path = USBProberV2/BusProbeDevice.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		3ECD84E304F3CB07003312CD /* BusProber.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = BusProber.h; path = USBProberV2/BusProber.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		3ECD84E404F3CB07003312CD /* BusProber.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = BusProber.m; path = USBProberV2/BusProber.m; sourceTree = "<group>"; };
 		3ECD84E504F3CB07003312CD /* BusProberSharedFunctions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BusProberSharedFunctions.h; path = USBProberV2/BusProberSharedFunctions.h; sourceTree = "<group>"; };
 		3ECD84E604F3CB07003312CD /* BusProberSharedFunctions.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = BusProberSharedFunctions.m; path = USBProberV2/BusProberSharedFunctions.m; sourceTree = "<group>"; };
-		3ECD84E804F3CB07003312CD /* DecodeAudioInterfaceDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DecodeAudioInterfaceDescriptor.h; path = USBProberV2/DecodeAudioInterfaceDescriptor.h; sourceTree = "<group>"; };
-		3ECD84E904F3CB07003312CD /* DecodeAudioInterfaceDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DecodeAudioInterfaceDescriptor.m; path = USBProberV2/DecodeAudioInterfaceDescriptor.m; sourceTree = "<group>"; };
-		3ECD84EA04F3CB07003312CD /* DecodeCommClassDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DecodeCommClassDescriptor.h; path = USBProberV2/DecodeCommClassDescriptor.h; sourceTree = "<group>"; };
-		3ECD84EB04F3CB07003312CD /* DecodeCommClassDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DecodeCommClassDescriptor.m; path = USBProberV2/DecodeCommClassDescriptor.m; sourceTree = "<group>"; };
+		3ECD84E804F3CB07003312CD /* DecodeAudioInterfaceDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = DecodeAudioInterfaceDescriptor.h; path = USBProberV2/DecodeAudioInterfaceDescriptor.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		3ECD84E904F3CB07003312CD /* DecodeAudioInterfaceDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = DecodeAudioInterfaceDescriptor.m; path = USBProberV2/DecodeAudioInterfaceDescriptor.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		3ECD84EA04F3CB07003312CD /* DecodeCommClassDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = DecodeCommClassDescriptor.h; path = USBProberV2/DecodeCommClassDescriptor.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		3ECD84EB04F3CB07003312CD /* DecodeCommClassDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = DecodeCommClassDescriptor.m; path = USBProberV2/DecodeCommClassDescriptor.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		3ECD84EC04F3CB07003312CD /* DecodeConfigurationDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DecodeConfigurationDescriptor.h; path = USBProberV2/DecodeConfigurationDescriptor.h; sourceTree = "<group>"; };
 		3ECD84ED04F3CB07003312CD /* DecodeConfigurationDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DecodeConfigurationDescriptor.m; path = USBProberV2/DecodeConfigurationDescriptor.m; sourceTree = "<group>"; };
 		3ECD84EE04F3CB07003312CD /* DecodeDeviceDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DecodeDeviceDescriptor.h; path = USBProberV2/DecodeDeviceDescriptor.h; sourceTree = "<group>"; };
@@ -890,7 +881,7 @@
 		DD3B063A0918763E0081AB07 /* AppleUHCItdMemoryBlock.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = AppleUHCItdMemoryBlock.h; sourceTree = "<group>"; };
 		DD3B063B0918763E0081AB07 /* AppleUHCItdMemoryBlock.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; path = AppleUHCItdMemoryBlock.cpp; sourceTree = "<group>"; };
 		DD3B063E091876750081AB07 /* AppleUHCIqhMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUHCIqhMemoryBlock.h; sourceTree = "<group>"; };
-		DD3B063F091876750081AB07 /* AppleUHCIqhMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUHCIqhMemoryBlock.cpp; sourceTree = "<group>"; };
+		DD3B063F091876750081AB07 /* AppleUHCIqhMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = AppleUHCIqhMemoryBlock.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		DD730E27092A74760048A48A /* AppleUSBUHCI_Interrupts.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBUHCI_Interrupts.cpp; sourceTree = "<group>"; };
 		DD77A480058696C0006B91B5 /* AppleUSBHSHubUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBHSHubUserClient.h; sourceTree = "<group>"; };
 		DD77A483058697A9006B91B5 /* AppleUSBHSHubUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBHSHubUserClient.cpp; sourceTree = "<group>"; };
@@ -898,7 +889,7 @@
 		DDBEF5050402F87500000108 /* AppleUSBOHCIMemoryBlocks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleUSBOHCIMemoryBlocks.h; path = AppleUSBOHCI/Headers/AppleUSBOHCIMemoryBlocks.h; sourceTree = "<group>"; };
 		DDBEF5070402F88D00000108 /* AppleUSBOHCIMemoryBlocks.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBOHCIMemoryBlocks.cpp; path = AppleUSBOHCI/Classes/AppleUSBOHCIMemoryBlocks.cpp; sourceTree = "<group>"; };
 		DDBF20220BA0A01B007CE86C /* IOUSBControllerV3.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBControllerV3.cpp; path = IOUSBFamily/Classes/IOUSBControllerV3.cpp; sourceTree = "<group>"; };
-		DDEF074C0928F77C00645C8D /* AppleUHCIListElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUHCIListElement.cpp; sourceTree = "<group>"; };
+		DDEF074C0928F77C00645C8D /* AppleUHCIListElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = AppleUHCIListElement.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		DDEF07530928F7A500645C8D /* AppleUHCIListElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleUHCIListElement.h; sourceTree = "<group>"; };
 		F5008DF602A6832401000164 /* Deva Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Deva Example"; sourceTree = "<group>"; };
 		F5008E1002A6833601000164 /* Ezloader Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Ezloader Example"; sourceTree = "<group>"; };
@@ -916,20 +907,20 @@
 		F553A87A016D5E9101573190 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F5A5AFB70210A22101573190 /* AppleUSBOpticalMouse.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBOpticalMouse.cpp; path = AppleUSBOpticalMouse/AppleUSBOpticalMouse.cpp; sourceTree = "<group>"; };
 		F5A5AFB80210A22101573190 /* AppleUSBOpticalMouse.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBOpticalMouse.h; path = AppleUSBOpticalMouse/AppleUSBOpticalMouse.h; sourceTree = "<group>"; };
-		F5BCFC7F04583E7601000109 /* AppleEHCIedMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleEHCIedMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCIedMemoryBlock.h; sourceTree = "<group>"; };
-		F5BCFC8004583E7601000109 /* AppleEHCIitdMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleEHCIitdMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCIitdMemoryBlock.h; sourceTree = "<group>"; };
-		F5BCFC8104583E7601000109 /* AppleEHCIListElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleEHCIListElement.h; path = AppleUSBEHCI/Headers/AppleEHCIListElement.h; sourceTree = "<group>"; };
-		F5BCFC8204583E7601000109 /* AppleEHCIsitdMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleEHCIsitdMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCIsitdMemoryBlock.h; sourceTree = "<group>"; };
-		F5BCFC8304583E7601000109 /* AppleEHCItdMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleEHCItdMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCItdMemoryBlock.h; sourceTree = "<group>"; };
+		F5BCFC7F04583E7601000109 /* AppleEHCIedMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = AppleEHCIedMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCIedMemoryBlock.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		F5BCFC8004583E7601000109 /* AppleEHCIitdMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = AppleEHCIitdMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCIitdMemoryBlock.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		F5BCFC8104583E7601000109 /* AppleEHCIListElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = AppleEHCIListElement.h; path = AppleUSBEHCI/Headers/AppleEHCIListElement.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		F5BCFC8204583E7601000109 /* AppleEHCIsitdMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = AppleEHCIsitdMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCIsitdMemoryBlock.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		F5BCFC8304583E7601000109 /* AppleEHCItdMemoryBlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = AppleEHCItdMemoryBlock.h; path = AppleUSBEHCI/Headers/AppleEHCItdMemoryBlock.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		F5BCFC8404583E7601000109 /* AppleUSBEHCI.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBEHCI.h; path = AppleUSBEHCI/Headers/AppleUSBEHCI.h; sourceTree = "<group>"; };
 		F5BCFC8504583E7601000109 /* AppleUSBEHCIHubInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBEHCIHubInfo.h; path = AppleUSBEHCI/Headers/AppleUSBEHCIHubInfo.h; sourceTree = "<group>"; };
 		F5BCFC8604583E7601000109 /* USBEHCI.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = USBEHCI.h; path = AppleUSBEHCI/Headers/USBEHCI.h; sourceTree = "<group>"; };
 		F5BCFC8704583E7601000109 /* USBEHCIRootHub.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = USBEHCIRootHub.h; path = AppleUSBEHCI/Headers/USBEHCIRootHub.h; sourceTree = "<group>"; };
 		F5BCFC9104583E9E01000109 /* AppleEHCIedMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleEHCIedMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCIedMemoryBlock.cpp; sourceTree = "<group>"; };
-		F5BCFC9204583E9E01000109 /* AppleEHCIitdMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleEHCIitdMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCIitdMemoryBlock.cpp; sourceTree = "<group>"; };
+		F5BCFC9204583E9E01000109 /* AppleEHCIitdMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = AppleEHCIitdMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCIitdMemoryBlock.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		F5BCFC9304583E9E01000109 /* AppleEHCIListElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleEHCIListElement.cpp; path = AppleUSBEHCI/Classes/AppleEHCIListElement.cpp; sourceTree = "<group>"; };
-		F5BCFC9404583E9E01000109 /* AppleEHCIsitdMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleEHCIsitdMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCIsitdMemoryBlock.cpp; sourceTree = "<group>"; };
-		F5BCFC9504583E9E01000109 /* AppleEHCItdMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleEHCItdMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCItdMemoryBlock.cpp; sourceTree = "<group>"; };
+		F5BCFC9404583E9E01000109 /* AppleEHCIsitdMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = AppleEHCIsitdMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCIsitdMemoryBlock.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		F5BCFC9504583E9E01000109 /* AppleEHCItdMemoryBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = AppleEHCItdMemoryBlock.cpp; path = AppleUSBEHCI/Classes/AppleEHCItdMemoryBlock.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		F5BCFC9604583E9E01000109 /* AppleEHCITestMode.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleEHCITestMode.cpp; path = AppleUSBEHCI/Classes/AppleEHCITestMode.cpp; sourceTree = "<group>"; };
 		F5BCFC9704583E9E01000109 /* AppleUSBEHCI_Interrupts.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_Interrupts.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_Interrupts.cpp; sourceTree = "<group>"; };
 		F5BCFC9804583E9E01000109 /* AppleUSBEHCI_PwrMgmt.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_PwrMgmt.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_PwrMgmt.cpp; sourceTree = "<group>"; };
@@ -2150,7 +2141,6 @@
 				3E99F09D152B6A1D00F97A0C /* Resources */,
 				3E99F0A8152B6A1D00F97A0C /* Sources */,
 				3E99F0CB152B6A1D00F97A0C /* Frameworks */,
-				3E99F0D0152B6A1D00F97A0C /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2172,6 +2162,7 @@
 				3EAF89E40B5D42860029974F /* Frameworks */,
 				3EAF89E50B5D42860029974F /* Rez */,
 				3EAF89E60B5D42860029974F /* CopyFiles */,
+				3ED21AC015BDFBB2001910A5 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2203,7 +2194,6 @@
 				3EAF8A0B0B5D42860029974F /* CopyFiles */,
 				3EC47B76140D975300A30455 /* CopyFiles */,
 				3EEFE80814D7A2CD007E8A42 /* CopyFiles */,
-				3ECBA91E14607885008E0B7D /* Sanitize Headers */,
 			);
 			buildRules = (
 			);
@@ -2432,7 +2422,6 @@
 				3EAF8B0F0B5D42870029974F /* Resources */,
 				3EAF8B110B5D42870029974F /* Frameworks */,
 				3EAF8B120B5D42870029974F /* ShellScript */,
-				3EA78B2715504DBA003BD04D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2752,20 +2741,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		3ECBA91E14607885008E0B7D /* Sanitize Headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Sanitize Headers";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "echo \"Sanitizing Headers\" \n\n\nif [ ${MAC_OS_X_VERSION_MAJOR} -eq \"1070\" ]; then\n    echo \"Running on 10.7\"\n    unifdefOption=\"-DSUPPORTS_SS_USB=1\"\nelse\n    echo \"Running2 on ${MAC_OS_X_VERSION_MAJOR}\"\n# uncomment the following to remove SS support from not 10.7 build trains (and comment the following line)\n#    unifdefOption=\"-USUPPORTS_SS_USB\"\n    unifdefOption=\"-DSUPPORTS_SS_USB=1\"\nfi\n\ntemp_file=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/usb/unifdef-out-$$.h\"\n\nfor i in ${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/usb/*\ndo\n    echo $i\n    unifdef $unifdefOption \"$i\" > $temp_file\n    mv $temp_file \"$i\"\ndone\n\ntemp_file=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/usb/unifdef-out-$$.h\"\n                                                             \nfor i in ${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/usb/*\ndo\n    echo $i\n    unifdef $unifdefOption \"$i\" > $temp_file\n    mv $temp_file \"$i\"\ndone\n\n\ntemp_file=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/usb/unifdef-out-$$.h\"\n\nfor i in ${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/usb/*\ndo\n    echo $i\n    unifdef $unifdefOption \"$i\" > $temp_file\n    mv $temp_file \"$i\"\ndone\n                                                                                                  \ntemp_file=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb/unifdef-out-$$.h\"\n                                                                                                  \nfor i in ${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb/*\ndo\n\techo $i\n\tunifdef $unifdefOption \"$i\" > $temp_file\n\tmv $temp_file \"$i\"\ndone\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

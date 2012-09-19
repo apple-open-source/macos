@@ -1,3 +1,117 @@
+2012-08-14  Lucas Forschler  <lforschler@apple.com>
+
+    Merge r124272.
+
+    2012-07-31  Sam Weinig  <sam@webkit.org>
+
+            Fix the Windows build.
+
+            * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2012-08-14  Lucas Forschler  <lforschler@apple.com>
+
+    Merge r124268.
+
+    2012-07-31  Sam Weinig  <sam@webkit.org>
+
+            Stop masking 8 bits off of the visited link hash. We need all the bits!
+            https://bugs.webkit.org/show_bug.cgi?id=92799
+
+            Reviewed by Anders Carlsson.
+
+            * runtime/Identifier.cpp:
+            (JSC::IdentifierCStringTranslator::hash):
+            (JSC::IdentifierLCharFromUCharTranslator::hash):
+            * runtime/Identifier.h:
+            (JSC::IdentifierCharBufferTranslator::hash):
+            Update for new function names.
+
+2012-08-10  Lucas Forschler  <lforschler@apple.com>
+    
+    Windows build fix after merging radar 12050720.
+    Add missing symbols.
+    
+    * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2012-08-10  Lucas Forschler  <lforschler@apple.com>
+
+    Windows build fix after merging radar 12050720.
+    Part 2 - removing symbols.
+
+    * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2012-08-10  Lucas Forschler  <lforschler@apple.com>
+
+    Windows Build fix after merging radar 12050720.
+        
+    * runtime/JSLock.cpp:
+    (JSC::JSLock::DropAllLocks::DropAllLocks):
+
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge patch for <rdar://problem/11781190>
+    
+    2012-07-24  Filip Pizlo  <fpizlo@apple.com>
+
+        DFG method checks should keep the receiver of the property access alive until all checks complete.
+        <rdar://problem/11781190>
+    
+        Reviewed by Gavin Barraclough.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+
+2012-08-02  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 121307
+
+    2012-06-26  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG PutByValAlias is too aggressive
+            https://bugs.webkit.org/show_bug.cgi?id=90026
+            <rdar://problem/11751830>
+
+            Reviewed by Gavin Barraclough.
+
+            For CSE on normal arrays, we now treat PutByVal as impure. This does not appear to affect
+            performance by much.
+
+            For CSE on typed arrays, we fix PutByValAlias by making GetByVal speculate that the access
+            is within bounds. This also has the effect of making our out-of-bounds handling consistent
+            with WebCore.
+
+            * dfg/DFGCSEPhase.cpp:
+            (JSC::DFG::CSEPhase::performNodeCSE):
+            * dfg/DFGGraph.h:
+            (JSC::DFG::Graph::byValIsPure):
+            (JSC::DFG::Graph::clobbersWorld):
+            * dfg/DFGNodeType.h:
+            (DFG):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+            (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 121391
+
+    2012-06-27  Filip Pizlo  <fpizlo@apple.com>
+
+            Javascript SHA-512 gives wrong hash on second and subsequent runs unless Web Inspector Javascript Debugging is on
+            https://bugs.webkit.org/show_bug.cgi?id=90053
+            <rdar://problem/11764613>
+
+            Reviewed by Mark Hahnenberg.
+
+            The problem is that the code was assuming that the recovery should be Undefined if the source of
+            the SetLocal was !shouldGenerate(). But that's wrong, since the DFG optimizer may skip around a
+            UInt32ToNumber node (hence making it !shouldGenerate()) and keep the source of that node alive.
+            In that case we should base the recovery on the source of the UInt32ToNumber. The logic for this
+            was already in place but the fast check for !shouldGenerate() broke it.
+
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::computeValueRecoveryFor):
+
 2012-06-06  Mark Rowe  <mrowe@apple.com>
 
         Merge r118995.
@@ -69070,3 +69184,5 @@
         global object's register storage, and initializing new registers.
 
 == Rolled over to ChangeLog-2011-02-16 ==
+.
+.

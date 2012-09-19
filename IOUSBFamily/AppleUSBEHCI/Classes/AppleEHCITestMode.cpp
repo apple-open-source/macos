@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -22,33 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "AppleUSBEHCI.h"
 #include "USBEHCI.h"
 
 
-#ifdef SUPPORTS_SS_USB
-void
-AppleUSBEHCI::SwitchMuxes(UInt8	numPorts, UInt32 type)
-{
-	int		i;
-
-	if( _xhciController )
-	{
-		USBLog(1, "AppleUSBEHCI[%p]::SwitchMuxes found AppleUSBXHCI %p sending %p numPorts %d", this, _xhciController, (void*)type, numPorts);
-		
-		for (i=0; i < numPorts; i++)
-		{
-			_xhciController->message(type, _device, (void*)i);
-		}
-	}
-	else
-	{
-		USBLog(1, "AppleUSBEHCI[%p]::SwitchMuxes could not discover AppleUSBXHCI dropping %p message", this, (void*)type);
-	}
-}
-#endif
 
 IOReturn
 AppleUSBEHCI::EnterTestMode()
@@ -63,13 +42,6 @@ AppleUSBEHCI::EnterTestMode()
     GetNumberOfPorts(&numPorts);
 	
     // see section 4.14 of the EHCI spec
-	
-#ifdef SUPPORTS_SS_USB
-	if ( _xhciController )
-	{
-		SwitchMuxes(numPorts, kIOUSBMessageMuxFromXHCIToEHCI);
-	}
-#endif
 	
     // disable the periodic and async schedules
     usbcmd = USBToHostLong(_pEHCIRegisters->USBCMD);
@@ -175,13 +147,6 @@ AppleUSBEHCI::LeaveTestMode()
     if (!(usbsts & kEHCIHCHaltedBit))
 	return kIOReturnInternalError;
     
-#ifdef SUPPORTS_SS_USB
-	if ( _xhciController )
-	{
-		SwitchMuxes(_rootHubNumPorts, kIOUSBMessageMuxFromEHCIToXHCI);
-	}
-#endif
-	
     // place controller in reset
     usbcmd |= kEHCICMDHCReset;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);

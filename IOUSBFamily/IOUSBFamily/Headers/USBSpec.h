@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,10 +103,8 @@ enum {
     kUSBRqGetInterface  = 10,
     kUSBRqSetInterface  = 11,
     kUSBRqSyncFrame     = 12,
-#ifdef SUPPORTS_SS_USB
 	kUSBSetSel			= 48,
 	kUSBSetIsochDelay	= 49
-#endif
 };
 
     /*!
@@ -126,12 +124,10 @@ enum {
     kUSBOnTheGoDesc	    = 9,
     kUSDebugDesc	    = 10,
     kUSBInterfaceAssociationDesc 	= 11,
-#ifdef SUPPORTS_SS_USB
 	kUSBBOSDescriptor				= 15,
 	kUSBDeviceCapability			= 16,
 	kUSBSuperSpeedEndpointCompanion = 48,
     kUSB3HUBDesc             		= 0x2A,
-#endif
     kUSBHIDDesc             		= 0x21,
     kUSBReportDesc          		= 0x22,
     kUSBPhysicalDesc        		= 0x23,
@@ -139,7 +135,6 @@ enum {
 };
 
 	
-#ifdef SUPPORTS_SS_USB
     /*!
 	 @enum Device Capability Types
 	 @discussion Used with decoding the Device Capability descriptor
@@ -150,7 +145,6 @@ enum {
 		kUSBDeviceCapabilitySuperSpeedUSB	= 3,
 		kUSBDeviceCapabilityContainerID		= 4
 };
-#endif
 
     /*!
     @enum Feature Selectors
@@ -160,13 +154,11 @@ enum {
 	kUSBFeatureEndpointStall 		= 0,		// Endpoint
 	kUSBFeatureDeviceRemoteWakeup	= 1,		// Device
 	kUSBFeatureTestMode				= 2,		// Device
-#ifdef SUPPORTS_SS_USB
 	kUSBFeatureFunctionSuspend		= 0,		// Interface
 	kUSBFeatureU1Enable				= 48,		// Device
 	kUSBFeatureU2Enable				= 49,		// Device
 	kUSBFeatureLTMEnable			= 50		// Device
-#endif
-}; 
+};
 
     /*!
     @enum USB Power constants
@@ -180,12 +172,10 @@ enum {
     kUSBAtrSelfPowered  = 0x40,
     kUSBAtrRemoteWakeup = 0x20,
 	kUSB2MaxPowerPerPort = kUSB500mAAvailable * 2,
-#ifdef SUPPORTS_SS_USB
     kUSB150mAAvailable  = 75,
     kUSB900mAAvailable  = 450,
     kUSB150mA           = 75,
 	kUSB3MaxPowerPerPort = kUSB900mAAvailable * 2
-#endif
 };
 
     /*!
@@ -196,9 +186,7 @@ enum {
     kUSBRel10       = 0x0100,
     kUSBRel11       = 0x0110,
     kUSBRel20       = 0x0200,
-#ifdef SUPPORTS_SS_USB
     kUSBRel30       = 0x0300
-#endif
 };
 
 
@@ -378,10 +366,8 @@ enum {
  */
 enum {
 
-#ifdef SUPPORTS_SS_USB
 	// For kUSBHubClass
 	kHubSuperSpeedProtocol			= 3,
-#endif
 	
     // For kUSBHIDInterfaceClass
     //
@@ -407,9 +393,7 @@ enum {
 	kMSCProtocolControlBulkInterrupt	= 0x00,
 	kMSCProtocolControlBulk				= 0x01,
 	kMSCProtocolBulkOnly				= 0x50,
-#ifdef SUPPORTS_SS_USB
 	kMSCProtocolUSBAttachedSCSI			= 0x62
-#endif
 };
 
 
@@ -451,7 +435,6 @@ enum {
     kUSBEndpointbmAttributesUsageTypeShift		= 4
 };
 
-#ifdef SUPPORTS_SS_USB
 	/*!
 	 @enum USB Device Capability Type constants
 	 @discussion Bit definitions and constants for different values of USB Device Capability types
@@ -464,7 +447,6 @@ enum {
 		kUSBSuperSpeedSupportsHS	=	2,		// Value of wSpeedSupported indicating that the device supports high speed
 		kUSBSuperSpeedSupportsSS	=	3,		// Value of wSpeedSupported indicating that the device supports 5 Gbps
 	};
-#endif
 		
 	/*!
 	 @defineblock USB Descriptor and IORegistry constants

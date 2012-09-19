@@ -139,6 +139,10 @@ extern int gL1CacheEnabled;
 
 #define IS_POWER_OF_TWO(v) (!(v & (v - 1)) && v)
 
+#ifndef NOTE_EXIT_REPARENTED
+#define NOTE_EXIT_REPARENTED 0x00080000
+#endif
+
 extern char **environ;
 
 struct waiting_for_removal {
@@ -617,11 +621,6 @@ struct job_s {
 		enable_transactions:1,
 		// The job was sent SIGKILL because it was clean.
 		clean_kill:1,
-		/* The job has a tracing PID (probably a debugger) and exited before the
-		 * tracer did. So we must defer our reap attempt until after the tracer
-		 * has exited. This works around our busted ptrace(3) implementation.
-		 */
-		reap_after_trace:1,
 		// The job has an OtherJobEnabled KeepAlive criterion.
 		nosy:1,
 		// The job exited due to a crash.
@@ -695,7 +694,9 @@ struct job_s {
 		// waiting for UserEventAgent to tell us when it's okay to try spawning
 		// again (i.e. when the executable path appears, when the UID appears,
 		// etc.).
-		waiting4ok:1;
+		waiting4ok:1,
+		// The job was implicitly reaped by the kernel.
+		implicit_reap:1;
 
 	const char label[0];
 };
@@ -719,7 +720,6 @@ static bool job_set_global_on_demand(job_t j, bool val);
 static const char *job_active(job_t j);
 static void job_watch(job_t j);
 static void job_ignore(job_t j);
-static void job_cleanup_after_tracer(job_t j);
 static void job_reap(job_t j);
 static bool job_useless(job_t j);
 static bool job_keepalive(job_t j);
@@ -926,8 +926,16 @@ job_stop(job_t j)
 		case SIGKILL:
 			j->sent_sigkill = true;
 			j->clean_kill = true;
-			error = kevent_mod((uintptr_t)&j->exit_timeout, EVFILT_TIMER, EV_ADD|EV_ONESHOT, NOTE_SECONDS, LAUNCHD_SIGKILL_TIMER, j);
-			(void)job_assumes_zero_p(j, error);
+
+			/* We cannot effectively simulate an exit for jobs during the course
+			 * of a normal run. Even if we pretend that the job exited, we will
+			 * still not have gotten the receive rights associated with the
+			 * job's MachServices back, so we cannot safely respawn it.
+			 */
+			if (j->mgr->shutting_down) {
+				error = kevent_mod((uintptr_t)&j->exit_timeout, EVFILT_TIMER, EV_ADD|EV_ONESHOT, NOTE_SECONDS, LAUNCHD_SIGKILL_TIMER, j);
+				(void)job_assumes_zero_p(j, error);
+			}
 
 			job_log(j, LOG_DEBUG | LOG_CONSOLE, "Sent job SIGKILL.");
 			break;
@@ -3014,7 +3022,6 @@ jobmgr_import2(jobmgr_t jm, launch_data_t pload)
 bool
 jobmgr_label_test(jobmgr_t jm, const char *str)
 {
-	char *endstr = NULL;
 	const char *ptr;
 
 	if (str[0] == '\0') {
@@ -3027,13 +3034,6 @@ jobmgr_label_test(jobmgr_t jm, const char *str)
 			jobmgr_log(jm, LOG_ERR, "ASCII control characters are not allowed in job labels. Index: %td Value: 0x%hhx", ptr - str, *ptr);
 			return false;
 		}
-	}
-
-	strtoll(str, &endstr, 0);
-
-	if (str != endstr) {
-		jobmgr_log(jm, LOG_ERR, "Job labels are not allowed to begin with numbers: %s", str);
-		return false;
 	}
 
 	if ((strncasecmp(str, "com.apple.launchd", strlen("com.apple.launchd")) == 0)
@@ -3268,8 +3268,6 @@ void
 job_reap(job_t j)
 {
 	struct rusage ru;
-	int status;
-
 	bool is_system_bootstrapper = ((j->is_bootstrapper && pid1_magic) && !j->mgr->parentmgr);
 
 	job_log(j, LOG_DEBUG, "Reaping");
@@ -3285,7 +3283,7 @@ job_reap(job_t j)
 	}
 
 	if (j->anonymous) {
-		status = 0;
+		j->last_exit_status = 0;
 		memset(&ru, 0, sizeof(ru));
 	} else {
 		uint64_t rt = runtime_get_nanoseconds_since(j->start_time);
@@ -3304,37 +3302,30 @@ job_reap(job_t j)
 			}
 		}
 
-		/* We have to work around one of two kernel bugs here. ptrace(3) may
-		 * have abducted the child away from us and reparented it to the tracing
-		 * process. If the process then exits, we still get NOTE_EXIT, but we
-		 * cannot reap it because the kernel may not have restored the true
-		 * parent/child relationship in time.
-		 *
-		 * See <rdar://problem/5020256>.
-		 *
-		 * The other bug is if the shutdown monitor has suspended a task and not
-		 * resumed it before exiting. In this case, the kernel will not clean up
-		 * after the shutdown monitor. It will, instead, leave the task
-		 * task suspended and not process any pending signals on the event loop
-		 * for the task.
-		 *
-		 * There are a variety of other kernel bugs that could prevent a process
-		 * from exiting, usually having to do with faulty hardware or talking to
-		 * misbehaving drivers that mark a thread as uninterruptible and
-		 * deadlock/hang before unmarking it as such. So we have to work around
-		 * that too.
-		 *
-		 * See <rdar://problem/9284889&9359725>.
-		 */
 		int r = -1;
-		if (j->workaround9359725) {
-			job_log(j, LOG_NOTICE, "Simulated exit: <rdar://problem/9359725>");
-			status = W_EXITCODE(-1, SIGSEGV);
-			memset(&ru, 0, sizeof(ru));
-		} else if ((r = wait4(j->p, &status, 0, &ru)) == -1) {
-			job_log(j, LOG_NOTICE, "Assuming job exited: <rdar://problem/5020256>: %d: %s", errno, strerror(errno));
-			status = W_EXITCODE(-1, SIGSEGV);
-			memset(&ru, 0, sizeof(ru));
+		if (!j->implicit_reap) {
+			/* If the shutdown monitor has suspended a task and not resumed it
+			 * resumed it before exiting, the kernel will not clean up after the
+			 * shutdown monitor. It will, instead, leave the task suspended and
+			 * not process any pending signals on the event loop for the task.
+			 *
+			 * There are a variety of other kernel bugs that could prevent a
+			 * process from exiting, usually having to do with faulty hardware
+			 * or talking to misbehaving drivers that mark a thread as
+			 * uninterruptible and deadlock/hang before unmarking it as such. So
+			 * we have to work around that too.
+			 *
+			 * See <rdar://problem/9284889&9359725>.
+			 */
+			if (j->workaround9359725) {
+				job_log(j, LOG_NOTICE, "Simulated exit: <rdar://problem/9359725>");
+				j->last_exit_status = W_EXITCODE(-1, SIGSEGV);
+				memset(&ru, 0, sizeof(ru));
+			} else if ((r = wait4(j->p, &j->last_exit_status, 0, &ru)) == -1) {
+				job_log(j, LOG_ERR, "Reap failed. Assuming job exited: %d: %s", errno, strerror(errno));
+				j->last_exit_status = W_EXITCODE(-1, SIGSEGV);
+				memset(&ru, 0, sizeof(ru));
+			}
 		}
 
 		if (launchd_log_perf && r != -1) {
@@ -3393,8 +3384,8 @@ job_reap(job_t j)
 	j->ru.ru_nivcsw += ru.ru_nivcsw;
 	job_log_perf_statistics(j);
 
-	int exit_status = WEXITSTATUS(status);
-	if (WIFEXITED(status) && exit_status != 0) {
+	int exit_status = WEXITSTATUS(j->last_exit_status);
+	if (WIFEXITED(j->last_exit_status) && exit_status != 0) {
 		if (!j->did_exec && _launchd_support_system) {
 			xpc_object_t event = NULL;
 			switch (exit_status) {
@@ -3431,8 +3422,8 @@ job_reap(job_t j)
 		}
 	}
 
-	if (WIFSIGNALED(status)) {
-		int s = WTERMSIG(status);
+	if (WIFSIGNALED(j->last_exit_status)) {
+		int s = WTERMSIG(j->last_exit_status);
 		if ((SIGKILL == s || SIGTERM == s) && !j->stopped) {
 			job_log(j, LOG_NOTICE, "Exited: %s", strsignal(s));
 		} else if (!j->stopped && !j->clean_kill) {			
@@ -3514,8 +3505,6 @@ job_reap(job_t j)
 		LIST_REMOVE(spi, sle);
 		free(spi);
 	}
-
-	j->last_exit_status = status;
 
 	if (j->exit_status_dest) {
 		errno = helper_downcall_wait(j->exit_status_dest, j->last_exit_status);
@@ -3780,27 +3769,6 @@ out:
 }
 
 void
-job_cleanup_after_tracer(job_t j)
-{
-	j->tracing_pid = 0;
-	if (j->reap_after_trace) {
-		job_log(j, LOG_DEBUG | LOG_CONSOLE, "Reaping job now that attached tracer is gone.");
-		struct kevent kev;
-		EV_SET(&kev, j->p, 0, 0, NOTE_EXIT, 0, 0);
-
-		// Fake a kevent to keep our logic consistent.
-		job_callback_proc(j, &kev);
-
-		/* Normally, after getting a EVFILT_PROC event, we do garbage collection
-		 * on the root job manager. To make our fakery complete, we will do garbage
-		 * collection at the beginning of the next run loop cycle (after we're done
-		 * draining the current queue of kevents).
-		 */
-		(void)job_assumes_zero_p(j, kevent_mod((uintptr_t)&root_jobmgr->reboot_flags, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_NSECONDS, 1, root_jobmgr));
-	}
-}
-
-void
 job_callback_proc(job_t j, struct kevent *kev)
 {
 	bool program_changed = false;
@@ -3808,58 +3776,6 @@ job_callback_proc(job_t j, struct kevent *kev)
 
 	job_log(j, LOG_DEBUG, "EVFILT_PROC event for job.");
 	log_kevent_struct(LOG_DEBUG, kev, 0);
-
-	if (fflags & NOTE_EXIT) {
-		if (j->p == (pid_t)kev->ident && !j->anonymous) {
-			/* Note that the third argument to proc_pidinfo() is a magic
-			 * argument for PROC_PIDT_SHORTBSDINFO. Specifically, passing 1
-			 * means "don't fail on a zombie PID".
-			 */
-			struct proc_bsdshortinfo proc;
-			if (job_assumes(j, proc_pidinfo(j->p, PROC_PIDT_SHORTBSDINFO, 1, &proc, PROC_PIDT_SHORTBSDINFO_SIZE) > 0)) {
-				if (!job_assumes(j, (pid_t)proc.pbsi_ppid == getpid())) {
-					/* Someone has attached to the process with ptrace().
-					 * There's a race here.  If we determine that we are not the
-					 * parent process and then fail to attach  a kevent to the 
-					 * parent PID (who is probably using ptrace()), we can take 
-					 * that as an indication that the parent exited between 
-					 * sysctl(3) and kevent_mod(). The reparenting of the PID
-					 * should be atomic to us, so in that case, we reap the job
-					 * as normal.
-					 *
-					 * Otherwise, we wait for the death of the parent tracer and
-					 * then reap, just as we would if a job died while we were
-					 * sampling it at shutdown.
-					 *
-					 * Note that we foolishly assume that in the process *tree*
-					 * a node cannot be its own parent. Apparently, that is not
-					 * correct. If this is the case, we forsake the process to
-					 * its own devices. Let it reap itself.
-					 */
-					if (!job_assumes(j, proc.pbsi_ppid != kev->ident)) {
-						job_log(j, LOG_WARNING, "Job is its own parent and has (somehow) exited. Leaving it to waste away.");
-						return;
-					}
-					if (job_assumes_zero_p(j, kevent_mod(proc.pbsi_ppid, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, j)) != -1) {
-						j->tracing_pid = proc.pbsi_ppid;
-						j->reap_after_trace = true;
-						return;
-					}
-				}
-			}
-		} else if (!j->anonymous) {
-			if (j->tracing_pid == (pid_t)kev->ident) {
-				job_cleanup_after_tracer(j);
-
-				return;
-			} else if (j->tracing_pid && !j->reap_after_trace) {
-				// The job exited before our sample completed.
-				job_log(j, LOG_DEBUG | LOG_CONSOLE, "Job has exited. Will reap after tracing PID %i exits.", j->tracing_pid);
-				j->reap_after_trace = true;
-				return;
-			}
-		}
-	}
 
 	if (fflags & NOTE_EXEC) {
 		program_changed = true;
@@ -3913,6 +3829,13 @@ job_callback_proc(job_t j, struct kevent *kev)
 	}
 
 	if (fflags & NOTE_EXIT) {
+		if (kev->data & NOTE_EXIT_REPARENTED) {
+			j->implicit_reap = true;
+			j->last_exit_status = (kev->data & 0xffff);
+
+			job_log(j, LOG_INFO, "Job was implicitly reaped by the kernel.");
+		}
+
 		job_reap(j);
 
 		if (j->anonymous) {
@@ -4140,7 +4063,7 @@ job_start(job_t j)
 	char nbuf[64];
 	pid_t c;
 	bool sipc = false;
-	u_int proc_fflags = NOTE_EXIT|NOTE_FORK|NOTE_EXEC;
+	u_int proc_fflags = NOTE_EXIT|NOTE_FORK|NOTE_EXEC|NOTE_EXITSTATUS;
 
 	if (!job_assumes(j, j->mgr != NULL)) {
 		return;
@@ -4223,6 +4146,7 @@ job_start(job_t j)
 		j->crashed = false;
 		j->stopped = false;
 		j->workaround9359725 = false;
+		j->implicit_reap = false;
 		if (j->needs_kickoff) {
 			j->needs_kickoff = false;
 
@@ -5782,7 +5706,6 @@ job_keepalive(job_t j)
 const char *
 job_active(job_t j)
 {
-	struct machservice *ms;
 	if (j->p && j->shutdown_monitor) {
 		return "Monitoring shutdown";
 	}
@@ -5794,12 +5717,11 @@ job_active(job_t j)
 		return "Privileged Port still has outstanding senders";
 	}
 
+	struct machservice *ms;
 	SLIST_FOREACH(ms, &j->machservices, sle) {
 		/* If we've simulated an exit, we mark the job as non-active, even
 		 * though doing so will leave it in an unsafe state. We do this so that
 		 * shutdown can proceed. See <rdar://problem/11126530>.
-		 *
-		 * For a more sustainable solution, see <rdar://problem/11131336>.
 		 */
 		if (!j->workaround9359725 && ms->recv && machservice_active(ms)) {
 			job_log(j, LOG_INFO, "Mach service is still active: %s", ms->name);
@@ -8968,7 +8890,12 @@ job_mig_set_security_session(job_t j, uuid_t uuid, mach_port_t asport)
 
 			ji->asport = asport;
 			LIST_REMOVE(ji, needing_session_sle);
-			job_dispatch(ji, false);
+
+			if (ji->event_monitor) {
+				eventsystem_ping();
+			} else {
+				job_dispatch(ji, false);
+			}
 		}
 	}
 

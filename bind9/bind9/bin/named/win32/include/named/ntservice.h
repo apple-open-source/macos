@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ntservice.h,v 1.6 2007-06-19 23:46:59 tbox Exp $ */
+/* $Id: ntservice.h,v 1.6 2007/06/19 23:46:59 tbox Exp $ */
 
 #ifndef NTSERVICE_H
 #define NTSERVICE_H

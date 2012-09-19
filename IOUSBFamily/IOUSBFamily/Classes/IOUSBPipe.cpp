@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -29,7 +28,6 @@
 //================================================================================================
 //
 #include <libkern/OSByteOrder.h>
-
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOKitKeys.h>
@@ -283,7 +281,6 @@ IOUSBPipe::free()
 IOReturn 
 IOUSBPipe::Abort(void)
 {
-#ifdef SUPPORTS_SS_USB
 	IOUSBPipeV2		*pipev2 = OSDynamicCast(IOUSBPipeV2, this);
 	
 	if ( pipev2 )
@@ -292,7 +289,6 @@ IOUSBPipe::Abort(void)
 		return pipev2->Abort(kUSBAllStreams);
 	}
 	else
-#endif
 	{
 		USBLog(5,"IOUSBPipe[%p]::AbortPipe",this);
 		if (_CORRECTSTATUS != 0)
@@ -398,17 +394,10 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	}
 	
 	
-#ifdef SUPPORTS_SS_USB
     if ((_DEVICE->GetSpeed() == kUSBDeviceSpeedHigh) || (_DEVICE->GetSpeed() == kUSBDeviceSpeedSuper))
     {
 		USBLog(6,"IOUSBPipe[%p]::ClearPipeStall - HiSpeed or SuperSpeedDevice, no clear TT needed",this);
     }
-#else
-    if ( _DEVICE->GetSpeed() == kUSBDeviceSpeedHigh )
-    {
-		USBLog(6,"IOUSBPipe[%p]::ClearPipeStall - High Speed Device, no clear TT needed",this);
-    }
-#endif
     else if (!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
     {
 		USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Bulk or Control endpoint, clear TT",this);
@@ -629,7 +618,6 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 IOReturn 
 IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletion *completion, IOByteCount *bytesRead)
 {
-#ifdef SUPPORTS_SS_USB
 	IOUSBPipeV2		*pipev2 = OSDynamicCast(IOUSBPipeV2, this);
 	
 	if ( pipev2 )
@@ -637,7 +625,6 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 		return pipev2->Read(0, buffer, noDataTimeout, completionTimeout, reqCount, completion, bytesRead);
 	}
 	else
-#endif
 	{
 		IOReturn	err = kIOReturnSuccess;
 		
@@ -835,7 +822,6 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 IOReturn 
 IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletion *completion)
 {
-#ifdef SUPPORTS_SS_USB
 	IOUSBPipeV2		*pipev2 = OSDynamicCast(IOUSBPipeV2, this);
 	
 	if ( pipev2 )
@@ -843,7 +829,6 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 		return pipev2->Write(0, buffer, noDataTimeout, completionTimeout, reqCount, completion);
 	}
 	else
-#endif
 	{
 		IOReturn	err = kIOReturnSuccess;
 		

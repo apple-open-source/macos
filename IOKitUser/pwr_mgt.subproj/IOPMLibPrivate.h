@@ -55,7 +55,7 @@ __BEGIN_DECLS
  * @discussion  This state is always updated immediately prior to when PM delivers 
  *              the notify (3) notification kIOPMSystemPowerStateNotify
  *              The System power capabilities are defined by the 
- *              enum <code>@link IOPMSystemPowerStateCapabilities@/link</code> below.
+ *              enum <code>@link IOPMCapabilityBits@/link</code> below.
  */
 #define kIOPMSystemPowerCapabilitiesKeySuffix   "/IOKit/SystemPowerCapabilities"
 
@@ -585,6 +585,20 @@ IOReturn IOPMSetCustomPMPreferences(CFDictionaryRef ESPrefs);
     IOPMSetCustomPMPreferencs for clarity.
  */
 IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
+
+
+/*!
+@function IOPMRevertPMPreferences
+@abstract Revert the specified settings to their system default values
+            across all power sources. Must be called as root.
+@param keys_arr  A CFArrayRef of CFStrings. Each string should be a valid IOPM
+            setting key.
+            Pass NULL to revert all settings to the OS Energy Saver defaults.
+@result kIOReturnSuccess on success; error otherwise.
+ */
+
+IOReturn IOPMRevertPMPreferences(CFArrayRef keys_arr);
+
 
     /*!
 @function IOPMActivatePMPreference
@@ -1346,90 +1360,161 @@ typedef uint32_t IOPMConnectionMessageToken;
 /*****************************************************************************/
 /*****************************************************************************/
 
-/*! @enum IOPMSystemPowerStateCapabilities
+/*! @enum IOPMCapabilityBits
  *
- * Bits define capabilities in IOPMSystemPowerStateCapabilities type.
+ *  Bits define capabilities in IOPMCapabilityBits type.
  *
- * These bits describe the capabilities of a system power state.
- * Each bit describes whether a capability is supported; it does not
- * guarantee that the described feature is available. Even if a feature
- * is supported, the client must still verify that it's accessible
- * before attempting to use it, and be prepared for an error if the
- * functionality is not accessible.
+ *  These bits describe the capabilities of a system power state.
+ *  Each bit describes whether a capability is supported; it does not
+ *  guarantee that the described feature is accessible. Even if a feature
+ *  is accessible, it may be unavailable. Caller should be prepared for an error
+ *  when accessing.
  *
- * Please use these bits to:
- *      - Specify the capabilities you're interested in in calls to
- *          IOPMConnectionCreate()
- *      - Interpret the power states passed to you in your IOPMEventHandlerType
- *          notification.
+ *  Please use these bits to:
+ *      - Specify the capabilities of insterest for IOPMConnectionCreate()
+ *      - Interpret the power states provided to IOPMEventHandlerType notification.
  */
-enum 
-{
-    /*! @constant kIOPMSystemPowerStateCapabilityCPU
-     *  If set, indicates that in this power state the CPU is running. If this bit is clear,
-     *  then the system is going into a low power state such as sleep or hibernation. 
-     *  Checking this bit 
-     *
-     *  The CPU capability bit must be set for any other capability bits (video, audio, 
-     *  network, disk, etc.) to be available as well.
-     */
-    kIOPMSystemPowerStateCapabilityCPU          = 0x1,
 
-    /*! kIOPMSystemPowerStateCapabilityVideo
-     * If set, indicates that in this power state, graphic output to displays are supported.
-     */
-    kIOPMSystemPowerStateCapabilityVideo        = 0x2,
+/*! @constant kIOPMSystemPowerStateCapabilityCPU
+ *  If set, indicates that in this power state the CPU is running. If this bit is clear,
+ *  then the system is going into a low power state such as sleep or hibernation.
+ *
+ *  System capability bits (video, audio, network, disk) will only be available
+ *  if CPU bit is also available.
+ */
+#define kIOPMCapabilityCPU                          0x1
 
-    /*! kIOPMSystemPowerStateCapabilityAudio
-     * If set, indicates that in this power state, audio output is supported.
-     */
-    kIOPMSystemPowerStateCapabilityAudio        = 0x4,
+/*! @constant kIOPMCapabilityVideo
+ *  If set, indicates that in this power state, graphic output to displays are supported.
+ */
+#define kIOPMCapabilityVideo                        0x2
 
-    /*! kIOPMSystemPowerStateCapabilityNetwork
-     * If set, indicates that in this power state, network connections are supported.
-     */
-    kIOPMSystemPowerStateCapabilityNetwork      = 0x8,
+/*! @constant kIOPMCapabilityAudio
+ *  If set, indicates that in this power state, audio output is supported.
+ */
+#define kIOPMCapabilityAudio                        0x4
 
-    /*! kIOPMSystemPowerStateCapabilityDisk
-     * If set, indicates that in this power state, internal disk and storage device access is supported.
-     */
-    kIOPMSystemPowerStateCapabilityDisk         = 0x10,
+/*! @constant kIOPMCapabilityNetwork
+ *  If set, indicates that in this power state, network connections are supported.
+ */
+#define kIOPMCapabilityNetwork                      0x8
 
-    /*! kIOPMSystemPowerStateCapabiliesMask
-     *  Should be used as a mask to check for states; this value should not be 
-     *  passed as an an argument to IOPMConnectionCreate. 
-     *  Passing this as an interest argument will produce undefined behavior.
-     *
-     *  Any PowerStateCapability bits that are not included in this mask are 
-     *  reserved for future use.
-     */
-    kIOPMSytemPowerStateCapabilitiesMask        = 0x1F
-};
+/*! @constant kIOPMCapabilityDisk
+ *  If set, indicates that in this power state, internal disk and storage device access is supported.
+ */
+#define kIOPMCapabilityDisk                         0x10
 
-/*! IOPMSystemPowerStateCapabilities
- *  Should be a bitfield with a subset of the kIOPMSystemPowerStateCapabilityBits.
+/*! @constant kIOPMCapabilityPushServiceTask
+ *  If set, the system may perform PushServiceTasks while in this power state, and
+ *  the system will honor PushServiceTask power assertions.
+ *  If clear, the system will not honor PushServiceTask power assertions.
+ *  Clients should initiate PushServiceTasks or create PushServiceTask assertions if this bit is set.
+ */
+#define kIOPMCapabilityPushServiceTask              0x20
+
+/*! @constant kIOPMCapabilityBackgroundTask
+ *  If set, the system may perform BackgroundTasks while in this power state, and
+ *  the system will honor BackgroundTask power assertions.
+ *  If clear, the system will not honor BackgroundTask power assertions. If set,
+ *  Clients should initiate BackgroundTasks or create BackgroundTask assertions if this bit is set.
+ */
+#define kIOPMCapabilityBackgroundTask               0x40
+
+/*! @constant kIOPMCapabilityBitsMask
+ *  Should be used as a mask to check for states; this value should not be
+ *  passed as an an argument to IOPMConnectionCreate.
+ *  Passing this as an interest argument will produce undefined behavior.
+ *
+ *  Note: Do not use constant kIOPMCapabilityMask. That matches a different API,
+ *  and should not be used here.
+ *  Any PowerStateCapability bits that are not included in this mask are
+ *  reserved for future use.
+ */
+#define kIOPMCapabilityBitsMask                     0x7F
+
+
+/*! IOPMCapabilityBits
+ *  Should be a bitfield with a subset of the IOPMCapabilityBits.
+ */
+typedef uint32_t IOPMCapabilityBits;
+
+
+/*! IOPMIsADarkWake
+ *  Returns true if the SystemPowerStateCapabilities represent a DarkWake.
+ *  Returns false if the system is asleep, or in full wake, or in any other state.
+ */
+bool IOPMIsADarkWake(IOPMCapabilityBits);
+
+/*! IOPMIsABackgroundTask
+ *  Returns true if the SystemPowerStateCapabilities represent a state where
+ *  the system encourages BackgroundTasks to execute.
+ */
+bool IOPMAllowsBackgroundTask(IOPMCapabilityBits);
+
+/*! IOPMIsAPushServiceTask
+ *  Returns true if the SystemPowerStateCapabilities represent a state where
+ *  the system encourages PushServiceTasks to execute.
+ */
+bool IOPMAllowsPushServiceTask(IOPMCapabilityBits);
+
+/*! IOPMIsAUserWake
+ *  Returns true if the SystemPowerStateCapabilities represent a full user wake.
+ *  This implies that video and audio capability bits are available, though their
+ *  hardware is not necessarily powered.
+ */
+bool IOPMIsAUserWake(IOPMCapabilityBits);
+
+/*! IOPMIsAsleep
+ *  Returns true if the capabilities field represents a sleeping state.
+ */
+bool IOPMIsASleep(IOPMCapabilityBits);
+
+
+/*! IOPMGetCapabilitiesDescription
+ *  Fills the provided buffer with a C string describing the system capabilities.
+ *  Example: "FullWake: cpu disk net aud vid" to describe bits for a Full Wake.
+ *  Example: "DarkWake: cpu disk net" or "DarkWake: cpu disk net push bg" to describe a DarkWake.
+ *  @argument buf A string buffer to be popuplated by this routine. Recommend 50 bytes or larger.
+ *  @argument buf_size The size of the buffer. IOPMGetCapabilitiesDescription will not write beyond this size.
+ *  @argument caps The capabilities to describe.
+ *  @result Returns true on success. Returns false if the provided buffer was too small.
+ */
+bool IOPMGetCapabilitiesDescription(char *buf, int buf_size, IOPMCapabilityBits in_caps);
+
+
+/*! @deprecated
+ *  These constants are equivalent to the shorter kIOPMCapability constants defined above.
+ *  We provide these longer constant strings for source code compatibility.
+ *  Please use the kIOPMCapability version of these constants.
  */
 typedef uint32_t IOPMSystemPowerStateCapabilities;
+#define kIOPMSystemPowerStateCapabilityCPU              kIOPMCapabilityCPU
+#define kIOPMSystemPowerStateCapabilityVideo            kIOPMCapabilityVideo
+#define kIOPMSystemPowerStateCapabilityAudio            kIOPMCapabilityAudio
+#define kIOPMSystemPowerStateCapabilityNetwork          kIOPMCapabilityNetwork
+#define kIOPMSystemPowerStateCapabilityDisk             kIOPMCapabilityDisk
+#define kIOPMSytemPowerStateCapabilitiesMask            kIOPMCapabilityBitsMask
 
-
-
-/*!
- * IOPMEventHandlerType is the generic function type to handle a
+/*! @functiontype IOPMEventHandlerType
+ *  IOPMEventHandlerType is the generic function type to handle a
  *   notification generated from the power management system. All clients of
  *   IOPMConnection that wish to listen for notifications must provide a handler
  *   when they call IOPMConnectionCreate.
- * @param param Pointer to user-chosen data.
- * @param connection The IOPMConnection associated with this notification.
- * @param token Uniquely identifies this message invocation; should be passed
+ *  @param param Pointer to user-chosen data.
+ *  @param connection The IOPMConnection associated with this notification.
+ *  @param token Uniquely identifies this message invocation; should be passed
  *          to IOPMConnectAcknowledgeEvent().
- * @param eventDescriptor Provides a bitfield describing the new system power state.
- *          See IOPMSystemPowerStateCapabilities below.
+ *  @param eventDescriptor Provides a bitfield describing the new system power state.
+ *          See IOPMCapabilityBits below. Please evaluate this value as a bitfield,
+ *          not as a constant. Either:
+ *               1. Test bits indidivually using bitwise &, 
+ *               2. or use the convenient IsADarkWake(), IsASleep(), etc. functions to digest the bitfield.
  */
 typedef void (*IOPMEventHandlerType)(
                 void *param, 
                 IOPMConnection connection, 
                 IOPMConnectionMessageToken token, 
-                IOPMSystemPowerStateCapabilities eventDescriptor);
+                IOPMCapabilityBits eventDescriptor);
 
 
 /*****************************************************************************/
@@ -1453,7 +1538,7 @@ typedef void (*IOPMEventHandlerType)(
  *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
- *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
  * 
  */
 #define kIOPMAckNetworkMaintenanceWakeDate    CFSTR("NetworkMaintenanceWakeDate")
@@ -1478,7 +1563,7 @@ typedef void (*IOPMEventHandlerType)(
  *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
- *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
  * 
  */
 #define kIOPMAckTimerPluginWakeDate    CFSTR("TimerPluginWakeDate")
@@ -1503,8 +1588,8 @@ typedef void (*IOPMEventHandlerType)(
  *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
- *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
- * 
+ *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
+ *
  */
 #define kIOPMAcknowledgmentOptionWakeDate           CFSTR("WakeDate")
 #define kIOPMAckWakeDate                            kIOPMAcknowledgmentOptionWakeDate
@@ -1528,7 +1613,7 @@ typedef void (*IOPMEventHandlerType)(
  *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
- *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
  * 
  */
 #define kIOPMAcknowledgmentOptionSystemCapabilityRequirements   CFSTR("Requirements")
@@ -1605,11 +1690,18 @@ typedef void (*IOPMEventHandlerType)(
  *                  UserActive wake, or if it's on the way to sleep.
  *
  * @result          A bitfield describing whether the system is asleep, awake, or in dark wake,
- *                  using kIOPMSystemPowerStateCapability bits.
+ *                  using kIOPMCapability bits.
  */
 
-IOPMSystemPowerStateCapabilities IOPMConnectionGetSystemCapabilities(void);
+IOPMCapabilityBits IOPMConnectionGetSystemCapabilities(void);
 
+
+/*! @define kIOPMSleepWakeInterest
+ *  Pass this as an argument to the <code>interests</code> field of IOPMConnectionCreate() to
+ *  receive notifications for Sleep, FullWake, and DarkWake system events.
+ */
+#define kIOPMSleepWakeInterest     (kIOPMCapabilityCPU | kIOPMCapabilityDisk | kIOPMCapabilityNetwork \
+                                           | kIOPMCapabilityVideo | kIOPMCapabilityAudio)
 
 /*!
  * IOPMConnectionCreate() opens an IOPMConnection.
@@ -1623,16 +1715,18 @@ IOPMSystemPowerStateCapabilities IOPMConnectionGetSystemCapabilities(void);
  *
  * @param myName Caller should provide a CFStringRef describing its identity, 
  *      for logging.
- * @param interests A bitfield of IOPMSystemPowerStateCapabilities defining
+ * @param interests A bitfield of IOPMCapabilityBits defining
  *      which capabilites the caller is interested in. Caller will only be notified
- *      of changes to the bits specified here.
+ *      of changes to the bits specified here. 
+ *      Most callers should pass in the argument kIOPMSleepWakeInterest for the usual
+ *          sleep, wake, and darkwake notifications.
  * @param newConnection Upon success this will be populated with a fresh IOPMConnection.
  *      The caller must release this with a call to IOPMReleaseConnection.
  * @result Returns kIOReturnSuccess; otherwise on failure.
  */
 IOReturn IOPMConnectionCreate(
             CFStringRef myName, 
-            IOPMSystemPowerStateCapabilities interests, 
+            IOPMCapabilityBits interests,
             IOPMConnection *newConnection
             ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 

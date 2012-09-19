@@ -1306,14 +1306,12 @@ ValueRecovery SpeculativeJIT::computeValueRecoveryFor(const ValueSource& valueSo
             return ValueRecovery::constant(valueOfJSConstant(valueSource.nodeIndex()));
     
         Node* nodePtr = &at(valueSource.nodeIndex());
-        if (!nodePtr->shouldGenerate()) {
-            // It's legitimately dead. As in, nobody will ever use this node, or operand,
-            // ever. Set it to Undefined to make the GC happy after the OSR.
-            return ValueRecovery::constant(jsUndefined());
-        }
-    
-        GenerationInfo* infoPtr = &m_generationInfo[nodePtr->virtualRegister()];
-        if (!infoPtr->alive() || infoPtr->nodeIndex() != valueSource.nodeIndex()) {
+        GenerationInfo* infoPtr;
+        if (nodePtr->shouldGenerate())
+            infoPtr = &m_generationInfo[nodePtr->virtualRegister()];
+        else
+            infoPtr = 0;
+        if (!infoPtr || !infoPtr->alive() || infoPtr->nodeIndex() != valueSource.nodeIndex()) {
             // Try to see if there is an alternate node that would contain the value we want.
             // There are four possibilities:
             //
@@ -1340,9 +1338,11 @@ ValueRecovery SpeculativeJIT::computeValueRecoveryFor(const ValueSource& valueSo
             if (nodePtr->op() == UInt32ToNumber || nodePtr->op() == DoubleAsInt32) {
                 NodeIndex nodeIndex = nodePtr->child1().index();
                 nodePtr = &at(nodeIndex);
-                infoPtr = &m_generationInfo[nodePtr->virtualRegister()];
-                if (infoPtr->alive() && infoPtr->nodeIndex() == nodeIndex)
-                    found = true;
+                if (nodePtr->shouldGenerate()) {
+                    infoPtr = &m_generationInfo[nodePtr->virtualRegister()];
+                    if (infoPtr->alive() && infoPtr->nodeIndex() == nodeIndex)
+                        found = true;
+                }
             }
         
             if (!found) {
@@ -1391,9 +1391,11 @@ ValueRecovery SpeculativeJIT::computeValueRecoveryFor(const ValueSource& valueSo
             
                 if (nodeIndexToUse != NoNode) {
                     nodePtr = &at(nodeIndexToUse);
-                    infoPtr = &m_generationInfo[nodePtr->virtualRegister()];
-                    ASSERT(infoPtr->alive() && infoPtr->nodeIndex() == nodeIndexToUse);
-                    found = true;
+                    if (nodePtr->shouldGenerate()) {
+                        infoPtr = &m_generationInfo[nodePtr->virtualRegister()];
+                        ASSERT(infoPtr->alive() && infoPtr->nodeIndex() == nodeIndexToUse);
+                        found = true;
+                    }
                 }
             }
         
@@ -1906,10 +1908,10 @@ void SpeculativeJIT::compileGetByValOnIntTypedArray(const TypedArrayDescriptor& 
         return;
     }
 
-    MacroAssembler::Jump inBounds = m_jit.branch32(MacroAssembler::Below, propertyReg, MacroAssembler::Address(baseReg, descriptor.m_lengthOffset));
-    m_jit.xorPtr(resultReg, resultReg);
-    MacroAssembler::Jump outOfBounds = m_jit.jump();
-    inBounds.link(&m_jit);
+    speculationCheck(
+        Uncountable, JSValueRegs(), NoNode,
+        m_jit.branch32(
+            MacroAssembler::AboveOrEqual, propertyReg, MacroAssembler::Address(baseReg, descriptor.m_lengthOffset)));
     switch (elementSize) {
     case 1:
         if (signedness == SignedTypedArray)
@@ -1929,7 +1931,6 @@ void SpeculativeJIT::compileGetByValOnIntTypedArray(const TypedArrayDescriptor& 
     default:
         ASSERT_NOT_REACHED();
     }
-    outOfBounds.link(&m_jit);
     if (elementSize < 4 || signedness == SignedTypedArray) {
         integerResult(resultReg, m_compileIndex);
         return;
@@ -2071,11 +2072,10 @@ void SpeculativeJIT::compileGetByValOnFloatTypedArray(const TypedArrayDescriptor
     FPRTemporary result(this);
     FPRReg resultReg = result.fpr();
     ASSERT(speculationRequirements != NoTypedArraySpecCheck);
-    MacroAssembler::Jump inBounds = m_jit.branch32(MacroAssembler::Below, propertyReg, MacroAssembler::Address(baseReg, descriptor.m_lengthOffset));
-    static const double zero = 0;
-    m_jit.loadDouble(&zero, resultReg);
-    MacroAssembler::Jump outOfBounds = m_jit.jump();
-    inBounds.link(&m_jit);
+    speculationCheck(
+        Uncountable, JSValueRegs(), NoNode,
+        m_jit.branch32(
+            MacroAssembler::AboveOrEqual, propertyReg, MacroAssembler::Address(baseReg, descriptor.m_lengthOffset)));
     switch (elementSize) {
     case 4:
         m_jit.loadFloat(MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::TimesFour), resultReg);
@@ -2092,7 +2092,6 @@ void SpeculativeJIT::compileGetByValOnFloatTypedArray(const TypedArrayDescriptor
     default:
         ASSERT_NOT_REACHED();
     }
-    outOfBounds.link(&m_jit);
     doubleResult(resultReg, m_compileIndex);
 }
 

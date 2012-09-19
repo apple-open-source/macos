@@ -92,6 +92,7 @@ VARIANT_DYLD_INCLUDE_i386 = i386/gen/icacheinval.s i386/gen/cpu_number.s i386/pt
 
 VARIANT_DYLD_INCLUDE_armv7 = arm/gen/icacheinval.s arm/pthreads/pthread_getspecific.s arm/pthreads/pthread_self.s arm/pthreads/pthread_set_self.s arm/string/bcopy_Generic.s arm/string/bzero_Generic.s arm/string/ffs.s arm/string/strcmp.s arm/string/strlen.s arm/string/strnlen.s strncpy.c arm/sys/OSAtomic.c arm/sys/OSAtomicUP.c arm/sys/OSAtomic_resolvers.c arm/sys/Spinlocks.c arm/sys/SpinlocksUP.c arm/sys/SpinlocksWFE.c arm/sys/arm_commpage_gettimeofday.c arm/sys/mach_absolute_time.s
 
+VARIANT_DYLD_INCLUDE_armv7s = $(VARIANT_DYLD_INCLUDE_armv7)
 VARIANT_DYLD_INCLUDE_armv7k = $(VARIANT_DYLD_INCLUDE_armv7)
 VARIANT_DYLD_INCLUDE_armv7f = $(VARIANT_DYLD_INCLUDE_armv7)
 

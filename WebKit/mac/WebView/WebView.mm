@@ -581,8 +581,8 @@ static NSString *createUserVisibleWebKitVersionString()
     if (!exception || !context)
         return;
 
-    JSLock lock(SilenceAssertionsOnly);
     JSC::ExecState* execState = toJS(context);
+    JSLockHolder lock(execState);
 
     // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a WebView.
     if (!toJSDOMWindow(execState->lexicalGlobalObject()))
@@ -1540,6 +1540,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
     settings->setShouldRespectImageOrientation([preferences shouldRespectImageOrientation]);
     settings->setNeedsIsLoadingInAPISenseQuirk([self _needsIsLoadingInAPISenseQuirk]);
     settings->setNeedsDidFinishLoadOrderQuirk(needsDidFinishLoadOrderQuirk());
+    settings->setDiagnosticLoggingEnabled([preferences diagnosticLoggingEnabled]);
     
     NSTimeInterval timeout = [preferences incrementalRenderingSuppressionTimeoutInSeconds];
     if (timeout > 0)
@@ -4829,7 +4830,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
     JSValue result = coreFrame->script()->executeScript(script, true).jsValue();
     if (!result) // FIXME: pass errors
         return 0;
-    JSLock lock(SilenceAssertionsOnly);
+    JSLockHolder lock(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
     return aeDescFromJSValue(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec(), result);
 }
 
@@ -6538,8 +6539,8 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
 
 - (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value
 {
-    JSLock lock(SilenceAssertionsOnly);
     ExecState* exec = toJS(context);
+    JSLockHolder lock(exec);
     if (!value)
         return JSValueMakeUndefined(context);
     JSValue jsValue = toJS(exec, value);

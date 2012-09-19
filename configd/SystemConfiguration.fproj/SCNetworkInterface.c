@@ -2371,6 +2371,62 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 }
 
 
+static CFStringRef
+__SC_IORegistryEntryCopyPath(io_registry_entry_t entry, const io_name_t plane)
+{
+	/*
+	 * Create a path for a registry entry.
+	 */
+	io_string_t	path;
+	IOReturn	status;
+	CFStringRef	str	= NULL;
+
+	status = IORegistryEntryGetPath(entry, plane, path);
+	if (status == kIOReturnSuccess) {
+		str = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+	} else if (status == kIOReturnBadArgument) {
+		io_registry_entry_t	parent;
+
+		status = IORegistryEntryGetParentEntry(entry, plane, &parent);
+		if (status == kIOReturnSuccess) {
+			CFStringRef	str_parent;
+
+			str_parent = __SC_IORegistryEntryCopyPath(parent, plane);
+			if (str_parent != NULL) {
+				io_name_t	name;
+
+				status = IORegistryEntryGetNameInPlane(entry, plane, name);
+				if (status == kIOReturnSuccess) {
+					io_name_t	location;
+
+					status = IORegistryEntryGetLocationInPlane(entry, plane, location);
+					if (status == kIOReturnSuccess) {
+						str = CFStringCreateWithFormat(NULL,
+									       NULL,
+									       CFSTR("%@/%s@%s"),
+									       str_parent,
+									       name,
+									       location);
+					} else {
+						str = CFStringCreateWithFormat(NULL,
+									       NULL,
+									       CFSTR("%@/%s"),
+									       str_parent,
+									       name);
+					}
+				}
+
+				CFRelease(str_parent);
+			}
+
+			IOObjectRelease(parent);
+		}
+	}
+
+	return str;
+}
+
+
 static SCNetworkInterfaceRef
 createInterface(io_registry_entry_t interface, processInterface func)
 {
@@ -2378,18 +2434,11 @@ createInterface(io_registry_entry_t interface, processInterface func)
 	CFMutableDictionaryRef		bus_dict		= NULL;
 	io_registry_entry_t		controller		= MACH_PORT_NULL;
 	CFMutableDictionaryRef		controller_dict		= NULL;
+	uint64_t			entryID			= 0;
 	SCNetworkInterfacePrivateRef	interfacePrivate	= NULL;
 	CFMutableDictionaryRef		interface_dict		= NULL;
 	kern_return_t			kr;
-	io_string_t			path;
 	CFTypeRef			val;
-	uint64_t			entryID = 0;
-
-	kr = IORegistryEntryGetPath(interface, kIOServicePlane, path);
-	if (kr != kIOReturnSuccess) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("createInterface IORegistryEntryGetPath() failed, kr = 0x%x"), kr);
-		goto done;
-	}
 
 	kr = IORegistryEntryCreateCFProperties(interface, &interface_dict, NULL, kNilOptions);
 	if (kr != kIOReturnSuccess) {
@@ -2433,7 +2482,7 @@ createInterface(io_registry_entry_t interface, processInterface func)
 	}
 
 	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
-	interfacePrivate->path    = (path != NULL) ? CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8) : NULL;
+	interfacePrivate->path = __SC_IORegistryEntryCopyPath(interface, kIOServicePlane);
 	interfacePrivate->entryID = entryID;
 
 	// configuration [PPP, Modem, DNS, IPv4, IPv6, Proxies, SMB] template overrides

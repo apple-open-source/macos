@@ -155,11 +155,7 @@ using std::max;
 
 - (void) shutdown
 {
-	//
-	// Since there is only one Engine per app run, we don't bother
-	// deallocating all the resources.
-	//
-	[self writeToEngine:@"?exit\n"];
+	[fEngineTask terminate];
 }
 
 - (void) writeToEngine:(NSString *)string
@@ -218,6 +214,8 @@ using std::max;
 		pool  = [[NSAutoreleasePool alloc] init];
     }
     MBCLexerDestroy(scanner);
+    
+    [pool release];
 }
 
 - (void) enableEngineMoves:(BOOL)enable
@@ -407,6 +405,14 @@ using std::max;
 - (void)dealloc
 {
     [self removeChessObservers];
+    [self shutdown];
+    [fEngineTask release];
+    [fToEnginePipe release];
+    [fFromEnginePipe release];
+    [fMove release];
+    [fLastPonder release];
+    [fLastMove release];
+    [fLastEngineMove release];
     [super dealloc];
 }
 

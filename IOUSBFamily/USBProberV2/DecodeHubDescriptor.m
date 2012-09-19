@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -36,10 +35,8 @@
     char                        buf[128];
     
     hubDescriptor = *(IOUSBHubDescriptor *)p;
-#ifdef SUPPORTS_SS_USB
     IOUSB3HubDescriptor 		hub3Descriptor;
     hub3Descriptor = *(IOUSB3HubDescriptor *)p;
-#endif
 
     [thisDevice addProperty:"Hub Descriptor" withValue:"" atDepth:HUB_DESCRIPTOR_LEVEL-1];
     
@@ -66,10 +63,8 @@
                (hubChar & 0x80) ? "having" : " no");
         strcat(temporaryString, buf);
     }
-#ifdef SUPPORTS_SS_USB
     else
         strcat(temporaryString, ")");
-#endif
                
     [thisDevice addProperty:"Hub Characteristics:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     
@@ -79,10 +74,9 @@
     sprintf(temporaryString, "%d mA", hubDescriptor.hubCurrent);
     [thisDevice addProperty:"Controller current:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     
-#ifdef SUPPORTS_SS_USB
 	if(hubDescriptor.hubType == kUSB3HUBDesc)
 	{
-		sprintf(temporaryString, "0.%d Âµsecs", hub3Descriptor.hubHdrDecLat);
+		sprintf(temporaryString, "0.%d µsecs", hub3Descriptor.hubHdrDecLat);
 		[thisDevice addProperty:"Header decode latency:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
 		sprintf(temporaryString, "%d ns", hub3Descriptor.hubDelay);
 		[thisDevice addProperty:"Hub delay time:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
@@ -98,7 +92,6 @@
 		}
 	}
 	else
-#endif
 	{
     if (hubDescriptor.numPorts < 8)
     {

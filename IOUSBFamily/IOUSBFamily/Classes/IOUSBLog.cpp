@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -24,7 +23,6 @@
 
 
 #include <sys/systm.h>
-
 
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/USB.h>
@@ -152,10 +150,10 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
 
             IOLog("%c%c%c%c:\t%d.%3.3d\t",(char)(inTag>>24), (char)(inTag>>16), (char)(inTag>>8), (uint32_t)inTag, secs, milliSecs);
 
-            va_start( ap, inFormatString );
-            _doprnt( inFormatString, &ap, conslog_putc, 16 );
+			va_start( ap, inFormatString );
+			IOLogv(inFormatString, ap);
             va_end( ap );
-            
+			
             // And add a newline for USB logging
             if ( inTag == 'USBF')
                 IOLog("\n");
@@ -440,11 +438,9 @@ IOUSBLog::stringFromReturn( IOReturn rtn )
 		{kIOUSBDeviceTransferredToCompanion,				"Device transferred to another controller"     							},
 		{kIOUSBClearPipeStallNotRecursive,					"Attempting to clear stall while one is pending"     					},
 		{kIOUSBDevicePortWasNotSuspended,					"Issued a Suspend but the port was not suspended"     					},
-#ifdef SUPPORTS_SS_USB
 		{kIOUSBEndpointCountExceeded,						"Controller does not support more endpoints"     						},
 		{kIOUSBDeviceCountExceeded,							"Controller does not support more devices"     							},
 		{kIOUSBStreamsNotSupported,							"Controller does not support USB 3 streams"     						},
-#endif
 		{0,													NULL																	}
 	};
 	

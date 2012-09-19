@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,12 +14,27 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: unittest.sh.in,v 1.2.2.6 2011-03-03 11:23:19 marka Exp $
+# $Id$
 
 PATH=${PATH}:@ATFBIN@
 export PATH
 
+status=0
 if [ -n "@ATFBIN@" ]
 then
-	atf-run | atf-report -o csv:- | cat
+	echo "I: unit tests"
+	atf-run > atf.out
+	status=$?
+
+        # | cat is there to force non-fancy output
+	atf-report < atf.out | cat
+
+	if [ $status -eq 0 ]
+	then
+		rm -f atf.out
+		echo R:PASS
+	else
+		echo R:FAIL
+	fi
 fi
+exit $status

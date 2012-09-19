@@ -68,7 +68,7 @@
 	<key>CFBundleGetInfoString</key>
 	<string>3.0, Copyright 2003-2012 Apple Inc.</string>
 	<key>MBCBuildTag</key>
-	<string>Chess-300.17</string>
+	<string>Chess-300.21</string>
 	<key>CFBundleHelpBookFolder</key>
 	<string>Chess.help</string>
 	<key>CFBundleHelpBookName</key>

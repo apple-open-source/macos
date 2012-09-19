@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -481,7 +481,7 @@ bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObjec
     
 void WebChromeClient::unavailablePluginButtonClicked(Element* element, RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
-    ASSERT(element->hasTagName(objectTag) || element->hasTagName(embedTag));
+    ASSERT(element->hasTagName(objectTag) || element->hasTagName(embedTag) || element->hasTagName(appletTag));
     ASSERT(pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing || pluginUnavailabilityReason == RenderEmbeddedObject::InsecurePluginVersion);
 
     HTMLPlugInImageElement* pluginElement = static_cast<HTMLPlugInImageElement*>(element);
@@ -684,6 +684,15 @@ void WebChromeClient::scheduleCompositingLayerSync()
 
 #endif
 
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+WebCore::GraphicsDeviceAdapter* WebChromeClient::graphicsDeviceAdapter() const
+{
+    if (!m_page->drawingArea())
+        return 0;
+    return m_page->drawingArea()->layerTreeHost()->graphicsDeviceAdapter();
+}
+#endif
+
 #if ENABLE(TOUCH_EVENTS)
 void WebChromeClient::needTouchEvents(bool needTouchEvents)
 {
@@ -750,6 +759,14 @@ bool WebChromeClient::shouldRubberBandInDirection(WebCore::ScrollDirection direc
 void WebChromeClient::numWheelEventHandlersChanged(unsigned count)
 {
     m_page->numWheelEventHandlersChanged(count);
+}
+
+void WebChromeClient::logDiagnosticMessage(const String& message, const String& description, const String& success)
+{
+    if (!m_page->corePage()->settings()->diagnosticLoggingEnabled())
+        return;
+
+    m_page->injectedBundleDiagnosticLoggingClient().logDiagnosticMessage(m_page, message, description, success);
 }
 
 } // namespace WebKit

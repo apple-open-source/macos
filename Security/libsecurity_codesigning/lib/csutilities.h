@@ -43,11 +43,19 @@ namespace CodeSigning {
 
 
 //
+// Test for the canonical Apple CA certificate
+//
+bool isAppleCA(SecCertificateRef cert);
+bool isAppleCA(const Hashing::Byte *sha1);
+
+
+//
 // Calculate canonical hashes of certificate.
 // This is simply defined as (always) the SHA1 hash of the DER.
 //
 void hashOfCertificate(const void *certData, size_t certLength, SHA1::Digest digest);
 void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest);
+bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest);
 
 
 //
@@ -56,13 +64,6 @@ void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest);
 // Extends to end of file, or (if limit > 0) at most limit bytes.
 // Returns number of bytes digested.
 //
-template <class _Hash>
-size_t hashFileData(const char *path, _Hash *hasher)
-{
-	UnixPlusPlus::AutoFileDesc fd(path);
-	return hashFileData(fd, hasher);
-}
-
 template <class _Hash>
 size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
 {
@@ -81,6 +82,13 @@ size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
 			break;
 	}
 	return total;
+}
+
+template <class _Hash>
+size_t hashFileData(const char *path, _Hash *hasher)
+{
+	UnixPlusPlus::AutoFileDesc fd(path);
+	return hashFileData(fd, hasher);
 }
 
 

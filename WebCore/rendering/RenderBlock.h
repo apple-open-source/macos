@@ -108,9 +108,10 @@ public:
     void addPercentHeightDescendant(RenderBox*);
     static void removePercentHeightDescendant(RenderBox*);
     HashSet<RenderBox*>* percentHeightDescendants() const;
-#if !ASSERT_DISABLED
+    static bool hasPercentHeightContainerMap();
     static bool hasPercentHeightDescendant(RenderBox*);
-#endif
+    static void clearPercentHeightDescendantsFrom(RenderBox*);
+    static void removePercentHeightDescendantIfNeeded(RenderBox*);
 
     void setHasMarkupTruncation(bool b) { m_hasMarkupTruncation = b; }
     bool hasMarkupTruncation() const { return m_hasMarkupTruncation; }
@@ -187,7 +188,6 @@ public:
             : logicalWidth() - logicalRightOffsetForLine(position, firstLine);
     }
 
-    LayoutUnit startAlignedOffsetForLine(RenderBox* child, LayoutUnit position, bool firstLine);
     LayoutUnit textIndentOffset() const;
 
     virtual VisiblePosition positionForPoint(const LayoutPoint&);
@@ -242,6 +242,11 @@ public:
     RenderBlock* createAnonymousColumnSpanBlock() const { return createAnonymousColumnSpanWithParentRenderer(this); }
 
     virtual RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const OVERRIDE;
+
+    static bool shouldSkipCreatingRunsForObject(RenderObject* obj)
+    {
+        return obj->isFloating() || (obj->isPositioned() && !obj->style()->isOriginalDisplayInlineType() && !obj->container()->isRenderInline());
+    }
     
     static void appendRunsForObject(BidiRunList<BidiRun>&, int start, int end, RenderObject*, InlineBidiResolver&);
 
@@ -294,8 +299,6 @@ public:
     void setMarginAfterForChild(RenderBox* child, LayoutUnit);
     LayoutUnit collapsedMarginBeforeForChild(const RenderBox* child) const;
     LayoutUnit collapsedMarginAfterForChild(const RenderBox* child) const;
-
-    void updateLogicalWidthForAlignment(const ETextAlign&, BidiRun* trailingSpaceRun, float& logicalLeft, float& totalLogicalWidth, float& availableLogicalWidth, int expansionOpportunityCount);
 
     virtual void updateFirstLetter();
 

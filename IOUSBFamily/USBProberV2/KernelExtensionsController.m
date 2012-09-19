@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright © 1998-20010 Apple Inc.  All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,7 +26,7 @@
 
 @implementation KernelExtensionsController
 
-static NSComparisonResult sortKextArray(NSDictionary * dict1, NSDictionary * dict2, void *context) {
+static NSInteger sortKextArray(NSDictionary * dict1, NSDictionary * dict2, void *context) {
     int order = [(NSNumber *)[(NSArray *)context objectAtIndex:0] intValue];
     int col = [(NSNumber *)[(NSArray *)context objectAtIndex:1] intValue];
     

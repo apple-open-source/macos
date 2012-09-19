@@ -659,7 +659,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	smp->sm_hashlock = lck_mtx_alloc_init(hash_lck_grp, hash_lck_attr);
 	lck_rw_init(&smp->sm_rw_sharelock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_mtx_init(&smp->sm_statfslock, smbfs_mutex_group, smbfs_lock_attr);		
-	lck_mtx_init(&smp->sm_renamelock, smbfs_mutex_group, smbfs_lock_attr);		
+	lck_mtx_init(&smp->sm_reclaim_renamelock, smbfs_mutex_group, smbfs_lock_attr);
 
 	lck_rw_lock_exclusive(&smp->sm_rw_sharelock);
 	smp->sm_share = share;
@@ -916,7 +916,7 @@ bad:
 			SMB_FREE(smp->sm_hash, M_SMBFSHASH);
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 		lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
-		lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
+		lck_mtx_destroy(&smp->sm_reclaim_renamelock, smbfs_mutex_group);
 		lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
 		SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
 		SMB_FREE(smp->sm_args.path, M_SMBFSDATA);
@@ -990,7 +990,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	}
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 	lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
-	lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
+	lck_mtx_destroy(&smp->sm_reclaim_renamelock, smbfs_mutex_group);
 	lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
 	SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
 	SMB_FREE(smp->sm_args.path, M_SMBFSDATA);

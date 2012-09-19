@@ -253,6 +253,10 @@ void PolicyDatabase::upgradeDatabase()
 		update.bind(":flag") = kAuthorityFlagDefault;
 		update.execute();
 	});
+	
+	simpleFeature("filter_unsigned",
+		"ALTER TABLE authority ADD COLUMN filter_unsigned TEXT NULL"
+		);
 }
 
 
@@ -313,14 +317,15 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 			CFDictionaryRef values[count];
 			CFDictionaryGetKeysAndValues(content, (const void **)keys, (const void **)values);
 			
-			SQLite::Statement insert(*this, "INSERT INTO authority (type, allow, requirement, label, flags, remarks)"
-				" VALUES (:type, 1, :requirement, 'GKE', :flags, :path)");
+			SQLite::Statement insert(*this, "INSERT INTO authority (type, allow, requirement, label, filter_unsigned, flags, remarks)"
+				" VALUES (:type, 1, :requirement, 'GKE', :filter, :flags, :path)");
 			for (CFIndex n = 0; n < count; n++) {
 				CFDictionary info(values[n], errSecCSDbCorrupt);
 				insert.reset();
 				insert.bind(":type") = cfString(info.get<CFStringRef>(CFSTR("type")));
 				insert.bind(":path") = cfString(info.get<CFStringRef>(CFSTR("path")));
 				insert.bind(":requirement") = "cdhash H\"" + cfString(info.get<CFStringRef>(CFSTR("cdhash"))) + "\"";
+				insert.bind(":filter") = cfString(info.get<CFStringRef>(CFSTR("screen")));
 				insert.bind(":flags") = kAuthorityFlagWhitelist;
 				insert();
 			}

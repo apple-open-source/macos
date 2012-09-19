@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -59,13 +58,11 @@
             useHighSpeedDefinition = true;
     }
 
-#ifdef SUPPORTS_SS_USB
 	bool						useUSB3Definition = false;
 	if ( ([thisDevice usbRelease] >= kUSBRel30) )
 	{
 		useUSB3Definition = true;
 	}
-#endif
 
     endpointDescriptor = *(IOUSBEndpointDescriptor *)p;
     
@@ -138,7 +135,6 @@
 			case 3: strcat(str, " (error:  bit 5 is Reserved)");    break;
 		}
     }
-#ifdef SUPPORTS_SS_USB
 	else if ( useUSB3Definition && interrupt )
 	{
 		switch ( (endpointDescriptor.bmAttributes & 0x30) >> 4)
@@ -149,7 +145,6 @@
 			case 3: strcat(str, " reserved");            break;
 		}
     }
- #endif
     
 	strcat(str, ")");
 	
@@ -157,7 +152,6 @@
 
 	sprintf(temporaryString, "%d", USBToHostWord(endpointDescriptor.wMaxPacketSize));
 
-#ifdef SUPPORTS_SS_USB
 	if (useUSB3Definition)
 	{
 		UInt32	maxPacketSize = USBToHostWord(endpointDescriptor.wMaxPacketSize);
@@ -178,9 +172,7 @@
 			if (maxPacketSize > 1024 )
 				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Interrupt endpoint", (uint32_t)maxPacketSize);
 	}
-	else 
-#endif
-	if (useHighSpeedDefinition)
+	else if (useHighSpeedDefinition)
     {
         // If we have a USB 2.0 compliant device running at high speed, then the wMaxPacketSize calculation is funky
         //
@@ -197,11 +189,7 @@
 	
     [thisDevice addProperty:"Max Packet Size:" withValue:temporaryString atDepth:ENDPOINT_LEVEL];
     
-	if (useHighSpeedDefinition 
-#ifdef SUPPORTS_SS_USB
-		|| useUSB3Definition 
-#endif
-		)
+	if (useHighSpeedDefinition || useUSB3Definition)
     {
         // If we have a USB compliant device running at high speed, then the bInterval calculation is funky
         //
@@ -222,22 +210,14 @@
         
         if ( interrupt )
             if ( (endpointDescriptor.bInterval == 0) || (endpointDescriptor.bInterval > 16) )
-#ifdef SUPPORTS_SS_USB
                 sprintf(temporaryString, "%d: Illegal value for bInterval for a hi-speed/SuperSpeed Interrupt endpoint", endpointDescriptor.bInterval);
-#else
-                sprintf(temporaryString, "%d: Illegal value for bInterval for a hi-speed Interrupt endpoint", endpointDescriptor.bInterval);
-#endif
             else
                 sprintf(temporaryString, "%d (%d %s (%d %s) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), endpointDescriptor.bInterval==1?"microframe":"microframes", 
 						(endpointDescriptor.bInterval > 3 ? (1 << (endpointDescriptor.bInterval-1))/8 : endpointDescriptor.bInterval * 125), endpointDescriptor.bInterval > 3?"msecs":"microsecs" );
         
         if ( isoch )
             if ( (endpointDescriptor.bInterval == 0) || (endpointDescriptor.bInterval > 16) )
-#ifdef SUPPORTS_SS_USB
                 sprintf(temporaryString, "Illegal value for bInterval for a hi-speed/SuperSpeed isoch endpoint: %d", endpointDescriptor.bInterval);
-#else
-                sprintf(temporaryString, "Illegal value for bInterval for a hi-speed isoch endpoint: %d", endpointDescriptor.bInterval);
-#endif
             else
                 sprintf(temporaryString, "%d (%d %s (%d %s) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), endpointDescriptor.bInterval==1?"microframe":"microframes", 
 						endpointDescriptor.bInterval > 3 ? (1 << (endpointDescriptor.bInterval-1))/8 : endpointDescriptor.bInterval * 125, endpointDescriptor.bInterval > 3?"msecs":"microsecs" );
@@ -256,7 +236,6 @@
         [thisDevice addProperty:"Polling Interval:" withValue:temporaryString atDepth:ENDPOINT_LEVEL];
 }
 
-#ifdef SUPPORTS_SS_USB
 + (void)decodeBytesCompanion:(Byte *)p forDevice:(BusProbeDevice *)thisDevice endpoint:(UInt8) epType {
 
     IOUSBSuperSpeedEndpointCompanionDescriptor *    epCompanionDescriptor = (IOUSBSuperSpeedEndpointCompanionDescriptor*)p;
@@ -325,6 +304,5 @@
 		[thisDevice addProperty:"wBytesPerInterval:" withValue:buf atDepth:ENDPOINT_LEVEL];
 	}
 }
-#endif
 
 @end

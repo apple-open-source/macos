@@ -48,7 +48,9 @@ extern void mp_rendezvous_no_intrs(
 
 __END_DECLS
 
-#define PFM64_SIZE    (0xF0000000ULL)
+#define PFM64_SIZE    (2ULL*GB)
+// NPHYSMAP
+#define PFM64_MAX     (100ULL*GB)
 
 #define DLOGC(configurator, fmt, args...)                  \
     do {                                    \
@@ -304,12 +306,12 @@ bool CLASS::createRoot(void)
     root->secBusNum    = 0xff;
 
 	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
-	if (cpuPhysBits > 44)
-	{
-		cpuPhysBits = 44;
-	}
-	start = (1ULL << cpuPhysBits) - PFM64_SIZE;
-    size  = PFM64_SIZE;
+	if (cpuPhysBits > 44) cpuPhysBits = 44;
+	start = (1ULL << cpuPhysBits);
+	if (start > PFM64_MAX) start = PFM64_MAX;
+
+	start -= PFM64_SIZE;
+    size   = PFM64_SIZE;
 	IOLog("PFM64 (%d cpu) 0x%llx, 0x%llx\n", cpuPhysBits, start, size);
 	if (cpuPhysBits > 32)
 	{
@@ -553,7 +555,6 @@ void CLASS::constructAddressingProperties(IOPCIConfigEntry * device, OSDictionar
 
 OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 {
-    IOPCIAddressSpace   space = device->space;
     OSDictionary *      propTable;
     uint32_t            value;
     uint32_t            vendor, product, classCode, revID;
@@ -682,7 +683,9 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 
 #ifdef kIOMemoryDescriptorOptionsKey
     OSNumber * num;
-	if ((3 == (classCode >> 16)) && (0x8086 == vendor)
+	if ((3 == (classCode >> 16)) 
+	 && (0x8086 == vendor)
+	 && (!(kIOPCIConfiguratorIGIsMapped & fFlags))
 	 && (num = OSNumber::withNumber(kIOMemoryMapperNone, 32)))
 	{
 		propTable->setObject(kIOMemoryDescriptorOptionsKey, num);
@@ -1512,8 +1515,8 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     child->classCode     = configRead32(child, kIOPCIConfigRevisionID) >> 8;
     child->vendorProduct = vendorProduct;
 
-    DLOG("Probing type %u device class-code 0x%06x at %u:%u:%u [state 0x%x]\n",
-         child->headerType, child->classCode,
+    DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at %u:%u:%u [state 0x%x]\n",
+         child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
          PCI_ADDRESS_TUPLE(child),
          child->deviceState);
 
@@ -1553,30 +1556,35 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 	{
 		if (child->isBridge)
 		{
-			uint32_t expressCaps, linkCaps, linkControl;
 			enum
 			{
 				kLinkCapDataLinkLayerActiveReportingCapable = (1 << 20),
-				kLinkStatusDataLinkLayerLinkActive 			= (1 << 13)
+				kLinkStatusDataLinkLayerLinkActive 			= (1 << 13),
+				kSlotCapHotplug					 			= (1 << 6)
 			};
+			uint32_t expressCaps, linkCaps, linkControl, slotCaps = kSlotCapHotplug;
 		
 			expressCaps = configRead16(child, child->expressCapBlock + 0x02);
 			linkCaps    = configRead32(child, child->expressCapBlock + 0x0c);
 			linkControl = configRead16(child, child->expressCapBlock + 0x10);
-	
+			if (0x100 & expressCaps) slotCaps = configRead32(child, child->expressCapBlock + 0x14);
+
 			if ((kPCIHotPlugTunnel <= bridge->supportsHotPlug)
 				&& (0x60 == (0xf0 & expressCaps))) // downstream port
 			{
-				if (kLinkCapDataLinkLayerActiveReportingCapable & linkCaps)
+				if ((kLinkCapDataLinkLayerActiveReportingCapable & linkCaps) 
+				 && (kSlotCapHotplug & slotCaps))
+				{
 					child->linkInterrupts = true;
+				}
 			}
 	
 			child->expressCaps        = expressCaps;
 			child->linkCaps           = linkCaps;
 			child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04);
 	
-			DLOG("  expressCaps 0x%04x, linkControl 0x%04x, linkCaps 0x%04x\n",
-				 child->expressCaps, linkControl, child->linkCaps);
+			DLOG("  expressCaps 0x%x, linkControl 0x%x, linkCaps 0x%x, slotCaps 0x%x\n",
+				 child->expressCaps, linkControl, child->linkCaps, slotCaps);
 		}
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
 		DLOG("  expressMaxPayload 0x%x\n", child->expressMaxPayload);
@@ -1612,7 +1620,7 @@ uint32_t CLASS::findPCICapability(IOPCIAddressSpace space,
 
     if (capabilityID >= 0x100)
     {
-        capabilityID =- capabilityID;
+        capabilityID = -capabilityID;
         offset = 0x100;
         while (offset)
         {
@@ -2401,8 +2409,8 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
 			if (childRange->proposedSize
 			  && child->expressCapBlock
-			  && (kIOPCIResourceTypeMemory == childRange->type)
-			    || (kIOPCIResourceTypePrefetchMemory == childRange->type))
+			  && ((kIOPCIResourceTypeMemory == childRange->type)
+			    || (kIOPCIResourceTypePrefetchMemory == childRange->type)))
 			{
 				if (child->expressMaxPayload < fMaxPayload)
 				{
@@ -3109,7 +3117,7 @@ accessDisabled = false;
 
 //---------------------------------------------------------------------------
 
-#ifndef ExtractLSB(x)
+#ifndef ExtractLSB
 #define ExtractLSB(x) ((x) & (~((x) - 1)))
 #endif
 

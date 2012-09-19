@@ -15,6 +15,8 @@
 				C26AC0F4143BD1C4001C98CE /* CopyFiles */,
 				C2F24DFE14BCBBF200309FCD /* ShellScript */,
 				C2578CB11579627200D4FE48 /* CopyFiles */,
+				C25C18CD15CB0C470007A2DE /* CopyFiles */,
+				C25C18D015CB0FB30007A2DE /* CopyFiles */,
 			);
 			dependencies = (
 			);
@@ -53,6 +55,7 @@
 				C250F6C50B5EF4E40076098F /* PBXTargetDependency */,
 				C2E287430B5D8F9A009336A0 /* PBXTargetDependency */,
 				C26AC0F2143BD02B001C98CE /* PBXTargetDependency */,
+				C209697015BF53330093035F /* PBXTargetDependency */,
 			);
 			name = Everything;
 			productName = Everything;
@@ -69,7 +72,10 @@
 		18B9658C1472FC9E005A4D2E /* codedirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383170A237F47005C63A2 /* codedirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		18B965941472FE27005A4D2E /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		18B965951472FE30005A4D2E /* cdbuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383150A237F47005C63A2 /* cdbuilder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C200424D15D425D9004AE0A1 /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */; };
+		C200424E15D425D9004AE0A1 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */; };
 		C2093AA80BB0948000EB8599 /* reqreader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2093AA60BB0948000EB8599 /* reqreader.cpp */; };
+		C209696415BF52040093035F /* gkunpack.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C209696315BF52040093035F /* gkunpack.cpp */; };
 		C211070A158C1082001D7F76 /* gkmerge in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2110704158BF5C8001D7F76 /* gkmerge */; };
 		C21CFC5F0A250D1C006CD5B1 /* reqdumper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */; };
 		C21EA3DD0AD2F81300E6E31C /* SecCodeSigner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */; };
@@ -83,6 +89,8 @@
 		C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C24EABAC1421433700C16AA9 /* policydb.cpp */; };
 		C250F6C30B5EF1910076098F /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; };
 		C259DFD60AD6D9BA00C9ACC6 /* sigblob.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */; };
+		C25C18CE15CB0C5C0007A2DE /* gkreport in CopyFiles */ = {isa = PBXBuildFile; fileRef = C25C18C615CB0BC10007A2DE /* gkreport */; };
+		C25C18D115CB0FC30007A2DE /* com.apple.gkreport.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C25C18CF15CB0FA00007A2DE /* com.apple.gkreport.plist */; };
 		C26763D714FD9EBE00A46EDF /* drmaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26763D514FD9EBE00A46EDF /* drmaker.cpp */; };
 		C26763D814FD9EBE00A46EDF /* drmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = C26763D614FD9EBE00A46EDF /* drmaker.h */; };
 		C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */ = {isa = PBXBuildFile; fileRef = C26AC0F3143BD1B3001C98CE /* SystemPolicy */; };
@@ -198,6 +206,13 @@
 			remoteGlobalIDString = C26AC7090DAEB3A7005BFB40;
 			remoteInfo = DTrace;
 		};
+		C209696F15BF53330093035F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C209695F15BF52040093035F;
+			remoteInfo = gkunpack;
+		};
 		C250F6C40B5EF4E40076098F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
@@ -244,6 +259,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		C25C18CD15CB0C470007A2DE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				C25C18CE15CB0C5C0007A2DE /* gkreport in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C25C18D015CB0FB30007A2DE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				C25C18D115CB0FC30007A2DE /* com.apple.gkreport.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		C26AC0F4143BD1C4001C98CE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -263,9 +298,14 @@
 		184461A1146E9AD100B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		184461A2146E9AD100B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_codesigning.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_codesigning.a; path = ../../../usr/local/lib/libsecurity_codesigning.a; sourceTree = "<group>"; };
+		C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = ../../../usr/local/lib/libsecurity_utilities.a; sourceTree = "<group>"; };
 		C2093AA60BB0948000EB8599 /* reqreader.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqreader.cpp; sourceTree = "<group>"; };
 		C2093AA70BB0948000EB8599 /* reqreader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqreader.h; sourceTree = "<group>"; };
-		C2110704158BF5C8001D7F76 /* gkmerge */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = gkmerge; path = gke/gkmerge; sourceTree = SOURCE_ROOT; };
+		C209696015BF52040093035F /* gkunpack */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gkunpack; sourceTree = BUILT_PRODUCTS_DIR; };
+		C209696315BF52040093035F /* gkunpack.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gkunpack.cpp; sourceTree = "<group>"; };
+		C209697215BF57EB0093035F /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; sourceTree = "<group>"; };
+		C2110704158BF5C8001D7F76 /* gkmerge */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = gkmerge; sourceTree = "<group>"; };
 		C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqdumper.cpp; sourceTree = "<group>"; };
 		C21CFC5E0A250D1C006CD5B1 /* reqdumper.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqdumper.h; sourceTree = "<group>"; };
 		C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecCodeSigner.cpp; sourceTree = "<group>"; };
@@ -282,11 +322,13 @@
 		C24EABAC1421433700C16AA9 /* policydb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = policydb.cpp; sourceTree = "<group>"; };
 		C250F6C20B5EF1910076098F /* SecIntegrity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrity.h; sourceTree = "<group>"; };
 		C250F6C60B5EF5B50076098F /* SecIntegrity.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecIntegrity.cpp; sourceTree = "<group>"; };
-		C2578CC215798D0F00D4FE48 /* gkclear */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkclear; path = gke/gkclear; sourceTree = SOURCE_ROOT; };
-		C2578CC315798D0F00D4FE48 /* gkgenerate */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkgenerate; path = gke/gkgenerate; sourceTree = SOURCE_ROOT; };
-		C2578CC415798D0F00D4FE48 /* gkrecord */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkrecord; path = gke/gkrecord; sourceTree = SOURCE_ROOT; };
+		C2578CC215798D0F00D4FE48 /* gkclear */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = gkclear; sourceTree = "<group>"; };
+		C2578CC315798D0F00D4FE48 /* gkgenerate */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = gkgenerate; sourceTree = "<group>"; };
+		C2578CC415798D0F00D4FE48 /* gkrecord */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = gkrecord; sourceTree = "<group>"; };
 		C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = sigblob.cpp; sourceTree = "<group>"; };
 		C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sigblob.h; sourceTree = "<group>"; };
+		C25C18C615CB0BC10007A2DE /* gkreport */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = gkreport; path = gke/gkreport; sourceTree = SOURCE_ROOT; };
+		C25C18CF15CB0FA00007A2DE /* com.apple.gkreport.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.gkreport.plist; path = gke/com.apple.gkreport.plist; sourceTree = SOURCE_ROOT; };
 		C26763D514FD9EBE00A46EDF /* drmaker.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = drmaker.cpp; sourceTree = "<group>"; };
 		C26763D614FD9EBE00A46EDF /* drmaker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = drmaker.h; sourceTree = "<group>"; };
 		C26AC0F3143BD1B3001C98CE /* SystemPolicy */ = {isa = PBXFileReference; lastKnownFileType = text; name = SystemPolicy; path = cstemp/SystemPolicy; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -294,13 +336,13 @@
 		C26B45C00B8A9C00003C0ACA /* ucspc */ = {isa = PBXFileReference; lastKnownFileType = text; name = ucspc; path = cstemp/ucspc; sourceTree = BUILT_PRODUCTS_DIR; };
 		C27249D2143237CD0058B552 /* syspolicy.sql */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = syspolicy.sql; sourceTree = "<group>"; };
 		C273601D1432A60B00A9A5FF /* policyengine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policyengine.h; sourceTree = "<group>"; };
-		C27360201432A61900A9A5FF /* policyengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = policyengine.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
-		C273606C1433F09000A9A5FF /* SecAssessment.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecAssessment.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C27360201432A61900A9A5FF /* policyengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = policyengine.cpp; sourceTree = "<group>"; };
+		C273606C1433F09000A9A5FF /* SecAssessment.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecAssessment.cpp; sourceTree = "<group>"; };
 		C273606D1433F09000A9A5FF /* SecAssessment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = SecAssessment.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		C27360D41436866C00A9A5FF /* xpcengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = xpcengine.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C27360D41436866C00A9A5FF /* xpcengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = xpcengine.cpp; sourceTree = "<group>"; };
 		C27360D71436868600A9A5FF /* xpcengine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xpcengine.h; sourceTree = "<group>"; };
-		C278A19B158AB2C300FA6767 /* gkhandmake */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkhandmake; path = gke/gkhandmake; sourceTree = SOURCE_ROOT; };
-		C278A19C158AB2C300FA6767 /* gklist */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gklist; path = gke/gklist; sourceTree = SOURCE_ROOT; };
+		C278A19B158AB2C300FA6767 /* gkhandmake */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = gkhandmake; sourceTree = "<group>"; };
+		C278A19C158AB2C300FA6767 /* gklist */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = gklist; sourceTree = "<group>"; };
 		C28342E40E366E6800E54360 /* csdatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = csdatabase.cpp; sourceTree = "<group>"; };
 		C28342E50E366E6800E54360 /* csdatabase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = csdatabase.h; sourceTree = "<group>"; };
 		C28342EB0E36719D00E54360 /* detachedrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = detachedrep.cpp; sourceTree = "<group>"; };
@@ -404,6 +446,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C209695D15BF52040093035F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C200424D15D425D9004AE0A1 /* libsecurity_codesigning.a in Frameworks */,
+				C200424E15D425D9004AE0A1 /* libsecurity_utilities.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2BC1F240B580D3A003EC9DC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -468,6 +519,7 @@
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				C209697215BF57EB0093035F /* libsecurity_utilities.a */,
 				182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */,
 				4C308388053237100028A8C6 /* lib */,
 				1844619E146E9AD100B12992 /* config */,
@@ -483,6 +535,7 @@
 				4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */,
 				C2BC1F260B580D3A003EC9DC /* libintegrity.a */,
 				C2BC1F2F0B580D4B003EC9DC /* libcodehost.a */,
+				C209696015BF52040093035F /* gkunpack */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -533,9 +586,11 @@
 				C2578CC215798D0F00D4FE48 /* gkclear */,
 				C2578CC315798D0F00D4FE48 /* gkgenerate */,
 				C2578CC415798D0F00D4FE48 /* gkrecord */,
+				C25C18C615CB0BC10007A2DE /* gkreport */,
+				C25C18CF15CB0FA00007A2DE /* com.apple.gkreport.plist */,
+				C209696315BF52040093035F /* gkunpack.cpp */,
 			);
-			name = gke;
-			path = whitelist;
+			path = gke;
 			sourceTree = SOURCE_ROOT;
 		};
 		C2BC1F370B580DAE003EC9DC /* Static Support */ = {
@@ -673,6 +728,8 @@
 		C2CC30EF0B8519CF005FA59D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */,
+				C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */,
 				C2CC30A00B8519CC005FA59D /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
@@ -813,6 +870,22 @@
 			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		C209695F15BF52040093035F /* gkunpack */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C209696B15BF52040093035F /* Build configuration list for PBXNativeTarget "gkunpack" */;
+			buildPhases = (
+				C209695C15BF52040093035F /* Sources */,
+				C209695D15BF52040093035F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = gkunpack;
+			productName = gkunpack;
+			productReference = C209696015BF52040093035F /* gkunpack */;
+			productType = "com.apple.product-type.tool";
+		};
 		C2BC1F250B580D3A003EC9DC /* libintegrity */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C2BC1F270B580D3F003EC9DC /* Build configuration list for PBXNativeTarget "libintegrity" */;
@@ -884,6 +957,7 @@
 				C2BC1F2E0B580D4B003EC9DC /* libcodehost */,
 				C26AC7090DAEB3A7005BFB40 /* DTrace */,
 				C26AC0EB143BCF01001C98CE /* SystemPolicy */,
+				C209695F15BF52040093035F /* gkunpack */,
 			);
 		};
 /* End PBXProject section */
@@ -1066,6 +1140,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C209695C15BF52040093035F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C209696415BF52040093035F /* gkunpack.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2BC1F230B580D3A003EC9DC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1100,6 +1182,11 @@
 			target = C26AC7090DAEB3A7005BFB40 /* DTrace */;
 			targetProxy = 1844617C146E9A5200B12992 /* PBXContainerItemProxy */;
 		};
+		C209697015BF53330093035F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C209695F15BF52040093035F /* gkunpack */;
+			targetProxy = C209696F15BF53330093035F /* PBXContainerItemProxy */;
+		};
 		C250F6C50B5EF4E40076098F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C2BC1F250B580D3A003EC9DC /* libintegrity */;
@@ -1123,6 +1210,57 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		C209696C15BF52040093035F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C209696D15BF52040093035F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
 		C263E67609A2971B000043F1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184461A0146E9AD100B12992 /* debug.xcconfig */;
@@ -1153,6 +1291,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184461A1146E9AD100B12992 /* lib.xcconfig */;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					/usr/local/include,
+				);
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
 			};
 			name = Debug;
@@ -1161,6 +1306,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184461A1146E9AD100B12992 /* lib.xcconfig */;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					/usr/local/include,
+				);
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
 			};
 			name = Release;
@@ -1236,18 +1388,41 @@
 		C2E287480B5D8FD8009336A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					/usr/local/include,
+				);
 			};
 			name = Debug;
 		};
 		C2E2874A0B5D8FD8009336A0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					/usr/local/include,
+				);
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		C209696B15BF52040093035F /* Build configuration list for PBXNativeTarget "gkunpack" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C209696C15BF52040093035F /* Debug */,
+				C209696D15BF52040093035F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		C263E67509A2971B000043F1 /* Build configuration list for PBXNativeTarget "libsecurity_codesigning" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

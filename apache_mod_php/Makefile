@@ -81,7 +81,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.13
+AEP_Version	= 5.3.15
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	= suhosin-patch-5.3.9-0.9.10.patch \
 			MacOSX_build.patch arches.patch \

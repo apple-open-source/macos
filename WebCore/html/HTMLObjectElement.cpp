@@ -26,6 +26,8 @@
 
 #include "Attribute.h"
 #include "CSSValueKeywords.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "FormDataList.h"

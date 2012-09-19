@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1997-2009 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -35,7 +34,6 @@
 #include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBLog.h>
-
 
 #include "USBTracepoints.h"
 
@@ -462,7 +460,6 @@ IOReturn IOUSBControllerV2::OpenPipe(USBDeviceAddress address, UInt8 speed,
 }
 
 
-#ifdef SUPPORTS_SS_USB
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  25);
 IOReturn IOUSBControllerV2::OpenSSPipe(USBDeviceAddress address, UInt8 speed,
 									 Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurst)
@@ -470,7 +467,6 @@ IOReturn IOUSBControllerV2::OpenSSPipe(USBDeviceAddress address, UInt8 speed,
     return _commandGate->runAction(DoCreateEP, (void *)(UInt32)address,
 								   (void *)(UInt32)speed, endpoint, (void *)(maxStreams+(maxBurst << 16)));
 }
-#endif
 
 IOReturn 
 IOUSBControllerV2::DoCreateEP(OSObject *owner,
@@ -481,37 +477,29 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
     UInt8 address = (UInt8)(uintptr_t)arg0;
     UInt8 speed = (UInt8)(uintptr_t)arg1;
     Endpoint *endpoint = (Endpoint *)arg2;
-#ifdef SUPPORTS_SS_USB
 	UInt32 maxStreams = ((UInt32)(uintptr_t)arg3) & 0xffff;
 	UInt32 maxBurst = ((UInt32)(uintptr_t)arg3) >> 16;
-#else
-#pragma unused(arg3)
-#endif
     IOReturn err;
 	
     USBLog(5,"%s[%p]::DoCreateEP, high speed ancestor hub:%d, port:%d", me->getName(), me, me->_highSpeedHub[address], me->_highSpeedPort[address]);
-
+    
 	USBTrace_Start( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, me->_highSpeedHub[address], me->_highSpeedPort[address], endpoint->transferType );
-
-#ifdef SUPPORTS_SS_USB
+    
 	IOUSBControllerV3		*me3 = OSDynamicCast(IOUSBControllerV3, owner);
     if(me3 == NULL)
     {
         if( (maxBurst != 0) || (maxStreams != 0) )
         {
             USBLog(1,"%s[%p]::DoCreateEP, SuperSpeed create EP, but controller doesn't support it. maxStreams: %d, maxBurst: %d", me->getName(), me, (int)maxStreams, (int)maxBurst);
-        }
-		return kIOReturnUnsupported;
+			return kIOReturnUnsupported;
+       }
     }
-#endif
 	
 	switch (endpoint->transferType)
     {
         case kUSBInterrupt:
-#ifdef SUPPORTS_SS_USB
             if(maxBurst == 0)
             {
-#endif
                 err = me->UIMCreateInterruptEndpoint(address,
                                                      endpoint->number,
                                                      endpoint->direction,
@@ -520,26 +508,22 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
                                                      endpoint->interval,
                                                      me->_highSpeedHub[address],
                                                      me->_highSpeedPort[address]);
- #ifdef SUPPORTS_SS_USB
-          }
+            }
             else
             {
                 err = me3->UIMCreateSSInterruptEndpoint(address,
-                                                     endpoint->number,
-                                                     endpoint->direction,
-                                                     speed,
-                                                     endpoint->maxPacketSize,
-                                                     endpoint->interval,
-                                                     maxBurst);
+                                                        endpoint->number,
+                                                        endpoint->direction,
+                                                        speed,
+                                                        endpoint->maxPacketSize,
+                                                        endpoint->interval,
+                                                        maxBurst);
             }
-#endif
             break;
 			
         case kUSBBulk:
-#ifdef SUPPORTS_SS_USB
 			if( (maxStreams == 0) && (maxBurst == 0) )
 			{
-#endif
 				err = me->UIMCreateBulkEndpoint(address,
 												endpoint->number,
 												endpoint->direction,
@@ -547,19 +531,17 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 												endpoint->maxPacketSize,
 												me->_highSpeedHub[address],
 												me->_highSpeedPort[address]);
-#ifdef SUPPORTS_SS_USB
 			}
 			else
 			{
 				err = me3->UIMCreateSSBulkEndpoint(address,
-												endpoint->number,
-												endpoint->direction,
-												speed,
-												endpoint->maxPacketSize,
-												maxStreams,
-                                                maxBurst);	
+                                                   endpoint->number,
+                                                   endpoint->direction,
+                                                   speed,
+                                                   endpoint->maxPacketSize,
+                                                   maxStreams,
+                                                   maxBurst);	
 			}
-#endif
             break;
 			
         case kUSBControl:
@@ -587,12 +569,12 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 					USBTrace( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, err, endpoint->interval, 0);
 					break;
 				}
-
+                
 				interval = (1 << (endpoint->interval - 1));
-
+                
 				USBLog(4, "%s[%p]::DoCreateEP - Creating a High-Speed Isoch EP with interval %u [raw %u]", me->getName(), me, 
 					   (unsigned int )interval, (unsigned int )endpoint->interval);
-
+                
 			}
 			else
 			{	
@@ -600,15 +582,13 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 				// matter. To protect ourselves, assign an interval of 1 - our code will
 				// do the right thing for full-speed devices then.
 				endpoint->interval = 1;
-
+                
 				USBLog(4, "%s[%p]::DoCreateEP - Creating a Full-Speed Isoch EP with interval %u", me->getName(), me, (unsigned int )endpoint->interval);
-
+                
 			}
-
-#ifdef SUPPORTS_SS_USB
+            
             if(maxBurst == 0)
             {
-#endif
                 err = me->UIMCreateIsochEndpoint(address,
                                                  endpoint->number,
                                                  endpoint->maxPacketSize,
@@ -616,30 +596,27 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
                                                  me->_highSpeedHub[address],
                                                  me->_highSpeedPort[address],
                                                  endpoint->interval);
-#ifdef SUPPORTS_SS_USB
             }
             else
             {
                 err = me3->UIMCreateSSIsochEndpoint(address,
-                                                 endpoint->number,
-                                                 endpoint->maxPacketSize,
-                                                 endpoint->direction,
-                                                 endpoint->interval,
-                                                 maxBurst);
+                                                    endpoint->number,
+                                                    endpoint->maxPacketSize,
+                                                    endpoint->direction,
+                                                    endpoint->interval,
+                                                    maxBurst);
             }
-#endif
 			break;
-		  }
-
+        }
+            
 			
         default:
             err = kIOReturnBadArgument;
             break;
     }
-
+    
 	USBTrace_End( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, err, 0, 0 );	
 	
-#ifdef SUPPORTS_SS_USB
 	if ( err == kIOUSBEndpointCountExceeded )
 	{
 		USBLog(1, "%s[%p]::DoCreateEP - Received a kIOUSBEndpointCountExceeded, Address: %d, Speed: %d:  Endpoint: (0x%x, 0x%x, 0x%x, 0x%x)", me->getName(), me, address, speed,
@@ -649,7 +626,6 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 			   (uint32_t) endpoint->interval);
 		IOLog("The USB device at USB Address %d might not work correctly because the controller driver has reached a hardware limit on the number of endpoints", address);
 	}
-#endif
 	
     return (err);
 }
@@ -667,7 +643,6 @@ IOUSBControllerV2::CreateDevice(	IOUSBDevice 		*newDevice,
 {
     USBLog(5,"%s[%p]::CreateDevice, new method called with speed : %d hub:%d, port:%d", getName(), this, speed, hub, port);
     
-#ifdef SUPPORTS_SS_USB
 	if( deviceAddress > kUSBMaxDevices )
 	{
 		USBLog(5,"%s[%p]::CreateDevice, returning kIOReturnInvalid with address: %d speed : %d hub:%d, port:%d", getName(), this, deviceAddress, speed, hub, port);
@@ -701,26 +676,6 @@ IOUSBControllerV2::CreateDevice(	IOUSBDevice 		*newDevice,
         _highSpeedPort[deviceAddress] = 0;
     }
 	
-#else
-	if (speed != kUSBDeviceSpeedHigh)
-    {
-        if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
-        {
-            _highSpeedHub[deviceAddress] = hub;
-            _highSpeedPort[deviceAddress] = port;
-        }
-        else
-        {
-            _highSpeedHub[deviceAddress] = _highSpeedHub[hub];
-            _highSpeedPort[deviceAddress] = _highSpeedPort[hub];
-        }
-    }
-    else
-    {
-        _highSpeedHub[deviceAddress] = 0;
-        _highSpeedPort[deviceAddress] = 0;
-    }
-#endif
 	
     USBLog(5,"%s[%p]::CreateDevice, high speed ancestor hub:%d, port:%d",getName(), this, _highSpeedHub[deviceAddress], _highSpeedPort[deviceAddress]);
     
@@ -734,7 +689,6 @@ IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDevi
 {
     USBLog(5,"%s[%p]::ConfigureDeviceZero, new method called with speed : %d, hub:%d, port:%d", getName(), this, speed, hub, port);
 	
-#ifdef SUPPORTS_SS_USB
 	if( hub > kXHCIUSB2RootHubAddress )
 	{
 		USBLog(5,"%s[%p]::ConfigureDeviceZero, returning kIOReturnInvalid with speed : %d hub:%d, port:%d", getName(), this, speed, hub, port);
@@ -767,26 +721,6 @@ IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDevi
         _highSpeedHub[0] = 0;
         _highSpeedPort[0] = 0;
     }
-#else
-	if (speed != kUSBDeviceSpeedHigh)
-    {
-        if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
-        {
-            _highSpeedHub[0] = hub;
-            _highSpeedPort[0] = port;
-        }
-        else
-        {
-            _highSpeedHub[0] = _highSpeedHub[hub];
-            _highSpeedPort[0] = _highSpeedPort[hub];
-        }
-    }
-    else
-    {
-        _highSpeedHub[0] = 0;
-        _highSpeedPort[0] = 0;
-    }
-#endif
     USBLog(5, "%s[%p]::CreateDevice, high speed ancestor hub:%d, port:%d", getName(), this, _highSpeedHub[0], _highSpeedPort[0]);
     
     return (super::ConfigureDeviceZero(maxPacketSize, speed));
@@ -994,9 +928,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     command->SetRequest(0);            	// Not a device request
     command->SetAddress(address);
     command->SetEndpoint(endpoint->number);
-#ifdef SUPPORTS_SS_USB
     command->SetStreamID(0);
-#endif
     command->SetDirection(kUSBIn);
     command->SetType(endpoint->transferType);
     command->SetBuffer(buffer);
@@ -1206,6 +1138,7 @@ IOUSBControllerV2::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBCont
 {
     IOUSBControllerIsochListElement	*deferredTD;
 	
+	USBTrace_Start( kUSBTController, kTPControllerPutTDOnDoneQueue, (uintptr_t)this, (uintptr_t)pED, (uintptr_t)pTD, checkDeferred );
 	if ((pED->doneQueue != NULL) && (pED->doneEnd == NULL))
 	{
 		IOUSBControllerIsochListElement		*lastTD;
@@ -1225,6 +1158,7 @@ IOUSBControllerV2::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBCont
 		while (pED->deferredQueue && (pED->deferredQueue->_frameNumber < pTD->_frameNumber))
 		{
 			deferredTD = GetTDfromDeferredQueue(pED);
+            USBTrace( kUSBTController, kTPControllerPutTDOnDoneQueue, (uintptr_t)this, (uintptr_t)pED, (uintptr_t)deferredTD, 0 );
 			PutTDonDoneQueue(pED, deferredTD, false);
 		}
     }
@@ -1253,6 +1187,7 @@ IOUSBControllerV2::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBCont
 			deferredTD = GetTDfromDeferredQueue(pED);
 		}
 	}
+	USBTrace_End( kUSBTController, kTPControllerPutTDOnDoneQueue, (uintptr_t)this, (uintptr_t)pED, (uintptr_t)pTD, checkDeferred );
 }
 
 
@@ -1272,6 +1207,15 @@ IOUSBControllerV2::GetTDfromDoneQueue(IOUSBControllerIsochEndpoint* pED)
 			pED->doneQueue = OSDynamicCast(IOUSBControllerIsochListElement, pTD->_logicalNext);
 		pED->onDoneQueue--;
 		pED->activeTDs--;
+    }
+    else
+    {
+        // 11155677 if there is nothing on the done queue, we need to check the deferred queue and make sure that there is nothing we need to
+        // retrieve from there either. usually stuff gets moved from the deferred queue to the done queue when we add things to the done queue
+        // but if we ever get into a situation where we only put things on the deferred queue and they never end up on the done queue, then
+        // the deferred queue can grow without bound
+        
+        pTD = GetTDfromDeferredQueue(pED);
     }
     return pTD;
 }
@@ -1487,7 +1431,6 @@ IOUSBControllerV2::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *the
 }
 
 
-#ifdef SUPPORTS_SS_USB
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  23);
 IOReturn 
 IOUSBControllerV2::ReadStream(UInt32 streamID, IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletion *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
@@ -1810,11 +1753,6 @@ IOUSBControllerV2::WriteStream(UInt32 streamID, IOMemoryDescriptor *buffer, USBD
 	
     return err;
 }
-#else
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  23);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  24);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  25);
-#endif
 
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  26);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  27);

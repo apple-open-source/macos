@@ -1,8 +1,7 @@
 /*
+ * Copyright © 2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,7 +25,6 @@
 #import "BusProberSharedFunctions.h"
 #import "BusProbeDevice.h"
 
-#ifdef SUPPORTS_SS_USB
 
 @interface DecodeBOSDescriptor : NSObject {
 
@@ -35,4 +33,3 @@
 + (void)decodeBytes:(IOUSBBOSDescriptor *)bosDescriptor forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf;
 
 @end
-#endif

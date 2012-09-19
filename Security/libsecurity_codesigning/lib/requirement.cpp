@@ -42,14 +42,6 @@ namespace CodeSigning {
 
 
 //
-// The (SHA-1) hash of the canonical Apple certificate root anchor
-//
-static const SHA1::Digest gAppleAnchorHash =
-	{ 0x61, 0x1e, 0x5b, 0x66, 0x2c, 0x59, 0x3a, 0x08, 0xff, 0x58,
-	  0xd1, 0x4a, 0xe2, 0x24, 0x52, 0xd1, 0x98, 0xdf, 0x6c, 0x60 };
-
-
-//
 // Canonical names for requirement types
 //
 const char *const Requirement::typeNames[] = {
@@ -120,14 +112,8 @@ unsigned int Requirement::Context::certCount() const
 
 
 //
-// Return the hash of the canonical Apple certificate root (anchor).
-// In a special test mode, also return an alternate root hash for testing.
+// Produce the hash of a fake Apple root (only if compiled for internal testing)
 //
-const SHA1::Digest &Requirement::appleAnchorHash()
-{
-	return gAppleAnchorHash;
-}
-
 #if defined(TEST_APPLE_ANCHOR)
 
 const char Requirement::testAppleAnchorEnv[] = "TEST_APPLE_ANCHOR";

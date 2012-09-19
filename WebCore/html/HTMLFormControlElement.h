@@ -51,7 +51,7 @@ public:
     void setFormMethod(const String&);
     bool formNoValidate() const;
 
-    void updateAncestors() const;
+    void ancestorDisabledStateWasChanged();
 
     virtual void reset() { }
 
@@ -137,6 +137,8 @@ protected:
     void setNeedsWillValidateCheck();
     virtual bool recalcWillValidate() const;
 
+    bool validationMessageShadowTreeContains(Node*) const;
+
 private:
     virtual void refFormAssociatedElement() { ref(); }
     virtual void derefFormAssociatedElement() { deref(); }
@@ -149,15 +151,18 @@ private:
     virtual bool isDefaultButtonForForm() const;
     virtual bool isValidFormControlElement();
     String visibleValidationMessage() const;
+    void updateAncestorDisabledState() const;
 
-    mutable HTMLFieldSetElement* m_fieldSetAncestor;
-    mutable HTMLLegendElement* m_legendAncestor;
     OwnPtr<ValidationMessage> m_validationMessage;
-    mutable bool m_ancestorsValid : 1;
     bool m_disabled : 1;
     bool m_readOnly : 1;
     bool m_required : 1;
     bool m_valueMatchesRenderer : 1;
+
+    enum AncestorDisabledState { AncestorDisabledStateUnknown, AncestorDisabledStateEnabled, AncestorDisabledStateDisabled };
+    mutable AncestorDisabledState m_ancestorDisabledState;
+    enum DataListAncestorState { Unknown, InsideDataList, NotInsideDataList };
+    mutable enum DataListAncestorState m_dataListAncestorState;
 
     // The initial value of m_willValidate depends on the derived class. We can't
     // initialize it with a virtual function in the constructor. m_willValidate
@@ -172,7 +177,6 @@ private:
     bool m_wasChangedSinceLastFormControlChangeEvent : 1;
 
     bool m_hasAutofocused : 1;
-    mutable bool m_hasDataListAncestor : 1;
 };
 
 } // namespace

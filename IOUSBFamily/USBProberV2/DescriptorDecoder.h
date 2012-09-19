@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -22,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #import <Foundation/Foundation.h>
 #import "BusProberSharedFunctions.h"
 #import "BusProbeDevice.h"
@@ -37,9 +35,7 @@
 #import "DecodeAudioInterfaceDescriptor.h"
 #import "DecodeVideoInterfaceDescriptor.h"
 #import "DecodeCommClassDescriptor.h"
-#ifdef SUPPORTS_SS_USB
-	#import "DecodeBOSDescriptor.h"
-#endif
+#import "DecodeBOSDescriptor.h"
 
 #define HID_DESCRIPTOR                  0x21
 #define DFU_FUNCTIONAL_DESCRIPTOR       0x21
@@ -54,11 +50,9 @@ enum ClassSpecific {
 
 }
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc  isinCurrentConfig:(Boolean)inCurrentConfig;
++(void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc  isinCurrentConfig:(Boolean)inCurrentConfig;
 +(void)dumpRawDescriptor:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dumpRawConfigDescriptor:(IOUSBConfigurationDescriptor*)cfg forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dump:(int)n byte:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
-#ifdef SUPPORTS_SS_USB
 +(void)dumpRawBOSDescriptor:(IOUSBBOSDescriptor*)bos forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
-#endif
 @end

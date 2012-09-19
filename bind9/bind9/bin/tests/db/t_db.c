@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: t_db.c,v 1.39.346.2 2011-03-12 04:59:14 tbox Exp $ */
+/* $Id: t_db.c,v 1.39.346.2 2011/03/12 04:59:14 tbox Exp $ */
 
 #include <config.h>
 

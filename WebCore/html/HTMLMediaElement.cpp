@@ -39,6 +39,7 @@
 #include "ContentType.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "DiagnosticLoggingKeys.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -1472,6 +1473,20 @@ void HTMLMediaElement::mediaPlayerNetworkStateChanged(MediaPlayer*)
     endProcessingMediaPlayerCallback();
 }
 
+static String stringForNetworkState(MediaPlayer::NetworkState state)
+{
+    switch (state) {
+    case MediaPlayer::Empty: return "Empty";
+    case MediaPlayer::Idle: return "Idle";
+    case MediaPlayer::Loading: return "Loading";
+    case MediaPlayer::Loaded: return "Loaded";
+    case MediaPlayer::FormatError: return "FormatError";
+    case MediaPlayer::NetworkError: return "NetworkError";
+    case MediaPlayer::DecodeError: return "DecodeError";
+    default: return emptyString();
+    }
+}
+
 void HTMLMediaElement::mediaLoadingFailed(MediaPlayer::NetworkState error)
 {
     stopPeriodicTimers();
@@ -1508,6 +1523,9 @@ void HTMLMediaElement::mediaLoadingFailed(MediaPlayer::NetworkState error)
         mediaControls()->reset();
         mediaControls()->reportedError();
     }
+
+    if (document()->page() && document()->page()->settings()->diagnosticLoggingEnabled())
+        document()->page()->chrome()->client()->logDiagnosticMessage(DiagnosticLoggingKeys::mediaLoadingFailedKey(), stringForNetworkState(error), DiagnosticLoggingKeys::failKey());
 }
 
 void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
@@ -1636,6 +1654,9 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
             mediaControls()->loadedMetadata();
         if (renderer())
             renderer()->updateFromElement();
+
+        if (document()->page() && document()->page()->settings()->diagnosticLoggingEnabled())
+            document()->page()->chrome()->client()->logDiagnosticMessage(DiagnosticLoggingKeys::mediaLoadedKey(), m_player->engineDescription(), DiagnosticLoggingKeys::noopKey());
     }
 
     bool shouldUpdateDisplayState = false;
@@ -3404,6 +3425,16 @@ void HTMLMediaElement::mediaPlayerRenderingModeChanged(MediaPlayer*)
 
     // Kick off a fake recalcStyle that will update the compositing tree.
     setNeedsStyleRecalc(SyntheticStyleChange);
+}
+#endif
+
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+GraphicsDeviceAdapter* HTMLMediaElement::mediaPlayerGraphicsDeviceAdapter(const MediaPlayer*) const
+{
+    if (!document() || !document()->page())
+        return 0;
+
+    return document()->page()->chrome()->client()->graphicsDeviceAdapter();
 }
 #endif
 

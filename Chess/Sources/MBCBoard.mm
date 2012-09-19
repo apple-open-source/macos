@@ -338,19 +338,28 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 
 @implementation MBCBoard
 
+- (id)init
+{
+    if (self = [super init])
+        fObservers = [[NSMutableArray alloc] init];
+    
+    return self;
+}
+
 - (void)removeChessObservers
 {
-    if (!fHasObservers)
-        return;
-    
     NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
-    [notificationCenter removeObserver:self name:MBCGameLoadNotification object:self];
-    fHasObservers   = NO;
+    [fObservers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        [notificationCenter removeObserver:obj];
+    }];
+    [fObservers removeAllObjects];
 }
 
 - (void)dealloc
 {
     [self removeChessObservers];
+    [fObservers release];
+    [fMoves release];
     [super dealloc];
 }
 
@@ -362,19 +371,19 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 	[self resetWithVariant:[doc variant]];
     
     [self removeChessObservers];
-    [[NSNotificationCenter defaultCenter]
-     addObserverForName:MBCGameLoadNotification object:doc 
-     queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
-         NSDictionary * dict    = [note userInfo];
-         NSString *     fen     = [dict objectForKey:@"Position"];
-         NSString *     holding = [dict objectForKey:@"Holding"];
-         NSString *     moves   = [dict objectForKey:@"Moves"];
-         fVariant               = [doc variant];
+    [fObservers addObject:
+     [[NSNotificationCenter defaultCenter]
+        addObserverForName:MBCGameLoadNotification object:doc
+        queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+            NSDictionary * dict    = [note userInfo];
+            NSString *     fen     = [dict objectForKey:@"Position"];
+            NSString *     holding = [dict objectForKey:@"Holding"];
+            NSString *     moves   = [dict objectForKey:@"Moves"];
+            fVariant               = [doc variant];
 
-         if (fen || moves)
-             [self setFen:fen holding:holding moves:moves];
-     }];
-    fHasObservers = YES;
+            if (fen || moves)
+                [self setFen:fen holding:holding moves:moves];
+        }]];
 }
 
 - (void) resetWithVariant:(MBCVariant)variant

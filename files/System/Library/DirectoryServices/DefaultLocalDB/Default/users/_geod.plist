@@ -8,7 +8,7 @@
 	</array>
 	<key>home</key>
 	<array>
-		<string>/var/empty</string>
+		<string>/var/db/geod</string>
 	</array>
 	<key>name</key>
 	<array>

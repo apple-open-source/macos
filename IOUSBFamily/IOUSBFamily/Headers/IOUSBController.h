@@ -1,20 +1,21 @@
 /*
- * Copyright Â© 1998-2012 Apple Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -88,6 +89,19 @@ enum
 enum
 {
     kUSBWatchdogTimeoutMS = 1000
+};
+
+
+// Here are some constants which really need to be moved to IOPCIFamily
+// This is a Power Management Register Block (section 3.2 of the PCI Power Management Spec)
+enum 
+{
+	kPCIPMRegBlockCapID = 0,		// Capability ID
+	kPCIPMRegBlockNext  = 1,		// NextItemPtr
+	kPCIPMRegBlockPMC	= 2,		// Power Management Capabilities
+	kPCIPMRegBlockPMCSR = 4,		// Power Management Control/Status Register
+	kPCIPMRegBlock_BSE	= 6,		// PMCSR Bridge Support Extensions
+	kPCIPMRegBlockData	= 7			// Data
 };
 
 
@@ -207,9 +221,7 @@ protected:
 		bool				_needToClose;
 		UInt32				_isochMaxBusStall;					// value (in ns) of the maximum PCI bus stall allowed for Isoch.
 		SInt32				_activeInterruptTransfers;			// interrupt transfers in the queue
-#ifdef SUPPORTS_SS_USB
 		IOUSBRootHubDevice	*_rootHubDeviceSS;
-#endif
     };
     ExpansionData *_expansionData;
 	
@@ -217,6 +229,8 @@ protected:
     //
 
 public:
+	static volatile UInt32	gExternalNonSSPortsUsingExtraCurrent;
+
     virtual bool 		init( OSDictionary *  propTable );
     virtual bool 		start( IOService *  provider );
     virtual void 		stop( IOService * provider );
@@ -1100,18 +1114,12 @@ protected:
 	bool							DumpUSBACPI( IORegistryEntry * acpiDevice );
 	bool							IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UInt32 locationID );
     bool                            GetInternalHubErrataBits(IORegistryEntry* provider, UInt32 portnum, UInt32 locationID, UInt32 *errataBits);
-#ifdef SUPPORTS_SS_USB
     bool                            IsControllerMuxed( IORegistryEntry * provider, UInt32 locationID );
-    bool                            IsPortMuxed(IORegistryEntry * provider, UInt32 portnum, UInt32 locationID, char *muxName);
-#endif    
 	UInt8							GetControllerSpeed() { return (_expansionData ? _expansionData->_controllerSpeed : 255); }
 	
 private:
 	bool							HasExpressCard( IORegistryEntry * acpiDevice, UInt32 * portnum );
 	bool							CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID );
-#ifdef SUPPORTS_SS_USB
-    bool                            CheckACPIUPCTableForMuxedMethods( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID, char* muxName );
-#endif
     bool                            CheckACPIUPCTableForInternalHubErrataBits( IORegistryEntry* acpiDevice, UInt32 portnum, UInt32 locationID, UInt32* errataBits );
 	int 							calculateUSBDepth(UInt32 locationID);
 	int 							calculateACPIDepth(int hubUSBDepth);

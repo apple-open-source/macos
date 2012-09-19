@@ -122,7 +122,6 @@ private:
         OSSet *                 clientSet;
         IOService *             seizedClient;
         AbsoluteTime            eventDeadline;
-        IONotifier *            publishDisplayNotify;
         OSArray *               inputInterruptElementArray;
         bool                    performTickle;
         bool                    performWakeTickle;

@@ -64,12 +64,20 @@ TileCache::TileCache(WebTileCacheLayer* tileCacheLayer, const IntSize& tileSize)
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     [m_tileCacheLayer addSublayer:m_tileContainerLayer.get()];
+#ifndef NDEBUG
+    [m_tileContainerLayer.get() setName:@"TileCache Container Layer"];
+#endif
     [CATransaction commit];
 }
 
 TileCache::~TileCache()
 {
     ASSERT(isMainThread());
+
+    for (TileMap::iterator it = m_tiles.begin(), end = m_tiles.end(); it != end; ++it) {
+        WebTileLayer* tileLayer = it->second.get();
+        [tileLayer setTileCache:0];
+    }
 }
 
 void TileCache::tileCacheLayerBoundsChanged()
@@ -394,6 +402,9 @@ RetainPtr<WebTileLayer> TileCache::createTileLayer(const IntRect& tileRect)
     [layer.get() setBorderWidth:m_tileDebugBorderWidth];
     [layer.get() setEdgeAntialiasingMask:0];
     [layer.get() setOpaque:YES];
+#ifndef NDEBUG
+    [layer.get() setName:@"Tile"];
+#endif
 
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     [layer.get() setContentsScale:m_deviceScaleFactor];

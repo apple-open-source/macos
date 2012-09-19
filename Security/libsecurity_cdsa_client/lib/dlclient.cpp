@@ -111,6 +111,8 @@ DbImpl::open()
 		check(CSSM_DL_DbOpen(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
 								mAccessRequest, mAccessCredentials,
 								mOpenParameters, &mHandle.DBHandle));
+
+        StLock<Mutex> _(mActivateMutex);
 		mActive = true;
 		
 		if (!mAccessCredentials && mDefaultCredentials)
@@ -150,6 +152,7 @@ DbImpl::createWithBlob(CssmData &blob)
 void
 DbImpl::create()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 		CssmError::throwMe(CSSMERR_DL_DATASTORE_ALREADY_EXISTS);
 
@@ -176,6 +179,7 @@ DbImpl::create()
 void
 DbImpl::close()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		check(CSSM_DL_DbClose (mHandle));
@@ -186,6 +190,7 @@ DbImpl::close()
 void
 DbImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		if (mDbInfo)
@@ -198,6 +203,7 @@ DbImpl::activate()
 void
 DbImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;
@@ -640,6 +646,8 @@ DbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniq
 									  attributes,
 									  data,
 									  unique);
+
+        StLock<Mutex> _(mActivateMutex);
 		if (result == CSSM_OK)
 			mActive = true;
 		else if (data != NULL)
@@ -666,6 +674,7 @@ DbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniq
 	
 	if (result == CSSMERR_DL_ENDOFDATA)
 	{
+        StLock<Mutex> _(mActivateMutex);
 		mActive = false;
 		return false;
 	}
@@ -686,6 +695,7 @@ DbDbCursorImpl::activate()
 void
 DbDbCursorImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;
@@ -836,12 +846,14 @@ DbUniqueRecordImpl::getWithoutEncryption(DbAttributes *attributes,
 void
 DbUniqueRecordImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	mActive = true;
 }
 
 void
 DbUniqueRecordImpl::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;

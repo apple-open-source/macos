@@ -231,6 +231,8 @@ AutoWake_prime(void)
     restartBehavior.timerExpirationCallout  = restartTimerExpiredCallout;
     
     // schedulePowerEvent callouts
+    wakeBehavior.scheduleNextCallout     = wakeScheduleCallout;
+    wakeBehavior.noScheduledEventCallout     = wakeScheduleCallout;
     poweronBehavior.scheduleNextCallout     = poweronScheduleCallout;
     poweronBehavior.noScheduledEventCallout = poweronScheduleCallout;
 
@@ -483,6 +485,12 @@ void poweronTimerExpiredCallout(CFDictionaryRef event __unused)
  */
 #pragma mark -
 #pragma mark Wake
+
+void wakeScheduleCallout(CFDictionaryRef event)
+{    
+    return;
+}
+
 
 void wakeTimerExpiredCallout(CFDictionaryRef event __unused)
 {

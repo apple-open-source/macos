@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: once.h,v 1.9 2007-06-19 23:47:20 tbox Exp $ */
+/* $Id: once.h,v 1.9 2007/06/19 23:47:20 tbox Exp $ */
 
 #ifndef ISC_ONCE_H
 #define ISC_ONCE_H 1

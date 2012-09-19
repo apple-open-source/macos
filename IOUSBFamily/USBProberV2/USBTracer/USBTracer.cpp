@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999-2012 Apple Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,6 +66,10 @@ uint64_t			gLastTimeStamp				= -1;
 boolean_t			gPrintNoSep					= FALSE;
 uint32_t			gSavedUSBDebugMask			= 0;
 boolean_t			gDump						= FALSE;
+
+int64_t 			gCurrent_usecs				= 0;
+int64_t 			gPrev_usecs					= 0;
+int64_t				gDelta_usecs					= 0;
 
 static void PrintBufferSettings ( void )
 {
@@ -1069,7 +1072,6 @@ ProcessTracepoint( kd_buf tracepoint )
 				CollectTraceEHCIDumpQs	(tracepoint); 
 				break;
 				
-#ifdef SUPPORTS_SS_USB
 			case USB_XHCI_TRACE(0):	
 				CollectTraceXHCI	(tracepoint); 
 				break;
@@ -1085,8 +1087,8 @@ ProcessTracepoint( kd_buf tracepoint )
             case USB_XHCI_PRINTTRB_TRACE(0):
 				CollectTraceXHCIPrintTRB	(tracepoint); 
                 break;
-#endif				
-			case USB_HUB_POLICYMAKER_TRACE(0):	
+
+			case USB_HUB_POLICYMAKER_TRACE(0):
 				CollectTraceHubPolicyMaker	(tracepoint); 
 				break;
 				
@@ -1560,13 +1562,11 @@ CollectTraceController( kd_buf tracepoint )
 
 
 		case USB_CONTROLLER_TRACE( kTPControllerCheckForRootHubChanges ):
-#ifdef SUPPORTS_SS_USB
 			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "CheckForRootHubChanges", parg1, "_rootHubStatusChangedBitmap(0x%x) with no _rootHubDeviceSS or policy maker!!", arg2 );
 			}
 			else if ( arg4 == 0 )
-#endif
 			{
 			log(info, "Controller", "CheckForRootHubChanges", parg1, "_rootHubStatusChangedBitmap(0x%x) with no _rootHubDevice or policy maker!!", arg2 );
 			}
@@ -1910,7 +1910,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			break;
 		case USB_CONTROLLER_TRACE( kTPDoIOTransferIntrSync ):
-			if ( qualifier == DBG_FUNC_START ) 
+			if ( qualifier == DBG_FUNC_START )
 			{
 				log(info, "Controller", "Intr Sync Start", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s) comp timeout: %d, noData timeout: %d  about to commandSleep()", 
 					((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", arg3, arg4
@@ -1936,7 +1936,26 @@ CollectTraceController( kd_buf tracepoint )
 				arg3, arg4
 				);
 			break;
-			
+        
+        case USB_CONTROLLER_TRACE(kTPControllerPutTDOnDoneQueue):
+            {
+                static  int     recursionLevel;
+                
+                if ( qualifier == DBG_FUNC_START ) 
+                {
+                    log(info, "Controller", "PutTDOnDoneQueue", parg1, "pED[%p] pTD[%p] checkDeferred(%s) recursion(%d)", (void *)parg2, (void *)parg3, arg4 ? "true" : "false", recursionLevel++)
+                }
+                else if ( qualifier == DBG_FUNC_END )
+                {
+                    log(info, "Controller", "PutTDOnDoneQueue", parg1, "pED[%p] pTD[%p] checkDeferred(%s) recursion(%d)", (void *)parg2, (void *)parg3, arg4 ? "true" : "false", --recursionLevel)
+               }
+                else if (arg4 == 0)
+                {
+                    log(info, "Controller", "PutTDOnDoneQueue", parg1, "pED[%p] putting deferred TD[%p] on DoneQ: recursion(%d)", (void *)parg2, (void *)parg3, recursionLevel)
+                }
+            }
+            break;
+            
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -2868,6 +2887,40 @@ CollectTraceHub ( kd_buf tracepoint )
 			{			   
 				log(info, "Hub", "CheckForDeadHub", parg1, "device is still connected (but NOT enabled) calling ResetMyPort()");
 			}
+		case USB_HUB_TRACE( kTPHubGetPortStatus ):
+			if ( qualifier == DBG_FUNC_START ) 
+			{
+				log(info, "Hub", "GetPortStatus", parg1, "Port %d of hub @ 0x%x, Status:  0x%4.04x, Change: 0x%4.04x", arg3, arg2, (arg4 & 0xFFFF), (arg4 & 0xFFFF0000)>>16);
+			} 
+			else if ( qualifier == DBG_FUNC_END ) 
+			{
+				log(info, "Hub", "GetPortStatus", parg1, "Port %d of hub @ 0x%x, (External), calling EnsureUsability on hub driver for port %d", arg3, arg2, arg4 );
+			} 
+			else
+			{
+				log(info, "Hub", "GetPortStatus", parg1, "Port %d of hub @ 0x%x, New Status:  0x%4.04x, Change: 0x%4.04x", arg3, arg2, (arg4 & 0xFFFF), (arg4 & 0xFFFF0000)>>16 );
+			}
+			break;
+			
+		case USB_HUB_TRACE( kTPHubGetPortStatusErrors ):
+			if ( arg4 == 0 )
+			{
+				log(info, "Hub", "GetPortStatus", 0, "Port %d of hub @ 0x%x, request came back with only %d bytes - retrying", arg2, arg1, arg3);
+			}
+			else if ( arg4 == 1)
+			{			   
+				log(info, "Hub", "GetPortStatus", 0, "Port %d of hub @ 0x%x, _retryBogusPortStatus set, change: 0x%04x, retrying", arg2, arg1, arg3);
+			}
+			else if ( arg4 == 2)
+			{
+				log(info, "Hub", "GetPortStatus", 0, "Port %d of hub @ 0x%x, request never returned bytes in %d tries - returning kIOReturnUnderrun", arg2, arg1, arg3);
+			}
+			else if ( arg4 == 3)
+			{
+				log(info, "Hub", "GetPortStatus", 0, "Port %d of hub @ 0x%x, returning 0x%x", arg2, arg1, arg3);
+			}
+			break;
+			
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -3165,6 +3218,54 @@ CollectTraceHubPort ( kd_buf tracepoint )
 			{
 				log(info, "HubPort", "EnablePowerAfterOvercurrent", arg1, "Port %d of Hub @ 0x%x, calling commandWake()", arg2, arg3);
 			}
+			break;
+			
+		case USB_HUB_PORT_TRACE( kTPHubPortRemoveDevice ):
+			if ( qualifier == DBG_FUNC_START ) 
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of hub @ 0x%x, will remove device: %p", arg2, arg3, (void *)parg4 );
+			} 
+			else if ( qualifier == DBG_FUNC_END ) 
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of hub @ 0x%x, removed device: %p", arg2, arg3, (void *)parg4 );
+			}
+			else if ( arg4 == 1 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, returning _portPowerAvailable to kUSB100mAAvailable", arg2, arg3 );
+			}
+			else if ( arg4 == 2 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, on an external connector, increasing unconnected port count on hub", arg2, arg3 );
+			}
+			else if ( arg4 == 3 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, detaching from USB plane", arg2, arg3 );
+			}
+			else if ( arg4 == 4 )
+			{
+				log(info, "HubPort", "RemoveDevice", 0, "Port %d of Hub @ 0x%x, device busy - waiting 100ms (retries remaining: %d)", arg1, arg2, arg3 );
+			}
+			else if ( arg4 == 5 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, about to terminate a busy device after waiting 10 seconds", arg2, arg3 );
+			}
+			else if ( arg4 == 6 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, terminating device (kIOServiceRequired | kIOServiceSynchronous) ", arg2, arg3 );
+			}
+			else if ( arg4 == 7 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, hub no longer active - terminating device aynchronously", arg2, arg3 );
+			}
+			else if ( arg4 == 8 )
+			{
+				log(info, "HubPort", "RemoveDevice", 0, "Port %d of Hub @ 0x%x, termination complete, releasing %p device ", arg1, arg2, (void *)parg3 );
+			}
+			else if ( arg4 == 9 )
+			{
+				log(info, "HubPort", "RemoveDevice", parg1, "Port %d of Hub @ 0x%x, looks like someone beat us to it ", arg2, arg3 );
+			}
+
 			break;
 			
 		default:
@@ -3579,6 +3680,18 @@ CollectTraceHID	( kd_buf tracepoint )
 			{			   
 				log(info, "HID", "RearmInterruptRead", parg1, "error (kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", arg2 ? "true" : "false", arg3 );
 			}
+			else if ( arg4 == 9 )
+			{			   
+				log(info, "HID", "RearmInterruptRead", parg1, "Setting buffer back to %d (length: %d)", arg2, arg3 );
+			}
+			else if ( arg4 == 10 )
+			{			   
+				log(info, "HID", "RearmInterruptRead", parg1, "already had outstanding read pending - just ignoring this request" );
+			}
+			else if ( arg4 == 11 )
+			{			   
+				log(info, "HID", "RearmInterruptRead", parg1, "pipe->Read() returned 0x%x, (_MYPOWERSTATE: %d)", arg2, arg3 );
+			}
 			break;
 
 		case USB_HID_TRACE( kTPHIDInterruptReadError ):
@@ -3643,7 +3756,23 @@ CollectTraceHID	( kd_buf tracepoint )
 			}
 			else if ( arg4 == 14)
 			{			   
-				log(info, "HID", "InterruptRead", parg1, "HandleReport callout thread took %d microsecs to schedule", arg2);
+				log(info, "HID", "HandleReportEntry", parg1, "HandleReport callout thread took %d microsecs to schedule", arg2);
+			}
+			else if ( arg4 == 15)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "Set _buffer length to %d", arg2);
+			}
+			else if ( arg4 == 16)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "Calling to RearmInterruptRead, status: 0x%x", arg2);
+			}
+			else if ( arg4 == 17)
+			{			   
+				log(info, "HID", "HandleReport", parg1, "Calling handleReport(), length: %d, capacity: %d", arg2, arg3);
+			}
+			else if ( arg4 == 18)
+			{			   
+				log(info, "HID", "HandleReport", parg1, "handleReport(), returned 0x%x: length: %d", arg3, arg2);
 			}
 			break;
 			
@@ -4127,7 +4256,7 @@ CollectTraceEnumeration	( kd_buf tracepoint )
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationInitialGetPortStatus ):
-			log(info, "Enumeration", "PortStatusChangeHandler", parg1, "Port %d:  Hub @ 0x%x, Status: 0x%4.04x, Change: 0x%4.04x", arg2, arg3, (arg4 & 0xFFFF0000)>>16, arg4  & 0xFFFF);
+			log(info, "Enumeration", "PortStatusChangeHandler", parg1, "Port %d:  Hub @ 0x%x, Status: 0x%4.04x, Change: 0x%4.04x", arg2, arg3, (arg4 & 0xFFFF), (arg4 & 0xFFFF0000)>>16);
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationCallAddDevice ):
@@ -5658,7 +5787,7 @@ CollectTraceEHCIInterrupts	( kd_buf tracepoint )
 			
 		case USB_EHCI_INTERRUPTS_TRACE( kTPEHCIUpdateFrameList ):
 #ifdef __LP64__
-			log(info, "UHCI", "UpdateFrameList", 0, "Address: %d, Endpoint: %d, (%s), frameListPtr: 0x%qx, frActCount: 0x%x, timeStamp: 0x%qx", 
+			log(info, "EHCI", "UpdateFrameList", 0, "Address: %d, Endpoint: %d, (%s), frameListPtr: 0x%qx, frActCount: 0x%x, timeStamp: 0x%qx",
 				((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), ((arg1 >> 24) & 0xFF) == kUSBIn ? "in" : "out",
 				(uint64_t)parg2, arg3, (uint64_t)parg4 );
 #else
@@ -5865,7 +5994,6 @@ CollectTraceEHCIDumpQs	( kd_buf tracepoint )
 	} // End of switch
 }
 
-#ifdef SUPPORTS_SS_USB
 
 char*
 TRBTypeToString(int trbType)
@@ -6159,6 +6287,9 @@ CondCodeToString(int condCode)
 		case 36:
 			return	(char*)"Split Transaction Err";
 			break;
+
+		case 196:
+			return (char*)"No Stop";						// Intel specific error
 			
 		default:
 			return	(char*)"Unknown Condition Code";
@@ -6273,6 +6404,10 @@ CollectTraceXHCI ( kd_buf tracepoint )
 					uint64_t	timeNano = info.timestamp - startTime;
 					log(info, "XHCI", "End StopEndpoint", parg1, "slotID: %d ep: %d (%d uS)", arg2, arg3, (int)(timeNano / 1000));
 				}
+                else if (arg4 == 0)
+                {
+					log(info, "XHCI", "StopEndpoint", parg1, "ring: %08x", arg2);
+                }
 			}
             break;
             
@@ -6281,17 +6416,39 @@ CollectTraceXHCI ( kd_buf tracepoint )
             break;
             
         case USB_XHCI_TRACE( kTPXHCIReturnAllTransfers ):
-            if ( qualifier == DBG_FUNC_START ) 
             {
-                log(info, "XHCI", "Begin ReturnAllTransfers", parg1, "slotID: %d ep: %d streamID: %d", arg2, arg3, arg4);
-            } 
-            else if ( qualifier == DBG_FUNC_END ) 
-            {
-                log(info, "XHCI", "End ReturnAllTransfers", parg1, "slotID: %d ep: %d streamID: %d", arg2, arg3, arg4);
-            } 
-            else
-            {
-                log(info, "XHCI", "ReturnAllTransfers", parg1, "ep: %d status: 0x%x shortFall: %d", arg2, arg3, arg4);
+ 				static uint64_t			startTime;
+                
+                if ( qualifier == DBG_FUNC_START )
+                {
+					startTime = info.timestamp;
+                    log(info, "XHCI", "Begin ReturnAllTransfersAndReinitRing", parg1, "slotID: %d ep: %d streamID: %d", arg2, arg3, arg4);
+                } 
+                else if ( qualifier == DBG_FUNC_END ) 
+                {
+					uint64_t	timeNano = info.timestamp - startTime;
+                    log(info, "XHCI", "End ReturnAllTransfersAndReinitRing", parg1, "slotID: %d ep: %d streamID: %d (%d uS)", arg2, arg3, arg4, (int)(timeNano / 1000));
+                } 
+                else if (arg4 == 0)
+                {
+                    log(info, "XHCI", "ReturnAllTransfersAndReinitRing", parg1, "NULL ring");
+                }
+                else if (arg4 == 1)
+                {
+                    log(info, "XHCI", "ReturnAllTransfersAndReinitRing", parg1, "missing TRBBuffer");
+                }
+                else if (arg4 == 2)
+                {
+                    log(info, "XHCI", "ReturnAllTransfersAndReinitRing", parg1, "missing ring->transferRing");
+                }
+                else if (arg4 == 3)
+                {
+                    log(info, "XHCI", "ReturnAllTransfersAndReinitRing", parg1, "found an Isoc ring");
+                }
+                else if (arg4 == 4)
+                {
+                    log(info, "XHCI", "ReturnAllTransfersAndReinitRing", parg1, "ring %08x was stopped after %d ms", arg2, arg3);
+                }
             }
             break;
             
@@ -6364,14 +6521,78 @@ CollectTraceXHCI ( kd_buf tracepoint )
             }
             break;
             
-        case USB_XHCI_TRACE( kTPXHCICheckEPForTimeOuts ):
+        case USB_XHCI_TRACE( kTPXHCIPollForCMDCompletion ):
             if ( qualifier == DBG_FUNC_START ) 
             {
-                log(info, "XHCI", "Begin CheckEPForTimeOuts", parg1, "slotID: %d ep: %d curFrame: %d", arg2, arg3, arg4);
+                log(info, "XHCI", "Begin PollForCMDCompletion", parg1, "---> IRQ[%d] %s", arg2, arg3 ? "something in queue" : "empty queue");
             } 
             else if ( qualifier == DBG_FUNC_END ) 
             {
-                log(info, "XHCI", "End CheckEPForTimeOuts", parg1, "slotID: %d ep: %d", arg2, arg3);
+				log(info, "XHCI", "End PollForCMDCompletion", parg1, "<--- IRQ[%d]", arg2);
+            } 
+            else if (arg4 == 1)
+            {
+                log(info, "XHCI", "PollForCMDCompletion", parg1, "found a CCE, calling DoCMDCompletion");
+            }
+            else if (arg4 == 2)
+            {
+                log(info, "XHCI", "PollForCMDCompletion", parg1, "found a TE, calling DoStopCompletion");
+            }
+            break;
+            
+			
+        case USB_XHCI_TRACE( kTPXHCICheckEPForTimeOuts ):
+            if ( qualifier == DBG_FUNC_START ) 
+            {
+                log(info, "XHCI", "Begin CheckEPForTimeOuts", parg1, "slotID: %d ep: %d, curFrame: %d", arg2, arg3, arg4);
+            } 
+            else if ( qualifier == DBG_FUNC_END ) 
+            {
+                log(info, "XHCI", "End CheckEPForTimeOuts", parg1, "slotID: %d ep: %d, returning %d", arg2, arg3, arg4);
+            } 
+ 			else if (arg2 == 0)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, Ring is NULL!", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF));
+			}
+ 			else if (arg2 == 1)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d stream: %d, abortAll: %d", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF), (arg4 & 0xFFFF0000)>>16, (arg4 & 0xFFFF));
+			}
+ 			else if (arg2 == 2)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, lastDeQueIndex: %d", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF), arg4);
+			}
+ 			else if (arg2 == 3)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "enQueueIndex: %d, deQueueIndex: %d", arg3, arg4);
+			}
+   			else if (arg2 == 4)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, !abortAll or NeedTimeouts() is false", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF));
+			}
+ 			else if (arg2 == 5)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, pAsyncEP is NULL!", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF));
+			}
+ 			else if (arg2 == 6)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, Clearing TRB", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF));
+			}
+ 			else if (arg2 == 7)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, no ActiveTD", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF));
+			}
+ 			else if (arg2 == 8)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, EP not running, stopped or disabled (epState: %d)", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF), arg4);
+			}
+ 			else if (arg2 == 9)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, stopping endpoint", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF));
+			}
+ 			else if (arg2 == 10)
+			{
+                log(info, "XHCI", "CheckEPForTimeOuts",  parg1, "slotID: %d ep: %d, not stopping stream (%d) ep", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF), arg4);
             } 
             break;
             
@@ -6384,6 +6605,46 @@ CollectTraceXHCI ( kd_buf tracepoint )
             {
                 log(info, "XHCI", "End CheckForTimeouts", parg1, "<---");
             } 
+ 			else if (arg2 == 1)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "Controller power state is not stable [going to sleep] (_powerStateChangingTo = %d, _myPowerState = %d)", arg3, arg4);
+			}
+ 			else if (arg2 == 2)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "Controller power state is not stable [waking up] (_powerStateChangingTo = %d, _myPowerState = %d)", arg3, arg4);
+			}
+ 			else if (arg2 == 3)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "MFINDEX is 0, not doing anything (_powerStateChangingTo = %d, _myPowerState = %d)", arg3, arg4);
+			}
+ 			else if (arg2 == 4)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d, slot not connected and enabled, checking for slot timeouts", arg3);
+			}
+			else if (arg2 == 5)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d, EP: %d, checking slot for timeouts", arg3, arg4);
+			}
+			else if (arg2 == 6)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d, EP: %d, not a streams endpoint, checking slot for timeouts", arg3, arg4);
+			}
+			else if (arg2 == 7)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d, EP: %d, non-stream EP was stopped, now starting it", arg3, arg4);
+			}
+			else if (arg2 == 8)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d ep: %d, maxStreams: %d", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF), arg4);
+			}
+			else if (arg2 == 9)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d ep: %d, stopped stream: %d", (arg3 & 0xFFFF0000)>>16, (arg3 & 0xFFFF), arg4);
+			}
+ 			else if (arg2 == 10)
+			{
+                log(info, "XHCI", "CheckForTimeouts",  parg1, "slotID: %d, EP: %d, restarting streams", arg3, arg4);
+			}
             break;
             
         case USB_XHCI_TRACE( kTPXHCIResetEndpoint ):
@@ -6881,6 +7142,42 @@ CollectTraceXHCI ( kd_buf tracepoint )
 		}
             break;
 			
+		case USB_XHCI_TRACE(kTPXHCIRead8Reg):
+			{
+				log (info, "XHCI", "Read8Reg", parg1, "Register: 0x%lx, Value: 0x%x, Base: 0x%lx", parg2, (UInt8) arg3, parg4);
+			}
+			break;
+			
+		case USB_XHCI_TRACE(kTPXHCIRead16Reg):
+			{
+				log (info, "XHCI", "Read16Reg", parg1, "Register: 0x%lx, Value: 0x%x, Base: 0x%lx", parg2, (UInt16) arg3, parg4);
+			}
+			break;
+			
+		case USB_XHCI_TRACE(kTPXHCIRead32Reg):
+			{
+				log (info, "XHCI", "Read32Reg", parg1, "Register: 0x%lx, Value: 0x%x, Base: 0x%lx", parg2, (UInt32) arg3, parg4);
+			}
+			break;
+			
+		case USB_XHCI_TRACE(kTPXHCIRead64Reg):
+			{
+				log (info, "XHCI", "Read64Reg", parg1, "Register: 0x%lx, Value: 0x%lx, Base: 0x%lx", parg2, parg3, parg4);
+			}
+			break;
+			
+		case USB_XHCI_TRACE(kTPXHCIWrite32Reg):
+			{
+				log (info, "XHCI", "Write32Reg", parg1, "Register: 0x%lx, Value: 0x%x, Base: 0x%lx", parg2, (UInt32) arg3, parg4);
+			}
+			break;
+			
+		case USB_XHCI_TRACE(kTPXHCIWrite64Reg):
+			{
+				log (info, "XHCI", "Write64Reg", parg1, "Register: 0x%lx , Value: 0x%lx, Base: 0x%lx", parg2, parg3, parg4);
+			}
+			break;
+			
         default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -7000,7 +7297,30 @@ CollectTraceXHCIPrintTRB	( kd_buf tracepoint )
 		break;
 			
 		case USB_XHCI_PRINTTRB_TRACE(kTPXHCIPrintTRBCommand):
-			break;
+		{
+			static uintptr_t	xhci;
+			static int			offs0, offs4;
+			
+			// Note, if we want to support multiple XHCI controllers, we will have to modify this to keep track
+            // of which controller did the START and if it is the same controller doing the END
+			if ( qualifier == DBG_FUNC_START ) 
+			{
+				xhci = parg1;
+				offs0 = arg2;
+				offs4 = arg3;
+			} 
+			else if ( qualifier == DBG_FUNC_END ) 
+			{
+				int offs8 = arg1;
+				int offsC = arg2;
+				
+				int		trbType = (offsC & kXHCITRB_Type_Mask) >> kXHCITRB_Type_Shift;
+				int		condCode = (offs8 & kXHCITRB_CC_Mask) >> kXHCITRB_CC_Shift;
+				
+				log(info, "XHCI", "Command TRB", xhci, "[%08x][%08x][%08x][%08x]", offs0, offs4, offs8, offsC);
+			}
+		}
+		break;
 			
 		default:
 			CollectTraceUnknown( tracepoint );
@@ -7011,48 +7331,84 @@ CollectTraceXHCIPrintTRB	( kd_buf tracepoint )
 
 static void 
 CollectTraceXHCIRootHubs	( kd_buf tracepoint ) 
-		{
-			uint32_t 			debugID;
-			uint32_t 			type;
-			int					qualifier;
-			uintptr_t			parg1, parg2, parg3, parg4;
-			uint32_t			arg1, arg2, arg3, arg4;
-			time_t 				currentTime;
-			
-			debugID = tracepoint.debugid;
-			type = debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
-			qualifier = debugID & 0x3;
-			
-			parg1 = tracepoint.arg1;
-			parg2 = tracepoint.arg2;
-			parg3 = tracepoint.arg3;
-			parg4 = tracepoint.arg4;
-			
-			arg1 = (uint32_t)parg1;
-			arg2 = (uint32_t)parg2;
-			arg3 = (uint32_t)parg3;
-			arg4 = (uint32_t)parg4;
-			
-			trace_info info;
-			info.timestamp = kdbg_get_timestamp(&tracepoint);
-			info.thread = tracepoint.arg5;
-			info.debugid = tracepoint.debugid;
-			info.cpuid = kdbg_get_cpu(&tracepoint);
-			
-			currentTime = time ( NULL );
-			
-			switch ( type )
-			{	
-				case USB_XHCI_ROOTHUBS_TRACE( kTPXHCIRootHubResetPort ):
+{
+	uint32_t 			debugID;
+	uint32_t 			type;
+	int					qualifier;
+	uintptr_t			parg1, parg2, parg3, parg4;
+	uint32_t			arg1, arg2, arg3, arg4;
+	time_t 				currentTime;
+	
+	debugID = tracepoint.debugid;
+	type = debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
+	qualifier = debugID & 0x3;
+	
+	parg1 = tracepoint.arg1;
+	parg2 = tracepoint.arg2;
+	parg3 = tracepoint.arg3;
+	parg4 = tracepoint.arg4;
+	
+	arg1 = (uint32_t)parg1;
+	arg2 = (uint32_t)parg2;
+	arg3 = (uint32_t)parg3;
+	arg4 = (uint32_t)parg4;
+	
+	trace_info info;
+	info.timestamp = kdbg_get_timestamp(&tracepoint);
+	info.thread = tracepoint.arg5;
+	info.debugid = tracepoint.debugid;
+	info.cpuid = kdbg_get_cpu(&tracepoint);
+	
+	currentTime = time ( NULL );
+	
+	switch ( type )
+	{	
+		case USB_XHCI_ROOTHUBS_TRACE( kTPXHCIRootHubResetPort ):
 			if ( qualifier == DBG_FUNC_START ) 
 			{
-	        	log(info, "XHCI", "Begin XHCIRootHubResetPort", parg1, "port: %d", arg2);
+	        	log(info, "XHCI", "Begin XHCIRootHubResetPort", parg1, "port: %d, speed: %s", arg3, arg2 == kUSBDeviceSpeedHigh ? "High" : "Super");
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				log(info, "XHCI", "End XHCIRootHubResetPort", parg1, "port: %d PortSC: 0x%x", arg2, arg3);
+	        	log(info, "XHCI", "End XHCIRootHubResetPort", parg1, "port: %d, speed: %s, returning 0x%x", arg3, arg2 == kUSBDeviceSpeedHigh ? "High" : "Super", arg4);
 			} 
-            break;
+  			else if ( arg4 == 1 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, commandSleep woke up normally (THREAD_AWAKENED), status = 0x%x", arg4, arg3 );
+			}
+  			else if ( arg4 == 2 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, commandSleep timed out (THREAD_TIMED_OUT), status = 0x%x", arg4, arg3 );
+			}
+  			else if ( arg4 == 3 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, commandSleep interrupted (THREAD_INTERRUPTED), status = 0x%x", arg4, arg3 );
+			}
+  			else if ( arg4 == 4 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, commandSleep restarted (THREAD_RESTART), status = 0x%x", arg4, arg3 );
+			}
+  			else if ( arg4 == 5 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, commandSleep returned (kIOReturnNotPermitted), status = 0x%x", arg4, arg3 );
+			}
+  			else if ( arg4 == 6 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, commandSleep result (UNKNOWN), status = 0x%x", arg4, arg3 );
+			}
+  			else if ( arg4 == 7 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, already being reset", arg4 );
+			}
+  			else if ( arg4 == 8 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, _rhResetPortThread already queued", arg4 );
+			}
+  			else if ( arg4 == 9 )
+			{
+				log(info, "XHCI", "XHCIRootHubResetPort", parg1, "port: %d, not in gate, calling RHResetPort directly", arg4 );
+			}
+          break;
             
         case USB_XHCI_ROOTHUBS_TRACE( kTPXHCIRootHubPortEnable ):
 			if ( qualifier == DBG_FUNC_START ) 
@@ -7088,6 +7444,83 @@ CollectTraceXHCIRootHubs	( kd_buf tracepoint )
 			} 
 			break;
 			
+		case USB_XHCI_ROOTHUBS_TRACE( kTPXHCIRootHubResetPortCallout ):
+			if ( qualifier == DBG_FUNC_START ) 
+			{
+	        	log(info, "XHCI", "Begin RHResetPort", parg1, "port: %d, _errataBits: 0x%x", arg2, arg3);
+			} 
+			else if ( qualifier == DBG_FUNC_END ) 
+			{
+	        	log(info, "XHCI", "End RHResetPort", parg1, "port: %d, portSC: 0x%08x, returning 0x%x", arg2, arg3, arg4);
+			} 
+  			else if ( arg4 == 1 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, portSC: 0x%08x", arg3, arg4 );
+			}
+  			else if ( arg4 == 2 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, waiting(%d) for PRC", arg3, arg4 );
+			}
+  			else if ( arg4 == 3 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, portSC after reset: 0x%08x", arg3, arg4 );
+			}
+  			else if ( arg4 == 4 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, after waiting %d ms for PRC, we have a SuperSpeed device, so don't switch the mux", arg3, arg4 );
+			}
+  			else if ( arg4 == 5 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, after waiting for PRC, we will now wait for another %d ms", arg3, arg4 );
+			}
+  			else if ( arg4 == 6 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, companion port: %d", arg3, arg4 );
+			}
+  			else if ( arg4 == 7 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "portSCAfterReset: 0x%08x, companionPortSCAfterReset: 0x%08x", arg3, arg4 );
+			}
+  			else if ( arg4 == 8 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, ****PORT IN COMPLIANCE MODE - PLS=%x", arg3, arg4 );
+			}
+  			else if ( arg4 == 9 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, switching mux for XHCI -> EHCI [HCSEL: 0x%x]", arg3, arg4 );
+			}
+  			else if ( arg4 == 10 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, waiting(%d) for CSC", arg3, arg4 );
+			}
+  			else if ( arg4 == 11 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, waited %d ms for CSC", arg3, arg4 );
+			}
+  			else if ( arg4 == 12 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, not switching the mux because the portSC's told us not to do so, _testModeEnabled: %d", arg3, arg4 );
+			}
+  			else if ( arg4 == 13 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, CompanionPort in compliance mode issuing WarmReset, companionPLSAfterReset: %d", arg3, arg4 );
+			}
+  			else if ( arg4 == 14 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, waiting(%d) for WRC/PRC after resetting port", arg3, arg4 );
+			}
+  			else if ( arg4 == 15 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, waited for companion port WRC/PRC: CompanionPortSC: 0x%08x", arg3, arg4 );
+			}
+  			else if ( arg4 == 16 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, clearing WRC", arg3 );
+			}
+  			else if ( arg4 == 17 )
+			{
+				log(info, "XHCI", "RHResetPort", parg1, "port: %d, clearing PRC", arg3 );
+			}
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -7175,7 +7608,7 @@ CollectTraceXHCIInterrupts	( kd_buf tracepoint )
             if ( qualifier == DBG_FUNC_START ) 
             {
 				filterRingStartTime = info.timestamp;
-                log(info, "XHCI", "Begin FilterEventRing", parg1, "--->");
+                log(info, "XHCI", "Begin FilterEventRing", parg1, "---> IRQ[%d]", arg2);
             } 
             else if ( qualifier == DBG_FUNC_END ) 
             {
@@ -7208,7 +7641,6 @@ CollectTraceXHCIInterrupts	( kd_buf tracepoint )
 			break;	
 	} // End of switch
 }
-#endif
 
 
 #pragma mark Actions Tracepoints
@@ -7747,26 +8179,34 @@ ConvertTimestamp ( uint64_t timestamp, char * timestring )
 	uint64_t			mins;
 	time_t 				currentTime;
 	
-	int index = 0;
+	gCurrent_usecs = ( int64_t )( timestamp / gDivisor );
+	
+	if ( gPrev_usecs == 0 )
+	{
+		gDelta_usecs = 0;
+	}
+	else
+	{
+		gDelta_usecs = gCurrent_usecs - gPrev_usecs;
+	}
+    
+	gPrev_usecs = gCurrent_usecs;
 	
 	if ( gTimeStampMask & kTimeStampLocalTime )
 	{
 		currentTime = time ( NULL );
 		
-		snprintf(timestring+index, 7, "%-5.5s-", &( ctime ( &currentTime )[11] ) );
-		index += 6;
+		snprintf(timestring, 40, "%-8.8s [%8lld][%10lld us]", &( ctime ( &currentTime )[11] ), gCurrent_usecs, gDelta_usecs );
+		
 	}
-	
-	if ( gTimeStampMask & kTimeStampKernel )
+	else if ( gTimeStampMask & kTimeStampKernel )
 	{
 		micro = timestamp / gDivisor;
 		milli = micro / 1000;
 		secs = (milli / 1000);
 		mins = secs / 60;
 		
-		//snprintf(timestring+index, 11, "%02llu:%03llu:%03llu", secs-(mins*60), milli-(secs*1000), micro-(milli*1000) );
-		snprintf(timestring+index, 11, "%02llu%03llu.%03llu", secs-(mins*60), milli-(secs*1000), micro-(milli*1000) );
-		index += 10;
+		snprintf(timestring, 141, "%02llu%03llu.%03llu", secs-(mins*60), milli-(secs*1000), micro-(milli*1000) );
 	}
 	
 	return timestring;

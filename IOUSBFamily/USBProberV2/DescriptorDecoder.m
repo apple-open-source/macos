@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -37,20 +36,16 @@
         case kUSBEndpointDesc:
             [DecodeEndpointDescriptor decodeBytes:p forDevice:thisDevice isOtherSpeedDesc:isOtherSpeedDesc];
             break;
-#ifdef SUPPORTS_SS_USB
         case kUSBSuperSpeedEndpointCompanion:
             [DecodeEndpointDescriptor decodeBytesCompanion:p forDevice:thisDevice endpoint:*(UInt8 *)userInfo];
             break;
-#endif
         case HID_DESCRIPTOR:
 			// case DFU_FUNCTIONAL_DESCRIPTOR:  - same value, compiler complains
 			// case CCID_DESCRIPTOR: // same value again
             [DecodeHIDDescriptor decodeBytes:p forDevice:thisDevice withDeviceInterface:deviceIntf isinCurrentConfig:inCurrentConfig];
             break;
         case kUSBHUBDesc:
-#ifdef SUPPORTS_SS_USB
         case kUSB3HUBDesc:
-#endif
             [DecodeHubDescriptor decodeBytes:p forDevice:thisDevice];
             break;
         case kUSBDeviceQualifierDesc:
@@ -88,12 +83,10 @@
     
 }
 
-#ifdef SUPPORTS_SS_USB
 +(void)dumpRawBOSDescriptor:(IOUSBBOSDescriptor*)bos forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth {
     [self dump:bos->wTotalLength byte:(Byte* )bos forDevice:thisDevice atDepth:depth];
     
 }
-#endif
 
 +(void)dump:(int)n byte:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth {
 #define BYTESPERLINE	16

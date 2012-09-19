@@ -219,7 +219,6 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _seizedClient				_reserved->seizedClient
 #define _eventDeadline				_reserved->eventDeadline
 #define _inputInterruptElementArray	_reserved->inputInterruptElementArray
-#define _publishDisplayNotify       _reserved->publishDisplayNotify
 #define _performTickle				_reserved->performTickle
 #define _performWakeTickle          _reserved->performWakeTickle
 #define _interfaceNub				_reserved->interfaceNub
@@ -276,24 +275,23 @@ static SInt32 g3DGameControllerCount = 0;
 
 static IOService *  gDisplayManager = 0;
 static IONotifier   *gDeviceMatchedNotifier = 0;
+static IONotifier   *gDisplayWranglerNotifier = 0;
 
 //---------------------------------------------------------------------------
 // Notification handler to grab an instance of the IOHIDSystem
-bool IOHIDDevice::_publishDisplayNotificationHandler(void * target,
-			void * /* ref */,
-                                              IOService * newService,
-                                              IONotifier * /* notifier */)
+bool IOHIDDevice::_publishDisplayNotificationHandler(void * target __unused,
+                                                     void * ref __unused,
+                                                     IOService * newService,
+                                                     IONotifier * notifier __unused)
 {
-    IOHIDDevice * self = (IOHIDDevice *) target;
-
     if( newService->metaCast("IODisplayWrangler")) {
         if( !gDisplayManager) {
             gDisplayManager = newService;
         }
         
-        if ( self->_publishDisplayNotify ) {
-            self->_publishDisplayNotify->remove();
-            self->_publishDisplayNotify = 0;
+        if ( gDisplayWranglerNotifier ) {
+            gDisplayWranglerNotifier->remove();
+            gDisplayWranglerNotifier = 0;
         }
     }
     
@@ -368,12 +366,6 @@ void IOHIDDevice::free()
         _clientSet = 0;
     }
     
-    if (_publishDisplayNotify)
-    {
-        _publishDisplayNotify->remove();
-        _publishDisplayNotify = 0;
-    }
-
     if (_inputInterruptElementArray)
     {
         _inputInterruptElementArray->release();
@@ -460,7 +452,7 @@ bool IOHIDDevice::start( IOService * provider )
 
     // Call handleStart() before fetching the report descriptor.
 
-    if ( handleStart(provider) != true )
+    if ( handleStart(provider) != true ) 
         return false;
 
     // Fetch report descriptor for the device, and parse it.
@@ -520,7 +512,7 @@ bool IOHIDDevice::start( IOService * provider )
     
     if (!gDeviceMatchedNotifier) {
         OSDictionary *      propertyMatch = serviceMatching("IOHIDDevice");
-
+    
         gDeviceMatchedNotifier = addMatchingNotification(gIOFirstMatchNotification, 
                                                          propertyMatch, 
                                                          IOHIDDevice::_publishDeviceNotificationHandler, 
@@ -548,13 +540,13 @@ bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
                 self->_interfaceNub->detach(self);
                 self->_interfaceNub->release();
                 self->_interfaceNub = 0;
+            }
         }
-    }
     else 
     {
             self->_interfaceNub->release();
             self->_interfaceNub = 0;
-    }
+        }
     }
     return true;
 }
@@ -820,13 +812,13 @@ bool IOHIDDevice::handleOpen(IOService      *client,
     // RY: Add a notification to get an instance of the Display
     // Manager.  This will allow us to tickle it upon receiveing
     // new reports. 
-    if ( (_performTickle || _performWakeTickle) && !gDisplayManager )
+    if ( (_performTickle || _performWakeTickle) && !gDisplayManager && !gDisplayWranglerNotifier)
     {
         OSDictionary *matching = serviceMatching("IODisplayWrangler");
-        _publishDisplayNotify = addMatchingNotification(gIOPublishNotification, 
-														matching,
-                                                        &IOHIDDevice::_publishDisplayNotificationHandler,
-														this, 0 );
+        gDisplayWranglerNotifier = addMatchingNotification(gIOPublishNotification,
+                                                           matching,
+                                                           &IOHIDDevice::_publishDisplayNotificationHandler,
+                                                           this, 0 );
         matching->release();
     }
     
@@ -905,8 +897,14 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
         IOReturn result = kIOReturnNotReady;
 
         if ( loop ) {
-            result = loop->runAction( OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIDDevice::newUserClientGated ),
-                                      this, owningTask, security_id, properties, handler );
+            if (lockForArbitration(true)) {
+                result = loop->runAction( OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIDDevice::newUserClientGated ),
+                                          this, owningTask, security_id, properties, handler );
+                unlockForArbitration();
+            }
+            else {
+                IOLog( "IOHIDDevice::newUserClient failed to get the arbitration lock\n" );
+            }
         }
         else {
             IOLog( "IOHIDDevice::newUserClient failed to get a workloop\n" );

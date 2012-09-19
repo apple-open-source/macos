@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,8 @@
 #if KERNEL
 	#include <libkern/OSByteOrder.h>
 	#include <IOKit/IOMemoryDescriptor.h>
+
+
 #else
 	#include <libkern/OSByteOrder.h>
 #endif
@@ -91,15 +93,12 @@ extern "C" {
 
     kUSBNoPipeIdx = -1,
         
-#ifdef SUPPORTS_SS_USB
    // Constants for streams
     kUSBStream0 = 0,
     kUSBMaxStream = 65533,
     kUSBPRimeStream = 0xfffe,
     kUSBNoStream = 0xffff,
     kUSBAllStreams = 0xffffffff
-#endif
-
 };
 
 /*!
@@ -376,11 +375,9 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 #define kIOUSBDeviceTransferredToCompanion					iokit_usb_err(0x49)			// 0xe0004049  The device has been tranferred to another controller for enumeration
 #define kIOUSBClearPipeStallNotRecursive 					iokit_usb_err(0x48)			// 0xe0004048  IOUSBPipe::ClearPipeStall should not be called recursively
 #define kIOUSBDevicePortWasNotSuspended 					iokit_usb_err(0x47)			// 0xe0004047  Port was not suspended
-#ifdef SUPPORTS_SS_USB
-	#define kIOUSBEndpointCountExceeded	iokit_usb_err(0x46)									// 0xe0004046  The endpoint was not created because the controller cannot support more endpoints
-	#define kIOUSBDeviceCountExceeded	iokit_usb_err(0x45)									// 0xe0004045  The device cannot be enumerated because the controller cannot support more devices
-    #define kIOUSBStreamsNotSupported   iokit_usb_err(0x44)                                 // 0xe0004044   The request cannot be completed because the XHCI controller does not support streams
-#endif
+#define kIOUSBEndpointCountExceeded	iokit_usb_err(0x46)									// 0xe0004046  The endpoint was not created because the controller cannot support more endpoints
+#define kIOUSBDeviceCountExceeded	iokit_usb_err(0x45)									// 0xe0004045  The device cannot be enumerated because the controller cannot support more devices
+#define kIOUSBStreamsNotSupported   iokit_usb_err(0x44)                                 // 0xe0004044   The request cannot be completed because the XHCI controller does not support streams
 
 /*!
 @defined IOUSBFamily hardware error codes
@@ -435,10 +432,8 @@ Completion Code         Error Returned              Description
 #define	kIOUSBMessageRootHubWakeEvent				iokit_usb_msg(0x16)		// 0xe0004016  Message from the HC Wakeup code indicating that a Root Hub port has a wake event
 #define kIOUSBMessageReleaseExtraCurrent			iokit_usb_msg(0x17)		// 0xe0004017  Message to ask any clients using extra current to release it if possible
 #define kIOUSBMessageReallocateExtraCurrent			iokit_usb_msg(0x18)		// 0xe0004018  Message to ask any clients using extra current to attempt to allocate it some more
-#ifdef SUPPORTS_SS_USB
-	#define kIOUSBMessageEndpointCountExceeded			iokit_usb_msg(0x19)		// 0xe0004019  Message sent to a device when endpoints cannot be created because the USB controller ran out of resources
-	#define kIOUSBMessageDeviceCountExceeded			iokit_usb_msg(0x1a)		// 0xe000401a  Message sent by a hub when a device cannot be enumerated because the USB controller ran out of resources
-#endif
+#define kIOUSBMessageEndpointCountExceeded			iokit_usb_msg(0x19)		// 0xe0004019  Message sent to a device when endpoints cannot be created because the USB controller ran out of resources
+#define kIOUSBMessageDeviceCountExceeded			iokit_usb_msg(0x1a)		// 0xe000401a  Message sent by a hub when a device cannot be enumerated because the USB controller ran out of resources
 #define kIOUSBMessageHubPortDeviceDisconnected      iokit_usb_msg(0x1b)		// 0xe000401b  Message sent by a built-in hub when a device was disconnected
     
 
@@ -504,7 +499,6 @@ struct IOUSBDescriptorHeader {
 typedef struct IOUSBDescriptorHeader		IOUSBDescriptorHeader;
 typedef IOUSBDescriptorHeader *			IOUSBDescriptorHeaderPtr;
 
-#ifdef SUPPORTS_SS_USB
 #pragma pack(1)
 	/*!
 	 @typedef IOUSBBOSDescriptor
@@ -581,7 +575,6 @@ typedef IOUSBDescriptorHeader *			IOUSBDescriptorHeaderPtr;
 	typedef struct IOUSBDeviceCapabilityContainerID		IOUSBDeviceCapabilityContainerID;
 	typedef IOUSBDeviceCapabilityContainerID *			IOUSBDeviceCapabilityContainerIDPtr;
 #pragma options align=reset
-#endif	
 	
 /*!
     @typedef IOUSBConfigurationDescriptor
@@ -646,7 +639,6 @@ struct IOUSBEndpointDescriptor {
 typedef struct IOUSBEndpointDescriptor	IOUSBEndpointDescriptor;
 typedef IOUSBEndpointDescriptor *	IOUSBEndpointDescriptorPtr;
 
-#ifdef SUPPORTS_SS_USB
 #pragma pack(1)
 	/*!
 	 @typedef IOUSBSuperSpeedEndpointCompanionDescriptor
@@ -662,7 +654,6 @@ typedef IOUSBEndpointDescriptor *	IOUSBEndpointDescriptorPtr;
 	typedef struct IOUSBSuperSpeedEndpointCompanionDescriptor	IOUSBSuperSpeedEndpointCompanionDescriptor;
 	typedef IOUSBSuperSpeedEndpointCompanionDescriptor *	IOUSBSuperSpeedEndpointCompanionDescriptorPtr;
 #pragma options align=reset
-#endif	
 
 enum{addPacketShift = 11};  // Bits for additional packets in maxPacketField. (Table 9-13)
 #define mungeMaxPacketSize(w) ((w>1024)?(((w>>(addPacketShift))+1)*(w&((1<<addPacketShift)-1))):w)
@@ -1016,7 +1007,6 @@ enum {
 	kIOUSBVendorIDAppleComputer		= 0x05AC
         };
 
-#ifdef SUPPORTS_SS_USB
 	/*!
 	 @enum USBDeviceSpeed
 	 @discussion Returns the speed of a particular USB device. 
@@ -1025,22 +1015,11 @@ enum {
 	 @constant	kUSBDeviceSpeedHigh	The device is a high speed device.
 	 @constant	kUSBDeviceSpeedSuper  The device is a SuperSpeed device
 	 */
-#else
-	/*!
-	 @enum USBDeviceSpeed
-	 @discussion Returns the speed of a particular USB device. 
-	 @constant	kUSBDeviceSpeedLow	The device is a low speed device.
-	 @constant	kUSBDeviceSpeedFull	The device is a full speed device.
-	 @constant	kUSBDeviceSpeedHigh	The device is a high speed device.
-	 */
-#endif
 enum {
         kUSBDeviceSpeedLow		= 0,
         kUSBDeviceSpeedFull		= 1,
 		kUSBDeviceSpeedHigh		= 2,
-#ifdef SUPPORTS_SS_USB
 		kUSBDeviceSpeedSuper	= 3
-#endif
         };
 
 /*!
@@ -1164,17 +1143,18 @@ typedef enum {
  
  @constant	kUSBInformationDeviceIsCaptiveBit			The USB device is directly attached to its hub and cannot be removed.
  @constant	kUSBInformationDeviceIsAttachedToRootHubBit	The USB device is directly attached to the root hub
- @constant	kUSBInformationDeviceIsInternalBit			The USB device is internal to the computer (all the hubs it attaches to are captive)
+ @constant	kUSBInformationDeviceIsInternalBit			The USB device is internal to the enclosure (all the hubs it attaches to are captive)
  @constant	kUSBInformationDeviceIsConnectedBit			The USB device is connected to its hub
  @constant	kUSBInformationDeviceIsEnabledBit			The hub port to which the USB device is attached is enabled
  @constant	kUSBInformationDeviceIsSuspendedBit			The hub port to which the USB device is attached is suspended
  @constant	kUSBInformationDeviceIsInResetBit			The hub port to which the USB device is attached is being reset
  @constant	kUSBInformationDeviceOvercurrentBit			The USB device generated an overcurrent
  @constant	kUSBInformationDevicePortIsInTestModeBit	The hub port to which the USB device is attached is in test mode
- @constant  kUSBInformationDeviceIsRootHub				The device is actually the root hub simulation
- @constant  kUSBInformationRootHubisBuiltIn				If this is a root hub simulation and it's built into the machine, this bit is set.  If it's on an expansion card, it will be cleared
+ @constant  kUSBInformationDeviceIsRootHub				The device is the root hub simulation
+ @constant  kUSBInformationRootHubisBuiltIn				If this is a root hub simulation and it's built into the enclosure, this bit is set.  If it's on an expansion card, it will be cleared
  @constant  kUSBInformationDeviceIsRemote				This device is "attached" to the controller through a remote connection
- @constant  kUSBInformationDeviceIsAttachedToEnclosure	The hub port to which the USB device is connected has a USB connector on the CPU enclosure
+ @constant  kUSBInformationDeviceIsAttachedToEnclosure	The hub port to which the USB device is connected has a USB connector on the enclosure
+ @constant  kUSBInformationDeviceIsOnThunderbolt		The USB device is downstream of a controller that is attached through Thunderbolt
  
  */
 	typedef enum {
@@ -1189,8 +1169,10 @@ typedef enum {
 		kUSBInformationDevicePortIsInTestModeBit		= 8,
 		kUSBInformationDeviceIsRootHub					= 9,
 		kUSBInformationRootHubisBuiltIn					= 10,
+		kUSBInformationRootHubIsBuiltInBit				= 10,
 		kUSBInformationDeviceIsRemote					= 11,
 		kUSBInformationDeviceIsAttachedToEnclosure		= 12,
+		kUSBInformationDeviceIsOnThunderboltBit			= 13,
 		kUSBInformationDeviceIsCaptiveMask				= (1 << kUSBInformationDeviceIsCaptiveBit),
 		kUSBInformationDeviceIsAttachedToRootHubMask	= (1 << kUSBInformationDeviceIsAttachedToRootHubBit),
 		kUSBInformationDeviceIsInternalMask				= (1 << kUSBInformationDeviceIsInternalBit),
@@ -1202,8 +1184,10 @@ typedef enum {
 		kUSBInformationDevicePortIsInTestModeMask		= (1 << kUSBInformationDevicePortIsInTestModeBit),
 		kUSBInformationDeviceIsRootHubMask				= (1 << kUSBInformationDeviceIsRootHub),
 		kUSBInformationRootHubisBuiltInMask				= (1 << kUSBInformationRootHubisBuiltIn),
+		kUSBInformationRootHubIsBuiltInMask				= (1 << kUSBInformationRootHubIsBuiltInBit),
 		kUSBInformationDeviceIsRemoteMask				= (1 << kUSBInformationDeviceIsRemote),
-		kUSBInformationDeviceIsAttachedToEnclosureMask	= (1 << kUSBInformationDeviceIsAttachedToEnclosure)
+		kUSBInformationDeviceIsAttachedToEnclosureMask	= (1 << kUSBInformationDeviceIsAttachedToEnclosure),
+		kUSBInformationDeviceIsOnThunderboltMask		= (1 << kUSBInformationDeviceIsOnThunderboltBit)
 	} USBDeviceInformationBits;
 	
 	/*!
@@ -1215,7 +1199,8 @@ typedef enum {
 	 @constant	kUSBPowerRequestSleepRelease	When used with ReturnExtraPower(), it will send a message to all devices to return any sleep power if possible.
 	 @constant	kUSBPowerRequestWakeReallocate		When used with ReturnExtraPower(), it will send a message to all devices indicating that they can ask for more wake power, as some device has released it.
 	 @constant	kUSBPowerRequestSleepReallocate		When used with ReturnExtraPower(), it will send a message to all devices indicating that they can ask for more sleep power, as some device has released it.
-	 @constant	kUSBPowerDuringWake		The power is to be used while the system is awake (i.e not sleeping), but can be taken away (via the kUSBPowerRequestWakeRelease message).  The system can then allocate that extra power to another device.
+	 @constant	kUSBPowerDuringWakeRevocable		The power is to be used while the system is awake (i.e not sleeping), but can be taken away (via the kUSBPowerRequestWakeRelease message).  The system can then allocate that extra power to another device.
+	 @constant	kUSBPowerDuringWakeUSB3				This is used by the USB stack to allocate the 400mA extra for USB3, above the 500ma allocated by USB2
 	 */
 	typedef enum {
 		kUSBPowerDuringSleep 			= 0,
@@ -1224,24 +1209,28 @@ typedef enum {
 		kUSBPowerRequestSleepRelease 	= 3,
 		kUSBPowerRequestWakeReallocate 	= 4,
 		kUSBPowerRequestSleepReallocate = 5,
-		kUSBPowerDuringWakeRevokable	= 6
+		kUSBPowerDuringWakeRevocable	= 6,
+		kUSBPowerDuringWakeUSB3			= 7
 	} USBPowerRequestTypes;
 	
 	// Apple specific properties
-#define kAppleMaxPortCurrent			"AAPL,current-available"
-#define kAppleCurrentExtra				"AAPL,current-extra"
-#define kAppleMaxPortCurrentInSleep		"AAPL,max-port-current-in-sleep"
-#define kAppleCurrentExtraInSleep		"AAPL,current-extra-in-sleep"
-	
+#define kAppleMaxPortCurrent				"AAPL,current-available"
+#define kAppleCurrentExtra					"AAPL,current-extra"
+#define kAppleMaxPortCurrentInSleep			"AAPL,max-port-current-in-sleep"
+#define kAppleCurrentExtraInSleep			"AAPL,current-extra-in-sleep"
+#define kAppleRevocableExtraCurrent			"AAPL,revocable-extra-current"
+#define kAppleExternalSuperSpeedPorts		"AAPL,ExternalSSPorts"
+#define kAppleUnconnectedSuperSpeedPorts	"AAPL,UnconnectedSSPorts"
+
 #define kAppleStandardPortCurrentInSleep	"AAPL,standard-port-current-in-sleep"
 
-#define kAppleInternalUSBDevice		"AAPL,device-internal"
-#define kUSBBusID					"AAPL,bus-id"
+#define kAppleInternalUSBDevice				"AAPL,device-internal"
+#define kUSBBusID							"AAPL,bus-id"
 	
 	// Deprecated Names and/or values
-#define kAppleCurrentAvailable		"AAPL,current-available"
-#define kAppleCurrentInSleep		"AAPL,current-in-sleep"
-#define kApplePortCurrentInSleep	"AAPL,port-current-in-sleep"
+#define kAppleCurrentAvailable				"AAPL,current-available"
+#define kAppleCurrentInSleep				"AAPL,current-in-sleep"
+#define kApplePortCurrentInSleep			"AAPL,port-current-in-sleep"
 
 
 // UPC definitions from ACPI Rev 4.0
@@ -1254,8 +1243,11 @@ typedef enum {
 	kUSBTypeAConnector				= 0x00,	// Type ÔAÕ connector
 	kUSBTypeMiniABConnector	        = 0x01,	// Mini-AB connector
 	kUSBTypeExpressCard				= 0x02,	// ExpressCard
-#ifdef SUPPORTS_SS_USB
-#endif
+	kUSB3TypeStdAConnector			= 0x03, // USB 3 Standard-A connector
+	kUSB3TypeStdBConnector			= 0x04,	// USB 3 Standard-B connector
+	kUSB3TypeMicroBConnector		= 0x05,	// USB 3 Micro-B connector
+	kUSB3TypeMicroABConnector		= 0x06,	// USB 3 Micro-AB connector
+	kUSB3TypePowerBConnector		= 0x07, // USB 3 Power-B connector
 	kUSBProprietaryConnector		= 0xFF	// Proprietary connector
 } kUSBHostConnectorType;
 
@@ -1268,12 +1260,10 @@ enum {
 	kUSBAddress_Shift	= USBBitRangePhase(8, 15)
 };
 
-#ifdef SUPPORTS_SS_USB
 enum {
 	kXHCISSRootHubAddress	= kUSBMaxDevices,
 	kXHCIUSB2RootHubAddress = kUSBMaxDevices+1
 };
-#endif
 
 #ifdef __cplusplus
 }       

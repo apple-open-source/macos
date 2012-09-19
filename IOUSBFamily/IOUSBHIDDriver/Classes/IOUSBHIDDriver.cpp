@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2010 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -675,13 +675,10 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
         case kIOUSBMessagePortHasBeenResumed:
 		case kIOUSBMessagePortWasNotSuspended:
 			
-            USBLog(3, "IOUSBHIDDriver(%s)[%p]: received message %s (0x%x), rearming interrupt read", getName(), this, type == kIOUSBMessagePortHasBeenResumed ? "kIOUSBMessagePortHasBeenResumed": "kIOUSBMessagePortWasNotSuspended", (uint32_t)type);
+            USBLog(6, "IOUSBHIDDriver(%s)[%p]: received message %s (0x%x)", getName(), this, type == kIOUSBMessagePortHasBeenResumed ? "kIOUSBMessagePortHasBeenResumed": "kIOUSBMessagePortWasNotSuspended", (uint32_t)type);
             
 			_PORT_SUSPENDED = FALSE;
-            ABORTEXPECTED = FALSE;
-			
-            err = RearmInterruptRead();
-			
+
 			// Re-enable the timer
 			if ( _SUSPENDPORT_TIMER )
 			{
@@ -1633,6 +1630,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 			if ( bufferSizeRemaining != 0 )
 			{
 				_buffer->setLength(_buffer->getCapacity()-bufferSizeRemaining);
+				USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, _buffer->getLength(), 0, 15);
 			}
 
             // Handle the data.  We do this on a callout thread so that we don't block all
@@ -1787,6 +1785,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
     {
         // Queue up another one before we leave.
         //
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, status, 0, 16);
 		USBLog(7, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler - queueing another", getName(), this);
         (void) RearmInterruptRead();
     }
@@ -2044,7 +2043,9 @@ IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
 		}
 
 		//status = handleReportWithTime(_INTERRUPT_TIMESTAMP, _buffer);
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, _buffer->getLength(), _buffer->getCapacity(), 17);
 		status = handleReport(_buffer);
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, _buffer->getLength(), status, 18);
 		if ( status != kIOReturnSuccess)
 		{
 			UInt32	bytesToLog = _buffer->getLength() > 16 ? 16 : _buffer->getLength();
@@ -2932,6 +2933,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 	if (!gotPend)
 	{
 		USBLog(2, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - already had outstanding read pending - just ignoring", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 10 );
 		return kIOReturnSuccess;
 	}
 
@@ -2965,6 +2967,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 
 	// Reset the length of the buffer
 	_buffer->setLength(_buffer->getCapacity());
+	USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, _buffer->getLength(), _buffer->getCapacity(), 9 );
 
 	while ( (err != kIOReturnSuccess) && (err != kIOReturnNoBandwidth) && ( retries++ < 30 ) && (_buffer != NULL) && (_interruptPipe != NULL))
 	{
@@ -2979,6 +2982,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 		if (_COMPLETION_WITH_TIMESTAMP.action)
 		{
 			err = _interruptPipe->Read(_buffer, 0, 0, _buffer->getLength(), &_COMPLETION_WITH_TIMESTAMP);
+			USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, err, _MYPOWERSTATE, 11 );
 			if ((err == kIOReturnNotResponding) && (_POWERSTATECHANGING || (_MYPOWERSTATE < kUSBHIDPowerStateOn)))
 			{
 				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - err(kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", getName(), this, _POWERSTATECHANGING ? "true" : "false", (int)_MYPOWERSTATE);

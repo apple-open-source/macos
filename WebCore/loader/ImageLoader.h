@@ -75,6 +75,8 @@ private:
     virtual void dispatchLoadEvent() = 0;
     virtual String sourceURI(const AtomicString&) const = 0;
 
+    void updatedHasPendingLoadEvent();
+
     void dispatchPendingBeforeLoadEvent();
     void dispatchPendingLoadEvent();
     void dispatchPendingErrorEvent();
@@ -83,6 +85,8 @@ private:
     void updateRenderer();
 
     Element* m_element;
+    void setImageWithoutConsideringPendingLoadEvent(CachedImage*);
+
     CachedResourceHandle<CachedImage> m_image;
     AtomicString m_failedLoadURL;
     bool m_hasPendingBeforeLoadEvent : 1;
@@ -90,6 +94,7 @@ private:
     bool m_hasPendingErrorEvent : 1;
     bool m_imageComplete : 1;
     bool m_loadManually : 1;
+    bool m_elementIsProtected : 1;
 };
 
 }

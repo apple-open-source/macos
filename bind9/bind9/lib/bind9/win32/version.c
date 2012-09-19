@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: version.c,v 1.5 2007-06-19 23:47:16 tbox Exp $ */
+/* $Id: version.c,v 1.5 2007/06/19 23:47:16 tbox Exp $ */
 
 #include <versions.h>
 

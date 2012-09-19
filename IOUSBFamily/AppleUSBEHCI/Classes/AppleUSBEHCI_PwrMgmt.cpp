@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -1051,6 +1050,7 @@ AppleUSBEHCI::powerChangeDone ( unsigned long fromState)
 	
 	USBTrace( kUSBTEHCI, kTPEHCIPowerState, (uintptr_t)this, fromState, newState, 1);
 	USBLog((fromState == newState) || !_controllerAvailable ? 7 : 4, "AppleUSBEHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
+    
 	if (_wakingFromHibernation)
 	{
 		USBLog(2, "AppleUSBEHCI[%p]::powerChangeDone - _wakingFromHibernation - _savedAsyncListAddr(%p) AsyncListAddr(%p) _AsyncHead(%p)", this, (void*)USBToHostLong(_savedAsyncListAddr), (void*)_pEHCIRegisters->AsyncListAddr, _AsyncHead);		

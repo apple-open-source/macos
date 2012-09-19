@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #define CFRUNLOOP_NEW_API 1 
 
 // 
@@ -124,11 +125,7 @@ IOUSBDeviceClass::IOUSBDeviceClass()
 #endif
 	
 	DEBUGPRINT("IOUSBDeviceClass[%p]::IOUSBDeviceClass\n", this);
-#ifdef SUPPORTS_SS_USB
     fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV500;
-#else
-    fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV320;
-#endif
     fUSBDevice.obj = this;
 }
 
@@ -189,11 +186,9 @@ IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID197) ||
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID245) ||
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID300) ||
-			 CFEqual(uuid, kIOUSBDeviceInterfaceID320) 
-#ifdef SUPPORTS_SS_USB
-			 || CFEqual(uuid, kIOUSBDeviceInterfaceID500)
-#endif
-			 ) 
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID320) || 
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID500)
+			 )
     {
         *ppv = &fUSBDevice;
         addRef();
@@ -1136,7 +1131,6 @@ IOUSBDeviceClass::GetExtraPowerAllocated(UInt32 type, UInt32 *powerAllocated)
     return kr;
 }
 
-#ifdef SUPPORTS_SS_USB
 IOReturn
 IOUSBDeviceClass::GetBandwidthAvailableForDevice(UInt32 *bandwidth)
 {
@@ -1171,7 +1165,6 @@ IOUSBDeviceClass::GetBandwidthAvailableForDevice(UInt32 *bandwidth)
 	
     return ret;
 }
-#endif
 
 #pragma mark -
 IOReturn 
@@ -1552,13 +1545,8 @@ IOUSBDeviceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-#ifdef SUPPORTS_SS_USB
 IOUSBDeviceStruct500 
 IOUSBDeviceClass::sUSBDeviceInterfaceV500 = {
-#else
-IOUSBDeviceStruct320 
-IOUSBDeviceClass::sUSBDeviceInterfaceV320 = {
-#endif
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -1609,10 +1597,8 @@ IOUSBDeviceClass::sUSBDeviceInterfaceV320 = {
     &IOUSBDeviceClass::deviceRequestExtraPower,
     &IOUSBDeviceClass::deviceReturnExtraPower,
     &IOUSBDeviceClass::deviceGetExtraPowerAllocated
-#ifdef SUPPORTS_SS_USB
     // ---------- new with 5.0.0
     ,&IOUSBDeviceClass::deviceGetBandwidthAvailableForDevice
-#endif
 };
 
 #pragma mark Routing interfaces
@@ -1831,10 +1817,8 @@ IOReturn
 IOUSBDeviceClass::deviceGetExtraPowerAllocated(void *self, UInt32 type, UInt32 *powerAllocated)
 { return getThis(self)->GetExtraPowerAllocated(type, powerAllocated); }
 
-#ifdef SUPPORTS_SS_USB
 //--------------- added in 5.0.0
 IOReturn
 IOUSBDeviceClass::deviceGetBandwidthAvailableForDevice(void *self, UInt32 *bandwidth)
 { return getThis(self)->GetBandwidthAvailableForDevice(bandwidth); }
-#endif
 

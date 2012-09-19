@@ -216,15 +216,10 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     if (createDoc) {
         [doc makeWindowControllers];
         [doc showWindows]; 
+        [doc autorelease];
     }
     
     return YES;
-}
-
-- (void)dealloc
-{
-    [properties release];
-    [super dealloc];
 }
 
 - (id)init
@@ -248,8 +243,21 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         for (int i = 0; sProperties[i]; ++i)
             [properties setValue:[defaults objectForKey:sProperties[i]]
                           forKey:sProperties[i]];
+        //
+        //      Since some views with bindings to document leak in Board.xib, we're
+        //      temporarily forced to leak the document as well.
+        //
+#if !BOARD_XIB_LEAKS_FIXED
+        [self retain];
+#endif
     }
     return self;
+}
+
+- (void)dealloc
+{
+    [properties release];
+    [super dealloc];
 }
 
 - (id)initForNewGameSheet:(NSArray *)guests
@@ -304,6 +312,12 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         [self updateChangeCount:NSChangeCleared];
     }
     return self;
+}
+
+- (void)duplicateDocument:(id)sender
+{
+    [self setEphemeral:NO];
+    [super duplicateDocument:sender];
 }
 
 - (void)updateChangeCount:(NSDocumentChangeType)change
@@ -741,6 +755,15 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 	return res;
 }
 
+- (void)performActivityWithSynchronousWaiting:(BOOL)waitSynchronously usingBlock:(void (^)(void (^)()))block
+{
+    //      If achievement controller is showing and we have to put up e.g. a save dialog,
+    //      dismiss it.
+    //
+    [[[self windowControllers] objectAtIndex:0] achievementViewControllerDidFinish:nil];
+    [super performActivityWithSynchronousWaiting:waitSynchronously usingBlock:block];
+}
+
 - (NSDocument *)duplicateAndReturnError:(NSError **)outError
 {
     if (match) {
@@ -812,7 +835,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 	BOOL loaded = [super readFromURL:absoluteURL ofType:typeName error:outError];
 	if (loaded && [absoluteURL isEqual:[MBCDocument casualGameSaveLocation]]) // Upgrade legacy autosave
 		[self setFileURL:nil];
-	
+
 	return loaded;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,9 +39,7 @@
     */
 enum {
     kUSBHubDescriptorType       = 0x29,
-#ifdef SUPPORTS_SS_USB
     kUSB3HubDescriptorType       = 0x2A
-#endif
 };
 
     /*!
@@ -68,7 +66,6 @@ enum {
     kUSBHubPortTestFeature				= 21,
 	kUSBHubPortIndicatorFeature			= 22,
 	
-#ifdef SUPPORTS_SS_USB
 	// USB 3.0
 	kUSBHubPortLinkStateFeature				= 5,    /* port features */
 	kUSBHubPortU1TimeoutFeature				= 23,
@@ -79,7 +76,6 @@ enum {
 	kUSBHubPortBHPortResetFeature			= 28,
 	kUSBHubPortBHResetChangeFeature			= 29,
 	kUSBHubPortForceLinkPMAcceptFeature		= 30,
-#endif
 	
 };
 
@@ -93,7 +89,6 @@ enum {
 	kSSHubPortStatusOverCurrentBit	= 3,
 	kSSHubPortStatusResetBit		= 4,
 	
-#ifdef SUPPORTS_SS_USB
 	// USB 3.0
 	kSSHubPortStatusLinkStateShift		= 5,
 	kSSHubPortStatusPowerBit			= 9,
@@ -101,7 +96,6 @@ enum {
 	kSSHubPortChangeBHResetBit			= 5,
 	kSSHubPortChangePortLinkStateBit 	= 6,
 	kSSHubPortChangePortConfigErrBit	= 7,
-#endif
 
     kHubPortConnection		= 0x0001,
     kHubPortEnabled			= 0x0002,
@@ -113,7 +107,6 @@ enum {
     kHubPortHighSpeed		= 0x0400,
     kHubPortTestMode		= 0x0800,
     kHubPortIndicator		= 0x1000,
-#ifdef SUPPORTS_SS_USB
     kHubPortSuperSpeed		= 0x2000,					// This is a synthesized bit that is using a reserved bit from the Hub Port Status definition in USB 2.0.
 	kHubPortBit14			= 0x4000,					// That bit is used by the hub driver to encode the USB3 link state into the USB2 PortStatus (using bits 5-7 as well, that are reserved in the USB 2 spec)
     kHubPortDebouncing		= 0x8000,					// This is a synthesized bit that is using a reserved bit from the Hub Port Status definition in USB 2.0.
@@ -132,7 +125,6 @@ enum {
 
     // these are the bits which cause the hub port state machine to keep moving (USB 3.0)
     kHubPortSuperSpeedStateChangeMask		= (kHubPortConnection | kHubPortEnabled | kHubPortSuspend | kHubPortOverCurrent | kHubPortBeingReset | kSSHubPortStatusBeingResetMask | kSSHubPortChangePortLinkStateMask | kSSHubPortChangePortConfigErrMask),
-#endif
     // these are the bits which cause the hub port state machine to keep moving (USB 2.0)
     kHubPortStateChangeMask                 = (kHubPortConnection | kHubPortEnabled | kHubPortSuspend | kHubPortOverCurrent | kHubPortBeingReset)
 };
@@ -196,9 +188,7 @@ enum {
 enum {
 	kPrdRootHubApple			= 0x8005,	// ProductID for classic speed root hubs
 	kPrdRootHubAppleE			= 0x8006,	// ProductID for high speed root hubs
-#ifdef SUPPORTS_SS_USB
 	kPrdRootHubAppleSS			= 0x8007,	// ProductID for super speed root hubs
-#endif
 	kUSBRootHubPollingRate		= 32		// Enpoint polling rate interval for root hubs
 };
 
@@ -249,9 +239,7 @@ enum {
     kClearPortFeature = EncodeRequest(kUSBRqClearFeature,  kUSBOut, kUSBClass, kUSBOther),
     kGetPortState     = EncodeRequest(kUSBRqGetState,      kUSBIn,  kUSBClass, kUSBOther),
     kGetHubDescriptor = EncodeRequest(kUSBRqGetDescriptor, kUSBIn,  kUSBClass, kUSBDevice),
-#ifdef SUPPORTS_SS_USB
     kGetHub3Descriptor= EncodeRequest(kUSBRqGetDescriptor, kUSBIn,  kUSBClass, kUSBDevice),
-#endif
     kGetHubStatus     = EncodeRequest(kUSBRqGetStatus,     kUSBIn,  kUSBClass, kUSBDevice),
     kGetPortStatus    = EncodeRequest(kUSBRqGetStatus,     kUSBIn,  kUSBClass, kUSBOther),
     kSetHubDescriptor = EncodeRequest(kUSBRqGetDescriptor, kUSBOut, kUSBClass, kUSBDevice),
@@ -299,7 +287,6 @@ enum
 	kUSBHSHubFlagsNumPortsMask			= 0xF0
 };
 
-#ifdef SUPPORTS_SS_USB
 // To cope with the extra fields in a USB3 hub descriptor
 
 struct IOUSB3HubDescriptor {
@@ -318,7 +305,6 @@ struct IOUSB3HubDescriptor {
 };
 
 typedef struct IOUSB3HubDescriptor IOUSB3HubDescriptor;
-#endif
 
 /*!
     @typedef IOUSBHubStatus
@@ -358,7 +344,6 @@ struct IOUSBHubPortClearTTParam {
 #endif
 };
 
-#ifdef SUPPORTS_SS_USB
 #pragma mark USB 3 Additions
 
 /*!
@@ -395,6 +380,5 @@ enum {
 	
 	kSSHubPortSpeed5Gbps			= 0
 };
-#endif
 	
 #endif

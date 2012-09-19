@@ -201,6 +201,7 @@ hfs_errors[] = {
     { E_LinkChainNonLink,       "File record has hard link chain flag (id = %u)",                fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
     { E_LinkHasData,            "Hard link record has data extents (id = %u)",                   fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
     { E_FileLinkCountError,     "File has incorrect number of links (id = %u)",                  fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
+    { E_BTreeSplitNode,         "B-tree node is split across extents (file id %u)",              fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
 
     /* And all-zeroes to indicate the end */
     { 0, },

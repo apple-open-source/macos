@@ -1,4 +1,4 @@
-# Copyright (C) 2011  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +12,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: Makefile.in,v 1.2.2.4 2011-07-08 22:57:25 smann Exp $
+# $Id$
 
 srcdir =	@srcdir@
 VPATH =		@srcdir@
@@ -37,10 +37,14 @@ DNSDEPLIBS =	../libdns.@A@
 LIBS =		@LIBS@ @ATFLIBS@
 
 OBJS =		dnstest.@O@
-SRCS =		dnstest.c master_test.c time_test.c zonemgr_test.c
+SRCS =		dnstest.c master_test.c time_test.c \
+		zonemgr_test.c dbiterator_test.c \
+		dbversion_test.c nsec3_test.c
 
 SUBDIRS =
-TARGETS =	master_test@EXEEXT@ time_test@EXEEXT@ zonemgr_test@EXEEXT@
+TARGETS =	master_test@EXEEXT@ time_test@EXEEXT@ \
+		zonemgr_test@EXEEXT@ dbiterator_test@EXEEXT@ \
+		dbversion_test@EXEEXT@ nsec3_test@EXEEXT@
 
 @BIND9_MAKE_RULES@
 
@@ -58,6 +62,24 @@ zonemgr_test@EXEEXT@: zonemgr_test.@O@ dnstest.@O@ ${ISCDEPLIBS} ${DNSDEPLIBS}
 	${LIBTOOL_MODE_LINK} ${PURIFY} ${CC} ${CFLAGS} ${LDFLAGS} -o $@ \
 			zonemgr_test.@O@ dnstest.@O@ ${DNSLIBS} \
 				${ISCLIBS} ${LIBS}
+
+dbiterator_test@EXEEXT@: dbiterator_test.@O@ dnstest.@O@ ${ISCDEPLIBS} ${DNSDEPLIBS}
+	${LIBTOOL_MODE_LINK} ${PURIFY} ${CC} ${CFLAGS} ${LDFLAGS} -o $@ \
+			dbiterator_test.@O@ dnstest.@O@ ${DNSLIBS} \
+				${ISCLIBS} ${LIBS}
+
+dbversion_test@EXEEXT@: dbversion_test.@O@ dnstest.@O@ ${ISCDEPLIBS} ${DNSDEPLIBS}
+	${LIBTOOL_MODE_LINK} ${PURIFY} ${CC} ${CFLAGS} ${LDFLAGS} -o $@ \
+			dbversion_test.@O@ dnstest.@O@ ${DNSLIBS} \
+				${ISCLIBS} ${LIBS}
+
+nsec3_test@EXEEXT@: nsec3_test.@O@ dnstest.@O@ ${ISCDEPLIBS} ${DNSDEPLIBS}
+	${LIBTOOL_MODE_LINK} ${PURIFY} ${CC} ${CFLAGS} ${LDFLAGS} -o $@ \
+			nsec3_test.@O@ dnstest.@O@ ${DNSLIBS} \
+				${ISCLIBS} ${LIBS}
+
+unit::
+	sh ${top_srcdir}/unit/unittest.sh
 
 clean distclean::
 	rm -f ${TARGETS}

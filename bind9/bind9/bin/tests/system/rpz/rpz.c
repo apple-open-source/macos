@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: rpz.c,v 1.3 2011-01-13 04:59:24 tbox Exp $ */
+/* $Id: rpz.c,v 1.3 2011/01/13 04:59:24 tbox Exp $ */
 
 #include <config.h>
 

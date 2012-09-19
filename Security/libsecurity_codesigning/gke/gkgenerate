@@ -22,7 +22,6 @@ import uuid
 authfile = "gke.auth"
 sigfile = "gke.dsig"
 
-
 #
 # Usage and fail
 #
@@ -50,6 +49,20 @@ sigsfile = args.output + ".sigs"
 
 
 #
+# Augment a snippet record
+#
+def augment(data):
+	for auth in data.authority.values():
+		if auth.path in data.signatures:
+			signature = data.signatures[auth.path].signature.data
+			unpack = subprocess.Popen(["/usr/local/bin/gkunpack"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			(stdout, stderr) = unpack.communicate(input=signature)
+			if stderr:
+				fail("signature unpack failed for %s" % auth.path)
+			auth.screen = stdout.rstrip();
+
+
+#
 # Start by collecting authority evidence from the authority records
 #
 auth = { }
@@ -57,10 +70,12 @@ sigs = { }
 for source in args.source:
 	if source[0] == '+':
 		data = plistlib.readPlist(source[1:])
+		augment(data)
 		auth.update(data["authority"])
 		sigs.update(data["signatures"])
 	else:
 		data = plistlib.readPlist(source)
+		augment(data)
 		auth.update(data["authority"])
 
 if not auth and not args.empty:

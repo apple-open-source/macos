@@ -57,7 +57,8 @@
     GKAchievementViewControllerDelegate,
     GKTurnBasedMatchmakerViewControllerDelegate> 
 {
-    BOOL    fHasObservers;
+    NSMutableArray *                fObservers;
+    GKAchievementViewController *   fAchievements;
 }
 
 @property (nonatomic, assign) IBOutlet MBCBoardView *           gameView;
@@ -76,6 +77,7 @@
 @property (nonatomic, readonly) NSDictionary *                  primaryLocalization;
 @property (nonatomic, readonly) NSDictionary *                  alternateLocalization;
 
+- (void) removeChessObservers;
 - (IBAction)takeback:(id)sender;
 - (void) requestTakeback;
 - (void) requestDraw;

@@ -912,6 +912,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 	int64_t					if_index;
 	const char				*if_name	= NULL;
 	bool					onDemandBypass	= FALSE;
+	bool					resolverBypass	= FALSE;
 	uint64_t				target_id;
 
 
@@ -921,7 +922,6 @@ target_add(reach_client_t *client, xpc_object_t request)
 	size_t					len;
 	xpc_connection_t			remote;
 	xpc_object_t				reply;
-	bool					resolverBypass	= FALSE;
 	uint64_t				status		= REACH_REQUEST_REPLY_FAILED;
 
 	Boolean					added;
@@ -958,11 +958,13 @@ target_add(reach_client_t *client, xpc_object_t request)
 
 	name = xpc_dictionary_get_string(request, REACH_TARGET_NAME);
 	if (name != NULL) {
+		CC_SHA1_Update(&ctx, REACH_TARGET_NAME, sizeof(REACH_TARGET_NAME));
 		CC_SHA1_Update(&ctx, name, strlen(name));
 	}
 
 	serv = xpc_dictionary_get_string(request, REACH_TARGET_SERV);
 	if (serv != NULL) {
+		CC_SHA1_Update(&ctx, REACH_TARGET_SERV, sizeof(REACH_TARGET_SERV));
 		CC_SHA1_Update(&ctx, serv, strlen(serv));
 	}
 
@@ -970,6 +972,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 	if (localAddress != NULL) {
 		if ((len == localAddress->sa_len) && (len <= sizeof(struct sockaddr_storage))) {
 			sanitize_address(localAddress, (struct sockaddr *)&localAddress0);
+			CC_SHA1_Update(&ctx, REACH_TARGET_LOCAL_ADDR, sizeof(REACH_TARGET_LOCAL_ADDR));
 			CC_SHA1_Update(&ctx, &localAddress0, len);
 		} else {
 			xpc_dictionary_set_string(reply,
@@ -983,6 +986,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 	if (remoteAddress != NULL) {
 		if ((len == remoteAddress->sa_len) && (len <= sizeof(struct sockaddr_storage))) {
 			sanitize_address(remoteAddress, (struct sockaddr *)&remoteAddress0);
+			CC_SHA1_Update(&ctx, REACH_TARGET_REMOTE_ADDR, sizeof(REACH_TARGET_REMOTE_ADDR));
 			CC_SHA1_Update(&ctx, &remoteAddress0, len);
 		} else {
 			xpc_dictionary_set_string(reply,
@@ -995,6 +999,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 	hints = xpc_dictionary_get_data(request, REACH_TARGET_HINTS, &len);
 	if (hints != NULL) {
 		if (len == sizeof(struct addrinfo)) {
+			CC_SHA1_Update(&ctx, REACH_TARGET_HINTS, sizeof(REACH_TARGET_HINTS));
 			CC_SHA1_Update(&ctx, hints, len);
 		} else {
 			xpc_dictionary_set_string(reply,
@@ -1008,17 +1013,20 @@ target_add(reach_client_t *client, xpc_object_t request)
 	if (if_index != 0) {
 		if_name = xpc_dictionary_get_string(request, REACH_TARGET_IF_NAME);
 		if (if_name != NULL) {
+			CC_SHA1_Update(&ctx, REACH_TARGET_IF_NAME, sizeof(REACH_TARGET_IF_NAME));
 			CC_SHA1_Update(&ctx, if_name, strlen(if_name));
 		}
 	}
 
 	onDemandBypass = xpc_dictionary_get_bool(request, REACH_TARGET_ONDEMAND_BYPASS);
 	if (onDemandBypass) {
+		CC_SHA1_Update(&ctx, REACH_TARGET_ONDEMAND_BYPASS, sizeof(REACH_TARGET_ONDEMAND_BYPASS));
 		CC_SHA1_Update(&ctx, &onDemandBypass, sizeof(onDemandBypass));
 	}
 
 	resolverBypass = xpc_dictionary_get_bool(request, REACH_TARGET_RESOLVER_BYPASS);
 	if (resolverBypass) {
+		CC_SHA1_Update(&ctx, REACH_TARGET_RESOLVER_BYPASS, sizeof(REACH_TARGET_RESOLVER_BYPASS));
 		CC_SHA1_Update(&ctx, &resolverBypass, sizeof(resolverBypass));
 	}
 

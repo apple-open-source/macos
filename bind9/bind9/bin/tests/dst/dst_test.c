@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dst_test.c,v 1.46 2009-09-01 00:22:25 jinmei Exp $ */
+/* $Id: dst_test.c,v 1.46 2009/09/01 00:22:25 jinmei Exp $ */
 
 #include <config.h>
 

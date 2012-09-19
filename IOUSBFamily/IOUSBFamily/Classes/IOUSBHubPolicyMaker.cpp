@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 2007-2009 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,9 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
  
-
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
@@ -230,27 +227,39 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 			IOUSBHubPolicyMaker		*policyMaker = NULL;
 			if (grandParentHub)
 			{
+				UInt32		newCharacteristics = deviceCharacteristics;
+				
 				_parentHubDevice = grandParentHub;
 				
 				UInt32		grandCharacteristics = grandParentHub->GetHubCharacteristics();
 				if (grandCharacteristics & kIOUSBHubDeviceIsOnHighSpeedBus)
 				{
 					USBLog(5, "IOUSBHubPolicyMaker[%p]::start - hub is on HS bus - setting characteristic", this);
-					_device->SetHubCharacteristics(deviceCharacteristics | kIOUSBHubDeviceIsOnHighSpeedBus);
+					newCharacteristics |= kIOUSBHubDeviceIsOnHighSpeedBus;
+				}
+				else if (grandCharacteristics & kIOUSBHubDeviceIsOnSuperSpeedBus)
+				{
+					USBLog(5, "IOUSBHubPolicyMaker[%p]::start - hub is on SS bus - setting characteristic", this);
+					newCharacteristics |= kIOUSBHubDeviceIsOnSuperSpeedBus;
 				}
 				else
 				{
-					USBLog(5, "IOUSBHubPolicyMaker[%p]::start - hub is on classic speed bus - not changing characteristic", this);
+					USBLog(5, "IOUSBHubPolicyMaker[%p]::start - grand hub is on classic speed bus (0x%x) - not changing characteristic", this, (int)grandCharacteristics);
 				}
+				
 				if (grandCharacteristics & kIOUSBHubDeviceCanSleep)
 				{
 					USBLog(5, "IOUSBHubPolicyMaker[%p]::start - hub can sleep - setting characteristic", this);
-					_device->SetHubCharacteristics(deviceCharacteristics | kIOUSBHubDeviceCanSleep);
+					newCharacteristics |= kIOUSBHubDeviceCanSleep;
 				}
 				else
 				{
 					USBLog(5, "IOUSBHubPolicyMaker[%p]::start - hub cannot sleep - not changing characteristic", this);
 				}
+				
+				if (newCharacteristics != deviceCharacteristics)
+					_device->SetHubCharacteristics(newCharacteristics);
+
 				policyMaker = grandParentHub->GetPolicyMaker();
 				if (policyMaker)
 				{
@@ -437,6 +446,8 @@ IOUSBHubPolicyMaker::EnsureUsability(void)
 }
 
 
+#pragma mark Extra Power APIs
+
 //================================================================================================
 //
 // AllocateExtraPower
@@ -463,11 +474,7 @@ IOUSBHubPolicyMaker::AllocateExtraPower()
 	//	Initially, this was just root hubs, but now there are monitor hubs that can provide 
 	//	extra power as well.
 	
-#ifdef SUPPORTS_SS_USB
 	maxPortCurrent = _device->GetSpeed() == kUSBDeviceSpeedSuper ? kUSB3MaxPowerPerPort: kUSB2MaxPowerPerPort;;	// for extra-power purposes assume all hubs have the USB spec (500/900) ma per port available;
-#else
-	maxPortCurrent = kUSB2MaxPowerPerPort;	// for extra-power purposes assume all hubs have 500ma per port available;
-#endif
 	totalExtraCurrent = 0;					// with no extra
 	
 	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleMaxPortCurrent));
@@ -524,6 +531,33 @@ IOUSBHubPolicyMaker::AllocateExtraPower()
 
 
 
+UInt32
+IOUSBHubPolicyMaker::RequestExtraPower(UInt32 portNum, UInt32 type, UInt32 requestedPower)
+{
+#pragma unused (portNum)
+	UInt32		returnValue = 0;
+	
+	USBLog(5, "IOUSBHubPolicyMaker[%p]::RequestExtraPower  for port %d, type: %d, requested %d", this, (uint32_t)portNum,(uint32_t)type, (uint32_t) requestedPower);
+	
+	returnValue = _device->RequestExtraPower(type, requestedPower);
+	
+	return returnValue;
+}
+
+IOReturn
+IOUSBHubPolicyMaker::ReturnExtraPower(UInt32 portNum, UInt32 type, UInt32 returnedPower)
+{
+#pragma unused (portNum)
+	IOReturn	kr = kIOReturnSuccess;
+	
+	USBLog(5, "IOUSBHubPolicyMaker[%p]::ReturnExtraPower  for port %d, type %d, returnedPower %d", this, (uint32_t)portNum, (uint32_t)type, (uint32_t) returnedPower);
+
+	kr = _device->ReturnExtraPower( type, returnedPower );
+
+	return kr;
+}
+
+#pragma mark Obsolete
 IOReturn
 IOUSBHubPolicyMaker::GetExtraPortPower(UInt32 portNum, UInt32 *pExtraPower)
 {
@@ -543,7 +577,6 @@ IOUSBHubPolicyMaker::ReturnExtraPortPower(UInt32 portNum, UInt32 extraPower)
 	return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  0);
 IOReturn
 IOUSBHubPolicyMaker::GetPortInformation(UInt32 portNum, UInt32 *info)
 {
@@ -553,7 +586,6 @@ IOUSBHubPolicyMaker::GetPortInformation(UInt32 portNum, UInt32 *info)
 	return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  1);
 IOReturn
 IOUSBHubPolicyMaker::ResetPort(UInt32 portNum)
 {
@@ -563,7 +595,6 @@ IOUSBHubPolicyMaker::ResetPort(UInt32 portNum)
 	return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  2);
 IOReturn
 IOUSBHubPolicyMaker::SuspendPort(UInt32 portNum, bool suspend )
 {
@@ -573,7 +604,6 @@ IOUSBHubPolicyMaker::SuspendPort(UInt32 portNum, bool suspend )
 	return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  3);
 IOReturn
 IOUSBHubPolicyMaker::ReEnumeratePort(UInt32 portNum, UInt32 options)
 {
@@ -583,57 +613,15 @@ IOUSBHubPolicyMaker::ReEnumeratePort(UInt32 portNum, UInt32 options)
 	return kIOReturnUnsupported;
 }
 
+
+#pragma mark MetaClass
+
+OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  0);
+OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  1);
+OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  2);
+OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  3);
 OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  4);
-UInt32
-IOUSBHubPolicyMaker::RequestExtraPower(UInt32 portNum, UInt32 type, UInt32 requestedPower)
-{
-#pragma unused (portNum)
-	UInt32		returnValue = 0;
-	
-	// Need to check whether this request will exceed the maximum power for this port (as opposed to whether there is enough extra available)
-
-	USBLog(5, "IOUSBHubPolicyMaker[%p]::RequestExtraPower  for port %d, type: %d, requested %d", this, (uint32_t)portNum,(uint32_t)type, (uint32_t) requestedPower);
-	if ( type == kUSBPowerDuringWake )
-	{
-		returnValue = _device->RequestExtraPower( requestedPower );
-	}
-	else  if ( type == kUSBPowerDuringSleep )
-	{
-		returnValue = _device->RequestSleepPower( requestedPower );
-	}
-	else if ( type == kUSBPowerRequestWakeReallocate || type == kUSBPowerRequestSleepReallocate)
-	{
-		_device->SendExtraPowerMessage( type, requestedPower );
-	}
-	
-	return returnValue;
-}
-
 OSMetaClassDefineReservedUsed(IOUSBHubPolicyMaker,  5);
-IOReturn
-IOUSBHubPolicyMaker::ReturnExtraPower(UInt32 portNum, UInt32 type, UInt32 returnedPower)
-{
-#pragma unused (portNum)
-	IOReturn	kr = kIOReturnSuccess;
-	
-	USBLog(5, "IOUSBHubPolicyMaker[%p]::ReturnExtraPower  for port %d, type %d, returnedPower %d", this, (uint32_t)portNum, (uint32_t)type, (uint32_t) returnedPower);
-	if ( type == kUSBPowerDuringWake )
-	{
-		_device->ReturnExtraPower( returnedPower );
-	}
-	else if ( type == kUSBPowerDuringSleep )
-	{
-		_device->ReturnSleepPower( returnedPower );
-	}
-	else if ( type == kUSBPowerRequestWakeRelease || type == kUSBPowerRequestSleepRelease )
-	{
-		_device->SendExtraPowerMessage( type, returnedPower );
-	}
-	else
-		kr = kIOReturnBadArgument;
-	
-	return kr;
-}
 
 OSMetaClassDefineReservedUnused(IOUSBHubPolicyMaker,  6);
 OSMetaClassDefineReservedUnused(IOUSBHubPolicyMaker,  7);

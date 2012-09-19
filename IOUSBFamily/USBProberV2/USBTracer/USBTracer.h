@@ -1,23 +1,22 @@
 /*
- * Copyright © 2009 Apple Inc.  All rights reserved.
+ * Copyright © 2009-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -63,17 +62,6 @@
 
 #include <AvailabilityMacros.h>
 
-// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
-#if 0
-	#if defined(MAC_OS_X_VERSION_10_8)
-		#undef SUPPORTS_SS_USB
-	#else
-		#define SUPPORTS_SS_USB 1
-	#endif
-#else
-	#define SUPPORTS_SS_USB 1
-#endif
-
 
 #include "USBTracepoints.h"
 #include "IOUSBFamilyInfoPlist.pch"
@@ -97,7 +85,7 @@
 #define kMicrosecondsPerSecond			1000000
 #define kMicrosecondsPerMillisecond		1000
 #define kPrintMaskAllTracepoints		0x80000000
-#define kTimeStringSize					17
+#define kTimeStringSize					44
 #define kTimeStampKernel				0x1
 #define kTimeStampLocalTime				0x2
 #define kPrintStartToken				"->"
@@ -367,7 +355,6 @@ enum{
 	
 };
 
-#ifdef SUPPORTS_SS_USB
 enum
 {
 	kXHCIBit0					= (1 << 0),
@@ -553,7 +540,6 @@ enum
 	kXHCIFrameMask = XHCIBitRange(0,10)	
 };
 
-#endif
 
 
 //—————————————————————————————————————————————————————————————————————————————
@@ -612,12 +598,10 @@ static void CollectTraceEHCIUIM	( kd_buf tracepoint ); //21,
 static void CollectTraceEHCIHubInfo	( kd_buf tracepoint ); //22,
 static void CollectTraceEHCIInterrupts	( kd_buf tracepoint ); //23,
 static void CollectTraceEHCIDumpQs ( kd_buf tracepoint ); //24,
-#ifdef SUPPORTS_SS_USB
 static void CollectTraceXHCI ( kd_buf tracepoint );				//20,
 static void CollectTraceXHCIInterrupts	( kd_buf tracepoint ); //23,
 static void CollectTraceXHCIRootHubs	( kd_buf tracepoint ); //24,
 static void CollectTraceXHCIPrintTRB	( kd_buf tracepoint ); //25,
-#endif
 
 static void CollectTraceHubPolicyMaker	( kd_buf tracepoint ); //35,
 static void CollectTraceCompositeDriver ( kd_buf tracepoint ); //36,

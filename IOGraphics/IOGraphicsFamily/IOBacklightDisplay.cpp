@@ -432,6 +432,9 @@ bool AppleBacklightDisplay::updatePowerParam(void)
         OSReportWithBacktrace("AppleBacklightDisplay::updatePowerParam !inGate\n");
 #endif
 
+	DEBG1("B", " fProviderPower %d, fClamshellSlept %d, fCurrentPowerState %d\n", 
+			fProviderPower, fClamshellSlept, fCurrentPowerState);
+
 	if (!fProviderPower) return (false);
 
     displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
@@ -481,7 +484,7 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 				value = kIODisplayPowerStateOn;
 				break;
 		}
-//		kprintf("dysp %d, %d, %d\n", value, fClamshellSlept, fCurrentPowerState);
+		DEBG1("B", " dsyp %d\n", value);
 		ret = super::doIntegerSet(displayParams, gIODisplayPowerStateKey, value);
 	}
 
@@ -506,8 +509,8 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
     if ((kIOFBNotifyDidWake == event) && (info))
     {
 	    fProviderPower = true;
-		fCurrentPowerState = kIODisplayMaxPowerState;
-		updatePowerParam();
+//		fCurrentPowerState = kIODisplayMaxPowerState;
+//		updatePowerParam();
     }
     else if (kIOFBNotifyClamshellChange == event)
     {

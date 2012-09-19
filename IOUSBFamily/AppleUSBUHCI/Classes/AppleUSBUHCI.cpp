@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright © 2004-2007, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,7 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 
 #include <libkern/OSByteOrder.h>

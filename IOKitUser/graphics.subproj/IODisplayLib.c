@@ -1860,7 +1860,7 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
 	// sanity checks against display size
 	if (imageWidth && connectRef->displayImageWidth)
 	{
-		if ((imageWidth < (connectRef->displayImageWidth / 2))
+		if (((8 * imageWidth) < (5 * connectRef->displayImageWidth))
 	     || (imageWidth > (connectRef->displayImageWidth + 9)))
 		{
 			imageWidth = 0;
@@ -1868,7 +1868,7 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
 	}
 	if (imageHeight && connectRef->displayImageHeight)
 	{
-		if ((imageHeight < (connectRef->displayImageHeight / 2))
+		if (((8 * imageHeight) < (5 * connectRef->displayImageHeight))
 	     || (imageHeight > (connectRef->displayImageHeight + 9)))
 		{
 			imageHeight = 0;
@@ -2740,7 +2740,8 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 
         if (2 & edid->featureSupport)
         {}
-        else if ((edid->version > 1) || (edid->revision >= 3))
+        else if ((kDisplayAppleVendorID == connectRef->displayVendor) 
+        	  && ((edid->version > 1) || (edid->revision >= 3)))
         {
             checkDI = true;
         }

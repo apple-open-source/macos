@@ -1646,6 +1646,30 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
 			clientBufPtr->mAudioClientBuffer32.mNextBuffer32 = &clientBuffer->mAudioClientBuffer32;
         }
         
+        //  <rdar://11731381>   Add the client while holding the buffers lock to avoid race conditions.
+        if (isOnline()) {
+			audioDebugIOLog(3, "  isOnline adding client \n" );
+			
+            result = audioStream->addClient( &clientBuffer->mAudioClientBuffer32 );
+            
+            // Clean up the client buffer list in the event of failure.
+            if (kIOReturnSuccess != result) {
+                if (*clientBufferList == clientBuffer) {
+                    *clientBufferList = NULL;
+                } else {
+                    IOAudioClientBuffer64 *clientBufPtr = *clientBufferList;
+                    while ((NULL != clientBufPtr) && (clientBufPtr->mNextBuffer64 != clientBuffer)) {
+                        clientBufPtr = clientBufPtr->mNextBuffer64;
+                    }
+                    clientBufPtr->mNextBuffer64 = NULL;
+                    clientBufPtr->mAudioClientBuffer32.mNextBuffer32 = NULL;
+                }
+            }
+        }
+		else {
+			audioDebugIOLog(3, "  !isOnline \n" );
+		}
+
         unlockBuffers();
         
     Exit:
@@ -1668,16 +1692,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
                 IOFreeAligned(clientBuffer, sizeof(IOAudioClientBuffer64));
 				clientBuffer = NULL;
             }
-        } else if (isOnline()) 
-		{
-			audioDebugIOLog(3, "  isOnline adding client \n" );
-			
-            result = audioStream->addClient( &clientBuffer->mAudioClientBuffer32 ); 
         }
-		else
-		{
-			audioDebugIOLog(3, "  !isOnline \n" );
-		}
 		
     } else {
 		audioDebugIOLog(3, "  !isActive - no Device \n" );

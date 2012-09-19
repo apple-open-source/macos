@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -99,6 +99,10 @@ class MediaPlayer;
 struct MediaPlayerFactory;
 class TimeRanges;
 
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+struct GraphicsDeviceAdapter;
+#endif
+
 class MediaPlayerClient {
 public:
     virtual ~MediaPlayerClient() { }
@@ -161,6 +165,10 @@ public:
     // called when the media player's rendering mode changed, which indicates a change in the
     // availability of the platformLayer().
     virtual void mediaPlayerRenderingModeChanged(MediaPlayer*) { }
+#endif
+
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+    virtual GraphicsDeviceAdapter* mediaPlayerGraphicsDeviceAdapter(const MediaPlayer*) const { return 0; }
 #endif
 
 #if ENABLE(MEDIA_SOURCE)
@@ -346,6 +354,10 @@ public:
     void acceleratedRenderingStateChanged();
 #endif
 
+#if PLATFORM(WIN) && USE(AVFOUNDATION)
+    GraphicsDeviceAdapter* graphicsDeviceAdapter() const;
+#endif
+
     bool hasSingleSecurityOrigin() const;
 
     float mediaTimeForTimeValue(float) const;
@@ -377,6 +389,8 @@ public:
 
     String referrer() const;
     String userAgent() const;
+
+    String engineDescription() const;
 
 private:
     MediaPlayer(MediaPlayerClient*);

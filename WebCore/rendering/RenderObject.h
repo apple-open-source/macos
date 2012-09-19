@@ -291,7 +291,6 @@ private:
 public:
     RenderArena* renderArena() const { return document()->renderArena(); }
 
-    virtual bool isApplet() const { return false; }
     virtual bool isBR() const { return false; }
     virtual bool isBlockFlow() const { return false; }
     virtual bool isBoxModelObject() const { return false; }
@@ -355,6 +354,7 @@ public:
 
     virtual bool isRenderFlowThread() const { return false; }
     virtual bool isRenderNamedFlowThread() const { return false; }
+    virtual bool isRenderScrollbarPart() const { return false; }
     bool canHaveRegionStyle() const { return isRenderBlock() && !isAnonymous() && !isRenderFlowThread(); }
 
     bool isRoot() const { return document()->documentElement() == m_node; }
@@ -389,6 +389,7 @@ public:
             if (!s_ancestorLineboxDirtySet)
                 s_ancestorLineboxDirtySet = new RenderObjectAncestorLineboxDirtySet;
             s_ancestorLineboxDirtySet->add(this);
+            setNeedsLayout(true);
         } else if (s_ancestorLineboxDirtySet) {
             s_ancestorLineboxDirtySet->remove(this);
             if (s_ancestorLineboxDirtySet->isEmpty()) {

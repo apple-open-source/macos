@@ -77,12 +77,6 @@ int slap_inet4or6 = AF_INET;
 #include <Security/Security.h>
 #include <notify.h>
 
-#ifdef __APPLE__
-#include  <IOKit/pwr_mgt/IOPMLib.h>
-#include   <IOKit/pwr_mgt/IOPMLibPrivate.h>
-static IOPMAssertionID  slapd_IOPMSleepAssertion = 0;
-#endif
-
 
 /* globals */
 time_t starttime;
@@ -2573,12 +2567,6 @@ slapd_daemon_task(
 #endif /* HAVE_NT_SERVICE_MANAGER */
 
 #ifdef __APPLE__
-		IOReturn ioret;
-		
-		ioret = IOPMAssertionCreateWithName(kIOPMAssertionTypeDenySystemSleep, kIOPMAssertionLevelOn,  CFSTR("com.apple.slapd.denysystemsleep"), &slapd_IOPMSleepAssertion);
-		if (kIOReturnSuccess != ioret) {
-			Debug(LDAP_DEBUG_ANY, "daemon: IOPMAssertionCreateWithName error [%d]\n",ioret, 0, 0); 		
-		}
         /* Post a notification so opendirectoryd knows slapd is ready. */
 		Debug(LDAP_DEBUG_ANY, "daemon: posting com.apple.slapd.startup notification\n",0, 0, 0);
         notify_post("com.apple.slapd.startup");
@@ -3096,8 +3084,6 @@ loop:
 	ldap_pvt_thread_pool_destroy( &connection_pool, 1 );
 
 #ifdef __APPLE__
-        IOPMAssertionRelease(slapd_IOPMSleepAssertion);
-
         Debug( LDAP_DEBUG_ANY,
                   "daemon: posting daemon shutdown notification.\n",
                   0, 0, 0 );

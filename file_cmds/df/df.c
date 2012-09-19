@@ -172,6 +172,7 @@ main(int argc, char *argv[])
 					/* -k overrides -P */
 					putenv("BLOCKSIZE=512");
 				}
+				iflag = 0;
 			} else {
 				putenv("BLOCKSIZE=512");
 			}

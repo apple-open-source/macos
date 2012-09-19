@@ -2416,3 +2416,34 @@ smbfs_IObusy(struct smbmount *smp)
 }
 
 
+void
+smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent)
+{
+	struct smbnode *np;
+	uint32_t ii;
+	
+    /* lock hash table before we walk it */
+	smbfs_hash_lock(smp);
+    
+	/* We have a hash table for each mount point */
+	for (ii = 0; ii < (smp->sm_hashlen + 1); ii++) {
+		if ((&smp->sm_hash[ii])->lh_first == NULL)
+			continue;
+		
+		for (np = (&smp->sm_hash[ii])->lh_first; np; np = np->n_hash.le_next) {
+			if (ISSET(np->n_flag, NALLOC))
+				continue;
+            
+			if (ISSET(np->n_flag, NTRANSIT))
+				continue;
+			
+			if (np->n_parent == parent) {
+				np->n_flag &= ~NREFPARENT;				
+			}
+		}
+	}
+	smbfs_hash_unlock(smp);
+}
+
+
+

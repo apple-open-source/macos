@@ -29,6 +29,7 @@ using namespace CssmClient;
 //
 void SigningContext::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		check(CSSM_CSP_CreateSignatureContext(attachment()->handle(), mAlgorithm,

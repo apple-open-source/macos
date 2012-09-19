@@ -3002,8 +3002,8 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
             continue;
         info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
 
-        if( 0 == (info->flags & kDisplayModeValidFlag))
-            continue;
+        if( 0 == (info->flags & kDisplayModeValidFlag)) continue;
+        if (kMirrorOnlyFlags & info->flags)             continue;
 
         num = CFDictionaryGetValue( dict, CFSTR(kIOFBModeIDKey) );
         if( !num)
@@ -3080,7 +3080,7 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
                     }
 
                 } else {
-                    if( !better && desireHPix && desireVPix) {
+                    if (desireHPix && desireVPix) {
                         SInt32 delta1, delta2;
 
                         delta1 = ((abs(info->nominalWidth - ((SInt32)desireHPix) ))
@@ -3088,6 +3088,11 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
                         delta2 = (abs(bestInfo.nominalWidth - ((SInt32)desireHPix) )
                                     + abs(bestInfo.nominalHeight - ((SInt32)desireVPix) ));
                         better = (delta1 < delta2);
+                    }
+                    else
+                    {
+                    	better = ((info->nominalWidth * info->nominalHeight) 
+                    			> (bestInfo.nominalWidth * bestInfo.nominalHeight));
                     }
                 }
             }
@@ -3553,19 +3558,20 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
 	arrays = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
     if (!arrays) return( kIOReturnNoMemory );
 
+	iogArray = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
 	next = connectRef;
 	do {
 		if (next->overrides) {
 			otherArray = CFDictionaryGetValue( next->overrides, CFSTR("scale-resolutions") );
 			if (otherArray) CFArrayAppendValue( arrays, otherArray );
-			if (next == connectRef) displayArray = otherArray;
+			if (next == connectRef) 
+			{
+			    displayArray = otherArray;
+				if (iogArray) CFArrayAppendValue(arrays, iogArray);
+			}
 		}
 		next = next->nextDependent;
 	} while( next && (next != connectRef) );
-
-	iogArray = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
-	if( iogArray)
-		CFArrayAppendValue(arrays, iogArray);
 
     nh = (float) scaleBase->timingInfo.detailedInfo.v2.horizontalActive;
     nv = (float) scaleBase->timingInfo.detailedInfo.v2.verticalActive;

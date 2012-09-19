@@ -14,12 +14,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: gsstest.c,v 1.14.12.2 2011-03-28 05:14:18 marka Exp $ */
+/* $Id: gsstest.c,v 1.14.12.5 2011/11/30 00:51:38 marka Exp $ */
 
 #include <config.h>
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <isc/app.h>
 #include <isc/base64.h>
@@ -134,7 +135,7 @@ static void
 recvresponse(isc_task_t *task, isc_event_t *event) {
 	dns_requestevent_t *reqev = (dns_requestevent_t *)event;
 	isc_result_t result, result2;
-	dns_message_t *query, *response = NULL;
+	dns_message_t *query = NULL, *response = NULL;
 	isc_buffer_t outtoken;
 	isc_buffer_t outbuf;
 	char output[10 * 1024];
@@ -146,13 +147,13 @@ recvresponse(isc_task_t *task, isc_event_t *event) {
 
 	REQUIRE(reqev != NULL);
 
+	query = reqev->ev_arg;
+
 	if (reqev->result != ISC_R_SUCCESS) {
 		fprintf(stderr, "I:request event result: %s\n",
 			isc_result_totext(reqev->result));
 		goto end;
 	}
-
-	query = reqev->ev_arg;
 
 	response = NULL;
 	result = dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &response);
@@ -171,14 +172,14 @@ recvresponse(isc_task_t *task, isc_event_t *event) {
 
 	CHECK("dns_request_getresponse", result2);
 
-	if (response)
+	if (response != NULL)
 		dns_message_destroy(&response);
 
-end:
-	if (query)
+ end:
+	if (query != NULL)
 		dns_message_destroy(&query);
 
-	if (reqev->request)
+	if (reqev->request != NULL)
 		dns_request_destroy(&reqev->request);
 
 	isc_event_free(&event);
@@ -220,6 +221,8 @@ sendquery(isc_task_t *task, isc_event_t *event)
 	CHECK("dns_name_fromtext", result);
 
 	result = dns_message_create(mctx, DNS_MESSAGE_INTENTRENDER, &message);
+	if (result != ISC_R_SUCCESS)
+		goto end;
 
 	message->opcode = dns_opcode_query;
 	message->rdclass = dns_rdataclass_in;
@@ -256,20 +259,20 @@ sendquery(isc_task_t *task, isc_event_t *event)
 
 	return;
 
-	end:
-		if (qname != NULL)
-			dns_message_puttempname(message, &qname);
-		if (qrdataset != NULL)
-			dns_message_puttemprdataset(message, &qrdataset);
-		if (message != NULL)
-			dns_message_destroy(&message);
+ end:
+	if (qname != NULL)
+		dns_message_puttempname(message, &qname);
+	if (qrdataset != NULL)
+		dns_message_puttemprdataset(message, &qrdataset);
+	if (message != NULL)
+		dns_message_destroy(&message);
 }
 
 static void
 initctx2(isc_task_t *task, isc_event_t *event) {
 	dns_requestevent_t *reqev = (dns_requestevent_t *)event;
 	isc_result_t result;
-	dns_message_t *query, *response = NULL;
+	dns_message_t *query = NULL, *response = NULL;
 	isc_buffer_t outtoken;
 	unsigned char array[DNS_NAME_MAXTEXT + 1];
 	dns_rdataset_t *rdataset;
@@ -280,13 +283,13 @@ initctx2(isc_task_t *task, isc_event_t *event) {
 
 	REQUIRE(reqev != NULL);
 
+	query = reqev->ev_arg;
+
 	if (reqev->result != ISC_R_SUCCESS) {
 		fprintf(stderr, "I:request event result: %s\n",
 			isc_result_totext(reqev->result));
 		goto end;
 	}
-
-	query = reqev->ev_arg;
 
 	response = NULL;
 	result = dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &response);
@@ -328,14 +331,13 @@ initctx2(isc_task_t *task, isc_event_t *event) {
 		tsigkey = NULL;
 	}
 
-	if (response)
-		dns_message_destroy(&response);
+	dns_message_destroy(&response);
 
-end:
-	if (query)
+ end:
+	if (query != NULL)
 		dns_message_destroy(&query);
 
-	if (reqev->request)
+	if (reqev->request != NULL)
 		dns_request_destroy(&reqev->request);
 
 	isc_event_free(&event);
@@ -406,7 +408,7 @@ initctx1(isc_task_t *task, isc_event_t *event) {
 	CHECK("dns_request_create", result);
 
 	return;
-end:
+ end:
 	event = isc_event_allocate(mctx, (void *)1, 1, console, NULL,
 				   sizeof(*event));
 	isc_task_send(task, &event);return;

@@ -1,20 +1,21 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -76,9 +77,7 @@ protected:
     #define _controllerSpeed					_expansionData->_controllerSpeed
 	#define _activeIsochTransfers				_expansionData->_activeIsochTransfers
 	#define _activeInterruptTransfers			_expansionData->_activeInterruptTransfers
-#ifdef SUPPORTS_SS_USB
 	#define _rootHubDeviceSS					_expansionData->_rootHubDeviceSS
-#endif
 
 	// this class's expansion data
 	#define _isochEPList						_v2ExpansionData->_isochEPList
@@ -101,7 +100,6 @@ protected:
 
 public:
 
-#ifdef SUPPORTS_SS_USB
        /*!
         @function openPipe
          Open a pipe to the specified device endpoint
@@ -109,20 +107,10 @@ public:
          @param speed of the device: kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, kUSBDeviceSpeedHigh or kUSBDeviceSpeedSuper
          @param endpoint description of endpoint to connect to
          */
-#else
-    /*!
-     @function openPipe
-     Open a pipe to the specified device endpoint
-     @param address Address of the device on the USB bus
-     @param speed of the device: kUSBDeviceSpeedLow, kUSBDeviceSpeedFull or kUSBDeviceSpeedHigh
-     @param endpoint description of endpoint to connect to
-     */
-#endif
         virtual IOReturn 		OpenPipe(   USBDeviceAddress 	address,
                                        UInt8 		speed,
                                        Endpoint *		endpoint );
 
-#ifdef SUPPORTS_SS_USB
     /*!
      @function CreateDevice
      @abstract Create a new device as IOUSBController, making a note of the
@@ -136,21 +124,6 @@ public:
      @param hub             USB ID of hub the device is immediatly attached to. (Not necessarily high speed)
      @param port            port number of port the device is attached to.
      */
-#else
-    /*!
-     @function CreateDevice
-     @abstract Create a new device as IOUSBController, making a note of the
-     high speed hub device ID and port number the full/low speed
-     device is attached to.
-     @param newDevice       new device object to work with
-     @param deviceAddress   USB device ID
-     @param maxPacketSize   max packet size of endpoint zero
-     @param speed           speed of the device kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, kUSBDeviceSpeedHigh
-     @param powerAvailable  power available to the device 
-     @param hub             USB ID of hub the device is immediatly attached to. (Not necessarily high speed)
-     @param port            port number of port the device is attached to.
-     */
-#endif
     virtual  IOReturn CreateDevice(	IOUSBDevice 		*newDevice,
                                     USBDeviceAddress	deviceAddress,
                                     UInt8		 	maxPacketSize,
@@ -159,7 +132,6 @@ public:
                                     USBDeviceAddress		hub,
                                     int      port);
 
-#ifdef SUPPORTS_SS_USB
     /*!
      @function ConfigureDeviceZero
      @abstract configure pipe zero of device zero, as IOUSBController, but also keeping 
@@ -169,17 +141,6 @@ public:
      @param hub            USB ID of hub the device is immediatly attached to.  (Not necessarily high speed)
      @param port           port number of port the device is attached to.
      */
-#else
-    /*!
-     @function ConfigureDeviceZero
-     @abstract configure pipe zero of device zero, as IOUSBController, but also keeping 
-     note of high speed hub device is attached to.
-     @param maxPacketSize  max packet size for the pipe
-     @param speed           speed of the device kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, kUSBDeviceSpeedHigh
-     @param hub            USB ID of hub the device is immediatly attached to.  (Not necessarily high speed)
-     @param port           port number of port the device is attached to.
-     */
-#endif
     virtual  IOReturn ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDeviceAddress hub, int port);
 
 /*!
@@ -395,7 +356,6 @@ public:
 	virtual IOReturn		GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime);
 	
 	
-#ifdef SUPPORTS_SS_USB
 	OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  23);
     /*!
 	 @function Read
@@ -454,11 +414,6 @@ public:
 									 Endpoint *		endpoint,
 									 UInt32   maxStreams,
                                      UInt32   maxBurst);
-#else
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  23);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  24);
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  25);
-#endif
     
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  26);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  27);

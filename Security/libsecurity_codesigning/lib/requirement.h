@@ -76,7 +76,6 @@ public:
 	
 	// the SHA1 hash of the canonical "Apple Anchor", i.e. the X509 Anchor
 	// that is considered "Apple's anchor certificate", as defined by hashOfCertificate().
-	static const SHA1::Digest &appleAnchorHash();
 #if defined(TEST_APPLE_ANCHOR)
 	static const char testAppleAnchorEnv[];
 	static const SHA1::Digest &testAppleAnchorHash();

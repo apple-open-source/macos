@@ -5455,11 +5455,13 @@ See remaining rules for examples.
 			<array>
 				<string>builtin:policy-banner</string>
 				<string>loginwindow:login</string>
+				<string>builtin:login-begin</string>
 				<string>builtin:reset-password,privileged</string>
 				<string>builtin:forward-login,privileged</string>
 				<string>builtin:auto-login,privileged</string>
 				<string>builtin:authenticate,privileged</string>
 				<string>PKINITMechanism:auth,privileged</string>
+				<string>builtin:login-success</string>
 				<string>loginwindow:success</string>
 				<string>HomeDirMechanism:login,privileged</string>
 				<string>HomeDirMechanism:status</string>

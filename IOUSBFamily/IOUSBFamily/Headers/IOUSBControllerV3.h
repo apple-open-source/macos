@@ -1,21 +1,22 @@
 /*
-* Copyright (c) 2007-2008 Apple Inc. All rights reserved.
-*
-* @APPLE_LICENSE_HEADER_START@
-* 
-* The contents of this file constitute Original Code as defined in and
-* are subject to the Apple Public Source License Version 1.2 (the
-* "License").  You may not use this file except in compliance with the
-* License.  Please obtain a copy of the License at
-* http://www.apple.com/publicsource and read it before using this file.
-* 
-* This Original Code and all software distributed under the License are
-* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
-* EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-* INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
-* Please see the License for the specific language governing rights and 
-* limitations under the License.
+ * Copyright © 2007-2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
 * 
 * @APPLE_LICENSE_HEADER_END@
 */
@@ -128,13 +129,12 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 			bool					_onThunderbolt;						// T if this controller is on a Thunderbolt bus
 			uint32_t				_thunderboltModelID;				// the model ID of the thunderbolt device in which this controller resides
 			uint32_t				_thunderboltVendorID;				// the vendor ID of the thunderbolt device in which this controller resides
-#ifdef SUPPORTS_SS_USB
 			UInt8					_rootHubNumPortsSS;					// number of SS root hub ports - should be 15 or fewer!
 			UInt8					_rootHubNumPortsHS;					// number of SS root hub ports - should be 15 or fewer!
 			UInt8					_rootHubPortsHSStartRange;
 			UInt8					_rootHubPortsSSStartRange;
 			IOUSBRootHubInterruptTransaction	_outstandingSSRHTrans[4];		// Transactions for the Root Hub.  We need 2, one for the current transaction and one for the next.  This is declared as 4 for binary compatibility
-#endif
+            bool					_wakingFromStandby;					// t when waking from S4 stanby
 		};
 		V3ExpansionData *_v3ExpansionData;
 
@@ -188,14 +188,11 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		static IOReturn					GatedPowerChange(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
 		static IOReturn					ChangeExternalDeviceCount(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
 		static IOReturn					DoGetActualDeviceAddress(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
-#ifdef SUPPORTS_SS_USB
 		static IOReturn					DoCreateStreams(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 );
-#endif
 	
 		// also on the workloop
 	    static void						RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender);
 	
-#ifdef SUPPORTS_SS_USB
 		// Copied from IOUSBController DoAbortEP
 		static IOReturn 		DoAbortStream( 
 									  OSObject *	owner, 
@@ -203,7 +200,6 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 									  void *	arg1, 
 									  void *	arg2, 
 									  void *	arg3 );
-#endif	
 	
 		// subclassable methods
 		virtual IOReturn				CheckForEHCIController(IOService *provider);
@@ -252,7 +248,6 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 	OSMetaClassDeclareReservedUsed(IOUSBControllerV3,  1);
 	virtual IOReturn				CheckPMAssertions(IOUSBDevice *forDevice, bool deviceBeingAdded);
 	
-#ifdef SUPPORTS_SS_USB
 	OSMetaClassDeclareReservedUsed(IOUSBControllerV3,  2);
 	
 	/*!
@@ -462,26 +457,7 @@ class IOUSBControllerV3 : public IOUSBControllerV2
      */
     virtual IOReturn        GetBandwidthAvailableForDevice(IOUSBDevice *forDevice, UInt32 *pBandwidthAvailable);
     
- #else
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  2);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  3);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  4);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  5);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  6);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  7);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  8);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  9);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  10);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  11);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  12);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  13);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  14);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  15);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  16);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  17);
- 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  18);
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  19);
-#endif   
+
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  20);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  21);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  22);

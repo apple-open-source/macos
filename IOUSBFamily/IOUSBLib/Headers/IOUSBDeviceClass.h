@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,17 +24,6 @@
 #ifndef _IOKIT_IOUSBDeviceClass_H
 #define _IOKIT_IOUSBDeviceClass_H
 
-// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
-#if 0
-#if defined(MAC_OS_X_VERSION_10_8)
-#undef SUPPORTS_SS_USB
-#else
-#define SUPPORTS_SS_USB 1
-#endif
-#else
-#define SUPPORTS_SS_USB 1
-#endif
-
 #include <IOKit/usb/IOUSBLib.h>
 #include <asl.h>
 
@@ -56,11 +45,7 @@ protected:
     };
 
     static IOCFPlugInInterface			sIOCFPlugInInterfaceV1;
-#ifdef SUPPORTS_SS_USB
     static IOUSBDeviceInterface500  	sUSBDeviceInterfaceV500;
-#else
-    static IOUSBDeviceInterface320  	sUSBDeviceInterfaceV320;
-#endif
     struct InterfaceMap					fUSBDevice;
     io_service_t						fService;
     io_connect_t						fConnection;
@@ -138,10 +123,8 @@ public:
 	virtual	IOReturn				RequestExtraPower(UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable);
 	virtual IOReturn				ReturnExtraPower(UInt32 type, UInt32 powerReturned);
 	virtual IOReturn				GetExtraPowerAllocated(UInt32 type, UInt32 *powerAllocated);
-#ifdef SUPPORTS_SS_USB
     // ----- new with 5.0.0
 	virtual IOReturn				GetBandwidthAvailableForDevice(UInt32 *bandwidth);
-#endif
 /*
  * Routing gumf for CFPlugIn interfaces
  */
@@ -202,10 +185,8 @@ protected:
     static IOReturn				deviceRequestExtraPower(void *self, UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable);
     static IOReturn				deviceReturnExtraPower(void *self, UInt32 type, UInt32 powerReturned);
 	static IOReturn				deviceGetExtraPowerAllocated(void *self, UInt32 type, UInt32 *powerAllocated);
-#ifdef SUPPORTS_SS_USB
 	// ----------------- added in 5.0.0
     static IOReturn				deviceGetBandwidthAvailableForDevice(void *self, UInt32 *bandwidth);
-#endif
 };
 
 #endif /* !_IOKIT_IOUSBDeviceClass_H */

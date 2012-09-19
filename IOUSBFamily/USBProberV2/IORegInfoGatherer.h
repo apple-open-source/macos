@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -24,17 +23,6 @@
 
 
 #include <AvailabilityMacros.h>
-
-// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
-#if 0
-	#if defined(MAC_OS_X_VERSION_10_8)
-		#undef SUPPORTS_SS_USB
-	#else
-		#define SUPPORTS_SS_USB 1
-	#endif
-#else
-	#define SUPPORTS_SS_USB 1
-#endif
 
 
 #import <Foundation/Foundation.h>

@@ -27,11 +27,35 @@
 #include "csutilities.h"
 #include <Security/SecCertificatePriv.h>
 #include <security_codesigning/requirement.h>
+#include <security_utilities/hashing.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/errors.h>
 
 namespace Security {
 namespace CodeSigning {
+
+
+//
+// The (SHA-1) hash of the canonical Apple certificate root anchor
+//
+static const SHA1::Digest gAppleAnchorHash =
+	{ 0x61, 0x1e, 0x5b, 0x66, 0x2c, 0x59, 0x3a, 0x08, 0xff, 0x58,
+	  0xd1, 0x4a, 0xe2, 0x24, 0x52, 0xd1, 0x98, 0xdf, 0x6c, 0x60 };
+
+
+
+//
+// Test for the canonical Apple CA certificate
+//
+bool isAppleCA(SecCertificateRef cert)
+{
+	return verifyHash(cert, gAppleAnchorHash);
+}
+
+bool isAppleCA(const Hashing::Byte *sha1)
+{
+	return !memcmp(sha1, gAppleAnchorHash, SHA1::digestLength);
+}
 
 
 //
@@ -54,6 +78,17 @@ void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest)
 	CSSM_DATA certData;
 	MacOSError::check(SecCertificateGetData(cert, &certData));
 	hashOfCertificate(certData.Data, certData.Length, digest);
+}
+
+
+//
+// One-stop hash-certificate-and-compare
+//
+bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest)
+{
+	SHA1::Digest dig;
+	hashOfCertificate(cert, dig);
+	return !memcmp(dig, digest, SHA1::digestLength);
 }
 
 

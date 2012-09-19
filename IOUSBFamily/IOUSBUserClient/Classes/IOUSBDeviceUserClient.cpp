@@ -221,13 +221,11 @@ IOUSBDeviceUserClientV2::sMethods[kIOUSBLibDeviceUserClientNumCommands] = {
 		1, 0,
 		1, 0
     }
-#ifdef SUPPORTS_SS_USB
     ,{	 //    kUSBDeviceUserClientGetBandwidthAvailableForDevice
 		(IOExternalMethodAction) &IOUSBDeviceUserClientV2::_GetBandwidthAvailableForDevice,
 		0, 0,
 		1, 0
     },
-#endif
 };
 
 
@@ -1615,17 +1613,16 @@ IOUSBDeviceUserClientV2::RequestExtraPower(UInt32 type, UInt32 requestedPower, u
 	
     if (fOwner && !isInactive())
 	{
-		// Make all power from user clients be revokable, for now
-//		if (type == kUSBPowerDuringWake)
-//			type = kUSBPowerDuringWakeRevokable;
+		// Make all power from user clients be revocable
+		if (type == kUSBPowerDuringWake)
+			type = kUSBPowerDuringWakeRevocable;
 		
 		*powerAvailable = (uint64_t) fOwner->RequestExtraPower(type, requestedPower);
 		
 		if ( type == kUSBPowerDuringSleep )
 			FSLEEPPOWERALLOCATED += (UInt32) *powerAvailable;
 
-//		if ( type == kUSBPowerDuringWakeRevokable )
-		if ( type == kUSBPowerDuringWake )
+		if ( type == kUSBPowerDuringWakeRevocable )
 			FWAKEPOWERALLOCATED += (UInt32) *powerAvailable;
 
 	}
@@ -1663,9 +1660,9 @@ IOUSBDeviceUserClientV2::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
     USBLog(5, "+IOUSBDeviceUserClientV2[%p]::ReturnExtraPower returning type %d power = %d",  this, (uint32_t) type, (uint32_t) returnedPower);
     IncrementOutstandingIO();
     
-	// Make all power from user clients be revokable, for now
-//	if (type == kUSBPowerDuringWake)
-//		type = kUSBPowerDuringWakeRevokable;
+	// Make all power from user clients be revocable
+	if (type == kUSBPowerDuringWake)
+		type = kUSBPowerDuringWakeRevocable;
 
     if (fOwner && !isInactive())
 		ret = fOwner->ReturnExtraPower(type, returnedPower);
@@ -1677,8 +1674,7 @@ IOUSBDeviceUserClientV2::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 		if ( type == kUSBPowerDuringSleep )
 			FSLEEPPOWERALLOCATED -= returnedPower;
 		
-//		if ( type == kUSBPowerDuringWakeRevokable )
-		if ( type == kUSBPowerDuringWake )
+	if ( type == kUSBPowerDuringWakeRevocable )
 			FWAKEPOWERALLOCATED -= returnedPower;
 	}
 	else
@@ -1710,15 +1706,18 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 	USBLog(5, "+IOUSBDeviceUserClientV2[%p]::GetExtraPowerAllocated  requesting type %d",  this, (uint32_t) type);
 	IncrementOutstandingIO();
     
+	// Make all power from user clients be revocable
+	if (type == kUSBPowerDuringWake)
+		type = kUSBPowerDuringWakeRevocable;
+
 	*powerAllocated = 0;
 	
     if (fOwner && !isInactive())
 	{
 		*powerAllocated = (uint64_t) fOwner->GetExtraPowerAllocated(type);
 		
-		// Workaround for 8001347.  We know that the user client only asks for 500, so if we 400, set it to 0
-//		if ( *powerAllocated == 400 && type == kUSBPowerDuringWakeRevokable )
-		if ( *powerAllocated == 400 && type == kUSBPowerDuringWake )
+		// Workaround for 8001347.  We know that the user client only asks for 500, so if we get 400, set it to 0
+		if ( *powerAllocated == 400 && type == kUSBPowerDuringWakeRevocable )
 		{
 			USBLog(3, "IOUSBDeviceUserClientV2[%p]::GetExtraPowerAllocated - setting  *powerAllocated to 0 from 400 for bug workaround",  this);
 			*powerAllocated = 0;
@@ -1738,7 +1737,6 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 	return ret;
 }
 
-#ifdef SUPPORTS_SS_USB
 IOReturn IOUSBDeviceUserClientV2::_GetBandwidthAvailableForDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
 #pragma unused (reference)
@@ -1788,7 +1786,6 @@ IOUSBDeviceUserClientV2::GetBandwidthAvailableForDevice(uint64_t *pBandwidth)
 	
     return ret;
 }
-#endif
 
 
 #pragma mark FrameNumber
@@ -2572,11 +2569,8 @@ IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqI
 //
 OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  0);
 OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  1);
-#ifdef SUPPORTS_SS_USB
-	OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  2);
-#else
-    OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  2);
-#endif
+OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  2);
+
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  3);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  4);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  5);

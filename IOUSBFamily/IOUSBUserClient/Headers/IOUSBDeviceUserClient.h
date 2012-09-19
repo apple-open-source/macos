@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright © 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,6 @@
 //================================================================================================
 //
 #include <libkern/OSByteOrder.h>
-
 
 #include <IOKit/IOUserClient.h>
 #include <IOKit/assert.h>
@@ -179,9 +178,7 @@ public:
 	static	IOReturn					_GetExtraPowerAllocated(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
     virtual IOReturn					GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllocated);
 	
-#ifdef SUPPORTS_SS_USB
 	static	IOReturn					_GetBandwidthAvailableForDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
-#endif
 	
     // bookkeeping methods
     virtual void                        DecrementOutstandingIO(void);
@@ -216,12 +213,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2,  1);
 	virtual IOReturn					ClientCloseGated( void );
 
-#ifdef SUPPORTS_SS_USB
 	OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2, 2);
 	virtual IOReturn					GetBandwidthAvailableForDevice(uint64_t *pBandwidth);
-#else
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  2);
-#endif
+
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  3);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  4);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  5);

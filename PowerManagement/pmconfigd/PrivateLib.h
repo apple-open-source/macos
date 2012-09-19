@@ -175,6 +175,8 @@ typedef struct {
     unsigned int        fGPU;
     unsigned int        fDeepSleepEnable;
     unsigned int        fDeepSleepDelay;
+    unsigned int        fAutoPowerOffEnable;
+    unsigned int        fAutoPowerOffDelay;
 } IOPMAggressivenessFactors;
 
 enum { 

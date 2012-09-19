@@ -114,7 +114,7 @@ IOPCIScalar IOPCIRangeLastFree(IOPCIRange * headRange, IOPCIScalar align);
 enum {
     kIOPCIConfiguratorIOLog          = 0x00000001,
     kIOPCIConfiguratorKPrintf        = 0x00000002,
-//    kIOPCIConfiguratorTunnelLinkInts = 0x00000004,
+    kIOPCIConfiguratorVTLog          = 0x00000004,
     
     kIOPCIConfiguratorCheckTunnel    = 0x00000008,
     kIOPCIConfiguratorNoTunnelDrv    = 0x00000010,
@@ -122,7 +122,9 @@ enum {
 
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
     kIOPCIConfiguratorDeferHotPlug   = 0x00000080,
-    
+	kIOPCIConfiguratorPanicOnFault   = 0x00000100, 
+    kIOPCIConfiguratorIGIsMapped     = 0x00000200,
+
     kIOPCIConfiguratorAllocate       = 0x00001000,
     kIOPCIConfiguratorPFM64          = 0x00002000,
     kIOPCIConfiguratorBoot	         = 0x00004000,

@@ -1379,7 +1379,7 @@ cipherSuitesToCipherSuites(
 	if(*numCiphers < numCipherSuites) {
 		return errSSLBufferOverflow;
 	}
-	memcpy(ciphers, cipherSuites, numCipherSuites * sizeof(SSLCipherSuite));
+    memcpy(ciphers, cipherSuites, numCipherSuites * sizeof(SSLCipherSuite));
 	*numCiphers = numCipherSuites;
 	return noErr;
 }

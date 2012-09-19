@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright © 1998-20010 Apple Inc.  All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -93,35 +92,6 @@ Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut)
     }
     return false;
 }
-
-int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2)
-{
-    int             result = 0;
-    CFDictionaryRef kextInfo1 = *(CFDictionaryRef *)vKextInfo1;
-    CFDictionaryRef kextInfo2 = *(CFDictionaryRef *)vKextInfo2;
-    CFNumberRef     loadTag1 = CFDictionaryGetValue(kextInfo1, CFSTR(kOSBundleLoadTagKey));
-    CFNumberRef     loadTag2 = CFDictionaryGetValue(kextInfo2, CFSTR(kOSBundleLoadTagKey));
-    OSKextLoadTag   tag1Value = kOSKextInvalidLoadTag;
-    OSKextLoadTag   tag2Value = kOSKextInvalidLoadTag;
-    
-    getNumValue(loadTag1, kCFNumberSInt32Type, &tag1Value);
-    getNumValue(loadTag2, kCFNumberSInt32Type, &tag2Value);
-    if (tag1Value == tag2Value) {
-		/* Whether invalid or valid, same is same. */
-        result = 0;
-    } else if (tag1Value == kOSKextInvalidLoadTag) {
-        result = -1;
-    } else if (tag2Value == kOSKextInvalidLoadTag) {
-        result = 1;
-    } else if (tag1Value < tag2Value) {  
-        result = -1;
-    } else if (tag2Value < tag1Value) {  
-        result = 1;
-    }
-    
-    return result;
-}
-
 
 + (NSMutableArray *)loadedExtensions {
 	return NULL;

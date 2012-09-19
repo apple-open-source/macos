@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -21,7 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 //================================================================================================
 //
@@ -656,7 +654,7 @@ IOUSBCompositeDriver::SetConfiguration(UInt8 configValue, bool startInterfaceMat
 	{
 		fIOUSBCompositeExpansionData->fRemoteWakeupIssued = true;
 		kr = fDevice->SetConfiguration(this, configValue, startInterfaceMatching, true);
-		if ( kr != kIOReturnSuccess)
+		if ( (kr != kIOReturnSuccess) && (kr != kIOUSBConfigNotFound))
 		{
 			USBLog(6, "%s[%p]::SetConfiguration returned 0x%x, resetting the device",getName(),this, kr);
 			
@@ -673,7 +671,7 @@ IOUSBCompositeDriver::SetConfiguration(UInt8 configValue, bool startInterfaceMat
 	{
 		fIOUSBCompositeExpansionData->fRemoteWakeupIssued = false;
 		kr = fDevice->SetConfiguration(this, configValue, startInterfaceMatching);
-		if ( kr != kIOReturnSuccess)
+		if ( (kr != kIOReturnSuccess) && (kr != kIOUSBConfigNotFound))
 		{
 			USBLog(6, "%s[%p]::SetConfiguration returned 0x%x, resetting the device",getName(),this, kr);
 			

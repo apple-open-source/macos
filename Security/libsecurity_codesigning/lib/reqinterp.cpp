@@ -292,7 +292,7 @@ bool Requirement::Interpreter::certFieldPolicy(const CssmOid &oid, const Match &
 bool Requirement::Interpreter::appleAnchored()
 {
 	if (SecCertificateRef cert = mContext->cert(anchorCert))
-		if (verifyAnchor(cert, appleAnchorHash())
+		if (isAppleCA(cert)
 #if defined(TEST_APPLE_ANCHOR)
 			|| verifyAnchor(cert, testAppleAnchorHash())
 #endif

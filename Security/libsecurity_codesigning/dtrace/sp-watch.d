@@ -10,25 +10,27 @@ syspolicy*:::assess-*
 }
 
 self string type;
-syspolicy*:::assess-outcome-* / arg1 == 1 / { type = "execute"; }
-syspolicy*:::assess-outcome-* / arg1 == 2 / { type = "install"; }
+syspolicy*:::assess-outcome-* { self->type = "???"; }
+syspolicy*:::assess-outcome-* / arg1 == 1 / { self->type = "execute"; }
+syspolicy*:::assess-outcome-* / arg1 == 2 / { self->type = "install"; }
+syspolicy*:::assess-outcome-* / arg1 == 3 / { self->type = "open"; }
 
 syspolicy*:::assess-outcome-accept
 {
-	printf("accept %s %s;%s", self->type, copyinstr(arg0), copyinstr(arg1));
-	self->cdhash = copyin(arg2, 20);
+	printf("accept %s %s;%s", self->type, copyinstr(arg0), copyinstr(arg2));
+	self->cdhash = copyin(arg3, 20);
 }
 
 syspolicy*:::assess-outcome-deny
 {
-	printf("deny %s %s;%s", self->type, copyinstr(arg0), copyinstr(arg1));
-	self->cdhash = copyin(arg2, 20);
+	printf("deny %s %s;%s", self->type, copyinstr(arg0), copyinstr(arg2));
+	self->cdhash = copyin(arg3, 20);
 }
 
 syspolicy*:::assess-outcome-default
 {
-	printf("default %s %s;%s", self->type, copyinstr(arg0), copyinstr(arg1));
-	self->cdhash = copyin(arg2, 20);
+	printf("default %s %s;%s", self->type, copyinstr(arg0), copyinstr(arg2));
+	self->cdhash = copyin(arg3, 20);
 }
 
 syspolicy*:::assess-outcome-unsigned

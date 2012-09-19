@@ -77,7 +77,6 @@ static const CPUTypes knownArchs[] = {
     {"x86_64", CPU_TYPE_X86_64},
 #elif defined(__arm__)
     {"arm", CPU_TYPE_ARM},
-#endif
 #else
 #error "Unsupported architecture"
 #endif
@@ -102,7 +101,6 @@ extern char **environ;
 #elif defined(__arm__)
 #define NATIVE_32	"arm"
 #define NATIVE_64	NULL
-#endif
 #else
 #error "Unsupported architecture"
 #endif

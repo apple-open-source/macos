@@ -2620,7 +2620,6 @@ session_proctitle(Session *s)
 int
 session_setup_x11fwd(Session *s)
 {
-	struct stat st;
 	char display[512], auth_display[512];
 	char hostname[MAXHOSTNAMELEN];
 	u_int i;
@@ -2633,8 +2632,36 @@ session_setup_x11fwd(Session *s)
 		debug("X11 forwarding disabled in server configuration file.");
 		return 0;
 	}
-	if (!options.xauth_location ||
-	    (stat(options.xauth_location, &st) == -1)) {
+#if __APPLE__
+	if (options.xauth_location) {
+		char cmd[2048];
+		char tmpdir[MAXPATHLEN];
+		size_t len = 0;
+
+		len = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
+		if (len == 0) {
+			strlcpy(tmpdir, "/tmp", sizeof(tmpdir));
+		}
+
+		/* Try executing xauth (as we do below) rather than using stat,
+		 * since we want to search our $PATH.  Note that the xauth_test
+		 * file is not created if it doesn't exist, so there will be no
+		 * turds leftover.  If for some reason it does exist it will have
+		 * no effect assuming it is valid.  If it is invalid, the only
+		 * result is that xauth will error out, and X11 forwarding will
+		 * be disabled.
+		 */
+		snprintf(cmd, sizeof(cmd),
+		         "%s -f %s/xauth_test exit > /dev/null 2> /dev/null",
+			 options.xauth_location, tmpdir);
+
+		packet_send_debug("Checking for xauth using %s\n", cmd);
+		if (system(cmd) != 0) {
+			options.xauth_location = NULL;
+		}
+	}
+#endif
+	if (!options.xauth_location) {
 		packet_send_debug("No xauth program; cannot forward with spoofing.");
 		return 0;
 	}

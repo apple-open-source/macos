@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: driver.h,v 1.1.4.4 2011-03-17 09:41:07 fdupont Exp $ */
+/* $Id: driver.h,v 1.1.4.4 2011/03/17 09:41:07 fdupont Exp $ */
 
 /*
  * This header includes the declarations of entry points.

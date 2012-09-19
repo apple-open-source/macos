@@ -491,6 +491,7 @@ protected:
 
 	CSSM_DB_UNIQUE_RECORD_PTR mUniqueId;
 	bool mDestroyID;
+    RecursiveMutex mActivateMutex;
 };
 
 class DbUniqueRecord : public Object
@@ -547,6 +548,7 @@ protected:
 
 private:
 	CSSM_HANDLE mResultsHandle;
+    RecursiveMutex mActivateMutex;
 };
 
 } // end namespace CssmClient

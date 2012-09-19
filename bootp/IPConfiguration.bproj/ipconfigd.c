@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -5562,10 +5562,18 @@ S_deliver_wake_event(void)
 	    }
 	    my_CFRelease(&ssid);
 	}
-	service_list_event(&ifstate->services, IFEventID_wake_e,
-			   (void *)&event_data);
-	service_list_event(&ifstate->services_v6, IFEventID_wake_e,
-			   (void *)&event_data);
+	if (dynarray_count(&ifstate->services) > 0) {
+	    /* attach IPv4 in case the interface went away during sleep */
+	    inet_attach_interface(if_name(ifstate->if_p));
+	    service_list_event(&ifstate->services, IFEventID_wake_e,
+			       (void *)&event_data);
+	}
+	if (dynarray_count(&ifstate->services_v6) > 0) {
+	    /* attach IPv6 in case the interface went away during sleep */
+	    inet6_attach_interface(if_name(ifstate->if_p));
+	    service_list_event(&ifstate->services_v6, IFEventID_wake_e,
+			       (void *)&event_data);
+	}
     }
     return;
 }

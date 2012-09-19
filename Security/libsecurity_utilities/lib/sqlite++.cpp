@@ -360,8 +360,11 @@ void Statement::Binding::operator = (double value)
 
 void Statement::Binding::operator = (const char *value)
 {
-	statement.check(::sqlite3_bind_text(statement.sql(), index,
-		::strdup(value), -1, ::free));
+	if (value == NULL)
+		this->null();
+	else
+		statement.check(::sqlite3_bind_text(statement.sql(), index,
+			::strdup(value), -1, ::free));
 }
 
 void Statement::Binding::operator = (const std::string &value)

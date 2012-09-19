@@ -73,6 +73,7 @@ void Context::init()
 
 void Context::deactivate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;
@@ -175,6 +176,7 @@ PassThrough::operator() (uint32 passThroughId, const void *inData, void **outDat
 
 void PassThrough::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive) {
 		check(CSSM_CSP_CreatePassThroughContext(attachment()->handle(), mKey, &mHandle));
 		mActive = true;
@@ -187,6 +189,7 @@ void PassThrough::activate()
 //
 void Digest::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive) {
 		check(CSSM_CSP_CreateDigestContext(attachment()->handle(), mAlgorithm, &mHandle));
 		mActive = true;
@@ -239,6 +242,7 @@ void Random::size(uint32 sz)
 
 void Random::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive) {
 		check(CSSM_CSP_CreateRandomGenContext(attachment()->handle(), mAlgorithm,
 			mSeed, mSize, &mHandle));

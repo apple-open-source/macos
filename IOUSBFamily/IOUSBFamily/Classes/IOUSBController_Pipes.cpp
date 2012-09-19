@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,7 +25,6 @@
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOCommandPool.h>
-
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -428,9 +426,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		command->SetRequest(0);            	// Not a device request
 		command->SetAddress(address);
 		command->SetEndpoint(endpoint->number);
-#ifdef SUPPORTS_SS_USB
     	command->SetStreamID(0);
-#endif
 		command->SetDirection(kUSBIn);
 		command->SetType(endpoint->transferType);
 		command->SetBuffer(buffer);
@@ -615,9 +611,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		command->SetRequest(0);            // Not a device request
 		command->SetAddress(address);
 		command->SetEndpoint(endpoint->number);
-#ifdef SUPPORTS_SS_USB
     	command->SetStreamID(0);
-#endif
 		command->SetDirection(kUSBOut);
 		command->SetType(endpoint->transferType);
 		command->SetBuffer(buffer);

@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoard.h
 	Contains:	Fundamental move and board classes.
-	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -210,10 +210,11 @@ struct MBCPieces {
 	MBCVariant			fVariant;
 	NSMutableArray *	fMoves;
 	MBCPiece			fPromotion[2];
-    BOOL               fHasObservers;
-    id                 fDocument;
+    NSMutableArray *    fObservers;
+    id                  fDocument;
 }
 
+- (void)        removeChessObservers;
 - (void) 		setDocument:(id)doc;
 - (void)		startGame:(MBCVariant)variant;
 - (MBCPiece)	curContents:(MBCSquare)square;	// Read contents of a square

@@ -1,8 +1,7 @@
 /*
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -240,12 +239,8 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     // Set the name of the device (this is what will be shown in the UI)
     [thisDevice setDeviceName:
 	 [NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",
-#ifdef SUPPORTS_SS_USB
-	  (speed == kUSBDeviceSpeedSuper ? "Super" : (speed == kUSBDeviceSpeedHigh ? "High" :(speed == kUSBDeviceSpeedFull ? "Full" : "Low"))),
-#else
-	  (speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), 
-#endif
-	  address, 
+	  (speed == kUSBDeviceSpeedSuper ? "Super" : (speed == kUSBDeviceSpeedHigh ? "High" :(speed == kUSBDeviceSpeedFull ? "Full" : "Low"))), 
+	  address,
 	  locationID]];    
 	
 	// Get the Port Information
@@ -296,7 +291,6 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ - Gave an error getting descriptor - %s (0x%x)", usbName, USBErrorToString(actErr), actErr]];
 		}
 		
-#ifdef SUPPORTS_SS_USB
 		IOUSBBOSDescriptor	bosDescriptor;
 		
 		// If we have a SuperSpeed device, then go get and decode the BOS descriptors.  We first read the root BOS descriptor, which tells us the length, and then we read
@@ -309,7 +303,6 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 				[DecodeBOSDescriptor decodeBytes:(IOUSBBOSDescriptor *)&bosDescriptor forDevice:thisDevice deviceInterface:deviceIntf];
 			}
 		}
-#endif
 		
 		// Check the current configuration
 		currConfig = GetCurrentConfiguration(deviceIntf);
@@ -366,7 +359,6 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		//
 		if ( dev.bDeviceClass == kUSBHubClass ) {
 			
-#ifdef SUPPORTS_SS_USB
 			if(dev.bDeviceProtocol == 3)
 			{
 				IOUSB3HubDescriptor	cfg;
@@ -376,7 +368,6 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 				}
 			}
 			else
-#endif
 			{
 				IOUSBHubDescriptor	cfg;
 			len = GetClassDescriptor(deviceIntf, kUSBHUBDesc, 0, &cfg, sizeof(cfg));
@@ -493,6 +484,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	else
 		[thisDevice addProperty:"" withValue:"Disabled" atDepth:ROOT_LEVEL+1];
 	
+	if (portInfo & (1<<kUSBInformationDeviceIsOnThunderboltBit))
+		[thisDevice addProperty:"" withValue:"On Thunderbolt" atDepth:ROOT_LEVEL+1];
+
 	if (portInfo & (1<<kUSBInformationDeviceIsSuspendedBit))
 		[thisDevice addProperty:"" withValue:"Suspended" atDepth:ROOT_LEVEL+1];
 	
@@ -510,7 +504,6 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	
 	if (portInfo & (1<<kUSBInformationDeviceIsAttachedToEnclosure))
 		[thisDevice addProperty:"" withValue:"Connected to External Port" atDepth:ROOT_LEVEL+1];
-	
 }
 
 - (void)GetAndPrintNumberOfEndpoints:(IOUSBDeviceRef)deviceIntf forDevice:(BusProbeDevice *)thisDevice portInfo:(UInt32)portInfo {

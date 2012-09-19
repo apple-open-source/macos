@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright (c) 1998-2012 Apple Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -35,7 +34,6 @@
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
-
 
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBControllerListElement.h>
@@ -298,9 +296,9 @@ protected:
 
 	UIMDiagnostics							_UIMDiagnostics;
 	
-#ifdef SUPPORTS_SS_USB
 	IOService								*_xhciController;                       // if this is non-NULL, then we share some ports with an XHCI controller using a MUX
-#endif
+
+    OSArray *                               _xhciControllerArray;
 	
 	// methods
     
@@ -429,9 +427,7 @@ protected:
 	IOReturn			ReleasePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth);
 	IOReturn			ShowPeriodicBandwidthUsed(int level, const char *fromStr);
     
-#ifdef SUPPORTS_SS_USB
 	IOReturn			EHCIMuxedPortDeviceDisconnected(char *muxMethod);
-#endif
 	
 public:
 	virtual bool		init(OSDictionary * propTable);
@@ -702,12 +698,9 @@ public:
 	virtual IOReturn				UIMEnableAllEndpoints(bool enable);
 	virtual IOReturn				EnableInterruptsFromController(bool enable);
 
-#ifdef SUPPORTS_SS_USB
 protected:
+    bool                            XHCIControllerMatchingNotifcationHandler(void * refCon, IOService * newController);
 	void                            CheckForSharedXHCIController(void);
-	void							SwitchMuxes(UInt8 numPorts, UInt32 type);
-#endif
-
 };
 
 

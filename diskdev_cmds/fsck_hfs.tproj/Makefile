@@ -38,7 +38,7 @@ ${SYMROOT}/fsck_makestring1.o:	fsck_messages.c fsck_messages.h
 	${CC} ${CFLAGS} -I. -Idfalib -DBSD -DFSCK_MAKESTRINGS -c fsck_messages.c -o ${SYMROOT}/fsck_makestring1.o
 
 $(OBJROOT)/$(Project)/_version.c:
-	/Developer/Makefiles/bin/version.pl diskdev_cmds > $@
+	${MAKEFILEPATH}/bin/version.pl diskdev_cmds > $@
 
 after_install:	${SYMROOT}/fsck_makestrings
 	$(RMDIR) "$(DSTROOT)/scratch"

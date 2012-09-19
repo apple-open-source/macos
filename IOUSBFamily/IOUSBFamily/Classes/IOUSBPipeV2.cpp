@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
- * Copyright � 1998-2009 Apple Inc.  All rights reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -32,7 +31,6 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOKitKeys.h>
-
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBControllerV2.h>
@@ -84,7 +82,6 @@
 //================================================================================================
 OSDefineMetaClassAndStructors(IOUSBPipeV2, IOUSBPipe)
 
-#ifdef SUPPORTS_SS_USB
 
 #pragma mark Intializers
 
@@ -675,8 +672,6 @@ IOUSBPipeV2::GetSuperSpeedEndpointCompanionDescriptor()
 {
 	return _sscd;
 }
-
-#endif
 
 #pragma mark Padding Slots
 

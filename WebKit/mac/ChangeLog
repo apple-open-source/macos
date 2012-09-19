@@ -1,3 +1,57 @@
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123907
+
+    2012-07-27  Anders Carlsson  <andersca@apple.com>
+
+            Show the unavailable plug-in indicator for Java applets as well
+            https://bugs.webkit.org/show_bug.cgi?id=92521
+
+            Reviewed by Sam Weinig.
+
+            Check if the Java plug-in is blocked before trying to instantiate it.
+
+            * WebCoreSupport/WebFrameLoaderClient.mm:
+
+2012-08-06  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 123775
+
+    2012-07-25  Jer Noble  <jer.noble@apple.com>
+
+            Add setting to enable and disable diagnostic logging.
+            https://bugs.webkit.org/show_bug.cgi?id=92337
+
+            Reviewed by Anders Carlsson.
+
+            Add a WebKit WebPreferences API to set set the WebCore diagnosticLoggingEnabled setting.
+
+            * WebView/WebPreferenceKeysPrivate.h:
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]): Register the default value to false.
+            (-[WebPreferences diagnosticLoggingEnabled]): Simple userDefaults accessor.
+            (-[WebPreferences setDiagnosticLoggingEnabled:]): Ditto.
+            * WebView/WebPreferencesPrivate.h:
+            * WebView/WebView.mm:
+            (-[WebView _preferencesChanged:]): Ensure this preference is propagated to Settings
+                whenever the preferences change.
+
+2012-07-30  Lucas Forschler  <lforschler@apple.com>
+
+    Merge 121646
+
+    2012-07-01  Timothy Hatcher  <timothy@apple.com>
+
+            Make the "Inspect Element" context menu item appear in nightly builds again.
+
+            rdar://problem/11702613
+            https://webkit.org/b/89323
+
+            Reviewed by Dan Bernstein.
+
+            * WebView/WebUIDelegatePrivate.h:
+            Add missing enums that were added in ContextMenuItem.h but left out here.
+
 2012-06-12  Lucas Forschler  <lforschler@apple.com>
 
     Merge 120357

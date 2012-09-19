@@ -65,6 +65,7 @@ CREATE TABLE authority (
 	expires FLOAT NOT NULL DEFAULT (5000000),			-- expiration of rule authority (Julian date)
 	priority REAL NOT NULL DEFAULT (0),					-- rule priority (full float)
 	label TEXT NULL,									-- text label for authority rule
+	filter_unsigned TEXT NULL,							-- prescreen for handling unsigned code
 	flags INTEGER NOT NULL DEFAULT (0),					-- amalgamated binary flags
 	-- following fields are for documentation only
 	ctime FLOAT NOT NULL DEFAULT (JULIANDAY('now')),	-- rule creation time (Julian)
@@ -111,9 +112,11 @@ CREATE TABLE bookmarkhints (
 -- See policydatabase.cpp for upgrade code.
 --
 INSERT INTO feature (name, value, remarks)
-	VALUES ('bookmarkhints', 'value', 'builtin');
+	VALUES ('bookmarkhints', 'present', 'builtin');
 INSERT INTO feature (name, value, remarks)
-	VALUES ('codesignedpackages', 'value', 'builtin');
+	VALUES ('codesignedpackages', 'present', 'builtin');
+INSERT INTO feature (name, value, remarks)
+	VALUES ('filter_unsigned', 'present', 'builtin');
 
 
 --

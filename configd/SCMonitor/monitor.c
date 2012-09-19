@@ -699,7 +699,6 @@ static void
 watcher_add_lan(MyType *myInstance)
 {
 	SCDynamicStoreContext	context	= { 0, (void *)myInstance, NULL, NULL, NULL };
-	CFDictionaryRef		dict;
 	CFStringRef		key;
 	CFArrayRef		keys;
 	SCDynamicStoreRef	store;
@@ -723,34 +722,43 @@ watcher_add_lan(MyType *myInstance)
 			   myInstance->monitorRls,
 			   kCFRunLoopDefaultMode);
 
-	// initialize the list of known interfaces
-	myInstance->interfaces_known = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-	dict = SCDynamicStoreCopyValue(store, key);
-	if (dict != NULL) {
-		if (isA_CFDictionary(dict)) {
-			CFIndex		i;
-			CFArrayRef	interfaces;
-			CFIndex		n;
+	// check if we already have the "admin" (kSCPreferencesWriteAuthorizationRight)
+	// right.  If so, we can automatically configure (without user intervention) any
+	// "new" network interfaces that are present at login (e.g. a USB ethernet
+	// dongle that was plugged in before login).
+	if (!hasAuthorization(myInstance)) {
+		CFDictionaryRef		dict;
 
-			interfaces = CFDictionaryGetValue(dict, kSCPropNetInterfaces);
-			n = isA_CFArray(interfaces) ? CFArrayGetCount(interfaces) : 0;
-			for (i = 0; i < n; i++) {
-				CFStringRef	bsdName;
+		// ... and if we don't have the right then we populate the list of
+		// known interfaces with those already named so that we avoid any
+		// login prompts (that the user might have no choice but to dismiss)
+		dict = SCDynamicStoreCopyValue(store, key);
+		if (dict != NULL) {
+			if (isA_CFDictionary(dict)) {
+				CFIndex		i;
+				CFArrayRef	interfaces;
+				CFIndex		n;
 
-				bsdName = CFArrayGetValueAtIndex(interfaces, i);
-				if (isA_CFString(bsdName)) {
-					SCNetworkInterfaceRef	interface;
+				interfaces = CFDictionaryGetValue(dict, kSCPropNetInterfaces);
+				n = isA_CFArray(interfaces) ? CFArrayGetCount(interfaces) : 0;
+				for (i = 0; i < n; i++) {
+					CFStringRef	bsdName;
 
-					interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
-					if (interface != NULL) {
-						CFSetAddValue(myInstance->interfaces_known, interface);
-						CFRelease(interface);
+					bsdName = CFArrayGetValueAtIndex(interfaces, i);
+					if (isA_CFString(bsdName)) {
+						SCNetworkInterfaceRef	interface;
+
+						interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
+						if (interface != NULL) {
+							CFSetAddValue(myInstance->interfaces_known, interface);
+							CFRelease(interface);
+						}
 					}
 				}
 			}
-		}
 
-		CFRelease(dict);
+			CFRelease(dict);
+		}
 	}
 
 	CFRelease(key);
@@ -768,11 +776,6 @@ watcher_remove_lan(MyType *myInstance)
 		myInstance->monitorRls = NULL;
 	}
 
-	if (myInstance->interfaces_known != NULL) {
-		CFRelease(myInstance->interfaces_known);
-		myInstance->interfaces_known = NULL;
-	}
-
 	return;
 }
 
@@ -782,6 +785,7 @@ watcher_remove_lan(MyType *myInstance)
 
 typedef struct {
 	io_registry_entry_t	interface;
+	io_registry_entry_t	interface_node;
 	MyType			*myInstance;
 	io_object_t		notification;
 } MyNode;
@@ -843,9 +847,11 @@ update_node(void *refCon, io_service_t service, natural_t messageType, void *mes
 	}
 
 	// remove no-longer-needed notification
+	if (myNode->interface != myNode->interface_node) {
+		IOObjectRelease(myNode->interface_node);
+	}
 	if (myNode->interface != MACH_PORT_NULL) {
 		IOObjectRelease(myNode->interface);
-		myNode->interface = MACH_PORT_NULL;
 	}
 	IOObjectRelease(myNode->notification);
 	i = CFArrayGetFirstIndexOfValue(myInstance->notifyNodes,
@@ -879,12 +885,16 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 	myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
 
 	bzero(myNode, sizeof(MyNode));
-	if (interface != MACH_PORT_NULL) {
-		IOObjectRetain(interface);
+	myNode->interface      = interface;
+	if (myNode->interface != MACH_PORT_NULL) {
+		IOObjectRetain(myNode->interface);
 	}
-	myNode->interface    = interface;
-	myNode->myInstance   = myInstance;
-	myNode->notification = MACH_PORT_NULL;
+	myNode->interface_node = (interface == MACH_PORT_NULL) ? node : interface;
+	if (myNode->interface != myNode->interface_node) {
+		IOObjectRetain(myNode->interface_node);
+	}
+	myNode->myInstance     = myInstance;
+	myNode->notification   = MACH_PORT_NULL;
 
 	kr = IOServiceAddInterestNotification(myInstance->notifyPort,	// IONotificationPortRef
 					      node,			// io_service_t
@@ -983,8 +993,17 @@ update_serial(void *refcon, io_iterator_t iter)
 		IOObjectRelease(obj);
 	}
 
-	updateInterfaceList(myInstance);
 	return;
+}
+
+
+static void
+update_serial_nodes(void *refcon, io_iterator_t iter)
+{
+	MyType	*myInstance	= (MyType *)refcon;
+
+	update_serial(refcon, iter);
+	updateInterfaceList(myInstance);
 }
 
 
@@ -1004,7 +1023,7 @@ watcher_add_serial(MyType *myInstance)
 	kr = IOServiceAddMatchingNotification(myInstance->notifyPort,
 					      kIOFirstMatchNotification,
 					      IOServiceMatching("IOSerialBSDClient"),
-					      &update_serial,
+					      &update_serial_nodes,
 					      (void *)myInstance,		// refCon
 					      &myInstance->notifyIterator);	// notification
 	if (kr != KERN_SUCCESS) {
@@ -1019,6 +1038,40 @@ watcher_add_serial(MyType *myInstance)
 	// Get the current list of matches and arm the notification for
 	// future interface arrivals.
 	update_serial((void *)myInstance, myInstance->notifyIterator);
+
+	if (myInstance->notifyNodes != NULL) {
+		// if we have any serial nodes, check if we already have the
+		// "admin" (kSCPreferencesWriteAuthorizationRight) right.  If
+		// so, we can automatically configure (without user intervention)
+		// any "new" network interfaces that are present at login (e.g. a
+		// USB modem that was plugged in before login).
+
+		if (!hasAuthorization(myInstance)) {
+			CFIndex	i;
+			CFIndex	n	= CFArrayGetCount(myInstance->notifyNodes);
+
+			// ... and if we don't have the right then we populate the list of
+			// known interfaces with those already named so that we avoid any
+			// login prompts (that the user might have no choice but to dismiss)
+
+			for (i = 0; i < n; i++) {
+				SCNetworkInterfaceRef	interface;
+				CFDataRef		myData;
+				MyNode			*myNode;
+
+				myData = CFArrayGetValueAtIndex(myInstance->notifyNodes, i);
+
+				/* ALIGN: CF aligns to at least >8 bytes */
+				myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
+
+				interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(myNode->interface_node);
+				if (interface != NULL) {
+					CFSetAddValue(myInstance->interfaces_known, interface);
+					CFRelease(interface);
+				}
+			}
+		}
+	}
 
 	// and keep watching
 	CFRunLoopAddSource(CFRunLoopGetCurrent(),
@@ -1044,6 +1097,9 @@ watcher_remove_serial(MyType *myInstance)
 			/* ALIGN: CF aligns to at least >8 bytes */
 			myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
 
+			if (myNode->interface != myNode->interface_node) {
+				IOObjectRelease(myNode->interface_node);
+			}
 			if (myNode->interface != MACH_PORT_NULL) {
 				IOObjectRelease(myNode->interface);
 			}
@@ -1109,8 +1165,18 @@ watcher_add(MyType *myInstance)
 		}
 	}
 
+	// initialize the list of known interfaces
+	myInstance->interfaces_known = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+
+	// add LAN interfaces
 	watcher_add_lan(myInstance);
+
+	// add SERIAL interfaces
 	watcher_add_serial(myInstance);
+
+	// auto-configure (as needed)
+	updateInterfaceList(myInstance);
+
 	return;
 }
 
@@ -1120,6 +1186,11 @@ watcher_remove(MyType *myInstance)
 {
 	watcher_remove_lan(myInstance);
 	watcher_remove_serial(myInstance);
+
+	if (myInstance->interfaces_known != NULL) {
+		CFRelease(myInstance->interfaces_known);
+		myInstance->interfaces_known = NULL;
+	}
 
 	asl_free(myInstance->log_msg);
 	myInstance->log_msg = NULL;

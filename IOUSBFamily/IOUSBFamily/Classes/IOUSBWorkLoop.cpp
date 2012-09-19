@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -124,14 +123,30 @@ IOUSBWorkLoop::wake(void *token)
     return kIOReturnSuccess;
 }
 
-void  
-IOUSBWorkLoop::CloseGate(void) 
-{ 
-    closeGate(); 
+int
+IOUSBWorkLoop::SleepWithTimeout(void *token, UInt64 timeout)
+{
+    AbsoluteTime deadline;
+    
+    clock_interval_to_deadline(timeout, kNanosecondScale, &deadline);
+    
+    return IORecursiveLockSleepDeadline(gateLock, token, deadline, THREAD_ABORTSAFE);
+}
+
+void
+IOUSBWorkLoop::Wakeup(void *token, bool oneThread)
+{
+    IORecursiveLockWakeup(gateLock, token, oneThread);
 }
 
 void  
-IOUSBWorkLoop::OpenGate(void)  
+IOUSBWorkLoop::CloseGate(void)
+{ 
+    closeGate();
+}
+
+void  
+IOUSBWorkLoop::OpenGate(void)
 { 
     openGate(); 
 }

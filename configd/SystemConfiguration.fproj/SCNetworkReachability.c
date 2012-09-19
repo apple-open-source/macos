@@ -1978,6 +1978,7 @@ __SCNetworkReachabilityCopyDescription(CFTypeRef cf)
 		}
 	}
 
+
 	// add flags
 	if (targetPrivate->scheduled) {
 		str = _SCNetworkReachabilityCopyTargetFlags(target);
@@ -2151,8 +2152,8 @@ __SCNetworkReachabilityPerformInlineNoLock(SCNetworkReachabilityRef target, Bool
 		dispatch_sync(queue, ^{
 			reachPerform((void *)target);
 			dispatch_group_leave(group);
-			dispatch_release(queue);
 		});
+		dispatch_release(queue);
 	} else {
 		if (targetPrivate->rls != NULL) {
 			CFRunLoopSourceSignal(targetPrivate->rls);
@@ -2206,12 +2207,10 @@ __SCNetworkReachabilityPerformConcurrent(SCNetworkReachabilityRef target)
 
 	queue = targetPrivate->dispatchQueue;
 	if (queue != NULL) {
-		dispatch_retain(queue);
 		CFRetain(target);
 		dispatch_group_async(targetPrivate->dispatchGroup, queue, ^{
 			reachPerform((void *)target);
 			CFRelease(target);
-			dispatch_release(queue);
 		});
 	} else {
 		if (targetPrivate->rls != NULL) {
@@ -2247,8 +2246,8 @@ __SCNetworkReachabilityPerform(SCNetworkReachabilityRef target)
 			dispatch_sync(queue, ^{
 				reachPerform((void *)target);
 				CFRelease(target);
-				dispatch_release(queue);
 			});
+			dispatch_release(queue);
 		});
 	} else if (targetPrivate->rls != NULL) {
 		CFRunLoopSourceSignal(targetPrivate->rls);
@@ -2328,6 +2327,10 @@ __SCNetworkReachabilityCreatePrivate(CFAllocatorRef	allocator)
 	targetPrivate->onDemandServer			= NULL;
 	targetPrivate->onDemandServiceID		= NULL;
 
+#ifdef	HAVE_REACHABILITY_SERVER
+	targetPrivate->serverBypass			= D_serverBypass;
+#endif	// HAVE_REACHABILITY_SERVER
+
 
 	targetPrivate->llqActive			= FALSE;
 	targetPrivate->llqBypass			= D_llqBypass;
@@ -2336,7 +2339,6 @@ __SCNetworkReachabilityCreatePrivate(CFAllocatorRef	allocator)
 
 #ifdef	HAVE_REACHABILITY_SERVER
 	targetPrivate->serverActive			= FALSE;
-	targetPrivate->serverBypass			= D_serverBypass;
 	targetPrivate->serverScheduled			= FALSE;
 	targetPrivate->serverInfo			= NOT_REACHABLE;
 
@@ -5441,8 +5443,6 @@ __SCNetworkReachabilityHandleChanges(SCDynamicStoreRef	store,
 				static Boolean	haveCPU_old	= TRUE;
 				Boolean		haveCPU_new;
 
-				powerStatusChanged = TRUE;
-
 				haveCPU_new = (power_capabilities & kIOPMSystemPowerStateCapabilityCPU) != 0;
 				if ((haveCPU_old != haveCPU_new) && haveCPU_new) {
 					/*
@@ -5456,10 +5456,16 @@ __SCNetworkReachabilityHandleChanges(SCDynamicStoreRef	store,
 					dnsConfigChanged = TRUE;
 				}
 				haveCPU_old = haveCPU_new;
+			} else {
+				power_capabilities = kIOPMSytemPowerStateCapabilitiesMask;
 			}
 
 			CFRelease(num);
+		} else {
+			power_capabilities = kIOPMSytemPowerStateCapabilitiesMask;
 		}
+
+		powerStatusChanged = TRUE;
 	}
 	CFRelease(key);
 #endif	// !TARGET_OS_IPHONE

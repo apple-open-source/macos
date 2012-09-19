@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
  * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -2359,6 +2358,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 }	
 
 
+
 void
 AppleUSBEHCI::printAsyncQueue(int level, const char* str, bool printSkipped, bool printTDs)
 {
@@ -3572,36 +3572,47 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			pNewITD->_framesInTD++;
 			
 			trLen = (lowLatency ? pLLFrames[baseTransferIndex + transfer].frReqCount : pFrames[baseTransferIndex + transfer].frReqCount);
-			
-			// 9845501 - This is the big change. In the previous loop we would set up our page addresses. In this loop, we recalculate 
-			// the individual segment beginning addresses to see where they fit in that page array, rather than relying on a contiguous logical buffer
-
-            GET_NEXT_BUFFPTR();                         // sets segLength, dmaStartAddr and dmaAddrHighBits based on transferOffset
-
-            // Adjust the segment length to take into account the page boundary
-            // Note segLength can end up < trLen, and the assumption is that the segment continues on the next physical page in the list
-
-            pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
-            ADJUST_SEGMENT_LENGTH(pageOffset); 
-           
-            for (buffPtrSlot=0; buffPtrSlot < kEHCI_ITDMaxPhysicalPages; buffPtrSlot++)
-            {
-                if ((buffP[buffPtrSlot] ==  HostToUSBLong( dmaStartAddr & kEHCIPageMask)) && (buffHighP[buffPtrSlot] == HostToUSBLong( dmaAddrHighBits )))
-                {
-                    page = buffPtrSlot;
-                    USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using physical page in slot %d for transfer %d in ITD %p", this, (int)page, (int)transfer, pNewITD);
-                    break;
-                }
-            }
-            if (buffPtrSlot >= kEHCI_ITDMaxPhysicalPages)
-            {
-                USBError(1, "AppleUSBEHCI[%p]::CreateHSIochTransfer - could not find the correct physical page slot for buffP 0x%x buffHighP 0x%x", this, HostToUSBLong( dmaStartAddr & kEHCIPageMask), HostToUSBLong( dmaAddrHighBits ));
-#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-				panic("EHCI: HS Isoch Disjoint (2)!\n");
-#endif
-                return kIOReturnInternalError;
-           }
             
+            if (trLen)
+            {
+			
+                // 9845501 - This is the big change. In the previous loop we would set up our page addresses. In this loop, we recalculate
+                // the individual segment beginning addresses to see where they fit in that page array, rather than relying on a contiguous logical buffer
+
+                GET_NEXT_BUFFPTR();                         // sets segLength, dmaStartAddr and dmaAddrHighBits based on transferOffset
+
+                // Adjust the segment length to take into account the page boundary
+                // Note segLength can end up < trLen, and the assumption is that the segment continues on the next physical page in the list
+
+                pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
+                ADJUST_SEGMENT_LENGTH(pageOffset); 
+               
+                for (buffPtrSlot=0; buffPtrSlot < kEHCI_ITDMaxPhysicalPages; buffPtrSlot++)
+                {
+                    if ((buffP[buffPtrSlot] ==  HostToUSBLong( dmaStartAddr & kEHCIPageMask)) && (buffHighP[buffPtrSlot] == HostToUSBLong( dmaAddrHighBits )))
+                    {
+                        page = buffPtrSlot;
+                        USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using physical page in slot %d for transfer %d in ITD %p", this, (int)page, (int)transfer, pNewITD);
+                        break;
+                    }
+                }
+                if (buffPtrSlot >= kEHCI_ITDMaxPhysicalPages)
+                {
+                    USBError(1, "AppleUSBEHCI[%p]::CreateHSIochTransfer - could not find the correct physical page slot for buffP 0x%x buffHighP 0x%x", this, HostToUSBLong( dmaStartAddr & kEHCIPageMask), HostToUSBLong( dmaAddrHighBits ));
+    #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+                    panic("EHCI: HS Isoch Disjoint (2)!\n");
+    #endif
+                    return kIOReturnInternalError;
+               }
+            }
+            else
+            {
+                // default to the beginning of the first DMA page (there should be at least one)
+                // since this is a zero length frame, nothing will be sent, but the DMA address should be valid (and unused by the HC)
+                page = 0;
+                pageOffset = 0;
+            }
+                
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - baseTransferIndex: %d, microFrame: %d, frameIndex: %d, interval %d", this, (uint32_t)baseTransferIndex, (uint32_t) transfer, (uint32_t)(baseTransferIndex + transfer), (uint32_t)epInterval);
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - forming transaction length (%d), pageOffset (0x%x), page (%d)", this, (uint32_t)trLen, (uint32_t)pageOffset, (uint32_t)page);
 			
@@ -5107,7 +5118,6 @@ AppleUSBEHCI::AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITT
 	else 
 	{
 		// Full/Low speed device
-		
 		if (pED->_pollingRate > kEHCIMaxPollingInterval)
 			realPollingRate = kEHCIMaxPollingInterval;
 		else
@@ -5781,6 +5791,7 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 				if (hostuFrame >= kEHCIuFramesPerFrame)
 				{
 					// this is the back link case
+					// USBLog(2, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - need to imlement FSTN", this);
 					pSPE->_CSflags |= (1 << (hostuFrame % kEHCIuFramesPerFrame));
 					pSPE->_wraparound = true;
 				}

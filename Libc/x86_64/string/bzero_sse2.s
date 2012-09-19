@@ -37,7 +37,6 @@
  * since gcc sometimes silently maps bzero() into memset().  As a result,
  * we always load the original ptr into %eax before returning.
  */
-
 #define kShort		80		// too short to bother with SSE (must be >=80)
 #define	kVeryLong	(1024*1024)
 

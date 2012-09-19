@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: driver.h,v 1.8 2007-06-19 23:47:00 tbox Exp $ */
+/* $Id: driver.h,v 1.8 2007/06/19 23:47:00 tbox Exp $ */
 
 /*
  * PASSED and FAILED mean the particular test passed or failed.

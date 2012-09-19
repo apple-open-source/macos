@@ -70,7 +70,7 @@ Requirement *DRMaker::make()
 	
 	SHA1::Digest anchorHash;
 	hashOfCertificate(ctx.cert(Requirement::anchorCert), anchorHash);
-	if (!memcmp(anchorHash, Requirement::appleAnchorHash(), SHA1::digestLength)
+	if (isAppleCA(anchorHash)
 #if	defined(TEST_APPLE_ANCHOR)
 		|| !memcmp(anchorHash, Requirement::testAppleAnchorHash(), SHA1::digestLength)
 #endif

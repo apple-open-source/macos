@@ -37,10 +37,6 @@
 #include <IOKit/pci/IOAGPDevice.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*!
-    @class IOPCIBridge
-    @abstract   Base class for all PCI bridge drivers.
-*/
 class IOPCIConfigurator;
 class IOPCIDevice;
 
@@ -52,6 +48,10 @@ enum {
     kIOPCIResourceTypeCount          = 4,
 };
 
+/*!
+    @class IOPCIBridge
+    @abstract   Base class for all PCI bridge drivers.
+*/
 
 class IOPCIBridge : public IOService
 {
@@ -263,10 +263,6 @@ protected:
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define kIOPCIBridgeRegs (32)
-/*!
-    @class IOPCI2PCIBridge
-    @abstract Base class for all PCI-to-PCI bridge drivers.
-*/
 
 class IOPCI2PCIBridge : public IOPCIBridge
 {

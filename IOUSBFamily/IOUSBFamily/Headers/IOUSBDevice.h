@@ -1,20 +1,21 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright © 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -122,13 +123,14 @@ protected:
 		UInt32					_locationID;
 		IOLock*					_interfaceArrayLock;
 	    OSArray*				_interfaceArray;
-#ifdef SUPPORTS_SS_USB
 		UInt32					_standardUSBPortPower;				// Largest amount of current that this port can provide (e.g. 500mA for USB2.0, 900mA for USB3.0)
 		bool					_usingExtra400mAforUSB3;
-#else
-		UInt32					_standardUSBPortPower;				// Largest amount of current that this port can provide (e.g. 500mA)
-#endif		
-    };	
+		UInt32					_wakeRevocablePowerAllocated;		// how much extra "revocable" power during wake did we already give our client
+		UInt32					_wakeUSB3PowerAllocated;			// how much extra "USB3" power during wake did we already give our client
+		bool					_attachedToEnclosureAndUsingExtraWakePower;
+		bool					_deviceIsOnThunderbolt;					// Will be set if all our upstream hubs are on Thunderbolt
+
+    };
     ExpansionData * _expansionData;
 
     const IOUSBConfigurationDescriptor *FindConfig(UInt8 configValue, UInt8 *configIndex=0);
@@ -519,7 +521,6 @@ public:
 	 */
     virtual IOReturn SetConfiguration(IOService *forClient, UInt8 configValue, bool startInterfaceMatching, bool issueRemoteWakeup);
     
-#ifdef SUPPORTS_SS_USB
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  14);
     /*!
 	 @function		OpenOrCloseAllInterfacePipes		
@@ -550,12 +551,6 @@ public:
     virtual void 			SetAddress(USBDeviceAddress address);
     
 
-#else
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  15);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  16);
-#endif
-	
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  17);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  18);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  19);

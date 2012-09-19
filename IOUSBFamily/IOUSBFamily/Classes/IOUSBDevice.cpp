@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright © 1998-2012 Apple Inc.  All rights reserved.
  * 
- * Copyright © 1998-20012 Apple Inc.  All rights reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -50,7 +49,6 @@ extern "C" {
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/USB.h>
 
-
 #include <UserNotification/KUNCUserNotifications.h>
 #include "USBTracepoints.h"
 
@@ -90,9 +88,12 @@ extern "C" {
 #define _RESET_IN_PROGRESS				_expansionData->_resetInProgress
 #define _DO_PORT_REENUMERATE_THREAD		_expansionData->_doPortReEnumerateThread
 #define _STANDARD_PORT_POWER			_expansionData->_standardUSBPortPower
-#ifdef SUPPORTS_SS_USB
-	#define _USINGEXTRA400MAFORUSB3			_expansionData->_usingExtra400mAforUSB3
-#endif
+#define _USINGEXTRA400MAFORUSB3			_expansionData->_usingExtra400mAforUSB3
+#define _WAKEREVOCABLEPOWERALLOCATED	_expansionData->_wakeRevocablePowerAllocated
+#define _WAKEUSB3POWERALLOCATED			_expansionData->_wakeUSB3PowerAllocated
+#define _ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER		_expansionData->_attachedToEnclosureAndUsingExtraWakePower
+#define _DEVICEISONTHUNDERBOLT				_expansionData->_deviceIsOnThunderbolt
+
 
 #define kNotifyTimerDelay			60000	// in milliseconds = 60 seconds
 #define kUserLoginDelay				20000	// in milliseconds = 20 seconds
@@ -326,11 +327,7 @@ IOUSBDevice::start( IOService * provider )
     _endpointZero.wMaxPacketSize = HostToUSBWord(_descriptor.bMaxPacketSize0);
     _endpointZero.bInterval = 0;
 	
-#ifdef SUPPORTS_SS_USB
     _pipeZero = IOUSBPipeV2::ToEndpoint(&_endpointZero, NULL, this, _controller, NULL);
-#else
-    _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller, NULL);
-#endif	
 
     // See if we have the allowNumConfigsOfZero errata. Some devices have an incorrect device descriptor
     // that specifies a bNumConfigurations value of 0.  We allow those devices to enumerate if we know
@@ -701,6 +698,13 @@ IOUSBDevice::terminate(IOOptionBits options)
 		v3Bus->EnableAddressEndpoints(_address, true);
 	}
 	
+	if ( _ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER )
+	{
+		_ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER = false;
+		UInt32 oldCount = OSDecrementAtomic(&IOUSBController::gExternalNonSSPortsUsingExtraCurrent);
+		USBLog(6, "%s[%p]::terminate  decreasing our gExternalNonSSPortsUsingExtraCurrent count(%d)", getName(), this, oldCount);
+	}
+	
 	if ( _SLEEPPOWERALLOCATED != 0 )
 	{
 		USBLog(6, "%s[%p]::terminate  we still had %d sleep power allocated", getName(), this, (uint32_t) _SLEEPPOWERALLOCATED);
@@ -732,7 +736,7 @@ IOUSBDevice::terminate(IOOptionBits options)
 		
 		if ( kr != kIOReturnSuccess )
 		{			
-			USBLog(6, "%s[%p]::terminate  ReturnExtraPower(kUSBPowerDuringSleep) returned 0x%x", getName(), this, kr);
+			USBLog(6, "%s[%p]::terminate  ReturnExtraPower(kUSBPowerDuringWake) returned 0x%x", getName(), this, kr);
 		}
 		else 
 		{
@@ -747,6 +751,52 @@ IOUSBDevice::terminate(IOOptionBits options)
 			}
 	}
 
+	if ( _WAKEREVOCABLEPOWERALLOCATED != 0 )
+	{
+		USBLog(6, "%s[%p]::terminate  we still had %d kUSBPowerDuringWakeRevocable allocated", getName(), this, (uint32_t) _WAKEREVOCABLEPOWERALLOCATED);
+		if ( _HUBPARENT )
+			kr = _HUBPARENT->ReturnExtraPower(_PORT_NUMBER, kUSBPowerDuringWakeRevocable, _WAKEREVOCABLEPOWERALLOCATED);
+		
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  ReturnExtraPower(kUSBPowerDuringWake) returned 0x%x", getName(), this, kr);
+		}
+		else 
+		{
+			_WAKEREVOCABLEPOWERALLOCATED = 0;
+		}
+		
+		USBLog(6, "%s[%p]::terminate - calling for other devices to reallocate wake extra power", getName(), this);
+		kr = RequestExtraPower(kUSBPowerRequestWakeReallocate, 0);
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  RequestExtraPower(kUSBPowerRequestWakeReallocate) returned 0x%x", getName(), this, kr);
+		}
+	}
+
+	if ( _WAKEUSB3POWERALLOCATED != 0 )
+	{
+		USBLog(6, "%s[%p]::terminate  we still had %d kUSBPowerDuringWakeUSB3 allocated", getName(), this, (uint32_t) _WAKEUSB3POWERALLOCATED);
+		if ( _HUBPARENT )
+			kr = _HUBPARENT->ReturnExtraPower(_PORT_NUMBER, kUSBPowerDuringWakeUSB3, _WAKEUSB3POWERALLOCATED);
+		
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  ReturnExtraPower(kUSBPowerDuringWakeUSB3) returned 0x%x", getName(), this, kr);
+		}
+		else 
+		{
+			_WAKEUSB3POWERALLOCATED = 0;
+		}
+		
+		USBLog(6, "%s[%p]::terminate - calling for other devices to reallocate wake extra power", getName(), this);
+		kr = RequestExtraPower(kUSBPowerRequestWakeReallocate, 0);
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  RequestExtraPower(kUSBPowerRequestWakeReallocate) returned 0x%x", getName(), this, kr);
+		}
+	}
+	
 	USBLog(5, "IOUSBDevice(%s)[%p]::terminate - calling super::terminate", getName(), this);
 	retValue = super::terminate(options);
 	if (_OPEN_CLIENTS)
@@ -1050,11 +1100,9 @@ IOUSBDevice::init(USBDeviceAddress deviceAddress, UInt32 powerAvailable, UInt8 s
     _speed = speed;
     _ALLOW_CONFIGVALUE_OF_ZERO = false;
 	
-#ifdef SUPPORTS_SS_USB
 	if ( _speed == kUSBDeviceSpeedSuper)
 		_STANDARD_PORT_POWER = kUSB3MaxPowerPerPort;
 	else
-#endif
 		_STANDARD_PORT_POWER = kUSB2MaxPowerPerPort;
     
     USBLog(5,"%s @ %d (%dmA available, %s speed, std port power: %d)", getName(), _address,(uint32_t)_busPowerAvailable*2, (_speed == kUSBDeviceSpeedLow) ? "low" : ((_speed == kUSBDeviceSpeedFull) ? "full" : ((_speed == kUSBDeviceSpeedHigh) ? "high" : "super")), (uint32_t)_STANDARD_PORT_POWER);
@@ -1165,13 +1213,12 @@ IOUSBDevice::GetChildLocationID(UInt32 parentLocationID, int port)
     UInt32	newLocation = parentLocationID;
     UInt32	location = parentLocationID;
     
-#ifdef SUPPORTS_SS_USB
 	if ( _speed == kUSBDeviceSpeedSuper)
 	{
 		// Zero out the "SS bit" of the SS RH Simulation
 		location &= 0xff7FFFFF;
 	}
-#endif	
+
     // Find the first zero nibble and add the port number we are using
     //
     for ( shift = 20; shift >= 0; shift -= 4)
@@ -1195,7 +1242,7 @@ IOUSBDevice::ResetDevice()
 	
 	USBLog(5, "%s[%p]::ResetDevice (port %d device at 0x%x)", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID);
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -1229,7 +1276,7 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
 	
 	USBLog(5, "%s[%p]::ReEnumerateDevice (port %d device at 0x%x)", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID);
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -1305,7 +1352,6 @@ IOUSBDevice::_ResetDevice(OSObject *target, __unused void *arg0, __unused void *
 			me->_pipeZero = NULL;
 		}
 
-#ifdef SUPPORTS_SS_USB
 		bool pipesNeedOpen = false;
 		if(me->_controller)
 		{
@@ -1326,16 +1372,13 @@ IOUSBDevice::_ResetDevice(OSObject *target, __unused void *arg0, __unused void *
 				USBLog(6,"%s[%p]::_ResetDevice _controller not a V3 controller", me->getName(), me);
 			}
 		}
-#endif
 		
 		status = me->_HUBPARENT->ResetPort( me->_PORT_NUMBER );
 
-#ifdef SUPPORTS_SS_USB
 		if(pipesNeedOpen)
 		{
 			me->OpenOrCloseAllInterfacePipes(true);
 		}
-#endif
 	}
 	
 	USBLog(6,"%s[%p]::_ResetDevice _HUBPARENT->ResetPort returned 0x%x", me->getName(), me, (uint32_t)status);
@@ -1344,11 +1387,7 @@ IOUSBDevice::_ResetDevice(OSObject *target, __unused void *arg0, __unused void *
 	me->_currentConfigValue = 0;
 	
 	// Recreate PipeZero object
-#ifdef SUPPORTS_SS_USB
 	me->_pipeZero = IOUSBPipeV2::ToEndpoint(&me->_endpointZero, NULL, me, me->_controller, NULL);
-#else
-	me->_pipeZero = IOUSBPipe::ToEndpoint(&me->_endpointZero, me, me->_controller, NULL);
-#endif
 	if (!me->_pipeZero)
 	{
 		USBLog(1,"%s[%p]::_ResetDevice DANGER could not recreate pipe Zero after reset", me->getName(), me);
@@ -2139,7 +2178,6 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 	
 	setProperty("Low Power Displayed", lowPowerDisplayed);
 
-#ifdef SUPPORTS_SS_USB
 	//  For a USB 3.0 device, we have to request the extra 400mA (900-500) from our "extra" bucket.  This is because we keep the extra amount as "extra over 500 mA".  This request can NEVER fail.
 	if ( _speed == kUSBDeviceSpeedSuper && _busPowerAvailable == kUSB900mAAvailable)
 	{
@@ -2152,26 +2190,35 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 		}
 		
 		USBLog(5,"%s[%p]::SetConfiguration  _HUBPARENT->GetPortInformation returned 0x%x",getName(), this, (uint32_t) kr);
-		if ( kr == kIOReturnSuccess && (info & kUSBInformationDeviceIsAttachedToEnclosureMask ) )
+		
+		// The following statement limits our requests to those devices that are attached to a root hub that is part of the CPU enclosure.  This does NOT include devices that are attached to a
+		// Thunderbolt XHCI controller
+		if ( kr == kIOReturnSuccess && (info & kUSBInformationDeviceIsAttachedToEnclosureMask ) && !(info & kUSBInformationDeviceIsOnThunderboltMask) )
 		{
 			
-			USBLog(5,"%s[%p]::SetConfiguration  we have a SuperSpeed device attached to an external port, requesting our extra 400 mA",getName(), this);
+			USBLog(6,"%s[%p]::SetConfiguration  we have a SuperSpeed device attached to an external port, requesting extra 400 mA so we can provide 900 mA to device",getName(), this);
 			
-			UInt32 allocatedAmount = RequestExtraPower(kUSBPowerDuringWake, 400);
+            // Make sure that we call the IOUSBDevice API, not the hub API.  Doing so routes the call to the right hub.
+			UInt32 allocatedAmount = IOUSBDevice::RequestExtraPower(kUSBPowerDuringWakeUSB3, 400);
 			USBLog(6,"%s[%p]::SetConfiguration  RequestExtraPower gave us an extra %d mA",getName(), this, (uint32_t)allocatedAmount);
 			if (allocatedAmount != 400)
 			{
-				USBLog(1,"%s[%p]::SetConfiguration  RequestExtraPower for SuperSpeed device at 0x%x, asked for 400mA but got %d mA", getName(), this, (uint32_t)_LOCATIONID, (uint32_t)allocatedAmount);
-				ReturnExtraPower(kUSBPowerDuringWake, allocatedAmount);
+				USBLog(6,"%s[%p]::SetConfiguration  RequestExtraPower for SuperSpeed device at 0x%x, asked for 400mA but got %d mA", getName(), this, (uint32_t)_LOCATIONID, (uint32_t)allocatedAmount);
+                IOUSBDevice::ReturnExtraPower(kUSBPowerDuringWakeUSB3, allocatedAmount);
 				_USINGEXTRA400MAFORUSB3 = false;
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+                DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
+#else
+				USBError(1,"The IOUSBFamily did not receive enough extra current for the SuperSpeed device (%s) at 0x%x, asked for 400mA but got %d mA", getName(), (uint32_t)_LOCATIONID, (uint32_t)allocatedAmount);
+#endif
 			}
 			else
 			{
+				_WAKEUSB3POWERALLOCATED = allocatedAmount;
 				_USINGEXTRA400MAFORUSB3 = true;
 			}
 		}
 	}
-#endif
 	
     //  Go ahead and remove all the interfaces that are attached to this
     //  device.
@@ -2259,7 +2306,6 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 			
             USBLog(5,"%s[%p]::SetConfiguration  Found InterfaceDescription[%d] = %p, bAlternateSetting: %d",getName(), this, i, intfDesc, intfDesc->bAlternateSetting);
             
-#ifdef SUPPORTS_SS_USB
 			// If the usb boot-arg for support of UAS is enabled then DON'T look for UAS interfaces
 			// For UAS interfaces, we might need to actually instantiate a different altSetting, if it exists.  To do this we will (1) check to see if we have a kMSCProtocolBulkOnly MSC interface, and if so then (2) Find the next interface and
 			// check whether it is a kMSCProtocolUSBAttachedSCSI MSC interface with the same bInterfaceNumber and different bAlternateSetting (i.e. just an alternate setting and NOT a new interface)
@@ -2330,7 +2376,6 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 				}
 			}
 			else
-#endif
 			{
 				// This code is supposed to look for the next interface descriptor that is non-zero.   This and the !gotAlternateSetting if clause below make it 
 				// happen, but in a roundabout way, as that loop is only entered once...
@@ -2503,7 +2548,6 @@ IOUSBDevice::GetInterface(const IOUSBInterfaceDescriptor *intfDesc)
 }
 
 
-#ifdef SUPPORTS_SS_USB
 void 
 IOUSBDevice::OpenOrCloseAllInterfacePipes(bool open)
 {
@@ -2535,7 +2579,6 @@ IOUSBDevice::OpenOrCloseAllInterfacePipes(bool open)
 		IOLockUnlock(_INTERFACEARRAYLOCK);
 	}
 }
-#endif
 
 
 // Copy data into supplied buffer, up to 'len' bytes.
@@ -2872,7 +2915,7 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion
 {
 	IOReturn	kr = kIOReturnSuccess;
 
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -2951,7 +2994,7 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequestDesc	*request, IOUSBCompletion *comple
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3029,7 +3072,7 @@ IOUSBDevice::GetConfiguration(UInt8 *configNumber)
 {
 	IOReturn	kr	=	kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3098,7 +3141,7 @@ IOUSBDevice::GetDeviceStatus(USBStatus *status)
 {
 	IOReturn	kr	=	kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3630,9 +3673,9 @@ IOUSBDevice::TakeGetConfigLock(void)
 {
 	IOReturn	ret;
 	
-	if ((_expansionData == NULL) || (_expansionData && (!_WORKLOOP || !_COMMAND_GATE)))
+	if (isInactive() || (_expansionData == NULL) || (_expansionData && (!_WORKLOOP || !_COMMAND_GATE)))
 	{
-		USBLog(1, "%s[%p]::TakeGetConfigLock - no WorkLoop or no gate!", getName(), this);
+		USBLog(1, "%s[%p]::TakeGetConfigLock - isInactive, no WorkLoop or no gate!", getName(), this);
 		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)this, (uintptr_t)_WORKLOOP, (uintptr_t)_COMMAND_GATE, 1 );
 		return kIOReturnNotPermitted;
 	}
@@ -3644,7 +3687,7 @@ IOUSBDevice::TakeGetConfigLock(void)
 		return kIOReturnNotPermitted;
 	}
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3653,8 +3696,8 @@ IOUSBDevice::TakeGetConfigLock(void)
 		workLoop->retain();
 		gate->retain();
 		
-	USBLog(5, "%s[%p]::TakeGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
-	ret = gate->runAction(ChangeGetConfigLock, (void*)true);
+        USBLog(5, "%s[%p]::TakeGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
+        ret = gate->runAction(ChangeGetConfigLock, (void*)true);
         if ( ret != kIOReturnSuccess )
         {
             USBLog(2,"%s[%p]::TakeGetConfigLock ChangeGetConfigLock runAction() failed (0x%x)", getName(), this, ret);
@@ -3662,7 +3705,7 @@ IOUSBDevice::TakeGetConfigLock(void)
 		
 		gate->release();
 		workLoop->release();
-	release();
+        release();
 	}
 	else
 	{
@@ -3679,14 +3722,14 @@ IOUSBDevice::ReleaseGetConfigLock(void)
 {
 	IOReturn	ret;
 	
-	if ( (_expansionData == NULL) || (_expansionData && (!_WORKLOOP || !_COMMAND_GATE)))
+	if ( isInactive() || (_expansionData == NULL) || (_expansionData && (!_WORKLOOP || !_COMMAND_GATE)))
 	{
-		USBLog(1, "%s[%p]::TakeGetConfigLock - no WorkLoop or no gate!", getName(), this);
+		USBLog(1, "%s[%p]::TakeGetConfigLock - inActive(), no WorkLoop or no gate!", getName(), this);
 		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)this, (uintptr_t)_WORKLOOP, (uintptr_t)_COMMAND_GATE, 3 );
 		return kIOReturnNotPermitted;
 	}
 
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3695,8 +3738,8 @@ IOUSBDevice::ReleaseGetConfigLock(void)
 		workLoop->retain();
 		gate->retain();
 		
-	USBLog(5, "%s[%p]::ReleaseGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
-	ret = gate->runAction(ChangeGetConfigLock, (void*)false);
+        USBLog(5, "%s[%p]::ReleaseGetConfigLock - calling through to ChangeGetConfigLock", getName(), this);
+        ret = gate->runAction(ChangeGetConfigLock, (void*)false);
         if ( ret != kIOReturnSuccess )
         {
             USBLog(2,"%s[%p]::ReleaseGetConfigLock ChangeGetConfigLock runAction() failed (0x%x)", getName(), this, ret);
@@ -3704,7 +3747,7 @@ IOUSBDevice::ReleaseGetConfigLock(void)
 		
 		gate->release();
 		workLoop->release();
-	release();
+        release();
 	}
 	else
 	{
@@ -3723,7 +3766,7 @@ IOUSBDevice::ChangeGetConfigLock(OSObject *target, void *param1, void *param2, v
     bool			takeLock = (bool)param1;
 	IOReturn		retVal = kIOReturnSuccess;
 	
-	if ( me->_expansionData && me->_COMMAND_GATE && me->_WORKLOOP)
+	if (!me->isInactive() && me->_expansionData && me->_COMMAND_GATE && me->_WORKLOOP)
 	{
 		IOCommandGate *	gate = me->_COMMAND_GATE;
 		IOWorkLoop *	workLoop = me->_WORKLOOP;
@@ -3732,68 +3775,68 @@ IOUSBDevice::ChangeGetConfigLock(OSObject *target, void *param1, void *param2, v
 		workLoop->retain();
 		gate->retain();
 		
-	if (takeLock)
-	{
-		while (me->_GETCONFIGLOCK and (retVal == kIOReturnSuccess))
-		{
-			AbsoluteTime	deadline;
-			IOReturn		kr;
-			
-			clock_interval_to_deadline(kGetConfigDeadlineInSecs, kSecondScale, &deadline);
-			USBLog(5, "%s[%p]::ChangeGetConfigLock - _GETCONFIGLOCK held by someone else - calling commandSleep to wait for lock", me->getName(), me);
-			USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 4 );
+        if (takeLock)
+        {
+            while (me->_GETCONFIGLOCK and (retVal == kIOReturnSuccess))
+            {
+                AbsoluteTime	deadline;
+                IOReturn		kr;
+                
+                clock_interval_to_deadline(kGetConfigDeadlineInSecs, kSecondScale, &deadline);
+                USBLog(5, "%s[%p]::ChangeGetConfigLock - _GETCONFIGLOCK held by someone else - calling commandSleep to wait for lock", me->getName(), me);
+                USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 4 );
 				kr = gate->commandSleep(&me->_GETCONFIGLOCK, deadline, THREAD_ABORTSAFE);
-			switch (kr)
-			{
-				case THREAD_AWAKENED:
-					USBLog(6,"%s[%p]::ChangeGetConfigLock commandSleep woke up normally (THREAD_AWAKENED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 5 );
-					break;
-					
-				case THREAD_TIMED_OUT:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep timeout out (THREAD_TIMED_OUT) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 6 );
-					retVal = kIOReturnNotPermitted;
-					break;
-					
-				case THREAD_INTERRUPTED:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep interrupted (THREAD_INTERRUPTED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 7 );
-					retVal = kIOReturnNotPermitted;
-					break;
-					
-				case THREAD_RESTART:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep restarted (THREAD_RESTART) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 8 );
-					retVal = kIOReturnNotPermitted;
-					break;
-					
-				case kIOReturnNotPermitted:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me->getName(), me);
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 9 );
-					retVal = kr;
-					break;
-					
-				default:
-					USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with unknown status %p",  me->getName(), me, (void*)kr);
-					USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 10 );
-					retVal = kIOReturnNotPermitted;
-			}
-		}
-		if (retVal == kIOReturnSuccess)
-		{
-			USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to true", me->getName(), me);
-			USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 13 );
-			me->_GETCONFIGLOCK = true;
-		}
-	}
-	else
-	{
-		USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to false and calling commandWakeup", me->getName(), me);
-		USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 11 );
-		me->_GETCONFIGLOCK = false;
+                switch (kr)
+                {
+                    case THREAD_AWAKENED:
+                        USBLog(6,"%s[%p]::ChangeGetConfigLock commandSleep woke up normally (THREAD_AWAKENED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+                        USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 5 );
+                        break;
+                        
+                    case THREAD_TIMED_OUT:
+                        USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep timeout out (THREAD_TIMED_OUT) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+                        USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 6 );
+                        retVal = kIOReturnNotPermitted;
+                        break;
+                        
+                    case THREAD_INTERRUPTED:
+                        USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep interrupted (THREAD_INTERRUPTED) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+                        USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 7 );
+                        retVal = kIOReturnNotPermitted;
+                        break;
+                        
+                    case THREAD_RESTART:
+                        USBLog(3,"%s[%p]::ChangeGetConfigLock commandSleep restarted (THREAD_RESTART) _GETCONFIGLOCK(%s)", me->getName(), me, me->_GETCONFIGLOCK ? "true" : "false");
+                        USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, (uintptr_t)me->_GETCONFIGLOCK, 0, 8 );
+                        retVal = kIOReturnNotPermitted;
+                        break;
+                        
+                    case kIOReturnNotPermitted:
+                        USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me->getName(), me);
+                        USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 9 );
+                        retVal = kr;
+                        break;
+                        
+                    default:
+                        USBLog(3,"%s[%p]::ChangeGetConfigLock woke up with unknown status %p",  me->getName(), me, (void*)kr);
+                        USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 10 );
+                        retVal = kIOReturnNotPermitted;
+                }
+            }
+            if (retVal == kIOReturnSuccess)
+            {
+                USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to true", me->getName(), me);
+                USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 13 );
+                me->_GETCONFIGLOCK = true;
+            }
+        }
+        else
+        {
+            USBLog(5, "%s[%p]::ChangeGetConfigLock - setting _GETCONFIGLOCK to false and calling commandWakeup", me->getName(), me);
+            USBTrace( kUSBTDevice, kTPDeviceConfigLock, (uintptr_t)me, 0, 0, 11 );
+            me->_GETCONFIGLOCK = false;
 			gate->commandWakeup(&me->_GETCONFIGLOCK, true);
-	}
+        }
 		gate->release();
 		workLoop->release();
 		me->release();
@@ -3811,7 +3854,7 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt3
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3888,7 +3931,7 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, U
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	if ( _expansionData && _COMMAND_GATE && _WORKLOOP)
+	if (!isInactive() && _expansionData && _COMMAND_GATE && _WORKLOOP)
 	{
 		IOCommandGate *	gate = _COMMAND_GATE;
 		IOWorkLoop *	workLoop = _WORKLOOP;
@@ -3999,6 +4042,10 @@ IOUSBDevice::SuspendDevice( bool suspend )
 	if( _HUBPARENT )
 	{
 		status = _HUBPARENT->SuspendPort( _PORT_NUMBER, suspend );
+		if (status != kIOReturnSuccess)
+		{
+			USBLog(5, "%s[%p]::SuspendDevice(%s) SuspendPort() for device @ 0x%x returned 0x%x", getName(), this, suspend ? "suspend" : "resume", (uint32_t)_LOCATIONID, (uint32_t)status );
+		}
 	}
 
 	UInt32 messageToSend = 0;
@@ -4012,6 +4059,9 @@ IOUSBDevice::SuspendDevice( bool suspend )
 		 if ( status != kIOReturnSuccess) 
 			 messageToSend = kIOUSBMessagePortWasNotSuspended ;
 		
+		// <rdar://problem/11864497> Unable to connect USB devices to the virtual machine in Parallels Desktop.
+		// We cannot change the following because some applications don't like getting an error from suspend, one that
+		// we would send if the device was not suspended when we tried to resume it
 		status = kIOReturnSuccess;
 	}
 	
@@ -4218,20 +4268,20 @@ IOUSBDevice::GetDeviceInformation(UInt32 *info)
 	if ( !_DEVICEISINTERNALISVALID )
 	{
 		_DEVICEISINTERNALISVALID = true;
-
-		// If we are not captive, then we are not internal
-		if ( *info & (1 << kUSBInformationDeviceIsCaptiveBit) )
+		
+		if ( _USBPLANE_PARENT )
 		{
-			if ( _USBPLANE_PARENT )
+			UInt32		parentInfo = 0;
+			IOReturn	err;
+			
+			_USBPLANE_PARENT->retain();
+			USBLog(5, "%s[%p]::GetDeviceInformation  Hub device name is %s at USB address %d", getName(), this, _USBPLANE_PARENT->getName(), _USBPLANE_PARENT->GetAddress());
+			
+			err = _USBPLANE_PARENT->GetDeviceInformation( &parentInfo);
+			if ( err == kIOReturnSuccess )
 			{
-				UInt32		parentInfo = 0;
-				IOReturn	err;
-				
-				_USBPLANE_PARENT->retain();
-				USBLog(5, "%s[%p]::GetDeviceInformation  Hub device name is %s at USB address %d", getName(), this, _USBPLANE_PARENT->getName(), _USBPLANE_PARENT->GetAddress());
-				
-				err = _USBPLANE_PARENT->GetDeviceInformation( &parentInfo);
-				if ( err == kIOReturnSuccess )
+				// If we are not captive, then we are not internal
+				if ( *info & (1 << kUSBInformationDeviceIsCaptiveBit) )
 				{
 					if ( parentInfo & ( 1 << kUSBInformationDeviceIsInternalBit ) )
 					{
@@ -4239,14 +4289,23 @@ IOUSBDevice::GetDeviceInformation(UInt32 *info)
 						_DEVICEISINTERNAL = true;
 					}
 				}
-				_USBPLANE_PARENT->release();
+				
+				if ( parentInfo & ( 1 << kUSBInformationDeviceIsOnThunderboltBit ) )
+				{
+					USBLog(6, "%s[%p]::GetDeviceInformation  USB parent is on Thunderbolt", getName(), this);
+					_DEVICEISONTHUNDERBOLT = true;
+				}
 			}
+			_USBPLANE_PARENT->release();
 		}
 	}
 	
 	if ( _DEVICEISINTERNAL )
 		*info |= ( 1 << kUSBInformationDeviceIsInternalBit);
-
+	
+	if ( _DEVICEISONTHUNDERBOLT )
+		*info |= ( 1 << kUSBInformationDeviceIsOnThunderboltBit);
+	
 ErrorExit:
 	USBLog(6, "%s[%p]::GetDeviceInformation, error: 0x%x, info: 0x%x", getName(), this, kr, (uint32_t) *info);
 	
@@ -4259,11 +4318,30 @@ UInt32
 IOUSBDevice::RequestExtraPower(UInt32 type, UInt32 requestedPower)
 {
 	UInt32	returnValue = 0;
+	UInt32	info = 0;
 	
-	USBLog(6, "%s[%p]::RequestExtraPower type: %d, requested %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) requestedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
+	USBLog(6, "%s[%p]::RequestExtraPower type: %d, requested %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d, _WAKEREVOCABLEPOWERALLOCATED = %d, _WAKEUSB3POWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) requestedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED, (uint32_t)_WAKEREVOCABLEPOWERALLOCATED, (uint32_t)_WAKEUSB3POWERALLOCATED);
 
+	// Increment our gExternalNonSSPortsUsingExtraCurrent on the assumption that we will get that extra current.   This will allow our calculations on what needs to
+	// be reserved to take into account that this port is using extra current.  If we later find that we couldn't allocate it, then we will decrease it.
+	// (Note that we need the "info" later in the method, so we go in here even for kUSBPowerDuringWakeUSB3)
+	if ( type == kUSBPowerDuringWake || type == kUSBPowerDuringWakeRevocable || type == kUSBPowerDuringWakeUSB3 )
+	{
+		(void) GetDeviceInformation(&info);
+		
+		// If this device has regular or revocable wake power (and did not have any before), and it is attached to the enclosure (e.g on an external port) then update our ExternalPortUsingExtraWakePower count:
+		if ( (info & kUSBInformationDeviceIsAttachedToEnclosureMask) && (requestedPower != 0) && (_WAKEPOWERALLOCATED == 0 && _WAKEREVOCABLEPOWERALLOCATED == 0) && (type != kUSBPowerDuringWakeUSB3))
+		{
+			_ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER = true;
+			UInt32 oldCount = OSIncrementAtomic(&IOUSBController::gExternalNonSSPortsUsingExtraCurrent);
+			USBLog(6, "%s[%p]::RequestExtraPower  increasing our gExternalNonSSPortsUsingExtraCurrent count (%d)", getName(), this, oldCount);
+		}
+	}
+	
 	if ( _HUBPARENT )
+	{
 		returnValue = _HUBPARENT->RequestExtraPower(_PORT_NUMBER, type, requestedPower);
+	}
 	else
 	{
 		USBLog(6, "%s[%p]::RequestExtraPower  no _HUBPARENT", getName(), this);
@@ -4275,14 +4353,29 @@ IOUSBDevice::RequestExtraPower(UInt32 type, UInt32 requestedPower)
 		setProperty("PortUsingExtraPowerForSleep", _SLEEPPOWERALLOCATED, 32);
 	}
 	
-	if ( type == kUSBPowerDuringWake )
+	if ( type == kUSBPowerDuringWake || type == kUSBPowerDuringWakeRevocable || type == kUSBPowerDuringWakeUSB3 )
 	{
-		_WAKEPOWERALLOCATED += (UInt32) returnValue;
-		USBLog(6, "%s[%p]::RequestExtraPower  setting  PortUsingExtraPowerForWake to %d", getName(), this, (uint32_t)_WAKEPOWERALLOCATED);
-		setProperty("PortUsingExtraPowerForWake", _WAKEPOWERALLOCATED, 32);
+
+		// If we did not allocate extra power, then decrease the count
+		if ( _ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER && (info & kUSBInformationDeviceIsAttachedToEnclosureMask) && (returnValue == 0) && (_WAKEPOWERALLOCATED == 0 && _WAKEREVOCABLEPOWERALLOCATED == 0) && (type != kUSBPowerDuringWakeUSB3))
+		{
+			_ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER = false;
+			UInt32 oldCount = OSDecrementAtomic(&IOUSBController::gExternalNonSSPortsUsingExtraCurrent);
+			USBLog(6, "%s[%p]::RequestExtraPower  decrementing our gExternalNonSSPortsUsingExtraCurrent count (%d), because we did not allocate any extra power", getName(), this, oldCount);
+		}
+		
+		if ( type == kUSBPowerDuringWake)
+			_WAKEPOWERALLOCATED += (UInt32) returnValue;
+		else if (type == kUSBPowerDuringWakeRevocable)
+			_WAKEREVOCABLEPOWERALLOCATED += (UInt32) returnValue;
+		else if (type == kUSBPowerDuringWakeUSB3)
+			_WAKEUSB3POWERALLOCATED += (UInt32) returnValue;
+		
+		USBLog(6, "%s[%p]::RequestExtraPower  setting  PortUsingExtraPowerForWake to %d (device attached to enclosure: %s)", getName(), this, (uint32_t)(_WAKEPOWERALLOCATED + _WAKEREVOCABLEPOWERALLOCATED + _WAKEUSB3POWERALLOCATED), (info & kUSBInformationDeviceIsAttachedToEnclosureMask) ? "Yes" : "No");
+		setProperty("PortUsingExtraPowerForWake", (_WAKEPOWERALLOCATED + _WAKEREVOCABLEPOWERALLOCATED + _WAKEUSB3POWERALLOCATED), 32);
 	}
 	
-	USBLog(6, "%s[%p]::RequestExtraPower type: %d, returning %d, (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnValue, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
+	USBLog(6, "%s[%p]::RequestExtraPower type: %d, returning %d, (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d, _WAKEREVOCABLEPOWERALLOCATED = %d, _WAKEUSB3POWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnValue, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED, (uint32_t)_WAKEREVOCABLEPOWERALLOCATED, (uint32_t)_WAKEUSB3POWERALLOCATED);
 	
 	return returnValue;
 }
@@ -4294,25 +4387,34 @@ IOUSBDevice::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	USBLog(6, "%s[%p]::ReturnExtraPower type: %d, returnedPower %d", getName(), this, (uint32_t)type, (uint32_t) returnedPower);
+	USBLog(6, "+%s[%p]::ReturnExtraPower type: %d, returnedPower %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d, _WAKEREVOCABLEPOWERALLOCATED = %d, _WAKEUSB3POWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED,  (uint32_t)_WAKEREVOCABLEPOWERALLOCATED, (uint32_t)_WAKEUSB3POWERALLOCATED);
 	
 	// Make sure that we are not returning more than we had requested
 	if ( type == kUSBPowerDuringSleep )
 	{
 		if ( returnedPower > _SLEEPPOWERALLOCATED )
 		{
-			USBLog(6, "%s[%p]::ReturnExtraPower type: %s, returnedPower %d was more than what we had previously allocated (%d)", getName(), this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t) returnedPower,  (uint32_t) _SLEEPPOWERALLOCATED);
+			USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringSleep, returnedPower %d was more than what we had previously allocated (%d)", getName(), this, (uint32_t) returnedPower,  (uint32_t) _SLEEPPOWERALLOCATED);
 			return kIOReturnBadArgument;
 		}
 	}
 
-	if ( type == kUSBPowerDuringWake )
+	if ( type == kUSBPowerDuringWake && (returnedPower > _WAKEPOWERALLOCATED) )
 	{
-		if ( returnedPower > _WAKEPOWERALLOCATED )
-		{
-			USBLog(6, "%s[%p]::ReturnExtraPower type: %s, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
-			return kIOReturnBadArgument;
-		}
+		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWake, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
+		return kIOReturnBadArgument;
+	}
+	
+	if ( type == kUSBPowerDuringWakeRevocable && (returnedPower > _WAKEREVOCABLEPOWERALLOCATED) )
+	{
+		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWakeRevocable, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
+		return kIOReturnBadArgument;
+	}
+	
+	if ( type == kUSBPowerDuringWakeUSB3 && (returnedPower > _WAKEUSB3POWERALLOCATED) )
+	{
+		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWakeUSB3, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
+		return kIOReturnBadArgument;
 	}
 	
 	// Now call out ot actually return the power
@@ -4328,19 +4430,36 @@ IOUSBDevice::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 			setProperty("PortUsingExtraPowerForSleep", _SLEEPPOWERALLOCATED, 32);
 		}
 		
-		if ( type == kUSBPowerDuringWake )
+		if ( type == kUSBPowerDuringWake || type == kUSBPowerDuringWakeRevocable || type == kUSBPowerDuringWakeUSB3)
 		{
-			_WAKEPOWERALLOCATED -= returnedPower;
-			USBLog(6, "%s[%p]::ReturnExtraPower  setting  PortUsingExtraPowerForWake to %d", getName(), this, (uint32_t)_WAKEPOWERALLOCATED);
-			setProperty("PortUsingExtraPowerForWake", _WAKEPOWERALLOCATED, 32);
-		}
+			UInt32	info = 0;
+			(void) GetDeviceInformation(&info);
+			
+			if ( type == kUSBPowerDuringWake)
+				_WAKEPOWERALLOCATED -= returnedPower;
+			else if (type == kUSBPowerDuringWakeRevocable)
+				_WAKEREVOCABLEPOWERALLOCATED -= returnedPower;
+			else if (type == kUSBPowerDuringWakeUSB3)
+				_WAKEUSB3POWERALLOCATED -= returnedPower;
+			
+			// If this device has regular or revocable wake power (and did not have any before), and it is attached to the enclosure (e.g on an external port) then update our ExternalPortUsingExtraWakePower count:
+			if ( (info & kUSBInformationDeviceIsAttachedToEnclosureMask) && (returnedPower !=0) && (_WAKEPOWERALLOCATED == 0 && _WAKEREVOCABLEPOWERALLOCATED == 0) && (type != kUSBPowerDuringWakeUSB3))
+			{
+				_ATTACHEDTOENCLOSUREANDUSINGEXTRAWAKEPOWER = false;
+				UInt32 oldCount = OSDecrementAtomic(&IOUSBController::gExternalNonSSPortsUsingExtraCurrent);
+				USBLog(6, "%s[%p]::ReturnExtraPower  decreasing our gExternalNonSSPortsUsingExtraCurrent count (%d)", getName(), this, oldCount);
+			}
+			
+			USBLog(6, "%s[%p]::ReturnExtraPower  setting  PortUsingExtraPowerForWake to %d", getName(), this, (uint32_t)(_WAKEPOWERALLOCATED + _WAKEREVOCABLEPOWERALLOCATED + _WAKEUSB3POWERALLOCATED));
+			setProperty("PortUsingExtraPowerForWake", (_WAKEPOWERALLOCATED + _WAKEREVOCABLEPOWERALLOCATED + _WAKEUSB3POWERALLOCATED), 32);
+}
 	}
 	else
 	{
 		USBLog(3, "%s[%p]::ReturnExtraPower  _HUBPARENT->ReturnExtraPower returned 0x%x", getName(), this, kr);
 	}
 	
-	USBLog(6, "-%s[%p]::ReturnExtraPower type: %d, returnedPower %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
+	USBLog(6, "-%s[%p]::ReturnExtraPower type: %d, returnedPower %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d, _WAKEREVOCABLEPOWERALLOCATED = %d, _WAKEUSB3POWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED,  (uint32_t)_WAKEREVOCABLEPOWERALLOCATED, (uint32_t)_WAKEUSB3POWERALLOCATED);
 	
 	return kr;
 }
@@ -4350,14 +4469,17 @@ IOUSBDevice::GetExtraPowerAllocated(UInt32 type)
 {
 	UInt32		returnValue = 0;
 	
-	USBLog(6, "%s[%p]::GetExtraPowerAllocated type: %s, _SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d", getName(), this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
+	USBLog(6, "%s[%p]::GetExtraPowerAllocated type: %d, _SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d,  _WAKEREVOCABLEPOWERALLOCATED = %d, _WAKEUSB3POWERALLOCATED = %d", getName(), this, type , (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED, (uint32_t)_WAKEREVOCABLEPOWERALLOCATED, (uint32_t)_WAKEUSB3POWERALLOCATED);
 	
 	// Keep track of what we have allocated
 	if ( type == kUSBPowerDuringSleep )
 		returnValue =  _SLEEPPOWERALLOCATED;
-	else
-	if ( type == kUSBPowerDuringWake )
+	else if ( type == kUSBPowerDuringWake)
 		returnValue =  _WAKEPOWERALLOCATED;
+	else if ( type == kUSBPowerDuringWakeRevocable)
+		returnValue =  _WAKEREVOCABLEPOWERALLOCATED;
+	else if ( type == kUSBPowerDuringWakeUSB3)
+		returnValue =  _WAKEUSB3POWERALLOCATED;
 	
 	return returnValue;
 }
@@ -4504,13 +4626,11 @@ IOUSBDevice::SetPort(void *port)
     _port = port;
 }
 
-#ifdef SUPPORTS_SS_USB
 void 
 IOUSBDevice::SetAddress(USBDeviceAddress address) 
 { 
 	_address = address; 
 }
-#endif
 
 USBDeviceAddress 
 IOUSBDevice::GetAddress(void) 
@@ -4621,21 +4741,15 @@ IOUSBDevice::MakePipe(const IOUSBEndpointDescriptor *ep)
 IOUSBPipe * 
 IOUSBDevice::MakePipe(const IOUSBEndpointDescriptor *ep, IOUSBInterface * interface) 
 {
-#ifdef SUPPORTS_SS_USB
 	USBLog(6, "%s[%p]::MakePipe deprecated version (without SSCD) called", getName(), this);
     return MakePipe(ep, NULL, interface); 
-#else
-    return IOUSBPipe::ToEndpoint(ep, this, _controller, interface); 
-#endif
 }
 
-#ifdef SUPPORTS_SS_USB
 IOUSBPipeV2 * 
 IOUSBDevice::MakePipe(const IOUSBEndpointDescriptor *ep, IOUSBSuperSpeedEndpointCompanionDescriptor *sscd, IOUSBInterface * interface) 
 {
     return IOUSBPipeV2::ToEndpoint(ep, sscd, this, _controller, interface); 
 }
-#endif
 
 OSMetaClassDefineReservedUsed(IOUSBDevice,  0);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  1);
@@ -4651,16 +4765,9 @@ OSMetaClassDefineReservedUsed(IOUSBDevice,  10);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  11);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  12);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  13);
-
-#ifdef SUPPORTS_SS_USB
 OSMetaClassDefineReservedUsed(IOUSBDevice,  14);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  15);
 OSMetaClassDefineReservedUsed(IOUSBDevice,  16);
-#else
-OSMetaClassDefineReservedUnused(IOUSBDevice,  14);
-OSMetaClassDefineReservedUnused(IOUSBDevice,  15);
-OSMetaClassDefineReservedUnused(IOUSBDevice,  16);
-#endif
 
 OSMetaClassDefineReservedUnused(IOUSBDevice,  17);
 OSMetaClassDefineReservedUnused(IOUSBDevice,  18);
