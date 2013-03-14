@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2000-2011 Apple Inc. All Rights Reserved.
+Copyright (c) 2000-2013 Apple Inc. All Rights Reserved.
 
 This file contains Original Code and/or Modifications of Original Code
 as defined in and that are subject to the Apple Public Source License
@@ -198,6 +198,28 @@ static int compare_paths(const char *parent, const char *child,
 	return n;
 };
 
+/* Return 1 if string contains ignorable Unicode sequence.
+ *	From 12830770:
+ *	(\xFC[\x80-\x83])|(\xF8[\x80-\x87])|(\xF0[\x80-\x8F])|(\xEF\xBB\xBF)|(\xE2\x81[\xAA-\xAF])|(\xE2\x80[\x8C-\x8F\xAA-\xAE])
+ */ 
+static int contains_ignorable_sequence(char* s) {
+	size_t len = strlen(s);
+	if (len <= 2) return 0;
+	for (size_t i = 0; i <= len - 2; i++) {
+		// 2-char sequences
+		if (s[i] == '\xFC' && '\x80' <= s[i+1] && s[i+1] <= '\x83') return 1;
+		if (s[i] == '\xF8' && '\x80' <= s[i+1] && s[i+1] <= '\x87') return 1;
+		if (s[i] == '\xF0' && '\x80' <= s[i+1] && s[i+1] <= '\x8F') return 1;
+		if (i <= len - 3) {
+			// 3-char sequences
+			if (s[i] == '\xEF' && s[i+1] =='\xBB' && s[i+2] =='\xBF') return 1;
+			if (s[i] == '\xE2' && s[i+1] =='\x81' && '\xAA' <= s[i+2] && s[i+2] <= '\xAF') return 1;
+			if (s[i] == '\xE2' && s[i+1] =='\x80' && (('\x8C' <= s[i+2] && s[i+2] <= '\x8F') || ('\xAA' <= s[i+2] && s[i+2] <= '\xAE'))) return 1;
+		}
+	}
+	return 0;
+}
+
 #pragma mark-
 /*
  *	Pre-run fixups: refuse a URL that is mis-cased if it happens 
@@ -262,7 +284,15 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	 * the most immediate parent of 'filename'. Do a regular 
 	 * case-sensitive compare on the directory portion of it. If
 	 * not-equal then return an error.
+	 * First, forbid access to URIs with ignorable Unicode character sequences
 	 */
+	if (contains_ignorable_sequence(r->filename)) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r,
+				  "mod_hfs_apple: URI %s has ignorable character sequence. Denying access.",
+				  r->filename);
+		return HTTP_FORBIDDEN;
+	}
+	
 	if (strncmp(((dir_rec**) directories->elts)[found]->dir_path,
 		url_path, max_n_matches) != 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r,

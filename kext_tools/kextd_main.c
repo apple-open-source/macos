@@ -178,17 +178,6 @@ int main(int argc, char * const * argv)
         OSKextSetSimulatedSafeBoot(true);
     }
 
-   /* safeBootMode may have been set from cmd line, check apart from the OSKext
-    * call. If safeboot, invalidate caches so they will be rebuilt
-    * (if not in near future, at next reboot).
-    */
-    if (sToolArgs.safeBootMode) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogGeneralFlag | kOSKextLogLoadFlag,
-            "Safe boot mode detected; invalidating system extensions caches.");
-        utimes("/System/Library/Extensions", NULL);
-    }
-
     OSKextSetUsesCaches(sToolArgs.useRepositoryCaches);
 
     OSKextSetRecordsDiagnostics(kOSKextDiagnosticsFlagNone);
@@ -767,6 +756,26 @@ finish:
 }
 
 /*******************************************************************************
+* If safe boot, invalidate caches (up to once / kextd invocation)
+* so they will be rebuilt, either soon or shortly after next reboot.
+*******************************************************************************/
+void checkSafeBootInvalidateCachesOnce()
+{
+    static Boolean checkedSafeBoot = false;
+
+    if (checkedSafeBoot)    return;
+
+    if (sToolArgs.safeBootMode) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogWarningLevel | kOSKextLogGeneralFlag | kOSKextLogLoadFlag,
+            "Safe boot mode detected; invalidating system extensions caches.");
+        utimes("/System/Library/Extensions", NULL);
+    }
+
+    checkedSafeBoot = true;
+}
+
+/*******************************************************************************
 *******************************************************************************/
 void releaseExtensions(
     CFRunLoopTimerRef   timer,
@@ -780,6 +789,10 @@ void releaseExtensions(
         SAFE_RELEASE_NULL(sReleaseKextsTimer);
     }
     SAFE_RELEASE_NULL(sAllKexts);
+
+    // and now that we've dropped whatever we booted with, perhaps invalidate
+    checkSafeBootInvalidateCachesOnce();
+
     return;
 }
 

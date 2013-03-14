@@ -30,7 +30,10 @@ void usage(int exval)
             "Usage: brtest update <vol> [-f]\n"
             "       brtest listboots <vol>\n"
             "       brtest erasefiles <srcVol> <bootDev> [-f]\n"
-            "       brtest copyfiles <src> <bootDev>[/<dir>] [<BlessStyle>]\n"
+            "       brtest copyfiles <src> [options] <bootDev> [<BlessStyle>]\n"
+            "           Options:\n"
+            "               -anyboot - update <src>'s bootstamps (no UUID)\n"
+            "               -pickerLabel <label> - specific text for opt-boot\n" 
             "       brtest copyfiles <src> <root> /<dmg> <tgt>[/<dir>] [<BS>]\n"
             "              (/<dmg> is relative to <root>)\n"
 
@@ -95,6 +98,9 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     char *hostpath, *dmgpath, helperName[DEVMAXPATHSIZE];
     char path[PATH_MAX];
     struct stat sb;
+
+    BRUpdateOpts_t opts = kBRUOptsNone;
+    CFStringRef pickerLabel = NULL;
     CFArrayRef helpers = NULL;
     CFURLRef hostVol = NULL;
     CFStringRef bootDev = NULL;
@@ -104,6 +110,15 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     CFMutableDictionaryRef plistOverrides = NULL;
     CFURLRef targetDir = NULL;
     BRBlessStyle blessSpec = kBRBlessFSDefault;
+
+    if (argc > 3 && strcmp(argv[3], "-anyboot") == 0) {
+        opts |= kBRUAnyBootStamps;
+        argv++; argc--;
+    }
+    if (argc > 4 && strcmp(argv[3], "-pickerLabel") == 0) {
+        pickerLabel = CFStringCreateWithFileSystemRepresentation(nil, argv[4]);
+        argv += 2; argc -= 2;
+    }
 
     // argv[1-2] processed by main()
     switch (argc) {
@@ -216,9 +231,8 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     }
 
     // use the fancier function depending on how custom we are
-    if (targetDir || blessarg) {
-        CFStringRef pickerLabel = NULL;
-        if (targetDir) {
+    if (opts || pickerLabel || targetDir || blessarg) {
+        if (targetDir && !pickerLabel) {
             pickerLabel = CFURLCopyLastPathComponent(targetDir);
         }
 #if LOG_ARGS
@@ -231,8 +245,8 @@ CFShow(targetDir);
 fprintf(stderr, "blessSpec: %d\n", blessSpec);
 CFShow(CFURLCopyLastPathComponent(targetDir));
 #endif
-        result = BRCopyBootFilesToDir(srcVol, hostVol, plistOverrides,
-                              bootDev, targetDir, blessSpec, pickerLabel);
+        result = BRCopyBootFilesWithOpts(srcVol, hostVol, plistOverrides,
+                              bootDev, targetDir, blessSpec, pickerLabel, opts);
         if (pickerLabel)   CFRelease(pickerLabel);
     } else {
         result = BRCopyBootFiles(srcVol, hostVol, bootDev, plistOverrides);
@@ -304,7 +318,8 @@ main(int argc, char *argv[])
     struct stat sb;
     CFURLRef volURL = NULL;
     
-    if (2 == argc && argv[1][0] == '-' && argv[1][1] == 'h')
+    // check for -h or not enough args
+    if (argc >= 2 && argv[1][0] == '-' && argv[1][1] == 'h')
         usage(EX_OK);
     if (argc < 3)
         usage(EX_USAGE);
@@ -324,7 +339,11 @@ main(int argc, char *argv[])
     verb = argv[1];
     volpath = argv[2];
     if (stat(volpath, &sb) != 0) {
-        err(EX_NOINPUT, "%s", volpath);
+        if (volpath[0] == '-') {
+            usage(EX_USAGE);
+        } else {
+            err(EX_NOINPUT, "%s", volpath);
+        }
     }
     volURL = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)volpath,
                                                      strlen(volpath), true);

@@ -69,6 +69,9 @@
 #define kIOPMMaintenanceScheduleImmediate               "MaintenanceImmediate"
 #endif
 
+// Number of seconds before auto power off timer we let system go to sleep
+#define kAutoPowerOffSleepAhead     (0)
+
 /* Bookkeeping data types */
 
 enum {
@@ -95,6 +98,10 @@ enum {
     kSilentRunningOff = 0,
     kSilentRunningOn  = 1
 };
+
+/* Auto Poweroff info */
+static dispatch_source_t   gApoDispatch;
+CFAbsoluteTime              ts_apo = 0; // Time at which system should go for auto power off
 
 static int const kMaxConnectionIDCount = 1000*1000*1000;
 static int const kConnectionOffset = 1000;
@@ -252,11 +259,14 @@ static void PMConnectionPowerCallBack(
     natural_t       messageType,
     void            *messageData);
 
-__private_extern__ void ClockSleepWakeNotification(IOPMCapabilityBits b, 
-                                                   IOPMCapabilityBits c);
+__private_extern__ void ClockSleepWakeNotification(IOPMCapabilityBits b,
+                                                   IOPMCapabilityBits c,
+                                                   uint32_t changeFlags);
 
 bool smcSilentRunningSupport( );
 
+void setAutoPowerOffTimer(bool initialCall, CFAbsoluteTime postpone);
+void cancelAutoPowerOffTimer();
 
 /************************************************************************************/
 /************************************************************************************/
@@ -1357,6 +1367,12 @@ __private_extern__ void logASLMessageSleepServiceTerminated(int forcedTimeoutCnt
 /*****************************************************************************/
 /* Getters for System State */
 /*****************************************************************************/
+bool isA_SleepState()
+{
+   if (gPowerState & kSleepState)
+       return true;
+   return false;
+}
 __private_extern__ bool isA_DarkWakeState()
 {
    if (gPowerState & kDarkWakeState)
@@ -1405,6 +1421,211 @@ __private_extern__ void cancelPowerNapStates( )
 }
 
 /*****************************************************************************/
+/* Auto Power Off Timers */
+/*****************************************************************************/
+
+/*
+ * Function to query IOPPF(thru rootDomain) the next possible sleep type 
+ */
+static kern_return_t
+getPlatformSleepType( uint32_t *sleepType )
+{
+
+    IOReturn                    ret;
+    uint32_t        outputScalarCnt = 1;
+    size_t          outputStructSize = 0;
+    uint64_t        outs[2];
+
+    
+    ret = IOConnectCallMethod(
+                gRootDomainConnect,                   // connect
+                kPMGetSystemSleepType,  // selector
+                NULL,                   // input
+                0,                      // input count
+                NULL,                   // input struct
+                0,                      // input struct count
+                outs,                   // output scalar
+                &outputScalarCnt,       // output scalar count
+                NULL,                   // output struct
+                &outputStructSize);     // output struct size
+
+    if (kIOReturnSuccess == ret)
+        *sleepType = (uint32_t)outs[0];
+        
+
+    return ret;
+
+}
+
+static void startAutoPowerOffSleep( )
+{
+    uint32_t sleepType = kIOPMSleepTypeInvalid;
+    CFTimeInterval nextAutoWake = 0.0;
+
+    if (isA_SleepState()) {
+        /* 
+         * IOPPF can't return proper sleep type when system is still not
+         * completely up. Check again after system wake is completed.
+         */
+        return;
+    }
+    /* 
+     * Check with IOPPF(thru root domain) if system is in a state to
+     * go into auto power off state. Also, make sure that there are 
+     * no user scheduled wake requests
+     */
+    getPlatformSleepType( &sleepType );
+    nextAutoWake = getEarliestRequestAutoWake();
+    if ( (sleepType != kIOPMSleepTypePowerOff) || (nextAutoWake != 0) ) {
+
+        if (gDebugFlags & kIOPMDebugLogCallbacks)
+            asl_log(0,0,ASL_LEVEL_ERR, "Resetting APO timer. sleepType:%d nextAutoWake:%f\n",
+                    sleepType, nextAutoWake);
+        setAutoPowerOffTimer(false, 0);
+        return;
+    }
+
+    if (gDebugFlags & kIOPMDebugLogCallbacks)
+       asl_log(0,0,ASL_LEVEL_ERR,  "Cancelling assertions for AutoPower Off\n");
+    cancelAutoPowerOffTimer( );
+    /*
+     * We will be here only if the system is  in dark wake. In that
+     * case, 'kPreventIdleIndex' assertion type is not honoured any more(except if it
+     * is a network wake, in which case system is not auto-Power off capable).
+     * If there are any assertions of type 'kPreventSleepIndex', then system is in
+     * server mode, which again make system not auto-power off capable.
+     *
+     * So, disabling 'kBackgroundTaskIndex' & 'kPushServiceTaskIndex' is good enough
+     */
+    cancelPowerNapStates( );
+}
+
+void cancelAutoPowerOffTimer()
+{
+
+    if (gApoDispatch)
+        dispatch_source_cancel(gApoDispatch);
+}
+
+/*
+ * setAutoPowerOffTimer: starts a timer to fire a little before the point when system 
+ *                       need to go into auto power off mode. Also sets the variable ts_apo, 
+ *                       indicating absolute time at which system need to go into APO mode.
+ * Params:initialCall -  set to true if this is called when system is going fom S0->S3
+ *        postponeAfter - When set to non-zero, timer is postponed by 'autopoweroffdelay' secs
+ *                        after the specified 'postponeAfter' value. Other wise, timer is set to 
+ *                        fire after 'autopowerofdelay' secs from current time.
+ */
+void setAutoPowerOffTimer(bool initialCall, CFAbsoluteTime  postponeAfter)
+{
+    int64_t apo_enable, apo_delay;
+    int64_t timer_fire;
+    CFAbsoluteTime  cur_time = 0.0;
+
+    if ( (GetPMSettingNumber(CFSTR(kIOPMAutoPowerOffEnabledKey), &apo_enable) != kIOReturnSuccess) ||
+            (apo_enable != 1) ) {
+        if (gDebugFlags & kIOPMDebugLogCallbacks)
+           asl_log(0,0,ASL_LEVEL_ERR, "Failed to get APO enabled key\n");
+        ts_apo = 0;
+        return;
+    }
+
+    if ( (GetPMSettingNumber(CFSTR(kIOPMAutoPowerOffDelayKey), &apo_delay) != kIOReturnSuccess) ) {
+        if (gDebugFlags & kIOPMDebugLogCallbacks)
+           asl_log(0,0,ASL_LEVEL_ERR, "Failed to get APO delay timer \n");
+        ts_apo = 0;
+        return;
+    }
+
+    cur_time = CFAbsoluteTimeGetCurrent();
+    if ( postponeAfter > cur_time )
+       ts_apo = postponeAfter + apo_delay;
+    else
+        ts_apo = cur_time + apo_delay;
+
+    if (apo_delay > kAutoPowerOffSleepAhead) {
+        /*
+         * Let the timer fire little ahead of actual auto power off time, to allow system
+         * go to sleep and wake up for auto power off.
+         */
+        timer_fire = (ts_apo - cur_time) - kAutoPowerOffSleepAhead;
+    }
+    else if ( !initialCall ) {
+        /* 
+         * For repeat checks, give at least 'apo_delay' secs 
+         * before checking the sleep state
+         */
+        if ( postponeAfter > cur_time )
+           timer_fire = (ts_apo - cur_time) - apo_delay;
+        else
+           timer_fire = apo_delay;
+    }
+    else {
+       /* No need of timer. Let the system go to sleep if Auto-power off is allowed */
+        startAutoPowerOffSleep();
+
+        return;
+    }
+
+
+    if (gApoDispatch)
+        dispatch_suspend(gApoDispatch);
+    else {
+        gApoDispatch = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0,
+                0, dispatch_get_main_queue()); 
+        dispatch_source_set_event_handler(gApoDispatch, ^{
+            startAutoPowerOffSleep();
+        });
+            
+        dispatch_source_set_cancel_handler(gApoDispatch, ^{
+            if (gApoDispatch) {
+                dispatch_release(gApoDispatch);
+                gApoDispatch = 0;
+            }
+        }); 
+
+    }
+
+    if (gDebugFlags & kIOPMDebugLogCallbacks)
+        asl_log(0,0,ASL_LEVEL_ERR,
+                "Set auto power off timer to fire in %lld secs\n", timer_fire);
+    dispatch_source_set_timer(gApoDispatch, 
+            dispatch_walltime(NULL, timer_fire * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+    dispatch_resume(gApoDispatch);
+
+}
+
+/* Evaulate for Power source change */
+void evalForPSChange( )
+{
+   int         pwrSrc;
+   static int  prevPwrSrc = -1;
+
+   pwrSrc = _getPowerSource();
+   if (pwrSrc == prevPwrSrc)
+      return; // If power source hasn't changed, there is nothing to do
+
+   prevPwrSrc = pwrSrc;
+   if (pwrSrc == kBatteryPowered)
+       return;
+
+   if ((pwrSrc == kACPowered) && gApoDispatch ) {
+       setAutoPowerOffTimer(false, 0);
+   }
+
+}
+
+__private_extern__ void InternalEvalConnections(void)
+{
+    CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{
+        evalForPSChange();
+    });
+    CFRunLoopWakeUp(_getPMRunLoop());
+    
+}
+
+
+/*****************************************************************************/
 /* PMConnectionPowerCallBack */
 /*****************************************************************************/
 
@@ -1420,6 +1641,7 @@ static void PMConnectionPowerCallBack(
     PMResponseWrangler        *responseController = NULL;
     IOPMCapabilityBits        deliverCapabilityBits = 0;
     const struct        IOPMSystemCapabilityChangeParameters *capArgs;
+    CFAbsoluteTime  cur_time = 0.0;
 #if !TARGET_OS_EMBEDDED
     CFStringRef         wakeType = NULL;
 #endif
@@ -1433,7 +1655,8 @@ static void PMConnectionPowerCallBack(
     capArgs = (const struct IOPMSystemCapabilityChangeParameters *)messageData;
 
     AutoWakeCapabilitiesNotification(capArgs->fromCapabilities, capArgs->toCapabilities);
-    ClockSleepWakeNotification(capArgs->fromCapabilities, capArgs->toCapabilities);
+    ClockSleepWakeNotification(capArgs->fromCapabilities, capArgs->toCapabilities,
+                               capArgs->changeFlags);
 
     if (IS_DARK_CAPABILITIES(capArgs->fromCapabilities)
         && !IS_DARK_CAPABILITIES(capArgs->toCapabilities))
@@ -1461,6 +1684,8 @@ static void PMConnectionPowerCallBack(
 
            if (_DWBT_allowed() && checkForEntriesByType(kBackgroundTaskIndex)) 
               gWakeForDWBTInterval = ts_nextPowerNap;
+           else
+              gWakeForDWBTInterval = 0;
         }
 #endif
 
@@ -1494,6 +1719,7 @@ static void PMConnectionPowerCallBack(
 #if !TARGET_OS_EMBEDDED
     } else if (SYSTEM_WILL_SLEEP_TO_S0DARK(capArgs))
     {
+       setAutoPowerOffTimer(true, 0);
 
        /* 
         * This notification is issued before every sleep. Log to asl only if
@@ -1523,11 +1749,13 @@ static void PMConnectionPowerCallBack(
        //If system is in any power nap state, cancel those states
        cancelPowerNapStates();
 
+
         if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityGraphics))
         {
             // e.g. System has powered into full wake
             // Unclamp SilentRunning ASAP
             _unclamp_silent_running();
+            cancelAutoPowerOffTimer();
 
             deliverCapabilityBits =
                     kIOPMCapabilityCPU | kIOPMCapabilityDisk 
@@ -1557,12 +1785,13 @@ static void PMConnectionPowerCallBack(
             gPowerState |= kDarkWakeState;
             
             _ProxyAssertions(capArgs);
+            cur_time = CFAbsoluteTimeGetCurrent();
 #if !TARGET_OS_EMBEDDED
 
             if (checkForActivesByType(kPreventSleepIndex)) {
                _unclamp_silent_running();
             }
-            else if ( CFAbsoluteTimeGetCurrent() >= ts_nextPowerNap ) {
+            else if ( cur_time >= ts_nextPowerNap ) {
                wakeType = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeTypeKey));
                if (isA_CFString(wakeType) && (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) || 
                             CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService)  ) ) {
@@ -1585,6 +1814,13 @@ static void PMConnectionPowerCallBack(
                if (wakeType) CFRelease(wakeType);
             }
 #endif
+            if (gApoDispatch && ts_apo && (cur_time > ts_apo - kAutoPowerOffSleepAhead) ) {
+                /* Check for auto-power off if required */
+                dispatch_suspend(gApoDispatch);
+                dispatch_source_set_timer(gApoDispatch, 
+                        DISPATCH_TIME_NOW, DISPATCH_TIME_FOREVER, 0);
+                dispatch_resume(gApoDispatch);
+            }
         } 
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
         setSystemSleepStateTracking(deliverCapabilityBits);
@@ -1929,6 +2165,15 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
         allWakeEventsString = CFStringCreateMutable(0, 0);
     }
     
+#if 0
+    if (ts_apo) {
+        CFAbsoluteTime t = CFAbsoluteTimeGetCurrent();
+        if (ts_apo > t) t = ts_apo;
+        describeWakeEvent(NULL, 
+                          allWakeEventsString, CFSTR("AutoPowerOffTimer"), t,
+                          NULL);
+    }
+#endif
     if (_DWBT_allowed() && gWakeForDWBTInterval) {
         describeWakeEvent(NULL, 
                           allWakeEventsString, CFSTR("BTIntervalWaitToDarkWake"), 
@@ -2078,7 +2323,13 @@ __private_extern__ void PMScheduleWakeEventChooseBest(CFAbsoluteTime *pickWakeEv
     CFStringRef     scheduleWakeType                    = NULL;
     CFAbsoluteTime  scheduleTime                        = 0.0;
     CFAbsoluteTime  dummy[kChooseWakeTypeCount];
+    CFNumberRef     diff_secs = NULL;
     int             idx;
+    uint32_t        secs_to_apo = UINT_MAX;
+    CFAbsoluteTime  cur_time = 0.0;
+    uint32_t        sleepType = kIOPMSleepTypeInvalid;
+    bool            skip_scheduling = false;
+    CFBooleanRef    scheduleEvent = kCFBooleanFalse;
     
     if (!pickWakeEvent) {
         bzero(dummy, sizeof(dummy));
@@ -2089,13 +2340,72 @@ __private_extern__ void PMScheduleWakeEventChooseBest(CFAbsoluteTime *pickWakeEv
     if (_DWBT_allowed() && gWakeForDWBTInterval) {
         pickWakeEvent[kChooseDWBTInterval]      =  gWakeForDWBTInterval;
     }
- 
-    if (!pickEarliestEvent(pickWakeEvent, &idx, &scheduleTime))
+
+    if ( !pickEarliestEvent(pickWakeEvent, &idx, &scheduleTime) )
     {
-        // Nothing to schedule. bail.
-        return;
+        // Set a huge number for following comaprisions with power off timer
+        scheduleTime = kCFAbsoluteTimeIntervalSince1904;
     }
-    
+
+
+    // Always set the Auto Power off timer
+    if ( ts_apo != 0 ) 
+    {
+        // Using 'kIOPMUserWakeAlarmScheduledKey' property to report both user requsted
+        // wakes and Sleep service related wakes, as there is no other way to report
+        // sleep service related schedules to rootDomain
+        if (pickWakeEvent[kChooseFullWake]  || pickWakeEvent[kChooseSleepServiceWake]) {
+
+            scheduleEvent = kCFBooleanTrue;
+            _setRootDomainProperty(CFSTR(kIOPMUserWakeAlarmScheduledKey), scheduleEvent);
+        }
+        else {
+            scheduleEvent = kCFBooleanFalse;
+            _setRootDomainProperty(CFSTR(kIOPMUserWakeAlarmScheduledKey), scheduleEvent);
+        }
+
+        if (ts_apo < scheduleTime+kAutoPowerOffSleepAhead) {
+
+           getPlatformSleepType( &sleepType );
+           if ((scheduleEvent == kCFBooleanFalse) && (sleepType == kIOPMSleepTypePowerOff))
+               skip_scheduling = true;
+
+        }
+
+        cur_time = CFAbsoluteTimeGetCurrent();
+        if (cur_time >= ts_apo)
+            secs_to_apo = 0;
+        else
+            secs_to_apo = ts_apo - cur_time;
+
+        diff_secs = CFNumberCreate(0, kCFNumberLongType, &secs_to_apo);
+        if (diff_secs) {
+           _setRootDomainProperty( CFSTR(kIOPMAutoPowerOffTimerKey), (CFTypeRef)diff_secs );
+           CFRelease(diff_secs);
+        }
+ 
+       if ( skip_scheduling ) {
+             // Auto Power off timer is the earliest one and system is capable of
+             // entering ErpLot6. Don't schedule any other wakes.
+             if (gDebugFlags & kIOPMDebugLogCallbacks)
+                asl_log(0,0,ASL_LEVEL_ERR, 
+                     "Not scheduling other wakes to allow AutoPower off. APO timer:%d\n", 
+                     secs_to_apo);
+             return;
+       }
+       if (gDebugFlags & kIOPMDebugLogCallbacks)
+             asl_log(0,0,ASL_LEVEL_ERR, "SS_wake:%d Alarm_wake:%d sleepType:%d APO timer:%d secs\n", 
+                     (pickWakeEvent[kChooseSleepServiceWake] != 0),
+                     (pickWakeEvent[kChooseFullWake] != 0),
+                     sleepType, secs_to_apo);
+    }
+
+    if ( scheduleTime == kCFAbsoluteTimeIntervalSince1904) 
+    {
+       // Nothing to schedule. bail..
+       return;
+    }
+
     // INVARIANT: At least one of the WakeTimes we're evaluating has a valid date
     if ((kChooseMaintenance == idx) || (kChooseDWBTInterval == idx) 
             || (kChooseTimerPlugin == idx))
@@ -2266,4 +2576,9 @@ __private_extern__ IOReturn _unclamp_silent_running(void)
     {
         return kIOReturnInternalError;
     }
+}
+
+__private_extern__ io_connect_t getRootDomainConnect()
+{
+   return gRootDomainConnect;
 }

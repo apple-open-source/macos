@@ -26,7 +26,7 @@
 	<string>APPLEUSBMERGENUB_VERSION</string>
 	<key>IOKitPersonalities</key>
 	<dict>
- 		<key>Kensington 7-in-1 card reader</key>
+		<key>Kensington 7-in-1 card reader</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -133,6 +133,24 @@
 			<integer>4115</integer>
 			<key>idVendor</key>
 			<integer>18801</integer>
+		</dict>
+		<key>Symwave</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ForceBOTProtocol</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<string>*</string>
+			<key>idVendor</key>
+			<integer>7329</integer>
 		</dict>
 		<key>64GB ExpressCard/34 SSD</key>
 		<dict>
@@ -493,6 +511,24 @@
 			<integer>256</integer>
 			<key>idVendor</key>
 			<integer>4794</integer>
+		</dict>
+		<key>VIA Devices</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kHubPowerSequencingDelay</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<string>*</string>
+			<key>idVendor</key>
+			<integer>8457</integer>
 		</dict>
 		<key>VIA810</key>
 		<dict>

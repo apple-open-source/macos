@@ -60,6 +60,7 @@ kcm_is_same_session(kcm_client *client, uid_t uid, pid_t session)
 	return 1;
     }
 
+
     kcm_log(1, "denied");
     return 0;
 }

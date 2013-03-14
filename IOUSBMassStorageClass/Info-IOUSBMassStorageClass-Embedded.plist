@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOUSBMassStorageClass</string>
+	<key>CFBundleGetInfoString</key>
+	<string>$(IO_USB_MASS_STORAGE_CLASS_VERSION_COPYRIGHT)</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOUSBMassStorageClass</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOUSBMassStorageClass</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(IO_USB_MASS_STORAGE_CLASS_MODULE_VERSION)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(IO_USB_MASS_STORAGE_CLASS_MODULE_VERSION)</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOUSBMassStorageClass1</key>
+		<dict>
+			<key>SCSI Device Characteristics</key>
+			<dict>
+				<key>Inquiry Length</key>
+				<integer>36</integer>
+				<key>Manual Eject</key>
+				<string>true</string>
+				<key>IOMaximumBlockCountRead</key>
+				<integer>128</integer>
+				<key>IOMaximumBlockCountWrite</key>
+				<integer>128</integer>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>1</integer>
+		</dict>
+		<key>IOUSBMassStorageClass2</key>
+		<dict>
+			<key>SCSI Device Characteristics</key>
+			<dict>
+				<key>Inquiry Length</key>
+				<integer>36</integer>
+				<key>Manual Eject</key>
+				<string>true</string>
+				<key>IOMaximumBlockCountRead</key>
+				<integer>128</integer>
+				<key>IOMaximumBlockCountWrite</key>
+				<integer>128</integer>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>2</integer>
+		</dict>
+		<key>IOUSBMassStorageClass3</key>
+		<dict>
+			<key>SCSI Device Characteristics</key>
+			<dict>
+				<key>Inquiry Length</key>
+				<integer>36</integer>
+				<key>Manual Eject</key>
+				<string>true</string>
+				<key>IOMaximumBlockCountRead</key>
+				<integer>128</integer>
+				<key>IOMaximumBlockCountWrite</key>
+				<integer>128</integer>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>3</integer>
+		</dict>
+		<key>IOUSBMassStorageClass6</key>
+		<dict>
+			<key>SCSI Device Characteristics</key>
+			<dict>
+				<key>Inquiry Length</key>
+				<integer>36</integer>
+				<key>Manual Eject</key>
+				<string>true</string>
+				<key>IOMaximumBlockCountRead</key>
+				<integer>128</integer>
+				<key>IOMaximumBlockCountWrite</key>
+				<integer>128</integer>
+			</dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>6</integer>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOStorageFamily</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOUSBFamily</key>
+		<string>3.0.0</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>9.0.0</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>9.0.0</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>9.0.0</string>
+		<key>com.apple.kpi.mach</key>
+		<string>9.0.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>

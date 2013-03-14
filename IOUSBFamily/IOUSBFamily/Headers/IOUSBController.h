@@ -591,15 +591,15 @@ public:
         @field number Endpoint number
 	@field direction Endpoint direction: kUSBOut, kUSBIn, kUSBAnyDirn
 	@field transferType Type of endpoint: kUSBControl, kUSBIsoc, kUSBBulk, kUSBInterrupt
-	@field maxPacketSize Maximum packet size for endpoint
+	@field maxPacketSize Maximum packet size for endpoint, which will include the multiplier for HS High Bandwidth endpoints
 	@field interval Polling interval in milliseconds (only relevent for Interrupt endpoints)
     */
     struct Endpoint {
         IOUSBEndpointDescriptor	*	descriptor;
         UInt8 				number;
-        UInt8				direction;	// in, out
+        UInt8				direction;		// in, out
         UInt8				transferType;	// cntrl, bulk, isoc, int
-        UInt16				maxPacketSize;
+        UInt16				maxPacketSize;	// MPS (includes the multiplier for HS High Bandwidth Isoch endpoints)
         UInt8				interval;
     };
 

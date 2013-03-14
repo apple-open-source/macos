@@ -24,7 +24,6 @@ LD_DYLIB_INSTALL_NAME = /usr/lib/system/$(EXECUTABLE_NAME)
 
 BUILD_VARIANTS = normal debug
 
-// clang is desired over llvm-gcc for OSAtomics. However, it isn't capable of building armv6 correctly on Sundance
 GCC_VERSION = com.apple.compilers.llvm.clang.1_0
 GCC_VERSION[arch=armv6] = com.apple.compilers.llvmgcc42
 

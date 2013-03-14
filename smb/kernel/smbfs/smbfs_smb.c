@@ -1932,7 +1932,17 @@ smbfs_qfsattr(struct smb_share *share, vfs_context_t context)
     }
 	else {
 		md_get_uint32le(mdp,  &share->ss_attributes);
-		md_get_uint32le(mdp, &share->ss_maxfilenamelen);
+        
+	/*
+	 * Make sure Max Name Length is a reasonable value.
+	 * See <rdar://problem/12171424>.
+	 */
+	md_get_uint32le(mdp, &share->ss_maxfilenamelen);
+	if (share->ss_maxfilenamelen > (SMB_MAXFNAMELEN * 2)) {
+		SMBERROR("Illegal file name len %u\n", share->ss_maxfilenamelen);
+		share->ss_maxfilenamelen = 255;
+	}
+        
 		error = md_get_uint32le(mdp, &nlen);	/* fs name length */
 	}
 	if (error) {
@@ -3219,13 +3229,19 @@ smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 	if (fidp)
 		*fidp = fid;
     
-	/* We need to be reopen don't update anything at this point. */
-	lck_mtx_lock(&np->f_openStateLock);
-	if (np->f_openState == kNeedReopen) {
-		lck_mtx_unlock(&np->f_openStateLock);
-		goto WeAreDone;
-	}
-	lck_mtx_unlock(&np->f_openStateLock);
+    /*
+     * If not a directory, check if node needs to be reopened,
+     * if so, then don't update anything at this point.
+     * See <rdar://problem/11366143>.
+     */
+    if (vt != VDIR) {
+        lck_mtx_lock(&np->f_openStateLock);
+        if (np->f_openState == kNeedReopen) {
+            lck_mtx_unlock(&np->f_openStateLock);
+            goto WeAreDone;
+        }
+        lck_mtx_unlock(&np->f_openStateLock);
+    }
 	
 	if (xattr)	{
 		/* If an EA or Stream then we are done */

@@ -120,6 +120,9 @@ typedef enum {
     wkPatternTilingConstantSpacing
 } wkPatternTiling;
 extern void (*wkCGContextResetClip)(CGContextRef);
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
+extern bool (*wkCGContextDrawsWithCorrectShadowOffsets)(CGContextRef);
+#endif
 extern CGPatternRef (*wkCGPatternCreateWithImageAndTransform)(CGImageRef, CGAffineTransform, int);
 extern CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadStreamRef, void *), 
     void (*formFinalize)(CFReadStreamRef, void *), 
@@ -189,7 +192,7 @@ extern void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
 extern NSArray *(*wkQTGetSitesInMediaDownloadCache)();
 extern void (*wkQTClearMediaDownloadCacheForSite)(NSString *site);
 extern void (*wkQTClearMediaDownloadCache)();
-extern void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
+extern void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*, BOOL);
 extern void (*wkSetCookieStoragePrivateBrowsingEnabled)(BOOL);
 extern void (*wkSetDragImage)(NSImage*, NSPoint offset);
 extern void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);

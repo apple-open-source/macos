@@ -94,6 +94,8 @@
 - (void) announceHint:(MBCMove *) move;
 - (void) announceLastMove:(MBCMove *) move;
 
+- (void) removeController;
+
 @end
 
 // Local Variables:

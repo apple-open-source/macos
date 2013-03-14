@@ -191,8 +191,8 @@ static NAME_MASK smtpd_pw_server_mask[] = {
 	"none",       PW_SERVER_NONE,
 	"login",      PW_SERVER_LOGIN,
 	"plain",      PW_SERVER_PLAIN,
-	"cram-md5",   PW_SERVER_DIGEST_MD5,
-	"digest-md5", PW_SERVER_CRAM_MD5,
+	"cram-md5",   PW_SERVER_CRAM_MD5,
+	"digest-md5", PW_SERVER_DIGEST_MD5,
 	"gssapi",     PW_SERVER_GSSAPI,
 	0,
 };

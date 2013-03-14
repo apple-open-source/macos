@@ -227,30 +227,23 @@ char *cfStringToChar(CFStringRef inStr)
     // Caller must free
     char *result = NULL;
     const char *str = NULL;
-    
-	if (!inStr)
-        return calloc(1,1);
 
-    CFRetain(inStr);	// compensate for release on exit
+    if (!inStr)
+        return strdup("");     // return a null string
 
-	// quick path first
-	if ((str = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8)))
-    {
-        size_t len = strlen(str);
-        result = malloc(len);
-        strcpy(result, str);
-        goto xit;
-	}
-	
-	// need to extract into buffer
-	CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
-    size_t len = 6 * length + 1;
-	result = malloc(len);                       // pessimistic
-	if (!CFStringGetCString(inStr, result, len, kCFStringEncodingUTF8))
-		result[0] = 0;
-xit:
-    CFRelease(inStr);
-	return result;
+    // quick path first
+    if ((str = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8))) {
+        result = strdup(str);
+    } else {
+        // need to extract into buffer
+        CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
+        CFIndex bytesToAllocate = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+        result = malloc(bytesToAllocate);
+        if (!CFStringGetCString(inStr, result, bytesToAllocate, kCFStringEncodingUTF8))
+            result[0] = 0;
+    }
+
+    return result;
 }
 
 /* Oids longer than this are considered invalid. */

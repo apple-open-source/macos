@@ -309,11 +309,6 @@ IOReturn AppleSmartBatteryManager::performExternalTransactionGated(
 {
     IOSMBusTransaction      *trans = (IOSMBusTransaction *)arg0;
     IOReturn                *return_code = (IOReturn *)arg1;
-
-    /* Only excluive access userclients may use this interface */
-    if (!fExclusiveUserClient) {
-        return kIOReturnExclusiveAccess;
-    }
     
     *return_code = fProvider->performTransaction(
                         trans,          /* transaction */
@@ -536,6 +531,10 @@ bool AppleSmartBatteryManager::requestExclusiveSMBusAccess(
                     (void *)request, NULL, NULL, NULL);
 
     return true;
+}
+
+bool AppleSmartBatteryManager::hasExclusiveClient(void) {
+    return fExclusiveUserClient;    
 }
 
 void AppleSmartBatteryManager::gatedSendCommand(

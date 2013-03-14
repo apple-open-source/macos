@@ -157,13 +157,14 @@ Node::InsertionNotificationRequest HTMLFrameElementBase::insertedInto(Node* inse
 {
     HTMLFrameOwnerElement::insertedInto(insertionPoint);
     if (insertionPoint->inDocument())
-        return InsertionShouldCallDidNotifyDescendantInseretions;
+        return InsertionShouldCallDidNotifySubtreeInsertions;
     return InsertionDone;
 }
 
-void HTMLFrameElementBase::didNotifyDescendantInseretions(Node* insertionPoint)
+void HTMLFrameElementBase::didNotifySubtreeInsertions(Node*)
 {
-    ASSERT_UNUSED(insertionPoint, insertionPoint->inDocument());
+    if (!inDocument())
+        return;
 
     // DocumentFragments don't kick of any loads.
     if (!document()->frame())

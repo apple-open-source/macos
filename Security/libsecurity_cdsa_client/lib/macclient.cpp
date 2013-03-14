@@ -29,15 +29,18 @@ using namespace CssmClient;
 //
 void MacContext::activate()
 {
-    StLock<Mutex> _(mActivateMutex);
-	if (!mActive) 
-	{
-		check(CSSM_CSP_CreateMacContext(attachment()->handle(), mAlgorithm,
-			  mKey, &mHandle));
-		mActive = true;
-		if (cred())
-			cred(cred());		// install explicitly
-	}
+    {
+        StLock<Mutex> _(mActivateMutex);
+        if (!mActive) 
+        {
+            check(CSSM_CSP_CreateMacContext(attachment()->handle(), mAlgorithm,
+                  mKey, &mHandle));
+            mActive = true;
+        }
+    }
+
+    if (cred())
+        cred(cred());		// install explicitly
 }
 
 

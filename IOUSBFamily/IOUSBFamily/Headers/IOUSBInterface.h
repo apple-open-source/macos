@@ -41,7 +41,10 @@
 class IOUSBInterface : public IOUSBNub
 {
     friend class IOUSBInterfaceUserClientV2;
+    friend class IOUSBInterfaceUserClientV3;
     friend class IOUSBDevice;
+	friend class IOUSBPipe;
+	friend class IOUSBPipeV2;
 	
     OSDeclareDefaultStructors(IOUSBInterface)
 
@@ -83,6 +86,10 @@ protected:
     IOReturn 			ReopenPipesGated();             // relink all pipes (except pipe zero) (not virtual)
 	void	 			RememberStreamsGated(void);
 	IOReturn	 		RecreateStreamsGated(void);
+    
+    // Return the "Full" MaxPacketSize, given an endpoint descriptor and a pointer to an sscd if there is one
+    // This will multiple the MPS in the ep by the mult and the burst which may or may not be present
+    UInt16              CalculateFullMaxPacketSize(IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEndpointCompanionDescriptor *sscd);
 	
 public:
 	// static methods
@@ -299,7 +306,18 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBInterface,  5);
     virtual void	ReopenPipes(void);				// open all pipes in the current interface/alt interface
 
-    OSMetaClassDeclareReservedUnused(IOUSBInterface,  6);
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  6);
+    /*!
+	 @function GetEndpointPropertiesV3
+	 @abstract Returns the properties of an endpoint, possibly in an alternate interface, including any information from the SuperSpeed Companion Descriptor
+	 @param endpointProperties  Pointer to a IOUSBEndpointProperties structure that upon success will contain the information for the endpoint.  The bVersion field
+	 needs to be initialized with the structure version (see USBEndpointVersion enum in USB.h).  The bAlternateSetting, bEndpointNumber, and bDirection (kUSBIn, kUSBOut) MUST also be filled
+	 in with the values for the desired descriptor.  Not that the bMaxStreams value for Bulk endpoints is the value specified by the bmAttributes field in the SuperSpeed companion descriptor.
+	 @result returns kIOReturnSuccess if the endpoint is found, and kIOUSBEndpointNotFound if it is not.
+	 */
+    virtual IOReturn GetEndpointPropertiesV3(IOUSBEndpointProperties *endpointProperties);
+    
+	
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  7);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  8);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  9);

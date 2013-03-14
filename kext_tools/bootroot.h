@@ -205,6 +205,7 @@ OSStatus BRCopyBootFiles(CFURLRef srcVol,
  *  @param  targetDir - optional target directory relative to targetBSDName
  *  @param  blessSpec - how to bless the boot bits being copied
  *  @param  pickerLabel - [optional] what the option-picker should show
+ *  @param  options - select various optional behaviors (details below)
  *
  *  @result     0 if up to date caches were copied
  *              ?? kPOSIXErrorBase could be used to encode errno ??
@@ -246,6 +247,14 @@ typedef enum {
     kBRBlessOnce    = 0x20  // efi-boot-next -> tmpdir/boot.efi
                             // (system will boot these files once)
 } BRBlessStyle;
+typedef enum {
+    kBRUOptsNone            = 0x0,
+    kBRUForceUpdateHelpers  = 0x1,     // helper partitions MUST be updated
+    kBRUCachesOnly          = 0x2,     // do NOT update helper partitions
+    kBRUHelpersOptional     = 0x4,     // ignore helper update failures
+    kBRUExpectUpToDate      = 0x8,     // successful updates -> EX_OSFILE
+    kBRUAnyBootStamps       = 0x10     // bootstamps written to top level
+} BRUpdateOpts_t;
 OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
                               CFURLRef initialRoot,
                               CFDictionaryRef bootPrefOverrides,
@@ -253,6 +262,14 @@ OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
                               CFURLRef targetDir,
                               BRBlessStyle blessSpec,
                               CFStringRef pickerLabel);
+OSStatus BRCopyBootFilesWithOpts(CFURLRef srcVol,
+                              CFURLRef initialRoot,
+                              CFDictionaryRef bootPrefOverrides,
+                              CFStringRef targetBSDName,
+                              CFURLRef targetDir,
+                              BRBlessStyle blessSpec,
+                              CFStringRef pickerLabel,
+                              BRUpdateOpts_t opts);
 
 
 /*!

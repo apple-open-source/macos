@@ -142,6 +142,36 @@ GetPMSettingBool(CFStringRef which)
 
 
 
+__private_extern__ IOReturn
+GetPMSettingNumber(CFStringRef which, int64_t *value)
+{
+    CFDictionaryRef     current_settings; 
+    CFNumberRef         n;
+    CFStringRef         pwrSrc;
+    
+    if (!energySettings || !which) 
+        return kIOReturnBadArgument;
+
+    if (_getPowerSource() == kBatteryPowered)
+       pwrSrc = CFSTR(kIOPMBatteryPowerKey);
+    else
+       pwrSrc = CFSTR(kIOPMACPowerKey);
+    // Don't use 'currentPowerSource' here as that gets updated
+    // little slowly after this function is called to get a setting
+    // on new power source.
+    current_settings = (CFDictionaryRef)isA_CFDictionary(
+                         CFDictionaryGetValue(energySettings, pwrSrc));
+
+    if (current_settings) {
+        n = CFDictionaryGetValue(current_settings, which);
+        if (isA_CFNumber(n)) {
+            CFNumberGetValue(n, kCFNumberSInt64Type, value);
+            return kIOReturnSuccess;
+        }
+    }
+    return kIOReturnError;
+}
+
 /* Returns Display sleep time in minutes */
 __private_extern__ IOReturn
 getDisplaySleepTimer(uint32_t *displaySleepTimer)

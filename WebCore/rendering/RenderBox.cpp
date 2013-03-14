@@ -44,6 +44,7 @@
 #include "RenderBoxRegionInfo.h"
 #include "RenderFlexibleBox.h"
 #include "RenderFlowThread.h"
+#include "RenderGeometryMap.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderPart.h"
@@ -290,12 +291,8 @@ void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
         }
     }
 
-    if (isPositioned()) {
-        for (RenderObject* curr = parent(); curr; curr = curr->parent()) {
-            if (curr->isRenderBlock())
-                toRenderBlock(curr)->removePositionedObject(this);
-        }
-    }
+    if (isPositioned())
+        RenderBlock::removePositionedObject(this);
 }
 
 void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
@@ -566,16 +563,16 @@ FloatQuad RenderBox::absoluteContentQuad() const
     return localToAbsoluteQuad(FloatRect(rect));
 }
 
-LayoutRect RenderBox::outlineBoundsForRepaint(RenderBoxModelObject* repaintContainer, LayoutPoint* cachedOffsetToRepaintContainer) const
+LayoutRect RenderBox::outlineBoundsForRepaint(RenderBoxModelObject* repaintContainer, const RenderGeometryMap* geometryMap) const
 {
     LayoutRect box = borderBoundingBox();
     adjustRectForOutlineAndShadow(box);
 
-    FloatQuad containerRelativeQuad = FloatRect(box);
-    if (cachedOffsetToRepaintContainer)
-        containerRelativeQuad.move(cachedOffsetToRepaintContainer->x(), cachedOffsetToRepaintContainer->y());
+    FloatQuad containerRelativeQuad;
+    if (geometryMap)
+        containerRelativeQuad = geometryMap->mapToContainer(box, repaintContainer);
     else
-        containerRelativeQuad = localToContainerQuad(containerRelativeQuad, repaintContainer);
+        containerRelativeQuad = localToContainerQuad(FloatRect(box), repaintContainer);
 
     box = containerRelativeQuad.enclosingBoundingBox();
 
@@ -1394,12 +1391,13 @@ void RenderBox::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool
 
     bool isFixedPos = style()->position() == FixedPosition;
     bool hasTransform = hasLayer() && layer()->transform();
-    if (hasTransform) {
-        // If this box has a transform, it acts as a fixed position container for fixed descendants,
-        // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
-        fixed &= isFixedPos;
-    } else
-        fixed |= isFixedPos;
+    // If this box has a transform, it acts as a fixed position container for fixed descendants,
+    // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
+    if (hasTransform && !isFixedPos)
+        fixed = false;
+    else if (isFixedPos)
+        fixed = true;
+
     if (wasFixed)
         *wasFixed = fixed;
     
@@ -1432,6 +1430,46 @@ void RenderBox::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool
     o->mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState, DoNotApplyContainerFlip, wasFixed);
 }
 
+const RenderObject* RenderBox::pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
+{
+    ASSERT(ancestorToStopAt != this);
+
+    bool ancestorSkipped;
+    RenderObject* container = this->container(ancestorToStopAt, &ancestorSkipped);
+    if (!container)
+        return 0;
+
+    bool isFixedPos = style()->position() == FixedPosition;
+    bool hasTransform = hasLayer() && layer()->transform();
+
+    LayoutSize adjustmentForSkippedAncestor;
+    if (ancestorSkipped) {
+        // There can't be a transform between repaintContainer and o, because transforms create containers, so it should be safe
+        // to just subtract the delta between the ancestor and o.
+        adjustmentForSkippedAncestor = -ancestorToStopAt->offsetFromAncestorContainer(container);
+    }
+
+    bool offsetDependsOnPoint = false;
+    LayoutSize containerOffset = offsetFromContainer(container, LayoutPoint(), &offsetDependsOnPoint);
+
+    if (container->isRenderFlowThread())
+        offsetDependsOnPoint = true;
+    
+    bool preserve3D = container->style()->preserves3D() || style()->preserves3D();
+    if (shouldUseTransformFromContainer(container)) {
+        TransformationMatrix t;
+        getTransformFromContainer(container, containerOffset, t);
+        t.translateRight(adjustmentForSkippedAncestor.width(), adjustmentForSkippedAncestor.height());
+        
+        geometryMap.push(this, t, preserve3D, offsetDependsOnPoint, isFixedPos, hasTransform);
+    } else {
+        containerOffset += adjustmentForSkippedAncestor;
+        geometryMap.push(this, containerOffset, preserve3D, offsetDependsOnPoint, isFixedPos, hasTransform);
+    }
+    
+    return ancestorSkipped ? ancestorToStopAt : container;
+}
+
 void RenderBox::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState& transformState) const
 {
     // We don't expect absoluteToLocal() to be called during layout (yet)
@@ -1449,7 +1487,7 @@ void RenderBox::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, Transfor
     RenderBoxModelObject::mapAbsoluteToLocalPoint(fixed, useTransforms, transformState);
 }
 
-LayoutSize RenderBox::offsetFromContainer(RenderObject* o, const LayoutPoint& point) const
+LayoutSize RenderBox::offsetFromContainer(RenderObject* o, const LayoutPoint& point, bool* offsetDependsOnPoint) const
 {
     ASSERT(o == container());
 
@@ -1467,6 +1505,9 @@ LayoutSize RenderBox::offsetFromContainer(RenderObject* o, const LayoutPoint& po
             offset = toLayoutSize(block->flipForWritingModeIncludingColumns(toLayoutPoint(offset)));
             o->adjustForColumns(offset, columnPoint);
             offset = block->flipForWritingMode(offset);
+
+            if (offsetDependsOnPoint)
+                *offsetDependsOnPoint = true;
         } else
             offset += topLeftLocationOffset();
     }
@@ -4010,36 +4051,15 @@ bool RenderBox::hasRelativeLogicalHeight() const
             || style()->logicalMaxHeight().isPercent();
 }
 
-void RenderBox::moveChildTo(RenderBox* toBox, RenderObject* child, RenderObject* beforeChild, bool fullRemoveInsert)
-{
-    ASSERT(this == child->parent());
-    ASSERT(!beforeChild || toBox == beforeChild->parent());
-    if (fullRemoveInsert && toBox->isRenderBlock()) {
-        // Takes care of adding the new child correctly if toBlock and fromBlock
-        // have different kind of children (block vs inline).
-        toBox->addChild(virtualChildren()->removeChildNode(this, child), beforeChild);
-    } else
-        toBox->virtualChildren()->insertChildNode(toBox, virtualChildren()->removeChildNode(this, child, fullRemoveInsert), beforeChild, fullRemoveInsert);
-}
-
-void RenderBox::moveChildrenTo(RenderBox* toBox, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, bool fullRemoveInsert)
-{
-    ASSERT(!beforeChild || toBox == beforeChild->parent());
-    for (RenderObject* child = startChild; child && child != endChild; ) {
-        // Save our next sibling as moveChildTo will clear it.
-        RenderObject* nextSibling = child->nextSibling();
-        moveChildTo(toBox, child, beforeChild, fullRemoveInsert);
-        child = nextSibling;
-    }
-}
-
 static void markBoxForRelayoutAfterSplit(RenderBox* box)
 {
     // FIXME: The table code should handle that automatically. If not,
     // we should fix it and remove the table part checks.
-    if (box->isTable())
-        toRenderTable(box)->setNeedsSectionRecalc();
-    else if (box->isTableSection())
+    if (box->isTable()) {
+        // Because we may have added some sections with already computed column structures, we need to
+        // sync the table structure with them now. This avoids crashes when adding new cells to the table.
+        toRenderTable(box)->forceSectionsRecalc();
+    } else if (box->isTableSection())
         toRenderTableSection(box)->setNeedsCellRecalc();
 
     box->setNeedsLayoutAndPrefWidthsRecalc();
@@ -4059,8 +4079,12 @@ RenderObject* RenderBox::splitAnonymousBoxesAroundChild(RenderObject* beforeChil
             RenderBox* postBox = boxToSplit->createAnonymousBoxWithSameTypeAs(this);
             postBox->setChildrenInline(boxToSplit->childrenInline());
             RenderBox* parentBox = toRenderBox(boxToSplit->parent());
+            // We need to invalidate the |parentBox| before inserting the new node
+            // so that the table repainting logic knows the structure is dirty.
+            // See for example RenderTableCell:clippedOverflowRectForRepaint.
+            markBoxForRelayoutAfterSplit(parentBox);
             parentBox->virtualChildren()->insertChildNode(parentBox, postBox, boxToSplit->nextSibling());
-            boxToSplit->moveChildrenTo(postBox, beforeChild, 0, boxToSplit->hasLayer());
+            boxToSplit->moveChildrenTo(postBox, beforeChild, 0, true);
 
             markBoxForRelayoutAfterSplit(boxToSplit);
             markBoxForRelayoutAfterSplit(postBox);

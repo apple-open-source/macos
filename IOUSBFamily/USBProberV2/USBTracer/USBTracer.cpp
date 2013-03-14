@@ -1808,7 +1808,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				log(info, "Controller", "Isoc End", parg1, "error 0x%x   frameListPtr: 0x%x", arg2, arg3);
+				log(info, "Controller", "Isoc End", parg1, "error 0x%x   frameListPtr: %p", arg2, (void*)parg3);
 			}
             else if (arg4 == 0)
             {
@@ -4128,7 +4128,15 @@ CollectTraceInterfaceUserClient	( kd_buf tracepoint )
 			break;
 		
 		case USB_INTERFACE_UC_TRACE( kTPInterfaceUCDoIsochPipeAsync ):
-			if ( arg4 == 1 ) 
+			if ( qualifier == DBG_FUNC_START )
+			{
+	        	log(info, "InterfaceUserClient", "DoIsoc PipeAsync", parg1, "%s, size: %ld, startFrame: %ld", arg4 == 2 ? "Write":"Read", parg2, parg3);  // 2 == kIODirectionOut
+			}
+			else if ( qualifier == DBG_FUNC_END )
+			{
+				log(info, "InterfaceUserClient", "DoIsoc PipeAsync", parg1, "returning 0x%x", arg2 );
+			}
+			else if ( arg4 == 1 )
 			{
 				log(info, "InterfaceUserClient", "DoIsoc PipeAsync", parg1, "could not create countMem descriptor bufSize %d status 0x%x", arg2, arg3 );  
 			}
@@ -4203,11 +4211,11 @@ CollectTraceInterfaceUserClient	( kd_buf tracepoint )
 			break;
 			
 		case USB_INTERFACE_UC_TRACE( kTPInterfaceUCIsoReqComplete ):
-			log(info, "InterfaceUserClient", "IsoReqComplete", parg1, "Error: 0x%x, FrameListPtr: %p", arg2, (void*) arg3 );
+			log(info, "InterfaceUserClient", "IsoReqComplete", parg1, "Error: 0x%x, FrameListPtr: %p", arg2, (void*) parg3 );
 			break;
 			
 		case USB_INTERFACE_UC_TRACE( kTPInterfaceUCLLIsoReqComplete ):
-			log(info, "InterfaceUserClient", "LL IsoReqComplete", parg1, "Error: 0x%x, FrameListPtr: %p", arg2, (void*) arg3 );
+			log(info, "InterfaceUserClient", "LL IsoReqComplete", parg1, "Error: 0x%x, FrameListPtr: %p", arg2, (void*) parg3 );
 			break;
 			
 		default:
@@ -6853,6 +6861,21 @@ CollectTraceXHCI ( kd_buf tracepoint )
                     log(info, "XHCI", "AddIsochFrames ", parg1, "BEGIN: pEP(%p) toDoList(%p)", (void*)parg2, (void*)parg3);
                     break;
                 }
+                case 12:
+                {
+                    log(info, "XHCI", "AddIsochFrames ", parg1, "oneMPS(%d) maxBurst(%d)", arg2, arg3);
+                    break;
+                }
+                case 13:
+                {
+                    log(info, "XHCI", "AddIsochFrames ", parg1, "TDPC(%d) IsochBurstResiduePackets(%d)", arg2, arg3);
+                    break;
+                }
+                case 14:
+                {
+                    log(info, "XHCI", "AddIsochFrames ", parg1, "pEP(%p) starting ring", (void*)parg2);
+                    break;
+                }
                 default:
                 {
                     log(info, "XHCI", "AddIsochFrames ", parg1, "unknown usbtrace: %p, %p, %p", (void*)parg2, (void*)parg3, (void*)parg4);
@@ -7042,8 +7065,93 @@ CollectTraceXHCI ( kd_buf tracepoint )
 				{
 					uint64_t	timeNano = info.timestamp - startTime;
 					log(info, "XHCI", "End UIMCreateIsochEndpoint", parg1, " (%d uS) ", (int)(timeNano / 1000));
-				} 
+				}
 			}
+            break;
+			
+        case USB_XHCI_TRACE( kTPXHCIUIMCreateIsochTransfer ):
+        {
+            if ( qualifier == DBG_FUNC_START )
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d (%s) NumFrames: %ld, frameNumberStart: %ld, curFrameNumber: %ld, diff: %ld", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT",((parg2 >> 24) & 0xFFFF), parg3, parg4, parg3-parg4);
+            }
+            else if ( qualifier == DBG_FUNC_END )
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d (%s)", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT");
+            }
+            else if (arg4 == 0)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Bad frame count: %d (frameNumberStart: %ld)", arg3, parg2);
+            }
+            else if (arg4 == 1)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d(%s) not found", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT");
+            }
+            else if (arg4 == 2)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d(%s) sent request while aborting endpoint, returning kIOReturnNotPermitted", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT");
+            }
+            else if (arg4 == 3)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d(%s) ring does not exist", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT");
+            }
+            else if (arg4 == 4)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d(%s) unallocated ring", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT");
+            }
+            else if (arg4 == 5)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Address: %d, Endpoint: %d(%s) Endpoint being deleted while new transfer is queued, returning kIOReturnNoDevice", ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 16) & 0xFF) ? "IN" : "OUT");
+            }
+            else if (arg4 == 6)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "No overlapping frames: frameNumberStart: %ld < pEP->firstAvailableFrame: %ld", parg2, parg3);
+            }
+            else if (arg4 == 7)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "request frame WAY too old.  frameNumberStart: %d, curFrameNumber - maxOffset: %d", arg2, arg3);
+            }
+            else if (arg4 == 8)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "request frame too far ahead!  frameNumberStart: %d, curFrameNumber + maxOffset: %d", arg2, arg3);
+            }
+            else if (arg4 == 9)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "frameNumberStart is less than _istKeepAwayFrames(%d): Diff is %d", arg3, arg2);
+            }
+            else if (arg4 == 10)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "DMACommand (%p) or memoryDescriptor(%p) is NULL", (void*)parg2, (void*)parg3);
+            }
+            else if (arg4 == 11)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "transfersPerTD will be %d, frameNumberIncrease = %d", arg2, arg3);
+            }
+            else if (arg4 == 12)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "no overlapping frames:  frameNumberStart: %ld, pEP->firstAvailableFrame: %ld", parg2, parg3);
+            }
+            else if (arg4 == 13)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "frameNumberStart is not on ESIT boundary returning error kIOReturnBadArgument frameNumberStart: %ld, (mod: %d)", parg2, arg3);
+            }
+            else if (arg4 == 14)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "incomplete final TD in transfer, command->GetNumFrames() is %d, transferCount %% transfersPerTD is %d", arg2, arg3);
+            }
+            else if (arg4 == 15)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "Could not allocate a new iTD (frameNumberStart: %ld)", parg2);
+            }
+            else if (arg4 == 16)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "putting pTD(%p) on ToDoList for pEP(%p)", (void*)parg3, (void*)parg2);
+            }
+            else if (arg4 == 17)
+            {
+                log(info, "XHCI", "UIMCreateIsochTransfer", parg1, "no pNewITD!  Bailing");
+            }
+     }
             break;
 			
         case USB_XHCI_TRACE( kTPXHCIUIMAbortStream ):
@@ -7246,10 +7354,15 @@ CollectTraceXHCIPrintTRB	( kd_buf tracepoint )
 				{
 					log(info, "XHCI", "Transfer TRB", xhci, "ring:%08x index: %08x phys:%08x [%08x][%08x][%08x][%08x] %s %s %s %s", (int)xferRing, indexInRing, (int)(xferRing + (indexInRing * 16)), offs0, offs4, offs8, offsC, TRBTypeToString(trbType), offsC & kXHCITRB_IOC ? "IOC" : "", offsC & kXHCITRB_CH ? "CH" : "", offsC & kXHCITRB_TC ? "TC" : "");
 				}
-				else if ((trbType == kXHCITRB_Normal) || (trbType == kXHCITRB_Isoc))
+				else if (trbType == kXHCITRB_Normal)
 				{
 					log(info, "XHCI", "Transfer TRB", xhci, "ring:%08x index: %08x phys:%08x [%08x][%08x][%08x][%08x] %s %s %s %s %s TD Size: %d", (int)xferRing, indexInRing, (int)(xferRing + (indexInRing * 16)), offs0, offs4, offs8, offsC, TRBTypeToString(trbType), offsC & kXHCITRB_IOC ? "IOC" : "", offsC & kXHCITRB_CH ? "CH" : "", offsC & kXHCITRB_ISP ? "ISP" : "", offsC & kXHCITRB_ENT ? "ENT" : "", ((offs8 & kXHCITRB_TDSize_Mask) >> kXHCITRB_TDSize_Shift) );
 				}
+                else if (trbType == kXHCITRB_Isoc)
+                {
+					log(info, "XHCI", "Transfer TRB", xhci, "ring:%08x index: %08x phys:%08x [%08x][%08x][%08x][%08x] %s %s %s %s %s TD Size: %d TBC: %d TLBPC: %d", (int)xferRing, indexInRing, (int)(xferRing + (indexInRing * 16)), offs0, offs4, offs8, offsC, TRBTypeToString(trbType), offsC & kXHCITRB_IOC ? "IOC" : "", offsC & kXHCITRB_CH ? "CH" : "", offsC & kXHCITRB_ISP ? "ISP" : "", offsC & kXHCITRB_ENT ? "ENT" : "", ((offs8 & kXHCITRB_TDSize_Mask) >> kXHCITRB_TDSize_Shift),
+                        (offsC & kXHCITRB_TBC_Mask) >> kXHCITRB_TBC_Shift, (offsC & kXHCITRB_TLBPC_Mask) >> kXHCITRB_TLBPC_Shift);
+                }
 				else
 				{
 					log(info, "XHCI", "Transfer TRB", xhci, "ring:%08x index: %08x phys:%08x [%08x][%08x][%08x][%08x] %s %s %s %s %s", (int)xferRing, indexInRing, (int)(xferRing + (indexInRing * 16)), offs0, offs4, offs8, offsC, TRBTypeToString(trbType), offsC & kXHCITRB_IOC ? "IOC" : "", offsC & kXHCITRB_CH ? "CH" : "", offsC & kXHCITRB_ISP ? "ISP" : "", offsC & kXHCITRB_ENT ? "ENT" : "" );
@@ -7633,6 +7746,18 @@ CollectTraceXHCIInterrupts	( kd_buf tracepoint )
 			else if (arg4 == 3)
 			{
 				log(info, "XHCI", "FilterEventRing", parg1, "pEP[%p] outSlot bumped to (%d)", (void*)parg2, arg3);
+			}
+			else if (arg4 == 4)
+			{
+				log(info, "XHCI", "FilterEventRing", parg1, "pEP[%p] stopping ring because of condition code (%s)", (void*)parg2, CondCodeToString(arg3));
+			}
+			else if (arg4 == 5)
+			{
+				log(info, "XHCI", "FilterEventRing", parg1, "pEP[%p] ignoring condition code (%s)", (void*)parg2, CondCodeToString(arg3));
+			}
+			else if (arg4 == 6)
+			{
+				log(info, "XHCI", "FilterEventRing", parg1, "pEP[%p] ring not running", (void*)parg2);
 			}
             break;
             

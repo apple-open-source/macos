@@ -17,7 +17,7 @@ endif
 # Workaround for 3281234 (test_coercion failure due to non IEEE-754 in
 # optimizer): add -mno-fused-madd flag
 ##---------------------------------------------------------------------
-Extra_CC_Flags += -fno-common -mno-fused-madd -DENABLE_DTRACE
+Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -mno-fused-madd -DENABLE_DTRACE
 Extra_LD_Flags += -Wl,-F.
 Extra_Install_Flags   = DESTDIR='$(DSTROOT)'
 GnuAfterInstall       = fixup-after-install install-plist

@@ -9,7 +9,7 @@ Project         = postgresql
 ProjectName     = PostgreSQL
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 26.3
+Submission      = 26.4
 
 # Include common server build variables
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
@@ -58,7 +58,7 @@ Extra_Make_Flags	=
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 9.0.8
+AEP_Version	= 9.0.9
 AEP_LicenseFile	= $(Sources)/COPYRIGHT
 AEP_Patches	= arches.patch pg_config_manual_h.patch \
 			radar7687126.patch radar7756388.patch radar8304089.patch \

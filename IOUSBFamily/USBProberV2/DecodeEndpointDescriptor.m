@@ -156,21 +156,21 @@
 	{
 		UInt32	maxPacketSize = USBToHostWord(endpointDescriptor.wMaxPacketSize);
 		
-		if ( (endpointDescriptor.bmAttributes & 0x03) == 0 )
+		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBControl )
 			if (maxPacketSize != 512 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Control endpoint", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Control endpoint (has to be 512)", (uint32_t)maxPacketSize);
 		
-		if ( (endpointDescriptor.bmAttributes & 0x03) == 1 )
+		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBIsoc )
 			if (maxPacketSize > 1024 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Isochronous endpoint", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Isochronous endpoint (has to be between 0 and 1024)", (uint32_t)maxPacketSize);
 
-		if ( (endpointDescriptor.bmAttributes & 0x03) == 2 )
+		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBBulk )
 			if (maxPacketSize != 1024 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Bulk endpoint", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Bulk endpoint (has to be 1024)", (uint32_t)maxPacketSize);
 		
-		if ( (endpointDescriptor.bmAttributes & 0x03) == 3 )
-			if (maxPacketSize > 1024 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Interrupt endpoint", (uint32_t)maxPacketSize);
+		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBInterrupt )
+			if (maxPacketSize > 1024 || maxPacketSize == 0 )
+				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Interrupt endpoint (has to between 1 and 1024)", (uint32_t)maxPacketSize);
 	}
 	else if (useHighSpeedDefinition)
     {
@@ -247,17 +247,17 @@
 		return;
 	}
 	
-    [thisDevice addProperty:"SuperSpeed Endpoint Companion" withValue:"" atDepth:ENDPOINT_LEVEL-1];
+    [thisDevice addProperty:"SuperSpeed Endpoint Companion" withValue:"" atDepth:ENDPOINT_LEVEL];
 
     if (epCompanionDescriptor->bMaxBurst > 15)
 	{
 		sprintf(buf, "Illegal value of %u", epCompanionDescriptor->bMaxBurst);
-		[thisDevice addProperty:"bMaxBurst:" withValue:buf atDepth:ENDPOINT_LEVEL];
+		[thisDevice addProperty:"bMaxBurst:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 	}
 	else
 	{
 		sprintf(buf, "%u", epCompanionDescriptor->bMaxBurst);
-		[thisDevice addProperty:"bMaxBurst:" withValue:buf atDepth:ENDPOINT_LEVEL];
+		[thisDevice addProperty:"bMaxBurst:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 	}
 
 	switch (epType)
@@ -266,42 +266,42 @@
 			if ( epCompanionDescriptor->bmAttributes > 16 )
 			{
 				sprintf(buf, "Illegal value of %u for bulk endpoint", epCompanionDescriptor->bmAttributes);
-				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL];
+				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 			}
 			else
 			{
 				sprintf(buf, "%u (%u MaxStreams)", epCompanionDescriptor->bmAttributes, 1 << epCompanionDescriptor->bmAttributes);
-				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL];
+				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 			}
 			break;
 		case kUSBControl:
 			if ( epCompanionDescriptor->bmAttributes != 0 )
 			{
 				sprintf(buf, "Illegal value of %u control endpoint", epCompanionDescriptor->bmAttributes);
-				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL];
+				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 			}
 			else
 			{
-				[thisDevice addProperty:"bmAttributes:" withValue:"0" atDepth:ENDPOINT_LEVEL];
+				[thisDevice addProperty:"bmAttributes:" withValue:"0" atDepth:ENDPOINT_LEVEL+1];
 			}
 		case kUSBInterrupt:
 		case kUSBIsoc:
 			if ( epCompanionDescriptor->bmAttributes > 2 )
 			{
 				sprintf(buf, "Illegal value of %u for isoch/interrupt endpoint", epCompanionDescriptor->bmAttributes);
-				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL];
+				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 			}
 			else
 			{
-				sprintf(buf, "%u (Mult: %u,  max number of packets: %u)", epCompanionDescriptor->bmAttributes, epCompanionDescriptor->bmAttributes, epCompanionDescriptor->bMaxBurst * (epCompanionDescriptor->bmAttributes + 1));
-				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL];
+				sprintf(buf, "%u (Mult: %u,  max number of packets: %u)", epCompanionDescriptor->bmAttributes, epCompanionDescriptor->bmAttributes, (epCompanionDescriptor->bMaxBurst + 1) * (epCompanionDescriptor->bmAttributes + 1));
+				[thisDevice addProperty:"bmAttributes:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 			}
 	}
 	
 	if ( epType == kUSBInterrupt || epType == kUSBIsoc )
 	{
 		sprintf(buf, "%u", USBToHostLong(epCompanionDescriptor->wBytesPerInterval));
-		[thisDevice addProperty:"wBytesPerInterval:" withValue:buf atDepth:ENDPOINT_LEVEL];
+		[thisDevice addProperty:"wBytesPerInterval:" withValue:buf atDepth:ENDPOINT_LEVEL+1];
 	}
 }
 

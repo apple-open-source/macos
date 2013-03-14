@@ -49,6 +49,7 @@
 #define FOPENED_FOR_EXCLUSIVEACCESS					fIOUSBInterfaceUserClientExpansionData->fOpenedForExclusiveAccess
 #define FDELAYED_WORKLOOP_FREE						fIOUSBInterfaceUserClientExpansionData->fDelayedWorkLoopFree
 #define FOWNER_WAS_RELEASED							fIOUSBInterfaceUserClientExpansionData->fOwnerWasReleased
+#define FORIGINALALTERNATEINTERFACE					fIOUSBInterfaceUserClientExpansionData->fOriginalAlternateInterface
 
 #ifndef kIOUserClientCrossEndianKey
 #define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
@@ -102,6 +103,8 @@ __attribute__((format(printf, 1, 2)));
 OSDefineMetaClassAndStructors(IOUSBInterfaceUserClientV2, super)
 OSDefineMetaClassAndStructors(IOUSBLowLatencyCommand, IOCommand)
 
+
+// DO NOT UPDATE THIS TABLE.  Add any new methods to the sV3Methods in IOUSBInterfaceUserClientV3.cpp
 
 const IOExternalMethodDispatch 
 IOUSBInterfaceUserClientV2::sMethods[kIOUSBLibInterfaceUserClientNumCommands] = {
@@ -250,6 +253,18 @@ IOUSBInterfaceUserClientV2::sMethods[kIOUSBLibInterfaceUserClientNumCommands] = 
 		1, 0,
 		8, 0
     },
+    {	 //    kUSBInterfaceUserClientGetPipePropertiesV3
+		(IOExternalMethodAction) &IOUSBInterfaceUserClientV2::_GetPipePropertiesV3,
+		2, 0,
+		0, 0xffffffff
+    },
+    {	 //    kUSBInterfaceUserClientGetEndpointPropertiesV3
+		(IOExternalMethodAction) &IOUSBInterfaceUserClientV2::_GetEndpointPropertiesV3,
+		4, 0,
+		0, 0xffffffff
+    }
+	
+	// DO NOT UPDATE THIS TABLE.  Add any new methods to the sV3Methods in IOUSBInterfaceUserClientV3.cpp
 };
 
 
@@ -263,7 +278,6 @@ IOReturn IOUSBInterfaceUserClientV2::externalMethod(
 													OSObject *                  target, 
 													void *                      reference)
 {
-	
     if (selector < (uint32_t) kIOUSBLibInterfaceUserClientNumCommands)
     {
         dispatch = (IOExternalMethodDispatch *) &sMethods[selector];
@@ -667,6 +681,7 @@ IOUSBInterfaceUserClientV2::open(bool seize)
 		if (fOwner->open(this, options | kUSBOptionBitOpenExclusivelyMask))
 		{
 			FOPENED_FOR_EXCLUSIVEACCESS = true;
+			FORIGINALALTERNATEINTERFACE = fOwner->GetAlternateSetting();
 		}
 		else
 		{
@@ -1199,7 +1214,69 @@ IOUSBInterfaceUserClientV2::GetEndpointProperties(UInt8 alternateSetting, UInt8 
     return ret;
 }
 
-IOReturn 
+IOReturn IOUSBInterfaceUserClientV2::_GetEndpointPropertiesV3(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
+{
+#pragma unused (reference)
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetEndpointPropertiesV3",  target);
+	
+	target->retain();
+    IOReturn kr = target->GetEndpointPropertiesV3((UInt8)arguments->scalarInput[0], (UInt8)arguments->scalarInput[1], (UInt8)arguments->scalarInput[2], (UInt8)arguments->scalarInput[3],
+													(IOUSBEndpointProperties *) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	target->release();
+	
+	return kr;
+}
+
+IOReturn
+IOUSBInterfaceUserClientV2::GetEndpointPropertiesV3(UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 propertyVersion, IOUSBEndpointProperties *properties, UInt32	*size)
+{
+    IOReturn		ret = kIOReturnSuccess;
+	
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetEndpointPropertiesV3 for altSetting %d, endpoint: %d, direction %d",  this, alternateSetting, endpointNumber, direction);
+	
+    if (fOwner && !isInactive())
+	{
+		// Tell the kernel object what version of the structure we are using
+		properties->bVersion = propertyVersion;
+		properties->bAlternateSetting = alternateSetting;
+		properties->bEndpointNumber	= endpointNumber;
+		properties->bDirection = direction;
+		ret = fOwner->GetEndpointPropertiesV3(properties);
+	}
+	else
+		ret = kIOReturnNotAttached;
+	
+	if (ret)
+	{
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetEndpointPropertiesV3 (alt: %d, addr: 0x%x) - returning err 0x%x (%s)", this, alternateSetting, endpointNumber | ((direction == kUSBIn) ? 0x80 : 0x00), ret, USBStringFromReturn(ret));
+	}
+	else
+	{
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::GetEndpointPropertiesV3 - bVersion: %d, bAlternateSetting: %d, bDirection: %d, bEndpointNumber: %d, bUsageType: %d, bSyncType: %d, bTransferType: %d, bUsageType: %d, bSyncType:%d, bInterval: %d, wMaxPacketSize: %d, bMaxBurst: %d, bMaxStreams: %d, bMult: %d, wBytesPerInterval: %d", this,
+			   propertyVersion,
+			   properties->bAlternateSetting,
+			   properties->bDirection,
+			   properties->bEndpointNumber,
+			   properties->bUsageType,
+			   properties->bSyncType,
+			   properties->bTransferType,
+			   properties->bUsageType,
+			   properties->bSyncType,
+			   properties->bInterval,
+			   properties->wMaxPacketSize,
+			   properties->bMaxBurst,
+			   properties->bMaxStreams,
+			   properties->bMult,
+			   properties->wBytesPerInterval);
+		*size = sizeof(IOUSBEndpointProperties);
+	}
+	
+    return ret;
+}
+
+
+
+IOReturn
 IOUSBInterfaceUserClientV2::_GetConfigDescriptor(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
 #pragma unused (reference)
@@ -1469,7 +1546,7 @@ Exit:
 	}
 	
 	return ret;
-}	
+}
 
 
 IOReturn
@@ -1883,7 +1960,7 @@ IOUSBInterfaceUserClientV2::GetPipeProperties(UInt8 pipeRef, uint64_t *direction
 			if (transferType)
 				*transferType = pipeObj->GetType();
 			if (maxPacketSize)
-				*maxPacketSize = pipeObj->GetMaxPacketSize();
+				*maxPacketSize = pipeObj->GetMaxPacketSize();		// this is the current _maxPacketSize in the pipe object, which can be from 0-48K!
 			if (interval)
 				*interval = pipeObj->GetInterval();
 			pipeObj->release();
@@ -1930,30 +2007,10 @@ IOUSBInterfaceUserClientV2::GetPipePropertiesV2(UInt8 pipeRef, uint64_t *directi
 	IncrementOutstandingIO();
     if (fOwner && !isInactive())
     {
-		pipeObjV2 = (IOUSBPipeV2 *) GetPipeObj(pipeRef);    
+		pipeObj = GetPipeObj(pipeRef);
 		
-		if (pipeObjV2 && OSDynamicCast(IOUSBPipeV2, pipeObjV2))
+		if ( pipeObj)
 		{
-			if (direction)
-				*direction = pipeObjV2->GetDirection();
-			if (number)
-				*number = pipeObjV2->GetEndpointNumber();
-			if (transferType)
-				*transferType = pipeObjV2->GetType();
-			if (maxPacketSize)
-				*maxPacketSize = pipeObjV2->GetMaxPacketSize();
-			if (interval)
-				*interval = pipeObjV2->GetInterval();
-			if (maxBurst)
-				*maxBurst = pipeObjV2->GetMaxBurst();
-			if (mult)
-				*mult = pipeObjV2->GetMult();
-			if (bytesPerInterval)
-				*bytesPerInterval = pipeObjV2->GetBytesPerInterval();
-		}
-		else if ( pipeObjV2 && OSDynamicCast(IOUSBPipe, pipeObjV2))
-		{
-			pipeObj = (IOUSBPipe *) pipeObjV2;    
 			if (direction)
 				*direction = pipeObj->GetDirection();
 			if (number)
@@ -1961,18 +2018,27 @@ IOUSBInterfaceUserClientV2::GetPipePropertiesV2(UInt8 pipeRef, uint64_t *directi
 			if (transferType)
 				*transferType = pipeObj->GetType();
 			if (maxPacketSize)
-				*maxPacketSize = pipeObj->GetMaxPacketSize();
+				*maxPacketSize = pipeObj->GetMaxPacketSize();		// this is the current _maxPacketSize in the pipe object, which can be from 0-48K!
 			if (interval)
 				*interval = pipeObj->GetInterval();
-		} 
+
+			pipeObjV2 = OSDynamicCast(IOUSBPipeV2, pipeObj);
+			if (pipeObjV2)
+			{
+				if (maxBurst)
+					*maxBurst = pipeObjV2->GetMaxBurst();
+				if (mult)
+					*mult = pipeObjV2->GetMult();
+				if (bytesPerInterval)
+					*bytesPerInterval = pipeObjV2->GetBytesPerInterval();
+			}
+
+			pipeObj->release();
+		}
 		else
 		{
 			ret = kIOUSBUnknownPipeErr;
 		}
-		
-		if (pipeObjV2)
-			pipeObjV2->release();
-
     }
     else
         ret = kIOReturnNotAttached;
@@ -1984,6 +2050,102 @@ IOUSBInterfaceUserClientV2::GetPipePropertiesV2(UInt8 pipeRef, uint64_t *directi
 	
     DecrementOutstandingIO();
     return ret;
+}
+
+
+IOReturn IOUSBInterfaceUserClientV2::_GetPipePropertiesV3(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
+{
+#pragma unused (reference)
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetPipePropertiesV3",  target);
+	
+	target->retain();
+    IOReturn kr = target->GetPipePropertiesV3((UInt8)arguments->scalarInput[0], (UInt8)arguments->scalarInput[1], (IOUSBEndpointProperties *) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	target->release();
+	
+	return kr;
+}
+
+
+IOReturn IOUSBInterfaceUserClientV2::GetPipePropertiesV3(UInt8 pipeRef, UInt8 propertyVersion, IOUSBEndpointProperties *properties, UInt32 *size)
+{
+    IOUSBPipe			*pipeObj = NULL;
+	IOUSBPipeV2			*pipeObjV2 = NULL;
+    IOReturn			ret = kIOReturnSuccess;
+	
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetPipePropertiesV3 for pipe %d, isInactive: %d",  this, pipeRef, isInactive());
+	
+	if (properties == NULL || propertyVersion != kUSBEndpointPropertiesVersion3)
+	{
+		USBLog(3, "+IOUSBInterfaceUserClientV2[%p]::GetPipePropertiesV3 for pipe %d,  properties is NULL (%p) or properties->bVersion(%d) != kUSBEndpointPropertiesVersion3",  this, pipeRef, properties, propertyVersion);
+		return kIOReturnBadArgument;
+	}
+	
+	IncrementOutstandingIO();
+    if (fOwner && !isInactive())
+    {
+		pipeObj = GetPipeObj(pipeRef);
+		
+		if ( pipeObj)
+		{
+			properties->bVersion = propertyVersion;
+			properties->bAlternateSetting = fOwner->GetAlternateSetting();
+			properties->bDirection = pipeObj->GetDirection();
+			properties->bEndpointNumber = pipeObj->GetEndpointNumber();
+			properties->bUsageType = pipeObj->GetUsageType();
+			properties->bSyncType = pipeObj->GetSyncType();
+			properties->bTransferType = pipeObj->GetType();
+			properties->wMaxPacketSize = pipeObj->GetMaxPacketSize();		// this is the current _maxPacketSize in the pipe object, which can be from 0-48K!
+			properties->bInterval = pipeObj->GetInterval();
+			properties->bMult = 0;
+			properties->bMaxBurst = 0;
+			properties->wBytesPerInterval = 0;
+
+			pipeObjV2 = OSDynamicCast(IOUSBPipeV2, pipeObj);
+			if (pipeObjV2)
+			{
+				properties->bMaxBurst = pipeObjV2->GetMaxBurst();
+				properties->bMult = pipeObjV2->GetMult();
+				properties->bMaxStreams = pipeObjV2->SupportsStreams();
+				properties->wBytesPerInterval = pipeObjV2->GetBytesPerInterval();
+			}
+			pipeObj->release();
+		}
+		else
+		{
+			ret = kIOUSBUnknownPipeErr;
+		}
+	}
+    else
+        ret = kIOReturnNotAttached;
+	
+    if (ret)
+	{
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetPipePropertiesV3 - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
+	}
+	else
+	{
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::GetPipePropertiesV3 - bVersion: %d, bAlternateSetting: %d, bDirection: %d, bEndpointNumber: %d, bUsageType: %d, bSyncType: %d, bTransferType: %d, bUsageType: %d, bSyncType:%d, bInterval: %d, wMaxPacketSize: %d, bMaxBurst: %d, bMaxStreams: %d, bMult: %d, wBytesPerInterval: %d", this,
+			   propertyVersion,
+			   properties->bAlternateSetting,
+			   properties->bDirection,
+			   properties->bEndpointNumber,
+			   properties->bUsageType,
+			   properties->bSyncType,
+			   properties->bTransferType,
+			   properties->bUsageType,
+			   properties->bSyncType,
+			   properties->bInterval,
+			   properties->wMaxPacketSize,
+			   properties->bMaxBurst,
+			   properties->bMaxStreams,
+			   properties->bMult,
+			   properties->wBytesPerInterval);
+		*size = sizeof(IOUSBEndpointProperties);
+	}
+
+    DecrementOutstandingIO();
+    return ret;
+
 }
 
 IOReturn IOUSBInterfaceUserClientV2::_GetPipeStatus(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
@@ -2988,6 +3150,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 		
 	USBLog(7,"+%s[%p]::DoIsochPipeAsync  fPipe: %d, buffer: 0x%qx, fBufSize = %d, fStartFrame: %qd, fFrameListPtr: 0x%qx, direction: %d", getName(), this,
 					   (uint32_t)isocData->fPipe, isocData->fBuffer, (uint32_t)isocData->fBufSize, isocData->fStartFrame, isocData->fFrameListPtr, direction);
+    USBTrace_Start( kUSBTInterfaceUserClient,  kTPInterfaceUCDoIsochPipeAsync, (uintptr_t)this, isocData->fBufSize, isocData->fStartFrame, direction );
 
     if (fOwner && !isInactive())
     {
@@ -3098,6 +3261,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::-DoIsochPipeAsync err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
+    USBTrace_End( kUSBTInterfaceUserClient,  kTPInterfaceUCDoIsochPipeAsync, (uintptr_t)this, ret, 0, 0 );
     return ret;
 }
 
@@ -4257,9 +4421,16 @@ IOUSBInterfaceUserClientV2::GetPipeObj(UInt8 pipeNo)
     // we need to retain the pipe object because it could actually get released by the device/interface
     // and we don't want it to go away. This retain should probably be done in IOUSBDevice or IOUSBInterface
     // but we would affect too many people if we did that right now.
-    if (pipe)
+    if (pipe && !FOWNER_WAS_RELEASED && !isInactive() && fOwner && !fOwner->isInactive())
+    {
         pipe->retain();
-	
+    }
+    else
+    {
+		USBLog(6,"+IOUSBInterfaceUserClientV2[%p]::GetPipeObj  got a pipe, but probably inactive", this);
+        pipe = NULL;
+    }
+    
     return pipe;
 }
 
@@ -4282,19 +4453,17 @@ IOUSBInterfaceUserClientV2::ReleaseWorkLoopAndGate()
 	
 	if (fWorkLoop && fGate)
 	{
-		fWorkLoop->removeEventSource(fGate);
-		
-		if (fGate)
-		{
-			fGate->release();
-			fGate = NULL;
-		}
-		
-		if (fWorkLoop)
-		{
-			fWorkLoop->release();
-			fWorkLoop = NULL;
-		}
+        IOCommandGate * gate = fGate;
+        IOWorkLoop * workLoop = fWorkLoop;
+        
+        fGate = NULL;
+        fWorkLoop = NULL;
+        
+		workLoop->removeEventSource(gate);
+        
+		gate->release();
+        workLoop->release();
+        
 	}
 
 	if (fWakePort != MACH_PORT_NULL)
@@ -4388,15 +4557,15 @@ IOUSBInterfaceUserClientV2::ClientCloseGated( void )
 	// First, close any return any bandwith that might still be around, and close any pipes that might be open
 	if ( fDead && fOwner && FOPENED_FOR_EXCLUSIVEACCESS )
 	{
-		// If the interface is other than 0, set it to 0 before closing the pipes
+		// If the interface is other than the original one, set it to that before closing the pipes
 		UInt8	altSetting = fOwner->GetAlternateSetting();
 		
-		if ( altSetting != 0 )
+		if ( altSetting != FORIGINALALTERNATEINTERFACE )
 		{
 			IOUSBDevice *			device = fOwner->GetDevice();
 			
-			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated setting Alternate Interface(%d) to 0 before closing pipes",  this, altSetting);
-			fOwner->SetAlternateInterface(this, 0);
+			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated setting Alternate Interface(%d) to %d before closing pipes",  this, altSetting, FORIGINALALTERNATEINTERFACE);
+			fOwner->SetAlternateInterface(this, FORIGINALALTERNATEINTERFACE);
 			
 			if ( device )
 			{
@@ -4812,9 +4981,9 @@ OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 10);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 11);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 12);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 13);
+OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 14);
+OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 15);
 
-OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 14);
-OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 15);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 16);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 17);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 18);

@@ -1073,13 +1073,13 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 			IOLockLock(bf->rlock);
 			addr = vtd_rballoc(bf, size, align, fMaxRoundSize, mapOptions, pageList);
 			STAT_ADD(bf, allocs[list], 1);
-			if (addr) STAT_ADD(bf, rused, size);
-			IOLockUnlock(bf->rlock);
 			if (addr)
 			{
+				STAT_ADD(bf, rused, size);
 				vtd_space_fault(bf, addr, size);
-				if (pageList) vtd_space_set(bf, addr, size, mapOptions, pageList);
 			}
+			IOLockUnlock(bf->rlock);
+			if (addr && pageList) vtd_space_set(bf, addr, size, mapOptions, pageList);
 		}
 		else
 		{
@@ -1094,7 +1094,7 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 		bf->waiting_space = true;
 		IOLockSleep(bf->rlock, &bf->waiting_space, THREAD_UNINT);
 		IOLockUnlock(bf->rlock);
-		IOLog("AppleVTD: waiting space (%d)\n", size);
+//		IOLog("AppleVTD: waiting space (%d)\n", size);
 		VTLOG("AppleVTD: waiting space (%d)\n", size);
 	}
 	while (true);
@@ -1127,7 +1127,7 @@ AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 	{
 		IOLockLock(bf->rlock);
 		bf->waiting_space = false;
-		IOLockWakeup(bf->rlock, &bf->waiting_space, true);
+		IOLockWakeup(bf->rlock, &bf->waiting_space, false);
 		IOLockUnlock(bf->rlock);
 	}
 }

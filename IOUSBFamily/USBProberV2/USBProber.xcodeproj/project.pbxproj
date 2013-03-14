@@ -563,7 +563,7 @@
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0440;
 			};
 			buildConfigurationList = 3E420D2E08E1B98300FD1873 /* Build configuration list for PBXProject "USBProber" */;
 			compatibilityVersion = "Xcode 3.2";

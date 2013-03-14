@@ -228,13 +228,12 @@ bool CodeSignatures::verify(Process &process,
 {
 	secdebug("codesign", "start verify");
 
-	// if we have no client code, we cannot possibly match this
+	StLock<Mutex> _(process);
 	SecCodeRef code = process.currentGuest();
 	if (!code) {
 		secdebug("codesign", "no code base: fail");
 		return false;
 	}
-	
 	if (SecRequirementRef requirement = verifier.requirement()) {
 		// If the ACL contains a code signature (requirement), we won't match against unsigned code at all.
 		// The legacy hash is ignored (it's for use by pre-Leopard systems).

@@ -383,7 +383,7 @@ BC_coalesce_playlist(struct BC_playlist *pc)
 				 * Or, if we'd be subtracting out the middle of the first extent and so would require a new extent in order to keep the top half, go ahead and merge since we can't handle that case */
 				if (((pe->pe_flags & BC_PE_LOWPRIORITY) && ((pe + i)->pe_flags & BC_PE_LOWPRIORITY)) ||
 					(!(pe->pe_flags & BC_PE_LOWPRIORITY) && !((pe + i)->pe_flags & BC_PE_LOWPRIORITY) && pe->pe_batch == (pe + i)->pe_batch) ||
-					(pe->pe_batch < (pe + i)->pe_batch && (int64_t)((pe + i)->pe_offset + (pe + i)->pe_length) - (pe->pe_offset + pe->pe_length) <= MAX_MERGE_SIZE) ||
+					(pe->pe_batch <= (pe + i)->pe_batch && (int64_t)((pe + i)->pe_offset + (pe + i)->pe_length) - (pe->pe_offset + pe->pe_length) <= MAX_MERGE_SIZE) ||
 					(pe->pe_batch > (pe + i)->pe_batch && (int64_t)(pe + i)->pe_offset - pe->pe_offset <= MAX_MERGE_SIZE) ||
 					((pe->pe_offset + pe->pe_length) > ((pe + i)->pe_offset + (pe + i)->pe_length) && (pe->pe_batch > (pe + i)->pe_batch || pe->pe_flags & BC_PE_LOWPRIORITY))
 					) {
@@ -420,10 +420,12 @@ BC_coalesce_playlist(struct BC_playlist *pc)
 			
 			}
 			
-			/* save entry */
-			*(dpe++) = *pe;
-			oentries++;		
-			pc->p_mounts[pe->pe_mount_idx].pm_nentries++;
+			if (pe->pe_length > 0) {
+			  /* save entry */
+			  *(dpe++) = *pe;
+			  oentries++;		
+			  pc->p_mounts[pe->pe_mount_idx].pm_nentries++;
+			}
 		}
 		pe++;
 	}

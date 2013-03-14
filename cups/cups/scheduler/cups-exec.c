@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-exec.c 3796 2012-04-23 22:54:48Z msweet $"
+ * "$Id: cups-exec.c 3972 2012-10-24 11:59:21Z msweet $"
  *
  *   Sandbox helper for CUPS.
  *
@@ -60,6 +60,7 @@ main(int  argc,				/* I - Number of command-line args */
   }
 
 #ifdef HAVE_SANDBOX_H
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
  /*
   * Run in a separate security profile...
   */
@@ -104,5 +105,5 @@ main(int  argc,				/* I - Number of command-line args */
 
 
 /*
- * End of "$Id: cups-exec.c 3796 2012-04-23 22:54:48Z msweet $".
+ * End of "$Id: cups-exec.c 3972 2012-10-24 11:59:21Z msweet $".
  */

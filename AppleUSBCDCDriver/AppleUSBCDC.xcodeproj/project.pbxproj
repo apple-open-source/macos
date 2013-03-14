@@ -28,6 +28,14 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		525596AF1613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B01613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B11613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B21613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B31613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B41613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B51613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
+		525596B61613CD080050D01B /* MsgTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 525596AE1613CD080050D01B /* MsgTrace.c */; };
 		58629BD10DE634FC00412471 /* WWANSchemaDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 58629BD00DE634FC00412471 /* WWANSchemaDefinitions.h */; };
 		D201012E076A326B0011028B /* AppleUSBCDCEEM.h in Headers */ = {isa = PBXBuildFile; fileRef = D201012D076A326B0011028B /* AppleUSBCDCEEM.h */; };
 		D2277A0D07417BF9002AF184 /* AppleUSBCDC.h in Headers */ = {isa = PBXBuildFile; fileRef = D280586B05DD92C40074F1E7 /* AppleUSBCDC.h */; };
@@ -123,6 +131,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		525596AE1613CD080050D01B /* MsgTrace.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = MsgTrace.c; path = Common/MsgTrace.c; sourceTree = "<group>"; };
 		58629BD00DE634FC00412471 /* WWANSchemaDefinitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WWANSchemaDefinitions.h; path = AppleUSBCDC/Headers/WWANSchemaDefinitions.h; sourceTree = "<group>"; };
 		D201012D076A326B0011028B /* AppleUSBCDCEEM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCEEM.h; path = AppleUSBCDCEEM/Headers/AppleUSBCDCEEM.h; sourceTree = "<group>"; };
 		D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCCommon.h; path = Common/AppleUSBCDCCommon.h; sourceTree = "<group>"; };
@@ -333,6 +342,7 @@
 		D25CDCA105ACD2540030EA44 /* Common Headers */ = {
 			isa = PBXGroup;
 			children = (
+				525596AE1613CD080050D01B /* MsgTrace.c */,
 				D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */,
 			);
 			name = "Common Headers";
@@ -986,6 +996,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A1107417BF9002AF184 /* AppleUSBCDC.cpp in Sources */,
+				525596AF1613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -994,6 +1005,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A2007417BF9002AF184 /* AppleUSBCDCACMControl.cpp in Sources */,
+				525596B01613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1002,6 +1014,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A2E07417BF9002AF184 /* AppleUSBCDCACMData.cpp in Sources */,
+				525596B11613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1010,6 +1023,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A3D07417BF9002AF184 /* AppleUSBCDCWCM.cpp in Sources */,
+				525596B21613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1018,6 +1032,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A4C07417BF9002AF184 /* AppleUSBCDCECMControl.cpp in Sources */,
+				525596B31613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1026,6 +1041,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A5A07417BFA002AF184 /* AppleUSBCDCECMData.cpp in Sources */,
+				525596B41613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1034,6 +1050,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A6707417BFA002AF184 /* AppleUSBCDCDMM.cpp in Sources */,
+				525596B51613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1042,6 +1059,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D2277A8007417BFA002AF184 /* AppleUSBCDCEEM.cpp in Sources */,
+				525596B61613CD080050D01B /* MsgTrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1124,7 +1142,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1159,7 +1177,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1193,7 +1211,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1232,7 +1250,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1269,7 +1287,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1305,7 +1323,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1344,7 +1362,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1381,7 +1399,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1418,7 +1436,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1456,7 +1474,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1492,7 +1510,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1527,7 +1545,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1565,7 +1583,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1601,7 +1619,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1636,7 +1654,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1674,7 +1692,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1710,7 +1728,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1745,7 +1763,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1782,7 +1800,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1817,7 +1835,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1851,7 +1869,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1887,7 +1905,7 @@
 				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/PlugIns";
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1921,7 +1939,7 @@
 				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/PlugIns";
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1954,7 +1972,7 @@
 				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/PlugIns";
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
-				MODULE_VERSION = 4.1.22;
+				MODULE_VERSION = 4.1.23;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1980,6 +1998,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "Build All";
+				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1998,6 +2017,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "Build All";
+				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -2015,6 +2035,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "Build All";
+				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -2028,6 +2049,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				SDKROOT = "";
 			};
 			name = Development;
 		};
@@ -2036,6 +2058,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
+				SDKROOT = "";
 			};
 			name = Deployment;
 		};
@@ -2044,6 +2067,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
+				SDKROOT = "";
 			};
 			name = Default;
 		};

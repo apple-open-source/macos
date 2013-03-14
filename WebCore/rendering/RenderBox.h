@@ -146,7 +146,7 @@ public:
     LayoutRect computedCSSContentBoxRect() const { return LayoutRect(borderLeft() + computedCSSPaddingLeft(), borderTop() + computedCSSPaddingTop(), clientWidth() - computedCSSPaddingLeft() - computedCSSPaddingRight(), clientHeight() - computedCSSPaddingTop() - computedCSSPaddingBottom()); }
 
     // Bounds of the outline box in absolute coords. Respects transforms
-    virtual LayoutRect outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/, LayoutPoint* cachedOffsetToRepaintContainer) const;
+    virtual LayoutRect outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/, const RenderGeometryMap*) const;
     virtual void addFocusRingRects(Vector<IntRect>&, const LayoutPoint&);
 
     // Use this with caution! No type checking is done!
@@ -277,7 +277,7 @@ public:
     void setOverrideWidth(LayoutUnit);
     void clearOverrideSize();
 
-    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&) const;
+    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const;
     
     LayoutUnit computeBorderBoxLogicalWidth(LayoutUnit width) const;
     LayoutUnit computeBorderBoxLogicalHeight(LayoutUnit height) const;
@@ -517,34 +517,11 @@ protected:
     virtual bool shouldComputeSizeAsReplaced() const { return isReplaced() && !isInlineBlockOrInlineTable(); }
 
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState&, ApplyContainerFlipOrNot = ApplyContainerFlip, bool* wasFixed = 0) const;
+    virtual const RenderObject* pushMappingToContainer(const RenderBoxModelObject*, RenderGeometryMap&) const;
     virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
 
     void paintRootBoxFillLayers(const PaintInfo&);
 
-    // These functions are only used internally to manipulate the render tree structure via remove/insert/appendChildNode.
-    // Since they are typically called only to move objects around within anonymous blocks (which only have layers in
-    // the case of column spans), the default for fullRemoveInsert is false rather than true.
-    void moveChildTo(RenderBox* toBox, RenderObject* child, RenderObject* beforeChild, bool fullRemoveInsert = false);
-    void moveChildTo(RenderBox* to, RenderObject* child, bool fullRemoveInsert = false)
-    {
-        moveChildTo(to, child, 0, fullRemoveInsert);
-    }
-    void moveAllChildrenTo(RenderBox* toBox, bool fullRemoveInsert = false)
-    {
-        moveAllChildrenTo(toBox, 0, fullRemoveInsert);
-    }
-    void moveAllChildrenTo(RenderBox* toBox, RenderObject* beforeChild, bool fullRemoveInsert = false)
-    {
-        moveChildrenTo(toBox, firstChild(), 0, beforeChild, fullRemoveInsert);
-    }
-    // Move all of the kids from |startChild| up to but excluding |endChild|. 0 can be passed as the |endChild| to denote
-    // that all the kids from |startChild| onwards should be moved.
-    void moveChildrenTo(RenderBox* toBox, RenderObject* startChild, RenderObject* endChild, bool fullRemoveInsert = false)
-    {
-        moveChildrenTo(toBox, startChild, endChild, 0, fullRemoveInsert);
-    }
-    void moveChildrenTo(RenderBox* toBox, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, bool fullRemoveInsert = false);
-   
     RenderObject* splitAnonymousBoxesAroundChild(RenderObject* beforeChild);
  
 private:

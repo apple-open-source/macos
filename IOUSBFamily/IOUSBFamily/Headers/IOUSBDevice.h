@@ -65,6 +65,7 @@ class IOUSBDevice : public IOUSBNub
     friend class IOUSBInterface;
     friend class IOUSBPipe;
 	friend class IOUSBInterfaceUserClientV2;
+	friend class IOUSBInterfaceUserClientV3;
 	friend class IOUSBDeviceUserClientV2;
 
     OSDeclareDefaultStructors(IOUSBDevice)
@@ -429,13 +430,7 @@ public:
     virtual void	DisplayUserNotification(UInt32 notificationType);
     
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  5);
-	/*!
-        @function MakePipe
-	 @abstract build a pipe on a given endpoint
-	 @param ep A description of the endpoint
-	 @param interface The IOUSBInterface object requesting the pipe
-	 returns the desired IOUSBPipe object
-	 */
+	// Deprecated but needed for binary compatibility
     virtual IOUSBPipe*	MakePipe(const IOUSBEndpointDescriptor *ep, IOUSBInterface *interface);
     
 	

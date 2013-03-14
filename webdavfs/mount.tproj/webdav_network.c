@@ -2179,11 +2179,11 @@ static int stream_transaction_from_file(
 
 	/**********************/
 
-GetResponseHeader:
 CFReadStreamRead:
 
 	free(buffer);
 
+GetResponseHeader:
 malloc_currentbuffer:
 
 	CFReadStreamClose(readStreamRecPtr->readStreamRef);

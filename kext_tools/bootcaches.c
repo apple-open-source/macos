@@ -481,14 +481,24 @@ finish:
     return rval;
 }
 
-// helper to create cache dirs; readBootCaches() decides when to call
+// helper to create cache dirs; updateStamps() calls and accepts errors
 static int
 createCacheDirs(struct bootCaches *caches)
 {
     int errnum, result = ELAST + 1;
+    struct statfs sfs;
     char *errname;
     struct stat sb;
     char cachedir[PATH_MAX], uuiddir[PATH_MAX];      // bootstamps, csfde
+
+    // don't create new cache directories if owners are disabled
+    if (statfs(caches->root, &sfs) == 0) {
+        if (sfs.f_flags & MNT_IGNORE_OWNERSHIP) {
+            result = ENOTSUP; goto finish;
+        }
+    } else {
+        result = errno; goto finish;
+    }
 
     // bootstamps directory
     // (always made because it's used by libbless on non-BootRoot for ESP)
@@ -513,31 +523,13 @@ createCacheDirs(struct bootCaches *caches)
         }
     }
 
-    // create CoreStorage cache directories if appropriate
+    // create /S/L/Caches/com.apple.corestorage as necessary
     if (caches->erpropcache) {
         errname = caches->erpropcache->rpath;
         pathcpy(cachedir, caches->root);
         pathcat(cachedir, dirname(caches->erpropcache->rpath));
         errname = cachedir;
         if ((-1 == stat(cachedir, &sb))) {
-            if (errno == ENOENT) {
-                // s..mkdir ensures cachedir is on the same volume
-                errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
-                if (errnum) {
-                    result = errnum; goto finish;
-                }
-            } else {
-                result = errno; goto finish;
-            }
-        }
-    }
-
-    if (caches->efiloccache) {
-        errname = caches->efiloccache->rpath;
-        pathcpy(cachedir, caches->root);
-        pathcat(cachedir, caches->efiloccache->rpath);
-        errname = cachedir;
-        if ((errnum = stat(cachedir, &sb))) {
             if (errno == ENOENT) {
                 // s..mkdir ensures cachedir is on the same volume
                 errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
@@ -605,7 +597,7 @@ finish:
  * it stores a more precise error code in errno.
  */
 struct bootCaches*
-readBootCaches(char *volRoot)
+readBootCaches(char *volRoot, BRUpdateOpts_t opts)
 {
     struct bootCaches *rval = NULL, *caches = NULL;
     int errnum = ELAST + 1;
@@ -668,7 +660,9 @@ readBootCaches(char *volRoot)
                                  &vol_bsd, &vol_name))){
         errno = errnum; goto finish;
     }
-    uuid_unparse_upper(vol_uuid, caches->fsys_uuid);
+    if ((opts & kBRUAnyBootStamps) == 0) {
+        uuid_unparse_upper(vol_uuid, caches->fsys_uuid);
+    }
 
 
     // plist -> dictionary
@@ -684,15 +678,6 @@ readBootCaches(char *volRoot)
     // this function returns NULL on failure -> sends err# via errno :P
     if ((errnum = extractProps(caches, bcDict))) {
         errno = errnum; goto finish;
-    }
-
-    // root proactively creates caches directories if missing
-    // don't bother if owners are ignored (6206867)
-    if (geteuid() == 0 && (rootsfs.f_flags & MNT_IGNORE_OWNERSHIP) == 0 &&
-            (rootsfs.f_flags & MNT_RDONLY) == 0) {
-        if ((errnum = createCacheDirs(caches))) {
-            errno = errnum; goto finish;
-        }
     }
 
 
@@ -765,7 +750,7 @@ readBootCachesForDADisk(DADiskRef dadisk)
         goto finish;
     }
 
-    rval = readBootCaches(volRoot);
+    rval = readBootCaches(volRoot, kBRUOptsNone);
 
 finish:
     if (ddesc)      CFRelease(ddesc);
@@ -866,6 +851,7 @@ finish:
 * tstamps used by updateStamps (for all files, regardless of whether
 * they were updated).
 *******************************************************************************/
+#define OODMSG "not cached."
 Boolean needUpdates(struct bootCaches *caches, Boolean *rps, Boolean *booters,
                     Boolean *misc, OSKextLogSpec oodLogSpec)
 {
@@ -877,25 +863,25 @@ Boolean needUpdates(struct bootCaches *caches, Boolean *rps, Boolean *booters,
 
     for (cp = caches->rpspaths; cp < &caches->rpspaths[caches->nrps]; cp++) {
         if (needsUpdate(caches->root, cp)) {
-            OSKextLog(NULL, oodLogSpec, "%s out of date.", cp->rpath);
+            OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = rpsOOD = true;
         }
     }
     if ((cp = &(caches->efibooter)), cp->rpath[0]) {
         if (needsUpdate(caches->root, cp)) {
-            OSKextLog(NULL, oodLogSpec, "%s out of date.", cp->rpath);
+            OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = bootersOOD = true;
         }
     }
     if ((cp = &(caches->ofbooter)), cp->rpath[0]) {
         if (needsUpdate(caches->root, cp)) {
-            OSKextLog(NULL, oodLogSpec, "%s out of date.", cp->rpath);
+            OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = bootersOOD = true;
         }
     }
     for (cp = caches->miscpaths; cp < &caches->miscpaths[caches->nmisc]; cp++) {
         if (needsUpdate(caches->root, cp)) {
-            OSKextLog(NULL, oodLogSpec, "%s out of date.", cp->rpath);
+            OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = miscOOD = true;
         }
     }
@@ -939,7 +925,7 @@ _sutimes(int fdvol, char *path, int oflags, struct timeval times[2])
     }
 
 finish:
-    if (fd == -1)   close(fd);
+    if (fd != -1)   close(fd);
 
     return bsderr;
 }
@@ -972,7 +958,7 @@ finish:
 int
 updateStamps(struct bootCaches *caches, int command)
 {
-    int rval = 0;
+    int anyErr = 0;         // accumulates errors
     struct statfs sfs;
     cachedPath *cp;
     struct stat sb;
@@ -983,7 +969,7 @@ updateStamps(struct bootCaches *caches, int command)
             OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
                       "Warning: %s read-only: no bootstamp updates",
                       caches->root);
-            return rval;    // noErr
+            return 0;   // success
         }
     } 
 
@@ -997,27 +983,33 @@ updateStamps(struct bootCaches *caches, int command)
             return EINVAL;
     }
 
+    // if writing stamps, make sure cache directory exists
+    if (command == kBCStampsApplyTimes &&
+            (anyErr = createCacheDirs(caches))) {
+        return anyErr;
+    }
+
     // run through all of the cached paths apply bootstamp
     for (cp = caches->rpspaths; cp < &caches->rpspaths[caches->nrps]; cp++) {
-        rval |= updateStamp(caches->root, cp, caches->cachefd, command);
+        anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
     if ((cp = &(caches->efibooter)), cp->rpath[0]) {
-        rval |= updateStamp(caches->root, cp, caches->cachefd, command);
+        anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
     if ((cp = &(caches->ofbooter)), cp->rpath[0]) {
-        rval |= updateStamp(caches->root, cp, caches->cachefd, command);
+        anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
     for (cp = caches->miscpaths; cp < &caches->miscpaths[caches->nmisc]; cp++){
-        rval |= updateStamp(caches->root, cp, caches->cachefd, command);
+        anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
 
     // Clean shutdown should make sure these stamps are on disk; this
     // code worked around 8603195/6848376 which were fixed by Lion GM.
     if (stat(BRDBG_DISABLE_EXTSYNC_F, &sb) == -1) {
-        rval |= fcntl(caches->cachefd, F_FULLFSYNC);
+        anyErr |= fcntl(caches->cachefd, F_FULLFSYNC);
     }
 
-    return rval;
+    return anyErr;
 }
 
 /*******************************************************************************
@@ -1742,6 +1734,10 @@ rebuild_csfde_cache(struct bootCaches *caches)
         rval = EINVAL; goto finish;
     }
 
+    if ((errnum = createCacheDirs(caches))) {
+        rval = errnum; goto finish;
+    }
+
     // OSes that only support single-PV CSFDE need content in erpropcache
     if (caches->erpropTSOnly == false) {
         return _writeLegacyCSFDECache(caches);    // takes care of everything
@@ -2026,7 +2022,7 @@ rebuild_loccache(struct bootCaches *caches)
     
     // logs its own errors
     if ((errnum = get_locres_info(caches, locRsrcDir, prefPath, &prefsb,
-                             locCacheDir, &validModTime))) {
+                                  locCacheDir, &validModTime))) {
         result = errnum; goto finish;
     }
 

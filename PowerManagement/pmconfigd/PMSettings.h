@@ -60,6 +60,8 @@ __private_extern__ void PMSettingsPSChange(CFTypeRef);
 
 __private_extern__ bool GetPMSettingBool(CFStringRef);
 
+__private_extern__ IOReturn GetPMSettingNumber(CFStringRef which, int64_t *value);
+
 // For UPS shutdown/restart code in PSLowPower.c
 __private_extern__ CFDictionaryRef  PMSettings_CopyActivePMSettings(void);
 

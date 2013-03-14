@@ -37,10 +37,12 @@
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBPipe.h>
+#include <IOKit/usb/IOUSBPipeV2.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/USB.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOMessage.h>
+
 
 //================================================================================================
 //
@@ -262,7 +264,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 	
     USBLog(6, "+%s[%p]::handleOpen (device %s)", getName(), this, _device->getName());
 	
-	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
+	if ( (forClient->metaCast("IOUSBInterfaceUserClientV2") || forClient->metaCast("IOUSBInterfaceUserClientV3")) && !exclusiveOpen)
     {
 		if (_OPEN_CLIENTS == NULL)
 		{
@@ -329,16 +331,16 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 	IOReturn	err = kIOReturnSuccess;
 	bool		exclusiveOpen = (options & kUSBOptionBitOpenExclusivelyMask) ? true : false;
 	
-	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
+	if ( (forClient->metaCast("IOUSBInterfaceUserClientV2") || forClient->metaCast("IOUSBInterfaceUserClientV3")) && !exclusiveOpen)
 	{
-        USBLog(6,"%s[%p]::close  called from an IOUSBInterfaceUserClientV2 client that was not open exclusively, so no need to abort pipes", getName(), this);
+        USBLog(6,"%s[%p]::close  called from an IOUSBInterfaceUserClientV2/V3 client that was not open exclusively, so no need to abort pipes", getName(), this);
 	}
 	else
 	{
-		// If our client is the IOUSBUserClientV2 and we are inactive, then we don't need to Abort() the pipes.  The IOKit termination would have taken care of it via the ClosePipes().
-		if (forClient->metaCast("IOUSBInterfaceUserClientV2") && isInactive())
+		// If our client is the IOUSBUserClientV2/V3 and we are inactive, then we don't need to Abort() the pipes.  The IOKit termination would have taken care of it via the ClosePipes().
+		if ( (forClient->metaCast("IOUSBInterfaceUserClientV2") || forClient->metaCast("IOUSBInterfaceUserClientV3")) && isInactive())
 		{
-	        USBLog(6,"%s[%p]::close  called from an IOUSBInterfaceUserClientV2 client but we are inactive.  Not aborting pipes", getName(), this);
+	        USBLog(6,"%s[%p]::close  called from an IOUSBInterfaceUserClientV2/V3 client but we are inactive.  Not aborting pipes", getName(), this);
 		}
 		else
 		{
@@ -407,7 +409,7 @@ IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
 
     USBLog(6,"+%s[%p]::handleClose", getName(), this);
 	
-	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
+	if ( (forClient->metaCast("IOUSBInterfaceUserClientV2") ||  forClient->metaCast("IOUSBInterfaceUserClientV3")) && !exclusiveOpen )
 	{
 		if (_OPEN_CLIENTS)
 		{
@@ -460,7 +462,7 @@ IOUSBInterface::handleIsOpen(const IOService *forClient) const
 		if (_OPEN_CLIENTS && (_OPEN_CLIENTS->getCount() > 0))
 			result = true;
 	}
-	else if (forClient->metaCast("IOUSBInterfaceUserClientV2"))
+	else if (forClient->metaCast("IOUSBInterfaceUserClientV2") || forClient->metaCast("IOUSBInterfaceUserClientV3"))
 	{
 		if (_OPEN_CLIENTS)
 		{
@@ -2146,35 +2148,32 @@ OSMetaClassDefineReservedUsed(IOUSBInterface,  0);
 IOReturn
 IOUSBInterface::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval)
 {
-    const IOUSBDescriptorHeader 	*next, *next2;
-    const IOUSBInterfaceDescriptor 	*ifdesc = NULL;
-    const IOUSBEndpointDescriptor 	*endp = NULL;
-    UInt8				endpointAddress = endpointNumber | ((direction == kUSBIn) ? 0x80 : 0x00);
+	IOUSBEndpointProperties			endpProp;
+	IOReturn						ret;
 
-    next = (const IOUSBDescriptorHeader *)_configDesc;
-
-    while( (next = _device->FindNextDescriptor(next, kUSBInterfaceDesc))) 
-    {
-        ifdesc = (const IOUSBInterfaceDescriptor *)next;
-        if ((ifdesc->bInterfaceNumber == _bInterfaceNumber) && (ifdesc->bAlternateSetting == alternateSetting))
+	endpProp.bVersion = kUSBEndpointPropertiesVersion3;
+	endpProp.bAlternateSetting = alternateSetting;
+	endpProp.bDirection = direction;
+	endpProp.bEndpointNumber = endpointNumber;
+	
+	ret = GetEndpointPropertiesV3(&endpProp);
+	if (ret == kIOReturnSuccess)
 	{
-	    next2 = next;
-	    while ( (next2 = FindNextAssociatedDescriptor(next2, kUSBEndpointDesc)))
-	    {
-		endp = (const IOUSBEndpointDescriptor*)next2;
-		if (endp->bEndpointAddress == endpointAddress)
-		{
-		    *transferType = endp->bmAttributes & 0x03;
-		    *maxPacketSize = mungeMaxPacketSize(USBToHostWord(endp->wMaxPacketSize));
-		    *interval = endp->bInterval;
-		    USBLog(6, "%s[%p]::GetEndpointProperties - tt=%d, mps=%d, int=%d", getName(), this, *transferType, *maxPacketSize, *interval);
-		    return kIOReturnSuccess;
-		}
-	    }
+		*interval = endpProp.bInterval;
+		*transferType = endpProp.bTransferType;
+		
+		// if this is a HS isoc endpoint, there will be a mult field in the returned property list, but for HS Isoc endpoints
+		// the returned maxPacketSize should include this value to maintain backward compatibility
+		if (_device && (_device->_speed == kUSBDeviceSpeedHigh) &&  (endpProp.bTransferType == kUSBIsoc))
+			*maxPacketSize = endpProp.wMaxPacketSize  * (endpProp.bMult + 1);
+		else
+			*maxPacketSize = endpProp.wMaxPacketSize;
 	}
-    }
-    return kIOUSBEndpointNotFound;
+	
+    return ret;
 }
+
+
 
 OSMetaClassDefineReservedUsed(IOUSBInterface,  2);
 IOReturn 
@@ -2324,7 +2323,216 @@ Exit:
 	return err;
 }
 
-OSMetaClassDefineReservedUnused(IOUSBInterface,  6);
+
+
+UInt16
+IOUSBInterface::CalculateFullMaxPacketSize(IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEndpointCompanionDescriptor *sscd)
+{
+    UInt16			baseMPS = 0;				// maximum of 1024
+    UInt8			mult = 0;
+    UInt8           burst = 0;
+    UInt16          ret;
+    UInt8           transferType;
+
+    if (ed)
+    {
+        // HS Isoch may have a multiplier in the higher bits of the wMaxPacketSize field. no other speeds should have any bits
+        // at all in the higher bits. SS devices have a _different_ multiplier which is found in a different field
+        
+        baseMPS = (ed->wMaxPacketSize & kUSB_EPDesc_wMaxPacketSize_MPS_Mask) >> kUSB_EPDesc_wMaxPacketSize_MPS_Shift;
+        transferType = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_TranType_Mask) >> kUSB_EPDesc_bmAttributes_TranType_Shift;
+        
+        if ((transferType == kUSBInterrupt) || (transferType == kUSBIsoc))
+        {
+            // if the mult value calculated here is non-zero, then this endpoint must be on a USB 2.0 device and not a USB3.0 device
+            mult    = (ed->wMaxPacketSize & kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Mask) >> kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Shift;
+        }
+        
+        if (sscd)
+        {
+            if (mult)
+            {
+                // if we got a mult earlier, then this is a malformed USB3 device
+                USBLog(1,"%s[%p]::CalculateFullMaxPacketSize -- found a SS endpoint (ed[%p] SSCD[%p]) with wMaxPacketSize of 0x%x", getName(), this, ed, sscd, (int)ed->wMaxPacketSize);
+                mult = 0;
+            }
+            if (transferType == kUSBIsoc)
+            {
+                // the mult field in the companion descriptor is only valid for Isoc endpoints
+                mult = (sscd->bmAttributes & kUSB_SSCompDesc_Isoc_Mult_Mask) >> kUSB_SSCompDesc_Isoc_Mult_Shift;
+            }
+            
+            // control endpoints don't use the burst field
+            if (transferType != kUSBControl)
+                burst = sscd->bMaxBurst;
+        }
+        
+        if (burst > 15)
+        {
+            USBLog(1,"%s[%p]::CalculateFullMaxPacketSize -- found a SS endpoint (SSCD[%p]) with burst of %d", getName(), this, sscd, (int)burst);
+            burst = 15;
+        }
+        if (mult > 2)
+        {
+            USBLog(1,"%s[%p]::CalculateFullMaxPacketSize -- HS mult for wMaxPacketSize is illegal (3), setting to 2", getName(), this);
+            mult = 2;
+        }
+    }
+    ret = baseMPS * (mult + 1) * (burst + 1);
+    USBLog(4,"%s[%p]::CalculateFullMaxPacketSize -- returning FullMaxPacketSize of %d", getName(), this, ret);
+    return ret;
+}
+
+
+
+OSMetaClassDefineReservedUsed(IOUSBInterface,  6);
+IOReturn
+IOUSBInterface::GetEndpointPropertiesV3(IOUSBEndpointProperties *properties)
+{
+    const IOUSBDescriptorHeader 	*next, *next2;
+    const IOUSBInterfaceDescriptor 	*ifdesc = NULL;
+    IOUSBEndpointDescriptor         *endp = NULL;
+    UInt8							endpointAddress = properties->bEndpointNumber | ((properties->bDirection == kUSBIn) ? 0x80 : 0x00);
+	UInt16							usbVers = _device ? _device->_descriptor.bcdUSB : 0;				// 0x210, 0x300, etc..
+	IOReturn						ret = kIOUSBEndpointNotFound;
+	UInt8							transferType;
+	
+	// Verify that we can support the version of the IOUSBEndpointProperties structure:
+	if ( properties->bVersion != kUSBEndpointPropertiesVersion3)
+	{
+		USBLog(6, "%s[%p]::GetEndpointPropertiesV3((alt:%d, ep=0x%x) - We have an IOUSBEndpointProperties version %d, but we only support kUSBEndpointPropertiesVersion3, returning kIOReturnBadArgument", getName(), this, properties->bAlternateSetting, endpointAddress, properties->bVersion);
+		return kIOReturnBadArgument;
+	}
+	
+    next = (const IOUSBDescriptorHeader *)_configDesc;
+	
+    while( (next = _device->FindNextDescriptor(next, kUSBInterfaceDesc)))
+    {
+        ifdesc = (const IOUSBInterfaceDescriptor *)next;
+        if ((ifdesc->bInterfaceNumber == _bInterfaceNumber) && (ifdesc->bAlternateSetting == properties->bAlternateSetting))
+		{
+			next2 = next;
+			while ( (next2 = FindNextAssociatedDescriptor(next2, kUSBEndpointDesc)))
+			{
+				endp = (IOUSBEndpointDescriptor*)next2;
+				if (endp->bEndpointAddress == endpointAddress)
+				{
+					// I calculate this now, but won't fill it in until after we validate the SS endpoint
+					transferType = (endp->bmAttributes & kUSB_EPDesc_bmAttributes_TranType_Mask) >> kUSB_EPDesc_bmAttributes_TranType_Shift;
+					
+					if (usbVers >= kUSBRel30)
+					{
+						//  The USB3 spec indicates that the SS Companion descriptor follows the SS Endpoint descriptor, so look just at the next
+						//  descriptor
+						IOUSBSuperSpeedEndpointCompanionDescriptor * sscd = (IOUSBSuperSpeedEndpointCompanionDescriptor*)FindNextAssociatedDescriptor(next2, kUSBAnyDesc);
+
+						if (!sscd || (sscd->bDescriptorType != kUSBSuperSpeedEndpointCompanion))
+						{
+							USBError(1, "%s[%p]::GetEndpointPropertiesV3(alt:%d, ep=0x%x) - missing SSCD", getName(), this, properties->bAlternateSetting, endpointAddress);
+							ret = kIOUSBInvalidSSEndpoint;
+							break;
+						}
+                    
+						// initialize this here, so that we can overload the use of this field for a UAS endpoint
+						properties->bUsageType = 0;
+
+                        properties->bMaxBurst = sscd->bMaxBurst;
+                        if ( transferType == kUSBBulk)
+                        {
+                            properties->bMaxStreams = (sscd->bmAttributes & kUSB_SSCompDesc_Bulk_MaxStreams_Mask) >> kUSB_SSCompDesc_Bulk_MaxStreams_Shift;
+                            properties->bMult = 0;
+                            properties->wBytesPerInterval = 0;
+                        }
+                        else if ( transferType == kUSBIsoc)
+                        {
+                            properties->bMaxStreams = 0;
+                            properties->bMult = (sscd->bmAttributes & kUSB_SSCompDesc_Isoc_Mult_Mask) >> kUSB_SSCompDesc_Bulk_MaxStreams_Shift;
+                            properties->wBytesPerInterval = sscd->wBytesPerInterval;
+                        }
+                        else if ( transferType == kUSBInterrupt)
+                        {
+                            properties->bMaxStreams = 0;
+                            properties->bMult = 0;
+                            properties->wBytesPerInterval = sscd->wBytesPerInterval;
+                        }
+                        else
+                        {
+                            properties->bMaxStreams = 0;
+                            properties->bMult = 0;
+                            properties->wBytesPerInterval = 0;
+                        }
+                        
+                        // A UAS device will have a class specific pipe usage descriptor.  Look for it and if so use the bUsageType field to return it
+                        if ( _bInterfaceClass == kUSBMassStorageInterfaceClass && _bInterfaceSubClass == kUSBMassStorageSCSISubClass && _bInterfaceProtocol == kMSCProtocolUSBAttachedSCSI)
+                        {
+                            const UASPipeDescriptor * uasPipe = (UASPipeDescriptor*)FindNextAssociatedDescriptor(sscd, kUSBAnyDesc);
+                            
+                            if (uasPipe && (uasPipe->bDescriptorType == kUSBClassSpecificDescriptor))
+                            {
+                                properties->bUsageType = uasPipe->bPipeID;
+                                USBLog(6, "%s[%p]::GetEndpointPropertiesV3(alt:%d, ep=0x%x) - UAS bPipeID=%d", getName(), this, properties->bAlternateSetting, endpointAddress, properties->bUsageType);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // the only field in USB2 which is different than the corresponding field in USB3 is bMult
+						if ((transferType == kUSBInterrupt) || (transferType == kUSBIsoc))
+                        {
+                            properties->bMult = (endp->wMaxPacketSize & kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Mask) >> kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Shift;
+                        }
+						else
+						{
+							properties->bMult = 0;
+						}
+                        properties->bMaxBurst = 0;
+						properties->bUsageType = 0;
+						properties->bMaxStreams = 0;
+						
+						// this is synthesized for non-USB3 devices
+						properties->wBytesPerInterval = properties->wMaxPacketSize * (properties->bMult + 1);
+					}
+						
+					// these calculaions are the same for USB 3 and USB 2
+					properties->bTransferType = transferType;
+					
+					// note that the maxPacketSize is returned as the base MPS, not multipled by anything
+					properties->wMaxPacketSize = (endp->wMaxPacketSize & kUSB_EPDesc_wMaxPacketSize_MPS_Mask) >> kUSB_EPDesc_wMaxPacketSize_MPS_Shift;
+					properties->bInterval = endp->bInterval;
+					if ((properties->bTransferType == kUSBInterrupt) || (properties->bTransferType == kUSBIsoc))
+					{
+						if (properties->bTransferType == kUSBIsoc)
+						{
+                            properties->bSyncType = (endp->bmAttributes & kUSB_EPDesc_bmAttributes_SyncType_Mask) >> kUSB_EPDesc_bmAttributes_SyncType_Shift;
+						}
+						else
+						{
+							properties->bSyncType = 0;
+						}
+						properties->bUsageType = (endp->bmAttributes & kUSB_EPDesc_bmAttributes_UsageType_Mask) >> kUSB_EPDesc_bmAttributes_UsageType_Shift;
+					}
+					else
+					{
+						properties->bSyncType = 0;
+						properties->wBytesPerInterval = 0;
+					}
+
+                    // one I have found the endpoint, we are done
+                    ret = kIOReturnSuccess;
+					break;
+				}
+			}
+        }
+    }
+	
+	if (ret)
+	{
+		USBLog(2, "%s[%p]::GetEndpointPropertiesV3(alt:%d, ep=0x%x) - returning err (0x%x)", getName(), this, properties->bAlternateSetting, endpointAddress, (int)ret);
+	}
+	return ret;
+}
+
+
 OSMetaClassDefineReservedUnused(IOUSBInterface,  7);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  8);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  9);

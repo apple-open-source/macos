@@ -80,25 +80,33 @@ static inline int _read_redirect(int descriptor, int flush) {
         /* Increment our returned number read */
         total_read += nbytes;
 
-        nbytes += (aslr->w - aslr->buf);
-        aslr->buf[nbytes] = '\0';
+        /* Increment our write location */
+        aslr->w += nbytes;
+        aslr->w[0] = '\0';
 
         /* One line at a time */
-        for (p=aslr->buf; *p && (p - aslr->buf) < nbytes; p = s + 1) {
-            // Find null or \n
+        for (p = aslr->buf; p < aslr->w; p = s + 1) {
+            /* Find null or \n */
             for (s=p; *s && *s != '\n'; s++);
+
             if (*s == '\n') {
                 *s='\0';
+            }
+
+            if (s < aslr->w || aslr->buf == p) {
+                /* Either the first of multiple messages or one message which is larger than our buffer */
                 asl_log((aslclient)aslr->asl, (aslmsg)aslr->msg, aslr->level, "%s", p);
-            } else if (aslr->buf != p) {
+            } else {
+                /* We reached the end of the buffer, move this chunk to the start. */
                 memmove(aslr->buf, p, BUF_SIZE - (p - aslr->buf));
                 aslr->w = aslr->buf + (s - p);
                 break;
-            } else if (nbytes == BUF_SIZE - 1) {
-                asl_log((aslclient)aslr->asl, (aslmsg)aslr->msg, aslr->level, "%s", p);
-                aslr->w = aslr->buf;
-                break;
             }
+        }
+
+        if (p == aslr->w) {
+            /* Start writing at the beginning in the case where we cleared the buffer */
+            aslr->w = aslr->buf;
         }
     }
 
@@ -194,14 +202,14 @@ static int asl_log_from_descriptor(aslclient ac, aslmsg am, int level, int descr
 
         /* Reallocate if we need more space */
         if (descriptor >= n_redirect_descriptors) {
-            size_t new_n = 1 << (ffs(descriptor) + 1);
+            size_t new_n = 1 << (fls(descriptor) + 1);
             asl_redirect_t *new_array = realloc(redirect_descriptors, new_n * sizeof(*redirect_descriptors));
             if (!new_array) {
                 err = errno;
                 return;
             }
             redirect_descriptors = new_array;
-            memset(redirect_descriptors + n_redirect_descriptors, 0, new_n - n_redirect_descriptors);
+            memset(redirect_descriptors + n_redirect_descriptors, 0, (new_n - n_redirect_descriptors) * sizeof(*redirect_descriptors));
             n_redirect_descriptors = new_n;
         }
         

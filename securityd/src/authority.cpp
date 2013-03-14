@@ -70,8 +70,12 @@ const audit_token_t &auditToken, bool operateAsLeastPrivileged)
 	else
 		mCreatorSandboxed = false;
 	
-	if (SecCodeRef code = Server::process().currentGuest())
-		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &mCreatorCode.aref()));
+	{
+		Process &thisProcess = Server::process();
+		StLock<Mutex> _(thisProcess);
+		if (SecCodeRef code = thisProcess.currentGuest())
+			MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &mCreatorCode.aref()));
+	}
 		
 	// link to session
 	referent(ssn);
@@ -100,6 +104,18 @@ AuthorizationToken::~AuthorizationToken()
 Session &AuthorizationToken::session() const
 {
 	return referent<Session>();
+}
+
+
+std::string AuthorizationToken::creatorPath() const
+{
+	if (mCreatorCode) {
+		StLock<Mutex> _(mLock);
+		CFRef<CFURLRef> path;
+		if (SecCodeCopyPath(mCreatorCode, kSecCSDefaultFlags, &path.aref()) == noErr)
+			return cfString(path);
+	}
+	return "unknown";
 }
 
 

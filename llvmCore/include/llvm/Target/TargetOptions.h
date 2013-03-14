@@ -28,6 +28,14 @@ namespace llvm {
     };
   }
   
+  namespace FPOpFusion {
+    enum FPOpFusionMode {
+      Fast,     // Enable fusion of FP ops wherever it's profitable.
+      Standard, // Only allow fusion of 'blessed' ops (currently just fmuladd).
+      Strict    // Never fuse FP-ops.
+    };
+  }
+  
   /// PrintMachineCode - This flag is enabled when the -print-machineinstrs
   /// option is specified on the command line, and should enable debugging
   /// output from the code generator.
@@ -55,14 +63,6 @@ namespace llvm {
   /// individually.
   extern bool LessPreciseFPMADOption;
   extern bool LessPreciseFPMAD();
-
-  /// NoExcessFPPrecision - This flag is enabled when the
-  /// -disable-excess-fp-precision flag is specified on the command line.  When
-  /// this flag is off (the default), the code generator is allowed to produce
-  /// results that are "more precise" than IEEE allows.  This includes use of
-  /// FMA-like operations and use of the X86 FP registers without rounding all
-  /// over the place.
-  extern bool NoExcessFPPrecision;
 
   /// UnsafeFPMath - This flag is enabled when the
   /// -enable-unsafe-fp-math flag is specified on the command line.  When
@@ -107,6 +107,24 @@ namespace llvm {
   /// Such a combination is unfortunately popular (e.g. arm-apple-darwin).
   /// Hard presumes that the normal FP ABI is used.
   extern FloatABI::ABIType FloatABIType;
+
+  /// AllowFPOpFusion - This flag is set by the -fuse-fp-ops=xxx option.
+  /// This controls the creation of fused FP ops that store intermediate
+  /// results in higher precision than IEEE allows (E.g. FMAs).
+  ///
+  /// Fast mode - allows formation of fused FP ops whenever they're
+  /// profitable.
+  /// Standard mode - allow fusion only for 'blessed' FP ops. At present the
+  /// only blessed op is the fmuladd intrinsic. In the future more blessed ops
+  /// may be added.
+  /// Strict mode - allow fusion only if/when it can be proven that the excess
+  /// precision won't effect the result.
+  ///
+  /// Note: This option only controls formation of fused ops by the optimizers.
+  /// Fused operations that are explicitly specified (e.g. FMA via the
+  /// llvm.fma.* intrinsic) will always be honored, regardless of the value of
+  /// this option.
+  extern FPOpFusion::FPOpFusionMode AllowFPOpFusion;
 
   /// NoZerosInBSS - By default some codegens place zero-initialized data to
   /// .bss section. This flag disables such behaviour (necessary, e.g. for

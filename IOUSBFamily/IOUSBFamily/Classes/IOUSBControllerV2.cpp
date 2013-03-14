@@ -35,6 +35,7 @@
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+
 #include "USBTracepoints.h"
 
 #define CONTROLLERV2_USE_KPRINTF 0
@@ -452,36 +453,39 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 
 
 
-IOReturn IOUSBControllerV2::OpenPipe(USBDeviceAddress address, UInt8 speed,
-									 Endpoint *endpoint)
+IOReturn IOUSBControllerV2::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *endpoint)
 {
-    return _commandGate->runAction(DoCreateEP, (void *)(UInt32)address,
-								   (void *)(UInt32)speed, endpoint);
+	// This method is used for all HS and FS endpoints, and for SS endpoints which are not stream endpoints or which have a bMaxBurst of 0
+	// If the ep is a HS High Bandwidth Isoc endpoint, then the endpoint.maxPacketSize may have an encapsulated mult value which will
+	// get decoded by the UIM
+    return _commandGate->runAction(DoCreateEP, (void *)(UInt32)address, (void *)(UInt32)speed, endpoint);
 }
 
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  25);
-IOReturn IOUSBControllerV2::OpenSSPipe(USBDeviceAddress address, UInt8 speed,
-									 Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurst)
+IOReturn IOUSBControllerV2::OpenSSPipe(USBDeviceAddress address, UInt8 speed, Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurstAndMult)
 {
-    return _commandGate->runAction(DoCreateEP, (void *)(UInt32)address,
-								   (void *)(UInt32)speed, endpoint, (void *)(maxStreams+(maxBurst << 16)));
+	// This method is used for SS endpoints which are for streams endpoints or which have a bMaxBurst field in the endpoint descriptor
+	// If the endpoint is a SS Isoc endpoint, then the endpoint.maxPacketSize will be have the fully multipled MPS in it (MPS * mult * burst)
+	// We do this because the Endpoint data structure used is old, and we need to keep the same meaning as we did for HS High Bandwidth endpoints
+    return _commandGate->runAction(DoCreateEP, (void *)(UInt32)address, (void *)(UInt32)speed, endpoint, (void *)(maxStreams+(maxBurstAndMult << 16)));
 }
 
 IOReturn 
-IOUSBControllerV2::DoCreateEP(OSObject *owner,
-							  void *arg0, void *arg1,
-							  void *arg2, void *arg3)
+IOUSBControllerV2::DoCreateEP(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {	
-    IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
-    UInt8 address = (UInt8)(uintptr_t)arg0;
-    UInt8 speed = (UInt8)(uintptr_t)arg1;
-    Endpoint *endpoint = (Endpoint *)arg2;
-	UInt32 maxStreams = ((UInt32)(uintptr_t)arg3) & 0xffff;
-	UInt32 maxBurst = ((UInt32)(uintptr_t)arg3) >> 16;
-    IOReturn err;
+    IOUSBControllerV2 *	me = (IOUSBControllerV2 *)owner;
+    UInt8				address = (UInt8)(uintptr_t)arg0;
+    UInt8				speed = (UInt8)(uintptr_t)arg1;
+    Endpoint *			endpoint = (Endpoint *)arg2;
+	UInt16				maxStreams = ((UInt32)(uintptr_t)arg3) & 0xffff;
+	UInt8				maxBurst = (((UInt32)(uintptr_t)arg3) & 0xFF0000) >> 16;
+	UInt8				mult = (((UInt32)(uintptr_t)arg3) & 0xFF000000) >> 24;							// Isoc only
+    IOReturn			err;
 	
-    USBLog(5,"%s[%p]::DoCreateEP, high speed ancestor hub:%d, port:%d", me->getName(), me, me->_highSpeedHub[address], me->_highSpeedPort[address]);
+    USBLog(5,"%s[%p]::DoCreateEP, high speed ancestor hub:%d, port:%d, address: %d, speed: %d, maxStreams: %d, maxBurst: %d, mult: %d EP: (%d,%d,%d,%d)", me->getName(), me, me->_highSpeedHub[address], me->_highSpeedPort[address],
+		   (uint32_t)address, (uint32_t)speed, (uint32_t)maxStreams, (uint32_t)maxBurst, (uint32_t)mult,
+		   (uint32_t)endpoint->number, (uint32_t)endpoint->direction, (uint32_t)endpoint->maxPacketSize, (uint32_t)endpoint->interval);
     
 	USBTrace_Start( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, me->_highSpeedHub[address], me->_highSpeedPort[address], endpoint->transferType );
     
@@ -504,7 +508,7 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
                                                      endpoint->number,
                                                      endpoint->direction,
                                                      speed,
-                                                     endpoint->maxPacketSize,
+                                                     endpoint->maxPacketSize,							// this MPS could have a mult built in
                                                      endpoint->interval,
                                                      me->_highSpeedHub[address],
                                                      me->_highSpeedPort[address]);
@@ -555,15 +559,15 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 			
         case kUSBIsoc:
 		{			
-			if (speed == kUSBDeviceSpeedHigh)
+			if ((speed == kUSBDeviceSpeedHigh) || (speed == kUSBDeviceSpeedSuper))
 			{
 				UInt32		interval;
 				
 				// Filter out cases that violate the USB spec:
 				if ((endpoint->interval < 1) || (endpoint->interval > 16))
 				{
-					USBLog(1, "%s[%p]::DoCreateEP - The USB 2.0 spec only allows Isoch EP with bInterval values of 1 through 16 "
-						   "(see Table 9-13), but the illegal interval %d [0x%x] was requested, returning kIOReturnBadArgument", 
+					USBLog(1, "%s[%p]::DoCreateEP - The USB 2.0/3.0 spec only allows Isoch EP with bInterval values of 1 through 16 "
+						   "(see Table 9-13 for USB2, 9-20 for USB3), but the illegal interval %d [0x%x] was requested, returning kIOReturnBadArgument", 
 						   me->getName(), me, endpoint->interval, endpoint->interval);
 					err = kIOReturnBadArgument;
 					USBTrace( kUSBTController, kTPControllerDoCreateEP, (uintptr_t)me, err, endpoint->interval, 0);
@@ -572,7 +576,7 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
                 
 				interval = (1 << (endpoint->interval - 1));
                 
-				USBLog(4, "%s[%p]::DoCreateEP - Creating a High-Speed Isoch EP with interval %u [raw %u]", me->getName(), me, 
+				USBLog(4, "%s[%p]::DoCreateEP - Creating a %s Speed Isoch EP with interval %u [raw %u]", me->getName(), me, speed == kUSBDeviceSpeedHigh ? "Hi" : "Super",
 					   (unsigned int )interval, (unsigned int )endpoint->interval);
                 
 			}
@@ -583,11 +587,14 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 				// do the right thing for full-speed devices then.
 				endpoint->interval = 1;
                 
-				USBLog(4, "%s[%p]::DoCreateEP - Creating a Full-Speed Isoch EP with interval %u", me->getName(), me, (unsigned int )endpoint->interval);
+				USBLog(4, "%s[%p]::DoCreateEP - Creating a Full Speed Isoch EP with interval %u", me->getName(), me, (unsigned int )endpoint->interval);
                 
 			}
-            
-            if(maxBurst == 0)
+            // Note: HS and FS endpoints must use UIMCreateIsochEndpoint because AppleUSBEHCI does not implement UIMCreateSSIsochEndpoint
+			// therefore, any mult which is part of a HS endpoint needs to be encapsulated in the maxPacketSize, and will be decoded by the UIM
+			// Because we need to keep the Endpoint structure consistent, it will also have the (base * burst * mult) and so it will also have
+			// to be decoded in the UIM
+            if (maxBurst == 0)
             {
                 err = me->UIMCreateIsochEndpoint(address,
                                                  endpoint->number,
@@ -604,7 +611,7 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
                                                     endpoint->maxPacketSize,
                                                     endpoint->direction,
                                                     endpoint->interval,
-                                                    maxBurst);
+                                                    maxBurst | (mult << 8));
             }
 			break;
         }
@@ -836,7 +843,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "%s[%p]::ReadV2 - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+        USBLog(5, "%s[%p]::ReadV2 - ep direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
         return kIOReturnBadArgument;
     }
 	
@@ -1447,7 +1454,7 @@ IOUSBControllerV2::ReadStream(UInt32 streamID, IOMemoryDescriptor *buffer, USBDe
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(2, "%s[%p]::Read - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+        USBLog(2, "%s[%p]::Read - ep direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
 		return kIOReturnBadArgument;
     }
     
@@ -1613,7 +1620,7 @@ IOUSBControllerV2::WriteStream(UInt32 streamID, IOMemoryDescriptor *buffer, USBD
     // Validate its a outty pipe and that we have a buffer
     if ((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "%s[%p]::Write - direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+        USBLog(5, "%s[%p]::Write - ep direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
 		return kIOReturnBadArgument;
     }
 	

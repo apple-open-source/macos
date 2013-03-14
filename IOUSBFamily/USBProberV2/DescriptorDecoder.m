@@ -66,6 +66,9 @@
                 case 0xe: /* video class */
                     [DecodeVideoInterfaceDescriptor decodeBytes:p forDevice:thisDevice withDeviceInterface:deviceIntf];
                     break;
+                case 8: /* Mass Storage */
+                    [DecodeMassStorageDescriptor decodeBytes:p forDevice:thisDevice];
+                    break;
                 default:
                     [self dumpRawDescriptor:p forDevice:thisDevice atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
                     break;

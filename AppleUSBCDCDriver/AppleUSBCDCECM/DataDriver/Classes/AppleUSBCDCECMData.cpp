@@ -832,6 +832,16 @@ bool AppleUSBCDCECMData::start(IOService *provider)
 		}
 	}
     
+    UInt16 myVID = fDataInterface->GetDevice()->GetVendorID();
+    UInt16 myPID = fDataInterface->GetDevice()->GetProductID();
+    
+    char vendorString[20];
+    char productString[20];
+    snprintf(vendorString, sizeof(vendorString), "0x%X", myVID);
+    snprintf(productString, sizeof(productString), "0x%X", myPID);
+    
+    cdc_LogToMessageTracer(CDC_ASL_DOMAIN, "AppleUSBCDCECMData", vendorString, productString, 0, 0);
+    
     XTRACE(this, fInBufPool, fOutBufPool, "start - Buffer pools (input, output)");
     
     if (findControlDriverED(this) != kIOReturnSuccess)

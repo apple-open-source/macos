@@ -62,6 +62,10 @@
 #define	_INTERFACE						_expansionData->_interface
 #define	_CROSSENDIANCOMPATIBLE			_expansionData->_crossEndianCompatible
 #define	_LOCATIONID						_expansionData->_locationID
+#define	_UASUSAGEID						_expansionData->_uasUsageID
+#define	_USAGETYPE						_expansionData->_usageType
+#define	_SYNCTYPE						_expansionData->_syncType
+
 
 // Note:  We are overloading the use of the _status iVar -- was obsoleted, but now use it to signify that
 // we should accept an illegal MPS.  We did not create a new ivar in the expansion data because we need
@@ -102,10 +106,13 @@ OSDefineMetaClassAndStructors(IOUSBPipe, OSObject)
 bool 
 IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDeviceAddress address, IOUSBController * controller, IOUSBDevice * device, IOUSBInterface * interface)
 {
-    IOReturn	err;
+    IOReturn		err;
+	UInt16			baseMPS = 0;				// maximum of 1024
+	UInt8			mult = 0;					// only changed with HS Isoch
     
 	USBTrace_Start( kUSBTPipe, kTPPipeInitToEndpoint, (uintptr_t)this, (uintptr_t)ed, speed, address);
 	
+    USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method called");
     if ( !super::init() || ed == 0)
         return (false);
 	
@@ -126,9 +133,39 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
         _endpoint.direction = kUSBAnyDirn;
     else
 		_endpoint.direction = (ed->bEndpointAddress & 0x80) ? kUSBIn : kUSBOut;
-    _endpoint.maxPacketSize = mungeMaxPacketSize(USBToHostWord(ed->wMaxPacketSize));
+	
+	// HS Isoch may have a multiplier in the higher bits of the wMaxPacketSize field. no other speeds should have any bits
+	// at all in the higher bits. SS devices have a _different_ multiplier which is found in a different field
+	
+	baseMPS = (ed->wMaxPacketSize & kUSB_EPDesc_wMaxPacketSize_MPS_Mask) >> kUSB_EPDesc_wMaxPacketSize_MPS_Shift;
+	
+	// this is safe to do even for SS devices because the actual mult field moved
+	mult    = (ed->wMaxPacketSize & kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Mask) >> kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Shift;
+	if (mult > 2)
+	{
+		mult = 2;
+		USBLog(1,"IOUSBPipe[%p]::InitToEndpoint (%s, EP: 0x%x) -- HS mult for wMaxPacketSize is illegal (3), setting to 2", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress);
+	}
+	_endpoint.maxPacketSize = baseMPS * (mult + 1);
 	
     _endpoint.interval = ed->bInterval;
+	
+	if ( _endpoint.transferType == kUSBInterrupt)
+	{
+		_USAGETYPE = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_UsageType_Mask) >> kUSB_EPDesc_bmAttributes_UsageType_Shift;
+		_SYNCTYPE = 0;
+	}
+	else if ( _endpoint.transferType == kUSBIsoc)
+	{
+		_USAGETYPE = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_UsageType_Mask) >> kUSB_EPDesc_bmAttributes_UsageType_Shift;
+		_SYNCTYPE = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_SyncType_Mask) >> kUSB_EPDesc_bmAttributes_SyncType_Shift;
+	}
+	else
+	{
+		_USAGETYPE = 0;
+		_SYNCTYPE = 0;
+	}
+
     _address = address;
     _SPEED = speed;
 	_DEVICE = device;
@@ -198,6 +235,7 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, I
     
 	IOUSBPipe *	me = new IOUSBPipe;
    
+    USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method 3 called");
 	USBLog(6, "IOUSBPipe[%p]::ToEndpoint device %p(%s), interface %p, ep: 0x%x,0x%x,%d,%d", me, device, device->getName(), interface, ed->bEndpointAddress, ed->bmAttributes, ed->wMaxPacketSize, ed->bInterval);
 	
 	if ( me && interface)
@@ -502,7 +540,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
     switch (_endpoint.transferType)
     {
 		case kUSBIsoc:
-			if (maxPacketSize <= mungeMaxPacketSize(USBToHostWord(_descriptor->wMaxPacketSize)))
+			if (maxPacketSize <= _INTERFACE->CalculateFullMaxPacketSize((IOUSBEndpointDescriptor*)_descriptor, NULL))
 			{
 				USBLog(6, "IOUSBPipe[%p]::SetPipePolicy - trying to change isoch pipe from %d to %d bytes", this, oldsize, maxPacketSize);
 				_endpoint.maxPacketSize = maxPacketSize;
@@ -518,7 +556,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
 			}
 			else
 			{
-				USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, mungeMaxPacketSize(USBToHostWord(_descriptor->wMaxPacketSize)));
+				USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, _endpoint.maxPacketSize);
 				err = kIOReturnBadArgument;
 			}
 			break;
@@ -542,7 +580,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
 					USBLog(6, "IOUSBPipe[%p]::SetPipePolicy - requested maxInterval size is the same as before", this);
 				}
 				
-				if (maxPacketSize <= mungeMaxPacketSize(USBToHostWord(_descriptor->wMaxPacketSize)))
+				if (maxPacketSize <= _INTERFACE->CalculateFullMaxPacketSize((IOUSBEndpointDescriptor*)_descriptor, NULL))
 				{
 					USBLog(3, "IOUSBPipe[%p]::SetPipePolicy - trying to change interrupt maxPacketSize from %d to %d bytes", this, oldsize, maxPacketSize);
 					_endpoint.maxPacketSize = maxPacketSize;
@@ -550,7 +588,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
 				}
 				else
 				{
-					USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, mungeMaxPacketSize(USBToHostWord(_descriptor->wMaxPacketSize)));
+					USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, _endpoint.maxPacketSize);
 					err = kIOReturnBadArgument;
 					change = false;
 				}
@@ -1358,6 +1396,22 @@ IOUSBPipe::GetPipeStatus(void)
     return _CORRECTSTATUS;
 }
 
+UInt8
+IOUSBPipe::GetUsageType(void)
+{
+	if ( _endpoint.transferType == kUSBBulk)
+		return _UASUSAGEID;
+	else
+		return _USAGETYPE;
+}
+
+UInt8
+IOUSBPipe::GetSyncType(void)
+{
+	return _SYNCTYPE;
+}
+
+
 
 #pragma mark Obsolete Methods
 bool 
@@ -1408,8 +1462,9 @@ OSMetaClassDefineReservedUsed(IOUSBPipe,  9);
 OSMetaClassDefineReservedUsed(IOUSBPipe,  10);
 OSMetaClassDefineReservedUsed(IOUSBPipe,  11);
 OSMetaClassDefineReservedUsed(IOUSBPipe,  12);
-OSMetaClassDefineReservedUnused(IOUSBPipe,  13);
-OSMetaClassDefineReservedUnused(IOUSBPipe,  14);
+OSMetaClassDefineReservedUsed(IOUSBPipe,  13);
+OSMetaClassDefineReservedUsed(IOUSBPipe,  14);
+
 OSMetaClassDefineReservedUnused(IOUSBPipe,  15);
 OSMetaClassDefineReservedUnused(IOUSBPipe,  16);
 OSMetaClassDefineReservedUnused(IOUSBPipe,  17);

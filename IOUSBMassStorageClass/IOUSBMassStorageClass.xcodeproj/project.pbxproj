@@ -21,18 +21,11 @@
 		52DEDA700D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 014FCB6200351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp */; };
 		52DEDA710D57A5B800F6FF83 /* IOUFIStorageServices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */; };
 		F3476D540F54778B00C7C673 /* IOUSBMassStorageClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
-		F3476D550F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in Headers */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
-		F3476D560F54778B00C7C673 /* IOUFIStorageServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
 		F3476D570F54778B00C7C673 /* Debugging.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C72C5902B5B8E201CE155F /* Debugging.h */; };
 		F3476D590F54778B00C7C673 /* IOUSBMassStorageClass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
-		F3476D5A0F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
-		F3476D5B0F54778B00C7C673 /* IOUFIStorageServices.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
 		F3476D5D0F54778B00C7C673 /* IOUSBMassStorageClassTimestamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */; };
 		F3476D5F0F54778B00C7C673 /* IOUSBMassStorageClass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD74FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp */; settings = {ATTRIBUTES = (); }; };
 		F3476D600F54778B00C7C673 /* USBMassStorageClassBulkOnly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */; settings = {ATTRIBUTES = (); }; };
-		F3476D610F54778B00C7C673 /* USBMassStorageClassCBI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */; settings = {ATTRIBUTES = (); }; };
-		F3476D620F54778B00C7C673 /* IOUSBMassStorageUFISubclass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 014FCB6200351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp */; };
-		F3476D630F54778B00C7C673 /* IOUFIStorageServices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,8 +75,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				F3476D590F54778B00C7C673 /* IOUSBMassStorageClass.h in CopyFiles */,
-				F3476D5A0F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in CopyFiles */,
-				F3476D5B0F54778B00C7C673 /* IOUFIStorageServices.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -107,6 +98,7 @@
 		0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = USBMassStorageClassBulkOnly.cpp; sourceTree = SOURCE_ROOT; };
 		0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = USBMassStorageClassCBI.cpp; sourceTree = SOURCE_ROOT; };
 		2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBMassStorageClassTimestamps.h; sourceTree = "<group>"; };
+		2A980965159283DB00A0B9C6 /* Info-IOUSBMassStorageClass-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOUSBMassStorageClass-Embedded.plist"; sourceTree = "<group>"; };
 		44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOUFIStorageServices.cpp; sourceTree = "<group>"; };
 		44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUFIStorageServices.h; sourceTree = "<group>"; };
 		528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOUSBMassStorageClass_Embedded.xcconfig; sourceTree = "<group>"; };
@@ -146,6 +138,7 @@
 				52C567E90EBA31B600A6A1AA /* UMCLogger */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				52DEDA790D57A5B800F6FF83 /* Info-IOUSBMassStorageClass.plist */,
+				2A980965159283DB00A0B9C6 /* Info-IOUSBMassStorageClass-Embedded.plist */,
 			);
 			name = IOUSBMassStorageClass;
 			sourceTree = "<group>";
@@ -210,8 +203,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F3476D540F54778B00C7C673 /* IOUSBMassStorageClass.h in Headers */,
-				F3476D550F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in Headers */,
-				F3476D560F54778B00C7C673 /* IOUFIStorageServices.h in Headers */,
 				F3476D570F54778B00C7C673 /* Debugging.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -379,9 +370,6 @@
 			files = (
 				F3476D5F0F54778B00C7C673 /* IOUSBMassStorageClass.cpp in Sources */,
 				F3476D600F54778B00C7C673 /* USBMassStorageClassBulkOnly.cpp in Sources */,
-				F3476D610F54778B00C7C673 /* USBMassStorageClassCBI.cpp in Sources */,
-				F3476D620F54778B00C7C673 /* IOUSBMassStorageUFISubclass.cpp in Sources */,
-				F3476D630F54778B00C7C673 /* IOUFIStorageServices.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -578,16 +566,16 @@
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "EMBEDDED=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass-Embedded.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -616,17 +604,19 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=2";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"USB_MASS_STORAGE_DEBUG=2",
+					"EMBEDDED=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass-Embedded.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -657,17 +647,19 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"USB_MASS_STORAGE_DEBUG=1",
+					"EMBEDDED=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass-Embedded.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -692,16 +684,16 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = "EMBEDDED=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass-Embedded.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -768,16 +760,16 @@
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "EMBEDDED=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass-Embedded.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -850,17 +842,19 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"USB_MASS_STORAGE_DEBUG=1",
+					"EMBEDDED=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass-Embedded.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

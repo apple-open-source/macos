@@ -27,8 +27,6 @@
 #if KERNEL
 	#include <libkern/OSByteOrder.h>
 	#include <IOKit/IOMemoryDescriptor.h>
-
-
 #else
 	#include <libkern/OSByteOrder.h>
 #endif
@@ -355,29 +353,30 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 @defined IOUSBFamily error codes
 @discussion  Errors specific to the IOUSBFamily.  Note that the iokit_usb_err(x) translates to 0xe0004xxx, where xxx is the value in parenthesis as a hex number.
 */
-#define	iokit_usb_err(return)       (sys_iokit|sub_iokit_usb|return)
-#define kIOUSBUnknownPipeErr        iokit_usb_err(0x61)									// 0xe0004061  Pipe ref not recognized
-#define kIOUSBTooManyPipesErr       iokit_usb_err(0x60)									// 0xe0004060  Too many pipes
-#define kIOUSBNoAsyncPortErr        iokit_usb_err(0x5f)									// 0xe000405f  no async port
-#define kIOUSBNotEnoughPipesErr     iokit_usb_err(0x5e)									// 0xe000405e  not enough pipes in interface
-#define kIOUSBNotEnoughPowerErr     iokit_usb_err(0x5d)									// 0xe000405d  not enough power for selected configuration
-#define kIOUSBEndpointNotFound      iokit_usb_err(0x57)									// 0xe0004057  Endpoint Not found
-#define kIOUSBConfigNotFound        iokit_usb_err(0x56)									// 0xe0004056  Configuration Not found
-#define kIOUSBTransactionTimeout    iokit_usb_err(0x51)									// 0xe0004051  Transaction timed out
-#define kIOUSBTransactionReturned   iokit_usb_err(0x50)									// 0xe0004050  The transaction has been returned to the caller
-#define kIOUSBPipeStalled           iokit_usb_err(0x4f)									// 0xe000404f  Pipe has stalled, error needs to be cleared
-#define kIOUSBInterfaceNotFound     iokit_usb_err(0x4e)									// 0xe000404e  Interface ref not recognized
-#define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(0x4d)			// 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
-#define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(0x4c)			// 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
-#define kIOUSBHighSpeedSplitError	iokit_usb_err(0x4b)									// 0xe000404b  Error to hub on high speed bus trying to do split transaction
-#define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)									// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
-#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)									// 0xe0004049  Name is deprecated, see below
-#define kIOUSBDeviceTransferredToCompanion					iokit_usb_err(0x49)			// 0xe0004049  The device has been tranferred to another controller for enumeration
-#define kIOUSBClearPipeStallNotRecursive 					iokit_usb_err(0x48)			// 0xe0004048  IOUSBPipe::ClearPipeStall should not be called recursively
-#define kIOUSBDevicePortWasNotSuspended 					iokit_usb_err(0x47)			// 0xe0004047  Port was not suspended
-#define kIOUSBEndpointCountExceeded	iokit_usb_err(0x46)									// 0xe0004046  The endpoint was not created because the controller cannot support more endpoints
-#define kIOUSBDeviceCountExceeded	iokit_usb_err(0x45)									// 0xe0004045  The device cannot be enumerated because the controller cannot support more devices
-#define kIOUSBStreamsNotSupported   iokit_usb_err(0x44)                                 // 0xe0004044   The request cannot be completed because the XHCI controller does not support streams
+#define	iokit_usb_err(return)								(sys_iokit|sub_iokit_usb|return)
+#define kIOUSBUnknownPipeErr								iokit_usb_err(0x61)									// 0xe0004061  Pipe ref not recognized
+#define kIOUSBTooManyPipesErr								iokit_usb_err(0x60)									// 0xe0004060  Too many pipes
+#define kIOUSBNoAsyncPortErr								iokit_usb_err(0x5f)									// 0xe000405f  no async port
+#define kIOUSBNotEnoughPipesErr								iokit_usb_err(0x5e)									// 0xe000405e  not enough pipes in interface
+#define kIOUSBNotEnoughPowerErr								iokit_usb_err(0x5d)									// 0xe000405d  not enough power for selected configuration
+#define kIOUSBEndpointNotFound								iokit_usb_err(0x57)									// 0xe0004057  Endpoint Not found
+#define kIOUSBConfigNotFound								iokit_usb_err(0x56)									// 0xe0004056  Configuration Not found
+#define kIOUSBTransactionTimeout							iokit_usb_err(0x51)									// 0xe0004051  Transaction timed out
+#define kIOUSBTransactionReturned							iokit_usb_err(0x50)									// 0xe0004050  The transaction has been returned to the caller
+#define kIOUSBPipeStalled									iokit_usb_err(0x4f)									// 0xe000404f  Pipe has stalled, error needs to be cleared
+#define kIOUSBInterfaceNotFound								iokit_usb_err(0x4e)									// 0xe000404e  Interface ref not recognized
+#define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(0x4d)									// 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
+#define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(0x4c)									// 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
+#define kIOUSBHighSpeedSplitError							iokit_usb_err(0x4b)									// 0xe000404b  Error to hub on high speed bus trying to do split transaction
+#define kIOUSBSyncRequestOnWLThread							iokit_usb_err(0x4a)									// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
+#define kIOUSBDeviceNotHighSpeed							iokit_usb_err(0x49)									// 0xe0004049  Name is deprecated, see below
+#define kIOUSBDeviceTransferredToCompanion					iokit_usb_err(0x49)									// 0xe0004049  The device has been tranferred to another controller for enumeration
+#define kIOUSBClearPipeStallNotRecursive 					iokit_usb_err(0x48)									// 0xe0004048  IOUSBPipe::ClearPipeStall should not be called recursively
+#define kIOUSBDevicePortWasNotSuspended 					iokit_usb_err(0x47)									// 0xe0004047  Port was not suspended
+#define kIOUSBEndpointCountExceeded							iokit_usb_err(0x46)									// 0xe0004046  The endpoint was not created because the controller cannot support more endpoints
+#define kIOUSBDeviceCountExceeded							iokit_usb_err(0x45)									// 0xe0004045  The device cannot be enumerated because the controller cannot support more devices
+#define kIOUSBStreamsNotSupported							iokit_usb_err(0x44)                                 // 0xe0004044  The request cannot be completed because the XHCI controller does not support streams
+#define kIOUSBInvalidSSEndpoint								iokit_usb_err(0x43)									// 0xe0004043  An endpoint found in a SuperSpeed device is invalid (usually because there is no Endpoint Companion Descriptor)
 
 /*!
 @defined IOUSBFamily hardware error codes
@@ -638,26 +637,110 @@ struct IOUSBEndpointDescriptor {
 };
 typedef struct IOUSBEndpointDescriptor	IOUSBEndpointDescriptor;
 typedef IOUSBEndpointDescriptor *	IOUSBEndpointDescriptorPtr;
+    
+enum {
+    kUSB_EPDesc_bmAttributes_TranType_Mask      = USBBitRange(0,1),
+    kUSB_EPDesc_bmAttributes_TranType_Shift     = USBBitRangePhase(0,1),
+    kUSB_EPDesc_bmAttributes_SyncType_Mask      = USBBitRange(2, 3),
+    kUSB_EPDesc_bmAttributes_SyncType_Shift     = USBBitRangePhase(2, 3),
+    kUSB_EPDesc_bmAttributes_UsageType_Mask     = USBBitRange(4, 5),
+    kUSB_EPDesc_bmAttributes_UsageType_Shift    = USBBitRangePhase(4, 5),
+    
+    kUSB_EPDesc_wMaxPacketSize_MPS_Mask			= USBBitRange(0, 10),
+    kUSB_EPDesc_wMaxPacketSize_MPS_Shift		= USBBitRangePhase(0, 10),
+    kUSB_EPDesc_MaxMPS                          = 1024,                                    // this is the maximum no matter what
+	
+    kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Mask    = USBBitRange(11, 12),
+    kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Shift   = USBBitRangePhase(11, 12)
+};
 
 #pragma pack(1)
-	/*!
-	 @typedef IOUSBSuperSpeedEndpointCompanionDescriptor
-	 @discussion Descriptor for a SuperSpeed USB Endpoint Cpmpanion.  See the USB Specification at <a href="http://www.usb.org"TARGET="_blank">http://www.usb.org</a>.
-	 */
-	struct IOUSBSuperSpeedEndpointCompanionDescriptor {
-		UInt8 			bLength;
-		UInt8 			bDescriptorType;
-		UInt8 			bMaxBurst;
-		UInt8 			bmAttributes;
-		UInt16 			wBytesPerInterval;	
-	};
-	typedef struct IOUSBSuperSpeedEndpointCompanionDescriptor	IOUSBSuperSpeedEndpointCompanionDescriptor;
-	typedef IOUSBSuperSpeedEndpointCompanionDescriptor *	IOUSBSuperSpeedEndpointCompanionDescriptorPtr;
-#pragma options align=reset
+/*!
+ @typedef IOUSBSuperSpeedEndpointCompanionDescriptor
+ @discussion Descriptor for a SuperSpeed USB Endpoint Companion.  See the USB Specification at <a href="http://www.usb.org"TARGET="_blank">http://www.usb.org</a>.
+ */
+struct IOUSBSuperSpeedEndpointCompanionDescriptor {
+    UInt8 			bLength;
+    UInt8 			bDescriptorType;
+    UInt8 			bMaxBurst;
+    UInt8 			bmAttributes;
+    UInt16 			wBytesPerInterval;	
+};
+typedef struct IOUSBSuperSpeedEndpointCompanionDescriptor	IOUSBSuperSpeedEndpointCompanionDescriptor;
+typedef IOUSBSuperSpeedEndpointCompanionDescriptor *	IOUSBSuperSpeedEndpointCompanionDescriptorPtr;
+enum {
+    kUSB_SSCompDesc_Bulk_MaxStreams_Mask	= USBBitRange(0, 4),
+    kUSB_SSCompDesc_Bulk_MaxStreams_Shift	= USBBitRangePhase(0, 4),
+    kUSB_SSCompDesc_Isoc_Mult_Mask			= USBBitRange(0, 1),
+    kUSB_SSCompDesc_Isoc_Mult_Shift			= USBBitRangePhase(0, 1)
+};
+    
 
+
+
+
+// these following 2 lines are deprecated and should not be used. 
 enum{addPacketShift = 11};  // Bits for additional packets in maxPacketField. (Table 9-13)
 #define mungeMaxPacketSize(w) ((w>1024)?(((w>>(addPacketShift))+1)*(w&((1<<addPacketShift)-1))):w)
 
+	/*!
+	 @typedef IOUSBEndpointProperties
+	 @discussion  Structure used with the IOUSBLib GetEndpointPropertiesV3 and GetPipePropertiesV3 API. Most of the fields are taken directly from corresponding Standard Endpoint Descriptor and SuperSpeed Endpoint Companion Descriptor. wBytesPerInterval will be synthesized for  High Speed High Bandwidth Isochronous endpoints.
+	 @field bVersion  Version of the structure.  Currently kUSBEndpointPropertiesVersion3.  Need to set this when using this structure
+	 @field bAlternateSetting Used as an input for GetEndpointPropertiesV3.  Used as an output for GetPipePropertiesV3
+	 @field bDirection Used as an input for GetEndpointPropertiesV3.  Used as an output for GetPipePropertiesV3. One of kUSBIn or kUSBOut.
+	 @field bEndpointNumber Used as an input for GetEndpointPropertiesV3.  Used as an output for GetPipePropertiesV3
+	 @field bTransferType  One of kUSBControl, kUSBBulk, kUSBIsoc, or kUSBInterrupt
+	 @field bUsageType  For interrupt and isoc endpoints, the usage type.  For Bulk endpoints of the UAS Mass Storage Protocol, the pipe ID.
+	 @field bSyncType	For isoc endpoints only
+	 @field bInterval	The bInterval field from the Standard Endpoint descriptor.
+	 @field wMaxPacketSize  The meaning of this value depends on whether this is called with GetPipePropertiesV3 or GetEndpointPropertiesV3. See the documentation of those calls for more info.
+	 @field bMaxBurst  For SuperSpeed endpoints, maximum number of packets the endpoint can send or receive as part of a burst
+	 @field bMaxStreams  For SuperSpeed bulk endpoints, maximum number of streams this endpoint supports.
+	 @field bMult  For SuperSpeed isoc endpoints, this is the mult value from the SuperSpeed Endpoint Companion Descriptor. For High Speed isoc and interrupt endpoints, this is bits 11 and 12 of the Standard Endpoint Descriptor, which represents a similar value.
+	 @field wBytesPerInterval  For SuperSpeed interrupt and isoc endpoints, this is the wBytesPerInterval from the SuperSpeed Endpoint Companion Descriptor. For High Speed High Bandwidth isoc endpoints, this will be equal to wMaxPacketSize * (bMult+1).
+	 */
+	struct IOUSBEndpointProperties {
+		UInt8 			bVersion;
+		UInt8			bAlternateSetting;
+		UInt8			bDirection;
+		UInt8			bEndpointNumber;
+		UInt8			bTransferType;
+		UInt8			bUsageType;
+		UInt8			bSyncType;
+		UInt8			bInterval;
+		UInt16			wMaxPacketSize;
+		UInt8			bMaxBurst;
+		UInt8			bMaxStreams;
+		UInt8			bMult;
+		UInt16			wBytesPerInterval;
+	};
+	typedef struct IOUSBEndpointProperties	IOUSBEndpointProperties;
+	typedef IOUSBEndpointProperties *	IOUSBEndpointPropertiesPtr;
+
+	/*!
+	 @enum USBGetEndpointVersion
+	 @discussion 	Version of the IOUSBEndpointProperties structure.
+	 @constant	kUSBEndpointPropertiesVersion3			Version that has support for USB3 SuperSpeed Endpoint Companion fields.
+	*/
+	enum {
+		kUSBEndpointPropertiesVersion3	= 0x03
+	};
+
+	/*!
+	 @typedef UASPipeDescriptor
+	 @discussion  Structure used to specify the Mass Storage Specific UAS pipe usage descriptor
+	*/
+	struct UASPipeDescriptor {
+		UInt8	bLength;
+		UInt8	bDescriptorType;
+		UInt8	bPipeID;
+		UInt8   bReserved;
+	};
+	typedef struct 	UASPipeDescriptor	UASPipeDescriptor;
+	typedef 		UASPipeDescriptor * UASPipeDescriptorPtr;
+
+#pragma options align=reset
 /*!
     @typedef IOUSBHIDDescriptor
     @discussion USB HID Descriptor.  See the USB HID Specification at <a href="http://www.usb.org"TARGET="_blank">http://www.usb.org</a>.  (This structure

@@ -123,12 +123,14 @@ typedef struct assertion {
 #define kAssertionStateInactive             0x2
 #define kAssertionStateValidOnBatt          0x4
 #define kAssertionStateLogged               0x8
+#define kAssertionLidStateModifier          0x10
 
 /* Mods bits for assertion_t structure */
 #define kAssertionModTimer              0x1
 #define kAssertionModLevel              0x2
 #define kAssertionModType               0x4
 #define kAssertionModPowerConstraint    0x8
+#define kAssertionModLidState           0x10
 
 typedef enum {
     kAssertionOpRaise,
@@ -150,8 +152,6 @@ struct assertionType {
     LIST_HEAD(, assertion) active;       /* Active assertions without timeout */
     LIST_HEAD(, assertion) inactive;     /* timed out assertions/Level 0 assertions etc */
 
-    /* validOnBattCount - Number of active assertions requesting to be active on Battery power */
-    uint32_t            validOnBattCount;
     kerAssertionType    kassert;
     dispatch_source_t   timer;          /* dispatch source for Per assertion timer */  
     dispatch_source_t   globalTimer;    /* dispatch source for all assertions of this type */
@@ -164,6 +164,10 @@ struct assertionType {
     uint32_t            linkedTypes;    /* Assertion types that need same kernel settings as this one, but different behavior
                                            in powerd.  This field bits are indices into 'gAssertionTypes' array */
 
+    // Fields changed by properties set on assertion. 
+    // Not all fields are valid for all assertion types 
+    uint32_t   validOnBattCount;        /* Count of assertions requesting to be active on Battery power */
+    uint32_t   lidSleepCount;           /* Count of assertions changing clamshellSleep state(For kDeclareUserActivity only) */
 } ;
 
 /* Flag bits for assertionType_t structure */

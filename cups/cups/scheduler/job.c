@@ -2977,7 +2977,8 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
   * rarely have current information for network devices...
   */
 
-  if (strncmp(job->printer->device_uri, "usb:", 4))
+  if (strncmp(job->printer->device_uri, "usb:", 4) &&
+      strncmp(job->printer->device_uri, "ippusb:", 7))
     cupsdSetPrinterReasons(job->printer, "-offline-report");
 
  /*
@@ -2988,10 +2989,11 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
   job->profile = NULL;
 
  /*
-  * Clear the unresponsive job watchdog timer...
+  * Clear the unresponsive job watchdog timers...
   */
 
-  job->kill_time = 0;
+  job->cancel_time = 0;
+  job->kill_time   = 0;
 
  /*
   * Close pipes and status buffer...
@@ -3083,6 +3085,8 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
 		    exit_code == CUPS_BACKEND_HOLD ? "hold job" :
 		    exit_code == CUPS_BACKEND_STOP ? "stop printer" :
 		    exit_code == CUPS_BACKEND_CANCEL ? "cancel job" :
+		    exit_code == CUPS_BACKEND_RETRY ? "retry job later" :
+		    exit_code == CUPS_BACKEND_RETRY_CURRENT ? "retry job immediately" :
 		    exit_code < 0 ? "crashed" : "unknown");
 
    /*
@@ -3645,7 +3649,13 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	  attr->value_tag == IPP_TAG_BEGIN_COLLECTION) /* Not yet supported */
 	continue;
 
-      if (!strcmp(attr->name, "job-hold-until"))
+      if (!strcmp(attr->name, "job-hold-until") ||
+          !strcmp(attr->name, "job-id") ||
+          !strcmp(attr->name, "job-k-octets") ||
+          !strcmp(attr->name, "job-media-sheets") ||
+          !strcmp(attr->name, "job-media-sheets-completed") ||
+          !strcmp(attr->name, "job-state") ||
+          !strcmp(attr->name, "job-state-reasons"))
 	continue;
 
       if (!strncmp(attr->name, "job-", 4) &&

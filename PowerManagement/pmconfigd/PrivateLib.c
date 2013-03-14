@@ -78,6 +78,12 @@ enum
     kInvalidWakeSecsDefault = 16
 };
 
+enum
+{
+    // 2GB
+    kStandbyDesktopHibernateFileSize = 2ULL*1024*1024*1024
+};
+
 #define kPowerManagerActionNotificationName "com.apple.powermanager.action"
 #define kPowerManagerActionKey "action"
 #define kPowerManagerValueKey "value"
@@ -143,6 +149,8 @@ static int getAggressivenessFactorsFromProfile(
                                                IOPMAggressivenessFactors       *agg);
 static int ProcessHibernateSettings(
                                     CFDictionaryRef                 dict, 
+                                    bool                            standby,
+                                    bool                            desktop,
                                     io_registry_entry_t             rootDomain);
 
 
@@ -210,81 +218,80 @@ _copyRootDomainProperty(
 
 __private_extern__ bool 
 _getUUIDString(
-	char *buf, 
-	int buflen)
+    char *buf, 
+    int buflen)
 {
-	bool			ret = false;
- 	CFStringRef		uuidString = NULL;
+    bool            ret = false;
+    CFStringRef     uuidString = NULL;
 
-	uuidString = IOPMSleepWakeCopyUUID();
+    uuidString = IOPMSleepWakeCopyUUID();
 
-	if (uuidString) {
-		if (!CFStringGetCString(uuidString, buf, buflen, 
-								kCFStringEncodingUTF8)) 
-		{
-			goto exit;
-		}
+    if (uuidString) {
+        if (!CFStringGetCString(uuidString, buf, buflen, 
+                                kCFStringEncodingUTF8)) 
+        {
+            goto exit;
+        }
 
-		ret = true;
-	}
+        ret = true;
+    }
 exit:
-	if (uuidString) CFRelease(uuidString);
-	return ret;
+    if (uuidString) CFRelease(uuidString);
+    return ret;
 }
 
 __private_extern__ bool
 _getSleepReason(
-	char *buf,
-	int buflen)
+    char *buf,
+    int buflen)
 {
-	bool			ret = false;
- 	io_service_t    iopm_rootdomain_ref = getRootDomain();
- 	CFStringRef		sleepReasonString = NULL;
+    bool            ret = false;
+    io_service_t    iopm_rootdomain_ref = getRootDomain();
+    CFStringRef     sleepReasonString = NULL;
 
-	sleepReasonString = IORegistryEntryCreateCFProperty(
-							iopm_rootdomain_ref,
-							CFSTR("Last Sleep Reason"),
-							kCFAllocatorDefault, 0);
+    sleepReasonString = IORegistryEntryCreateCFProperty(
+                            iopm_rootdomain_ref,
+                            CFSTR("Last Sleep Reason"),
+                            kCFAllocatorDefault, 0);
 
-	if (sleepReasonString) {
-		if (CFStringGetCString(sleepReasonString, buf, buflen, 
-								kCFStringEncodingUTF8) && buf[0]) 
-		{
+    if (sleepReasonString) {
+        if (CFStringGetCString(sleepReasonString, buf, buflen, 
+                                kCFStringEncodingUTF8) && buf[0]) 
+        {
        ret = true;
-		}
+        }
 
-	}
-	if (sleepReasonString) CFRelease(sleepReasonString);
-	return ret;
+    }
+    if (sleepReasonString) CFRelease(sleepReasonString);
+    return ret;
 }
 
-/* Returns Wake reason and Wake type in on concatenated string */
 __private_extern__ bool
 _getWakeReason(
-	char *buf,
-	int buflen)
+    char *buf,
+    int buflen)
 {
-	bool			ret = false;
- 	io_service_t    iopm_rootdomain_ref = getRootDomain();
- 	CFStringRef		wakeReasonString = NULL;
- 	CFStringRef		wakeTypeString = NULL;
+    bool            ret = false;
+    io_service_t    iopm_rootdomain_ref = getRootDomain();
+    CFStringRef     wakeReasonString = NULL;
+    CFStringRef     wakeTypeString = NULL;
     char            wr[25], wt[25];
 
     wr[0] = wt[0] = 0;
     // This property may not exist on all platforms.
-	wakeReasonString = IORegistryEntryCreateCFProperty(
-							iopm_rootdomain_ref,
+    wakeReasonString = IORegistryEntryCreateCFProperty(
+                            iopm_rootdomain_ref,
               CFSTR(kIOPMRootDomainWakeReasonKey),
-							kCFAllocatorDefault, 0);
+                            kCFAllocatorDefault, 0);
 
-	if (wakeReasonString) {
-		if (CFStringGetCString(wakeReasonString, wr, sizeof(wr), 
-								kCFStringEncodingUTF8) && wr[0]) 
-		{
+    if (wakeReasonString) {
+       if (CFStringGetCString(wakeReasonString, wr, sizeof(wr), 
+                   kCFStringEncodingUTF8) && wr[0]) 
+        {
        ret = true;
-		}
+        }
 	    CFRelease(wakeReasonString);
-	}
+    }
 
 
     wakeTypeString = IORegistryEntryCreateCFProperty(
@@ -307,27 +314,27 @@ _getWakeReason(
 
 __private_extern__ bool
 _getHibernateState(
-	uint32_t *hibernateState)
+    uint32_t *hibernateState)
 {
-	bool			ret = false;
- 	io_service_t    iopm_rootdomain_ref = getRootDomain();
- 	CFDataRef		hstateData = NULL;
+    bool            ret = false;
+    io_service_t    iopm_rootdomain_ref = getRootDomain();
+    CFDataRef       hstateData = NULL;
   uint32_t    *hstatePtr;
 
     // This property may not exist on all platforms.
-	hstateData = IORegistryEntryCreateCFProperty(
-							iopm_rootdomain_ref,
+    hstateData = IORegistryEntryCreateCFProperty(
+                            iopm_rootdomain_ref,
               CFSTR(kIOHibernateStateKey),
-							kCFAllocatorDefault, 0);
+                            kCFAllocatorDefault, 0);
 
-	if ((hstateData) && (hstatePtr = (uint32_t *)CFDataGetBytePtr(hstateData))) {
+    if ((hstateData) && (hstatePtr = (uint32_t *)CFDataGetBytePtr(hstateData))) {
     *hibernateState = *hstatePtr;
 
-		ret = true;
-	}
+        ret = true;
+    }
 
-	if (hstateData) CFRelease(hstateData);
-	return ret;
+    if (hstateData) CFRelease(hstateData);
+    return ret;
 }
 
 __private_extern__ 
@@ -446,7 +453,7 @@ static void sendNotification(int command)
     CFDictionarySetValue(dict, CFSTR(kPowerManagerValueKey), secondsValue);
 
     CFNotificationCenterPostNotificationWithOptions ( 
-					    CFNotificationCenterGetDistributedCenter(),
+                        CFNotificationCenterGetDistributedCenter(),
                                             CFSTR(kPowerManagerActionNotificationName), 
                                             NULL, dict, 
                                             (kCFNotificationPostToAllSessions | kCFNotificationDeliverImmediately));
@@ -692,9 +699,9 @@ static void sendEnergySettingsToKernel(
 
     if (useSettings)
     {
-        ProcessHibernateSettings(useSettings, PMRootDomain);
+        bool isDesktop = (0 == _batteryCount());
+        ProcessHibernateSettings(useSettings, p->fDeepSleepEnable, isDesktop, PMRootDomain);
     }
-    
     
 exit:
     if (number0) {
@@ -2216,8 +2223,8 @@ static void handleMachCalendarMessage(CFMachPortRef port, void *msg,
 {
     kern_return_t  result;
     mach_port_t    mport = CFMachPortGetPort(port); 
-    mach_port_t	   host_port;
-	
+    mach_port_t    host_port;
+    
     // Re-register for notification
     host_port = mach_host_self();
     result = host_request_notification(host_port, HOST_NOTIFY_CALENDAR_CHANGE, mport);
@@ -2263,7 +2270,7 @@ static void registerForCalendarChangedNotification(void)
         CFRelease(calChangeReceivePort);
     }
     
-	// register for notification
+    // register for notification
     host_port = mach_host_self();
     host_request_notification(host_port,HOST_NOTIFY_CALENDAR_CHANGE, tport);
     if (host_port) {
@@ -2316,7 +2323,7 @@ callerIsConsole(
     int gid)
 {
 #if TARGET_OS_EMBEDDED
-	return false;
+    return false;
 #else
     CFStringRef                 user_name = NULL;
     uid_t                       console_uid;
@@ -2437,7 +2444,6 @@ __private_extern__ IOReturn _smcWakeTimerPrimer(void)
     buf[0] = 0; 
     buf[1] = 1;
     return _smcWriteKey('CLWK', buf, 2);
-    return kIOReturnNotReadable;
 }
 
 /************************************************************************/
@@ -2708,97 +2714,17 @@ exit:
     return ret;
 }
 
-
-
-typedef struct 
-{
-    int      fd;
-    uint64_t size;
-} CleanHibernateFileArgs;
-
-static void *
-CleanHibernateFile(void * args)
-{
-    char *   buf;
-    size_t   size, bufSize = 128 * 1024;
-    int      fd = ((CleanHibernateFileArgs *) args)->fd;
-    uint64_t fileSize = ((CleanHibernateFileArgs *) args)->size;
-    
-    (void) fcntl(fd, F_NOCACHE, 1);
-    lseek(fd, 0ULL, SEEK_SET);
-    buf = calloc(bufSize, sizeof(char));
-    if (!buf)
-        return (NULL);
-    
-    size = bufSize;
-    while (fileSize)
-    {
-        if (fileSize < size)
-            size = fileSize;
-        if (size != (size_t) write(fd, buf, size))
-            break;
-        fileSize -= size;
-    }
-    close(fd);
-    free(buf);
-    
-    return (NULL);
-}
-
-#define VM_PREFS_PLIST            "/Library/Preferences/com.apple.virtualMemory.plist"
-#define VM_PREFS_ENCRYPT_SWAP_KEY   "UseEncryptedSwap"
-
-static CFDictionaryRef createPlistFromFilePath(const char * path)
-{
-    CFURLRef                    filePath = NULL;
-    CFDataRef                   fileData = NULL;
-    CFDictionaryRef             outPList = NULL;
-    
-    filePath = CFURLCreateFromFileSystemRepresentation(0, (const UInt8 *)path, strlen(path), FALSE);
-    if (!filePath)
-        goto exit;
-    CFURLCreateDataAndPropertiesFromResource(0, filePath, &fileData, NULL, NULL, NULL);
-    if (!fileData)
-        goto exit;
-    outPList = CFPropertyListCreateFromXMLData(0, fileData, kCFPropertyListImmutable, NULL);
-    
-exit:
-    if (filePath) {
-        CFRelease(filePath);
-    }
-    if (fileData) {
-        CFRelease(fileData);
-    }
-    return outPList;
-}
-
-static boolean_t
-EncryptedSwap(void)
-{
-    CFDictionaryRef         propertyList;
-    boolean_t              result = FALSE;
-    
-    propertyList = createPlistFromFilePath(VM_PREFS_PLIST);
-    if (propertyList)
-    {
-        result = ((CFDictionaryGetTypeID() == CFGetTypeID(propertyList))
-                  && (kCFBooleanTrue == CFDictionaryGetValue(propertyList, CFSTR(VM_PREFS_ENCRYPT_SWAP_KEY))));
-        CFRelease(propertyList);
-    }
-    
-    return (result);
-}
-
 /* extern symbol defined in IOKit.framework
  * IOCFURLAccess.c
  */
 extern Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes, CFIndex *length, CFIndex maxLength);
 
-static int ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t rootDomain)
+static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isDesktop, io_registry_entry_t rootDomain)
 {
     IOReturn    ret;
     CFTypeRef   obj;
     CFNumberRef modeNum;
+    CFNumberRef num;
     SInt32      modeValue = 0;
     CFURLRef    url = NULL;
     Boolean createFile = false;
@@ -2810,15 +2736,18 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t ro
     size_t    len;
     fstore_t    prealloc;
     off_t    filesize;
-    
-    
+    off_t    minFileSize = 0;
+    off_t    maxFileSize = 0;
+    bool     desktopHib;
+
+
     if ( !IOPMFeatureIsAvailable( CFSTR(kIOHibernateFeatureKey), NULL ) )
     {
         // Hibernation is not supported; return before we touch anything.
         return 0;
     }
-    
-    
+
+
     if ((modeNum = CFDictionaryGetValue(dict, CFSTR(kIOHibernateModeKey)))
         && isA_CFNumber(modeNum))
         CFNumberGetValue(modeNum, kCFNumberSInt32Type, &modeValue);
@@ -2829,132 +2758,105 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t ro
         && (obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey)))
         && isA_CFString(obj))
         do
+    {
+        url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, obj, kCFURLPOSIXPathStyle, true);
+        
+        if (!url || !CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *) path, MAXPATHLEN))
+            break;
+       
+        len = sizeof(size);
+        if (sysctlbyname("hw.memsize", &size, &len, NULL, 0))
+            break;
+
+        if (!isDesktop)
         {
-            url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, obj, kCFURLPOSIXPathStyle, true);
-            
-            if (!url || !CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *) path, MAXPATHLEN))
-                break;
-            
-            len = sizeof(size);
-            if (sysctlbyname("hw.memsize", &size, &len, NULL, 0))
-                break;
             filesize = size;
+        }
+        else
+        {
+            filesize = (size >> 1);
+            if (standby && (filesize > kStandbyDesktopHibernateFileSize)) filesize = kStandbyDesktopHibernateFileSize;
+            minFileSize = filesize;
+            maxFileSize = 0;
+        }
             
-            if (0 == stat(path, &statBuf))
+        if (0 != stat(path, &statBuf)) createFile = true;
+        else
+        {
+            if ((S_IFBLK == (S_IFMT & statBuf.st_mode)) 
+                || (S_IFCHR == (S_IFMT & statBuf.st_mode)))
             {
-                if ((S_IFBLK == (S_IFMT & statBuf.st_mode)) 
-                    || (S_IFCHR == (S_IFMT & statBuf.st_mode)))
-                {
+                haveFile = true;
+            }
+            else if (S_IFREG == (S_IFMT & statBuf.st_mode))
+            {
+                if ((statBuf.st_size == filesize) || (kIOHibernateModeFileResize & modeValue))
                     haveFile = true;
-                }
-                else if (S_IFREG == (S_IFMT & statBuf.st_mode))
-                {
-                    if (statBuf.st_size >= filesize)
-                        haveFile = true;
-                    else
-                        createFile = true;
-                }
                 else
-                    break;
+                    createFile = true;
             }
             else
-                createFile = true;
-            
-            if (createFile)
-            {
-                do
-                {
-                    char *    patchpath, save = 0;
-                    struct    statfs sfs;
-                    u_int64_t fsfree;
-                    
-                    fd = -1;
-                    
-                    /*
-                     * get rid of the filename at the end of the file specification
-                     * we only want the portion of the pathname that should already exist
-                     */
-                    if ((patchpath = strrchr(path, '/')))
-                    {
-                        save = *patchpath;
-                        *patchpath = 0;
-                    }
-                    
-                    if (-1 == statfs(path, &sfs))
-                        break;
-                    
-                    fsfree = ((u_int64_t)sfs.f_bfree * (u_int64_t)sfs.f_bsize);
-                    if ((fsfree - filesize) < kIOHibernateMinFreeSpace)
-                        break;
-                    
-                    if (patchpath)
-                        *patchpath = save;
-                    fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 01600);
-                    if (-1 == fd)
-                        break;
-                    if (-1 == fchmod(fd, 01600))
-                        break;
-                    
-                    prealloc.fst_flags = F_ALLOCATEALL; // F_ALLOCATECONTIG
-                    prealloc.fst_posmode = F_PEOFPOSMODE;
-                    prealloc.fst_offset = 0;
-                    prealloc.fst_length = filesize;
-                    if (((-1 == fcntl(fd, F_PREALLOCATE, &prealloc))
-                         || (-1 == fcntl(fd, F_SETSIZE, &prealloc.fst_length)))
-                        && (-1 == ftruncate(fd, prealloc.fst_length)))
-                        break;
-                    
-                    haveFile = true;
-                }
-                while (false);
-                if (-1 != fd)
-                {
-                    close(fd);
-                    if (!haveFile)
-                        unlink(path);
-                }
-            }
-            
-            if (!haveFile)
                 break;
+        }
             
-            if (EncryptedSwap() && !createFile)
+        if (createFile)
+        {
+            do
             {
-                // encryption on - check existing file to see if it has unencrypted content
-                fd = open(path, O_RDWR);
-                if (-1 != fd) do
+                char *    patchpath, save = 0;
+                struct    statfs sfs;
+                u_int64_t fsfree;
+                
+                fd = -1;
+                
+                /*
+                 * get rid of the filename at the end of the file specification
+                 * we only want the portion of the pathname that should already exist
+                 */
+                if ((patchpath = strrchr(path, '/')))
                 {
-                    static CleanHibernateFileArgs args;
-                    IOHibernateImageHeader        header;
-                    pthread_attr_t                attr;
-                    pthread_t                     tid;
-                    
-                    len = read(fd, &header, sizeof(IOHibernateImageHeader));
-                    if (len != sizeof(IOHibernateImageHeader))
-                        break;
-                    if ((kIOHibernateHeaderSignature != header.signature)
-                        && (kIOHibernateHeaderInvalidSignature != header.signature))
-                        break;
-                    if (header.encryptStart)
-                        break;
-                    
-                    // if so, clean it off the configd thread
-                    args.fd = fd;
-                    args.size = header.imageSize;
-                    if (pthread_attr_init(&attr))
-                        break;
-                    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))
-                        break;
-                    if (pthread_create(&tid, &attr, &CleanHibernateFile, &args))
-                        break;
-                    pthread_attr_destroy(&attr);
-                    fd = -1;
+                    save = *patchpath;
+                    *patchpath = 0;
                 }
-                while (false);
-                if (-1 != fd)
-                    close(fd);
+                
+                if (-1 == statfs(path, &sfs))
+                    break;
+                
+                fsfree = ((u_int64_t)sfs.f_bfree * (u_int64_t)sfs.f_bsize);
+                if ((fsfree - filesize) < kIOHibernateMinFreeSpace)
+                    break;
+                
+                if (patchpath)
+                    *patchpath = save;
+                fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 01600);
+                if (-1 == fd)
+                    break;
+                if (-1 == fchmod(fd, 01600))
+                    break;
+                
+                prealloc.fst_flags = F_ALLOCATEALL; // F_ALLOCATECONTIG
+                prealloc.fst_posmode = F_PEOFPOSMODE;
+                prealloc.fst_offset = 0;
+                prealloc.fst_length = filesize;
+                if (((-1 == fcntl(fd, F_PREALLOCATE, &prealloc))
+                     || (-1 == fcntl(fd, F_SETSIZE, &prealloc.fst_length)))
+                    && (-1 == ftruncate(fd, prealloc.fst_length)))
+                    break;
+                
+                haveFile = true;
             }
-            
+            while (false);
+            if (-1 != fd)
+            {
+                close(fd);
+                if (!haveFile)
+                    unlink(path);
+            }
+        }
+        
+        if (!haveFile)
+            break;
+       
 #if defined (__i386__) || defined(__x86_64__) 
 #define kBootXPath        "/System/Library/CoreServices/boot.efi"
 #define kBootXSignaturePath    "/System/Library/Caches/com.apple.bootefisignature"
@@ -2963,55 +2865,55 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t ro
 #define kBootXSignaturePath    "/System/Library/Caches/com.apple.bootxsignature"
 #endif
 #define kCachesPath        "/System/Library/Caches"
-#define    kGenSignatureCommand    "/bin/cat " kBootXPath " | /usr/bin/openssl dgst -sha1 -hex -out " kBootXSignaturePath
-            
-            
-            struct stat bootx_stat_buf;
-            struct stat bootsignature_stat_buf;
-            
-            if (0 != stat(kBootXPath, &bootx_stat_buf))
-                break;
-            
-            if ((0 != stat(kBootXSignaturePath, &bootsignature_stat_buf))
-                || (bootsignature_stat_buf.st_mtime != bootx_stat_buf.st_mtime))
+#define kGenSignatureCommand    "/bin/cat " kBootXPath " | /usr/bin/openssl dgst -sha1 -hex -out " kBootXSignaturePath
+        
+        
+        struct stat bootx_stat_buf;
+        struct stat bootsignature_stat_buf;
+        
+        if (0 != stat(kBootXPath, &bootx_stat_buf))
+            break;
+        
+        if ((0 != stat(kBootXSignaturePath, &bootsignature_stat_buf))
+            || (bootsignature_stat_buf.st_mtime != bootx_stat_buf.st_mtime))
+        {
+            if (-1 == stat(kCachesPath, &bootsignature_stat_buf))
             {
-                if (-1 == stat(kCachesPath, &bootsignature_stat_buf))
-                {
-                    mkdir(kCachesPath, 0777);
-                    chmod(kCachesPath, 0777);
-                }
-                
-                // generate signature file
-                if (0 != system(kGenSignatureCommand))
-                    break;
-                
-                // set mod time to that of source
-                struct timeval fileTimes[2];
-                TIMESPEC_TO_TIMEVAL(&fileTimes[0], &bootx_stat_buf.st_atimespec);
-                TIMESPEC_TO_TIMEVAL(&fileTimes[1], &bootx_stat_buf.st_mtimespec);
-                if ((0 != utimes(kBootXSignaturePath, fileTimes)))
-                    break;
+                mkdir(kCachesPath, 0777);
+                chmod(kCachesPath, 0777);
             }
             
-            
-            // send signature to kernel
-            CFAllocatorRef alloc;
-            void *         sigBytes;
-            CFIndex        sigLen;
-            
-            alloc = CFRetain(CFAllocatorGetDefault());
-            if (_IOReadBytesFromFile(alloc, kBootXSignaturePath, &sigBytes, &sigLen, 0))
-                ret = sysctlbyname("kern.bootsignature", NULL, NULL, sigBytes, sigLen);
-            else
-                ret = -1;
-            if (sigBytes)
-                CFAllocatorDeallocate(alloc, sigBytes);
-            CFRelease(alloc);
-            if (0 != ret)
+            // generate signature file
+            if (0 != system(kGenSignatureCommand))
                 break;
             
-            IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
+            // set mod time to that of source
+            struct timeval fileTimes[2];
+            TIMESPEC_TO_TIMEVAL(&fileTimes[0], &bootx_stat_buf.st_atimespec);
+            TIMESPEC_TO_TIMEVAL(&fileTimes[1], &bootx_stat_buf.st_mtimespec);
+            if ((0 != utimes(kBootXSignaturePath, fileTimes)))
+                break;
         }
+        
+        
+        // send signature to kernel
+        CFAllocatorRef alloc;
+        void *         sigBytes;
+        CFIndex        sigLen;
+        
+        alloc = CFRetain(CFAllocatorGetDefault());
+        if (_IOReadBytesFromFile(alloc, kBootXSignaturePath, &sigBytes, &sigLen, 0))
+            ret = sysctlbyname("kern.bootsignature", NULL, NULL, sigBytes, sigLen);
+        else
+            ret = -1;
+        if (sigBytes)
+            CFAllocatorDeallocate(alloc, sigBytes);
+        CFRelease(alloc);
+        if (0 != ret)
+            break;
+        
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
+    }
     while (false);
     
     if (modeNum)
@@ -3026,6 +2928,16 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t ro
         && isA_CFNumber(obj))
     {
         IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFreeTimeKey), obj);
+    }
+    if (minFileSize && (num = CFNumberCreate(NULL, kCFNumberLongLongType, &minFileSize)))
+    {
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileMinSizeKey), num);
+        CFRelease(num);
+    }
+    if (maxFileSize && (num = CFNumberCreate(NULL, kCFNumberLongLongType, &maxFileSize)))
+    {
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileMaxSizeKey), num);
+        CFRelease(num);
     }
     
     if (url)

@@ -291,6 +291,13 @@ PassRefPtr<RenderStyle> RenderRegion::renderBoxRegionStyle(const RenderBox* rend
     return computeStyleInRegion(renderBox);
 }
 
+void RenderRegion::willBeRemovedFromTree()
+{
+    RenderReplaced::willBeRemovedFromTree();
+
+    detachRegion();
+}
+
 PassRefPtr<RenderStyle> RenderRegion::computeStyleInRegion(const RenderBox* box)
 {
     ASSERT(box);
@@ -309,6 +316,13 @@ PassRefPtr<RenderStyle> RenderRegion::computeStyleInRegion(const RenderBox* box)
     }
 
     return renderBoxRegionStyle.release();
+}
+
+void RenderRegion::insertedIntoTree()
+{
+    RenderReplaced::insertedIntoTree();
+
+    attachRegion();
 }
 
 void RenderRegion::clearBoxStyleInRegion(const RenderBox* box)

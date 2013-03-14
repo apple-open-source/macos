@@ -21,9 +21,6 @@ return 0; \
 
 #define _SNOWLEOPARD_ 1060
 #define _LION_ 1070
-#define _ZIN_ 1080
-#define _CAB_ 1090
-#define _NMOS_ 1091
 
 
 

@@ -8,7 +8,7 @@ Project         = postgresql
 ProjectName     = PostgreSQL
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 56
+Submission      = 58.1
 
 # Include common server build variables
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
@@ -55,7 +55,7 @@ Extra_Make_Flags	=
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 9.1.4
+AEP_Version	= 9.1.5
 AEP_LicenseFile	= $(Sources)/COPYRIGHT
 AEP_Patches	= arches.patch pg_config_manual_h.patch \
 			radar7687126.patch radar7756388.patch radar8304089.patch \
@@ -130,6 +130,8 @@ install-backup: install-macosx
 	$(INSTALL_SCRIPT) Support/postgresql_backup.rb $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)$(LIBEXECDIR)/server_backup
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)$(ETCDIR)/server_backup
 	$(INSTALL_FILE) Support/46-postgresql.plist $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)$(ETCDIR)/server_backup
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)/System/Library/ServerSetup/RestoreExtras
+	$(INSTALL_SCRIPT) Support/05_PostgresRestoreExtra.pl $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)/System/Library/ServerSetup/RestoreExtras
 	@echo "Done."
 
 install-wrapper:

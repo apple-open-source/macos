@@ -169,7 +169,7 @@ ifeq ($(AEP),YES)
 ifdef AEP_Patches
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
-	   cd $(Sources) && $(PATCH) -lp1 < $(SRCROOT)/patches/$$patchfile; \
+	   cd $(Sources) && $(PATCH) -p1 -F0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif
 ifeq ($(AEP_BuildInSources),YES)

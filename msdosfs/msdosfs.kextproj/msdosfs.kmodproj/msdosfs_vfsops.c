@@ -661,7 +661,7 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 			pmp->pm_iosize = pmp->pm_bpcluster;
 	}
 	
-	/* Copy volume label from boot sector into mount point */
+	/* Copy volume label and serial number from boot sector into mount point */
 	{
 		struct extboot *extboot;
 		int i;
@@ -677,6 +677,11 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 		}
 		
 		if (extboot->exBootSignature == EXBOOTSIG) {
+			pmp->pm_flags |= MSDOSFS_HAS_EXT_BOOT;
+			
+			/* Copy the volume serial number into the mount point. */
+			bcopy(extboot->exVolumeID, pmp->pm_volume_serial_num, sizeof(pmp->pm_volume_serial_num));
+			
 			/*
 			 * Copy the label from the boot sector into the mount point.
 			 *

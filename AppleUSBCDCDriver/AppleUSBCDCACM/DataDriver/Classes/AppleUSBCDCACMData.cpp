@@ -1342,6 +1342,13 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     fVendorID = fDataInterface->GetDevice()->GetVendorID();
     fProductID = fDataInterface->GetDevice()->GetProductID();
     
+    char vendorString[20];
+    char productString[20];
+    snprintf(vendorString, sizeof(vendorString), "0x%X", fVendorID);
+    snprintf(productString, sizeof(productString), "0x%X", fProductID);
+    
+    cdc_LogToMessageTracer(CDC_ASL_DOMAIN, "AppleUSBCDCACMData", vendorString, productString, 0, 0);
+    
     fReady = true;
 	
 	IOLog(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);

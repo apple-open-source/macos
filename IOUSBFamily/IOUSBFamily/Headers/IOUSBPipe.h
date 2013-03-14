@@ -32,6 +32,8 @@
 
 class IOUSBInterface;
 
+#define	kAppleUSBSSIsocContinuousFrame		0xFFFFFFFFFFFFFFFEull
+
 /*!
     @class IOUSBPipe
     @abstract The object representing an open pipe for a device.
@@ -59,6 +61,9 @@ protected:
 		IOUSBInterface	*			_interface;
 		bool						_crossEndianCompatible;
 		UInt32						_locationID;
+		UInt8						_uasUsageID;
+		UInt8						_usageType;
+		UInt8						_syncType;
     };
     ExpansionData * _expansionData;
     
@@ -67,12 +72,12 @@ protected:
     IOReturn ClosePipe(void);
 	
 public:
-		
-		virtual bool InitToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
-									USBDeviceAddress address, IOUSBController * controller);
-	
-    // The following 2 methods are obsolete
+    
+    // The following 4 methods are deprecated (replaced by the new IOUSBPipeV2 class)
     //
+    virtual bool InitToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
+                                USBDeviceAddress address, IOUSBController * controller);
+	
     static IOUSBPipe *ToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
                                  USBDeviceAddress address, IOUSBController * controller);
 	
@@ -325,7 +330,7 @@ public:
 	 Read from an isochronous endpoint and process the IOUSBLowLatencyIsocFrame fields at 
 	 hardware interrupt time
 	 @param buffer place to put the transferred data
-	 @param frameStart USB frame number of the frame to start transfer
+	 @param frameStart USB frame number of the frame to start transfer. For SuperSpeed Isoc devices, if the frameStart is kAppleUSBSSIsocContinuousFrame, then just continue after the last transfer which was called.
 	 @param numFrames Number of frames to transfer
 	 @param frameList Bytes to transfer, result, and time stamp for each frame
 	 @param completion describes action to take when buffer has been filled
@@ -341,7 +346,7 @@ public:
 	 AVAILABLE ONLY IN VERSION 1.9.2 AND ABOVE
 	 Write to an isochronous endpoint
 	 @param buffer place to get the data to transfer
-	 @param frameStart USB frame number of the frame to start transfer
+	 @param frameStart USB frame number of the frame to start transfer. For SuperSpeed Isoc devices, if the frameStart is kAppleUSBSSIsocContinuousFrame, then just continue after the last transfer which was called.
 	 @param numFrames Number of frames to transfer
 	 @param frameList Pointer to list of frames indicating bytes to transfer and result for each frame
 	 @param completion describes action to take when buffer has been emptied
@@ -374,8 +379,12 @@ public:
 	virtual bool InitToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
 								USBDeviceAddress address, IOUSBController * controller, IOUSBDevice * device, IOUSBInterface * interface);
 
-    OSMetaClassDeclareReservedUnused(IOUSBPipe,  13);
-    OSMetaClassDeclareReservedUnused(IOUSBPipe,  14);
+    OSMetaClassDeclareReservedUsed(IOUSBPipe,  13);
+	virtual	UInt8	GetUsageType(void);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBPipe,  14);
+	virtual UInt8	GetSyncType(void);
+	
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  15);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  16);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  17);

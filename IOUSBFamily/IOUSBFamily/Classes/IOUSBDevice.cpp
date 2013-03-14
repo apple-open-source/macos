@@ -49,6 +49,7 @@ extern "C" {
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/USB.h>
 
+
 #include <UserNotification/KUNCUserNotifications.h>
 #include "USBTracepoints.h"
 
@@ -787,6 +788,7 @@ IOUSBDevice::terminate(IOOptionBits options)
 		else 
 		{
 			_WAKEUSB3POWERALLOCATED = 0;
+			_USINGEXTRA400MAFORUSB3 = false;
 		}
 		
 		USBLog(6, "%s[%p]::terminate - calling for other devices to reallocate wake extra power", getName(), this);
@@ -1948,12 +1950,12 @@ IOUSBDevice::GetDeviceDescriptor(IOUSBDeviceDescriptor *desc, UInt32 size)
     
     if (err)
     {
-        USBLog(1,"%s[%p]::GetDeviceDescriptor  Error (0x%x) getting device device descriptor", getName(), this, err);
+        USBLog(3,"%s[%p]::GetDeviceDescriptor  Error (0x%x) getting device device descriptor", getName(), this, err);
 		USBTrace( kUSBTDevice,  kTPDeviceGetDeviceDescriptor, (uintptr_t)this, err, request.bmRequestType, 0 );
     }
 	else if ( request.wLenDone != size )
 	{
-        USBLog(1,"%s[%p]::GetDeviceDescriptor  Asked for %d bytes and got %d, returning kIOReturnUnderrun", getName(), this, (uint32_t)size, (uint32_t)request.wLenDone);
+        USBLog(3,"%s[%p]::GetDeviceDescriptor  Asked for %d bytes and got %d, returning kIOReturnUnderrun", getName(), this, (uint32_t)size, (uint32_t)request.wLenDone);
 		USBTrace( kUSBTDevice,  kTPDeviceGetDeviceDescriptor, (uintptr_t)this, size, request.wLenDone, 1 );
 		err = kIOReturnUnderrun;
 	}
@@ -2179,7 +2181,8 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 	setProperty("Low Power Displayed", lowPowerDisplayed);
 
 	//  For a USB 3.0 device, we have to request the extra 400mA (900-500) from our "extra" bucket.  This is because we keep the extra amount as "extra over 500 mA".  This request can NEVER fail.
-	if ( _speed == kUSBDeviceSpeedSuper && _busPowerAvailable == kUSB900mAAvailable)
+	//  Do not do it if we have already successfully gotten the extra 400ma.  Prev
+	if ( _speed == kUSBDeviceSpeedSuper && _busPowerAvailable == kUSB900mAAvailable && !_USINGEXTRA400MAFORUSB3)
 	{
 		IOReturn	kr = kIOReturnNoDevice;
 		UInt32		info = NULL;
@@ -3379,16 +3382,7 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
 void
 IOUSBDevice::DisplayNotEnoughPowerNotice()
 {
-    KUNCUserNotificationDisplayFromBundle(
-                                          KUNCGetNotificationID(),
-                                          (char *) "/System/Library/Extensions/IOUSBFamily.kext",
-                                          (char *) "Dialogs",
-                                          (char *) "plist",
-                                          (char *) "Low Power Dialog",
-                                          (char *) getName(),
-                                          (KUNCUserNotificationCallBack) NULL,
-                                          0);
-    return;
+    DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
 }
 
 
@@ -4407,13 +4401,13 @@ IOUSBDevice::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 	
 	if ( type == kUSBPowerDuringWakeRevocable && (returnedPower > _WAKEREVOCABLEPOWERALLOCATED) )
 	{
-		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWakeRevocable, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
+		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWakeRevocable, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEREVOCABLEPOWERALLOCATED);
 		return kIOReturnBadArgument;
 	}
 	
 	if ( type == kUSBPowerDuringWakeUSB3 && (returnedPower > _WAKEUSB3POWERALLOCATED) )
 	{
-		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWakeUSB3, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
+		USBLog(6, "%s[%p]::ReturnExtraPower type: kUSBPowerDuringWakeUSB3, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, (uint32_t) returnedPower,  (uint32_t) _WAKEUSB3POWERALLOCATED);
 		return kIOReturnBadArgument;
 	}
 	

@@ -45,6 +45,7 @@
 #include <roken.h>
 #include <kcm.h>
 
+
 #include <notify.h>
 
 #include <Security/Security.h>
@@ -288,54 +289,9 @@ createItem(const void *key, const void *value, void *contextValue)
     }
 }
 
-static CFMutableDictionaryRef
-copyConfiguration(bool create, CFErrorRef *error)
+static void
+addTransientKeys(struct CreateContext *createContext)
 {
-    struct CreateContext createContext = { NULL, NULL };
-    CFReadStreamRef s;
-    CFDictionaryRef d = NULL, keys;
-    CFURLRef url;
-
-    url = copyConfigurationURL();
-    if (url == NULL)
-	return NULL;
-
-    s = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-    CFRelease(url);
-    if (s == NULL)
-	goto out;
-
-    if (!CFReadStreamOpen(s)) {
-	CFRelease(s);
-	goto out;
-    }
-
-    d = (CFDictionaryRef)CFPropertyListCreateWithStream(kCFAllocatorDefault, s, 0, kCFPropertyListImmutable, NULL, error);
-    CFRelease(s);
-    if (d == NULL)
-	goto out;
-
-    if (CFGetTypeID(d) != CFDictionaryGetTypeID())
-	goto out;
-
-    createContext.c = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (createContext.c == NULL)
-	goto out;
-
-    createContext.transitentUUIDs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (createContext.c == NULL)
-	goto out;
-
-
-    keys = CFDictionaryGetValue(d, kGSSConfKeys);
-    if (keys == NULL) {
-	CFRelease(createContext.c);
-	createContext.c = NULL;
-	goto out;
-    }
-
-    CFDictionaryApplyFunction(keys, createItem, &createContext);
-
     OM_uint32 min_stat;
 
     gss_iter_creds (&min_stat, 0, GSS_KRB5_MECHANISM, ^(gss_iter_OID oid, gss_cred_id_t cred) {
@@ -346,7 +302,7 @@ copyConfiguration(bool create, CFErrorRef *error)
 	    if (uuid == NULL)
 		return;
 	    
-	    if (CFDictionaryGetValue(createContext.transitentUUIDs, uuid)) {
+	    if (CFDictionaryGetValue(createContext->transitentUUIDs, uuid)) {
 		CFRelease(uuid);
 		return;
 	    }
@@ -384,15 +340,72 @@ copyConfiguration(bool create, CFErrorRef *error)
 	    updateTransientValues(item);
 	    CFDictionarySetValue(item->keys, kGSSAttrStatusTransient, kCFBooleanTrue);
 
-	    CFDictionarySetValue(createContext.c, uuid, item);
+	    CFDictionarySetValue(createContext->c, uuid, item);
 
 	    CFRelease(item);
+	    CFRelease(uuid);
 	});
+}
+
+static void
+initCreateContext(struct CreateContext *createContext)
+{
+    heim_assert(createContext->c == NULL, "init more then once");
+
+    createContext->c = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    heim_assert(createContext->c != NULL, "out of memory");
+
+    createContext->transitentUUIDs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    heim_assert(createContext->transitentUUIDs != NULL, "out of memory");
+}
+
+static CFMutableDictionaryRef
+copyConfiguration(bool create, CFErrorRef *error)
+{
+    struct CreateContext createContext = { NULL, NULL };
+    CFReadStreamRef s;
+    CFDictionaryRef d = NULL, keys;
+    CFURLRef url;
+
+    url = copyConfigurationURL();
+    if (url == NULL)
+	return NULL;
+
+    s = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+    CFRelease(url);
+    if (s == NULL)
+	goto out;
+
+    if (!CFReadStreamOpen(s)) {
+	CFRelease(s);
+	goto out;
+    }
+
+    d = (CFDictionaryRef)CFPropertyListCreateWithStream(kCFAllocatorDefault, s, 0, kCFPropertyListImmutable, NULL, error);
+    CFRelease(s);
+    if (d == NULL)
+	goto out;
+
+    if (CFGetTypeID(d) != CFDictionaryGetTypeID())
+	goto out;
+
+    initCreateContext(&createContext);
+
+    keys = CFDictionaryGetValue(d, kGSSConfKeys);
+    if (keys == NULL) {
+	CFRelease(createContext.c);
+	createContext.c = NULL;
+	goto out;
+    }
+
+    CFDictionaryApplyFunction(keys, createItem, &createContext);
 
  out:
     if (create && createContext.c == NULL)
-	createContext.c = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
-						    &kCFTypeDictionaryValueCallBacks);
+	initCreateContext(&createContext);
+
+    if (createContext.c)
+	addTransientKeys(&createContext);
 
     if (createContext.transitentUUIDs)
 	CFRelease(createContext.transitentUUIDs);
@@ -1205,7 +1218,7 @@ GSSItemCopyMatching(CFDictionaryRef query, CFErrorRef *error)
     if (error)
 	*error = NULL;
 
-    conf = copyConfiguration(false, error);
+    conf = copyConfiguration(true, error);
     if (conf == NULL)
 	return NULL;
 

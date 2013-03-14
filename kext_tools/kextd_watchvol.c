@@ -1393,7 +1393,6 @@ static void check_locked(const void *key, const void *val, void *ctx)
 
     // report this one if:
     // it's already locked or if it needs a rebuild
-    // check_vol_busy() ensures checks for excessive errors
     if (check_vol_busy(watched)) {
         strlcpy(busyVol, watched->caches->root, sizeof(mountpoint_t));
     }

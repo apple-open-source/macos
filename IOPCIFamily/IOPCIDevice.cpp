@@ -101,6 +101,8 @@ bool IOPCIDevice::attach( IOService * provider )
 
     // initialize superclass variables
     PMinit();
+    // clamp power on
+    temporaryPowerClampOn();
     // register as controlling driver
     registerPowerDriver( this, (IOPMPowerState *) powerStates,
                          kIOPCIDevicePowerStateCount );

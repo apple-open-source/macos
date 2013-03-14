@@ -363,6 +363,7 @@ static void BatteryMatch(
         IOObjectRelease(battery);
     }
     InternalEvaluateAssertions();
+    InternalEvalConnections();
 }
 
 
@@ -388,6 +389,7 @@ static void BatteryInterest(
         BatteryTimeRemainingBatteriesHaveChanged(batt_stats);
         SystemLoadBatteriesHaveChanged(batt_stats);
         InternalEvaluateAssertions();
+        InternalEvalConnections();
     }
 
     if (kIOMessageServiceIsTerminated == messageType
@@ -409,23 +411,27 @@ static void BatteryInterest(
 
 
 __private_extern__ void 
-ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities b,
-                           IOPMSystemPowerStateCapabilities c)
+ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities old_cap,
+                           IOPMSystemPowerStateCapabilities new_cap,
+                           uint32_t changeFlags)
 {
-    if (BIT_IS_SET(c, kIOPMSystemCapabilityCPU))
-        return;
+    // Act on the notification before the dark wake to sleep transition
+    if (CAPABILITY_BIT_CHANGED(new_cap, old_cap, kIOPMSystemPowerStateCapabilityCPU) &&
+        BIT_IS_SET(old_cap, kIOPMSystemPowerStateCapabilityCPU) &&
+        BIT_IS_SET(changeFlags, kIOPMSystemCapabilityWillChange))
+    {
+#if !TARGET_OS_EMBEDDED
+        // write SMC Key to re-enable SMC timer
+        _smcWakeTimerPrimer();
+#endif
 
-    #if !TARGET_OS_EMBEDDED
-    // write SMC Key to re-enable SMC timer
-    _smcWakeTimerPrimer();
-    #endif
-    
-    // The next clock resync occuring on wake from sleep shall be marked
-    // as the wake time.
-    gExpectingWakeFromSleepClockResync = true;
-    
-    // tell clients what our timezone offset is
-    broadcastGMTOffset(); 
+        // The next clock resync occuring on wake from sleep shall be marked
+        // as the wake time.
+        gExpectingWakeFromSleepClockResync = true;
+
+        // tell clients what our timezone offset is
+        broadcastGMTOffset();
+    }
 }
 
 
@@ -1351,8 +1357,10 @@ static void calendarRTCDidResync(
     CFIndex size,
     void *info)
 {
+#if !TARGET_OS_EMBEDDED
     uint16_t            wakeup_smc_result = 0;
     IOReturn            ret = kIOReturnSuccess;
+#endif
     mach_msg_header_t   *header = (mach_msg_header_t *)msg;
     CFAbsoluteTime      lastWakeTime;
 
@@ -1398,11 +1406,12 @@ static void calendarRTCDidResync(
     // Re-enable battery time remaining calculations
     (void) BatteryTimeRemainingRTCDidResync();
 
+#if !TARGET_OS_EMBEDDED
     if (!gSMCSupportsWakeupTimer) {
         // This system's SMC doesn't support a wakeup time, so we're done
         goto exit;
     }
-#if !TARGET_OS_EMBEDDED
+
     // Read SMC key for precise timing between when the wake event physically occurred
     // and now (i.e. the moment we read the key).
     // - SMC key returns the delta in tens of milliseconds
@@ -1414,12 +1423,15 @@ static void calendarRTCDidResync(
         }
         goto exit;
     }
-#endif
+    // re-sample the current time closer to the SMC key read
+    *gLastWakeTime = CFAbsoluteTimeGetCurrent();
+
     // convert 10x msecs to (double)seconds
-    *gLastSMCS3S0WakeInterval = ((double)wakeup_smc_result / 100.0);  
+    *gLastSMCS3S0WakeInterval = ((double)wakeup_smc_result / 100.0);
 
     // And we adjust backwards to determine the real time of physical wake.
     *gLastWakeTime -= *gLastSMCS3S0WakeInterval;
+#endif
 
 exit:
     return;
@@ -1444,7 +1456,14 @@ kern_return_t _io_pm_last_wake_time(
         *return_val = kIOReturnNotReady;
         return KERN_SUCCESS;
     }
-    
+
+#if !TARGET_OS_EMBEDDED
+    if (!gSMCSupportsWakeupTimer) {
+        *return_val = kIOReturnNotFound;
+        return KERN_SUCCESS;
+    };
+#endif
+
     *out_wake_data = (vm_offset_t)gLastWakeTime;
     *out_wake_len = sizeof(*gLastWakeTime);
     *out_delta_data = (vm_offset_t)gLastSMCS3S0WakeInterval;
@@ -2099,6 +2118,7 @@ kern_return_t _io_pm_set_power_history_bookmark(
 	mach_port_t server,
 	string_t uuid_name)
 {
+/* deprecated */
   	return kIOReturnSuccess;
 }
 

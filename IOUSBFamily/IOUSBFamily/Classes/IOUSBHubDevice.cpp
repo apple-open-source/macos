@@ -364,7 +364,7 @@ IOUSBHubDevice::RequestExtraWakePowerGated(uint64_t wakeType, uint64_t requested
 				{
 					// Even tho' we only want "requestedPower", we have to ask for _CANREQUESTEXTRAPOWER
 					USBLog(5, "IOUSBHubDevice[%p]::RequestExtraWakePowerGated - requesting %d from our parent", this, (uint32_t) _CANREQUESTEXTRAPOWER);
-					UInt32	parentPowerRequest = super::RequestExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);
+					UInt32	parentPowerRequest = super::RequestExtraPower(wakeType, _CANREQUESTEXTRAPOWER);
 					
 					USBLog(5, "IOUSBHubDevice[%p]::RequestExtraWakePowerGated - requested %d from our parent and got %d ", this, (uint32_t) _CANREQUESTEXTRAPOWER, (uint32_t)parentPowerRequest);
 					
@@ -379,7 +379,7 @@ IOUSBHubDevice::RequestExtraWakePowerGated(uint64_t wakeType, uint64_t requested
 					else
 					{
 						USBLog(5, "IOUSBHubDevice[%p]::RequestExtraWakePowerGated - returning power %d because we didnt get enough", this, (uint32_t)parentPowerRequest);
-						super::ReturnExtraPower(kUSBPowerDuringWake, parentPowerRequest);	
+						super::ReturnExtraPower(wakeType, parentPowerRequest);
 					}
 				}
 			}

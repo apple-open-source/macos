@@ -257,6 +257,20 @@ void PolicyDatabase::upgradeDatabase()
 	simpleFeature("filter_unsigned",
 		"ALTER TABLE authority ADD COLUMN filter_unsigned TEXT NULL"
 		);
+	
+	simpleFeature("strict_apple_installer", ^{
+		SQLite::Statement update(*this,
+			"UPDATE authority"
+			" SET requirement = 'anchor apple generic and certificate 1[subject.CN] = \"Apple Software Update Certification Authority\"'"
+			" WHERE flags & :flag AND label = 'Apple Installer'");
+		update.bind(":flag") = kAuthorityFlagDefault;
+		update.execute();
+		SQLite::Statement add(*this,
+			"INSERT INTO authority (type, label, flags, requirement)"
+			" VALUES (2, 'Mac App Store', :flags, 'anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.10] exists')");
+		add.bind(":flags") = kAuthorityFlagDefault;
+		add.execute();
+	});
 }
 
 

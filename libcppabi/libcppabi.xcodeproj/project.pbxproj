@@ -560,6 +560,7 @@
 				BASE_ARCH_armv7 = iOS;
 				BASE_ARCH_armv7f = iOS;
 				BASE_ARCH_armv7k = iOS;
+				BASE_ARCH_armv7s = iOS;
 				BASE_ARCH_i386 = i386;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
@@ -607,6 +608,7 @@
 				BASE_ARCH_armv7 = iOS;
 				BASE_ARCH_armv7f = iOS;
 				BASE_ARCH_armv7k = iOS;
+				BASE_ARCH_armv7s = iOS;
 				BASE_ARCH_i386 = i386;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";

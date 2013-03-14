@@ -27,6 +27,7 @@
 #include <sys/resource.h>
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
+#include <IOKit/IOKitLib.h>
 
 #include "kext_tools_util.h"
 

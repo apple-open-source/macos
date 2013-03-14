@@ -524,10 +524,10 @@ void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDi
 				} catch (...) {
 					// some documents can't be code signed, so this may be quite benign
 				}
-				if (CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict) == NULL) {	// no code signature to help us out
-				   cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
-				   addAuthority(result, "_XProtect");
-				}
+			}
+			if (CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict) == NULL) {	// no code signature to help us out
+			   cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
+			   addAuthority(result, "_XProtect");
 			}
 			addToAuthority(result, kLSDownloadRiskCategoryKey, riskCategory);
 			return;

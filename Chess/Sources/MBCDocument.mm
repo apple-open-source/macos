@@ -243,13 +243,6 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         for (int i = 0; sProperties[i]; ++i)
             [properties setValue:[defaults objectForKey:sProperties[i]]
                           forKey:sProperties[i]];
-        //
-        //      Since some views with bindings to document leak in Board.xib, we're
-        //      temporarily forced to leak the document as well.
-        //
-#if !BOARD_XIB_LEAKS_FIXED
-        [self retain];
-#endif
     }
     return self;
 }
@@ -327,6 +320,19 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     
         [super updateChangeCount:change];
     }
+}
+
+- (void)close
+{
+    //
+    // Delay disposing document a little while, because main window with active bindings is autoreleased
+    //
+    [self retain];
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, 10*NSEC_PER_MSEC);
+    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+        [self release];
+    });
+    [super close];
 }
 
 - (void)canCloseDocumentWithDelegate:(id)delegate shouldCloseSelector:(SEL)sel contextInfo:(void *)contextInfo
@@ -760,7 +766,9 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     //      If achievement controller is showing and we have to put up e.g. a save dialog,
     //      dismiss it.
     //
-    [[[self windowControllers] objectAtIndex:0] achievementViewControllerDidFinish:nil];
+    NSArray * windowControllers = [self windowControllers];
+    if ([windowControllers count])
+        [[windowControllers objectAtIndex:0] achievementViewControllerDidFinish:nil];
     [super performActivityWithSynchronousWaiting:waitSynchronously usingBlock:block];
 }
 

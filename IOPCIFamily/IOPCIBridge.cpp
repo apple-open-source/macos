@@ -899,13 +899,13 @@ bool IOPCIBridge::start( IOService * provider )
 
     // initialize superclass variables
     PMinit();
+    // clamp power on
+    temporaryPowerClampOn();
     // register as controlling driver
     registerPowerDriver( this, (IOPMPowerState *) powerStates,
                          kIOPCIBridgePowerStateCount);
     // join the tree
     provider->joinPMtree( this);
-    // clamp power on
-    temporaryPowerClampOn();
 
     if (!OSDynamicCast(IOPCIDevice, provider))
     {

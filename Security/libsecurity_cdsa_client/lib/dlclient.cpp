@@ -104,21 +104,23 @@ DbImpl::~DbImpl()
 void
 DbImpl::open()
 {
-	if (!mActive)
-	{
-		assert(mDbInfo == nil);
-		mHandle.DLHandle = dl()->handle();
-		check(CSSM_DL_DbOpen(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
-								mAccessRequest, mAccessCredentials,
-								mOpenParameters, &mHandle.DBHandle));
-
+    {
         StLock<Mutex> _(mActivateMutex);
-		mActive = true;
-		
-		if (!mAccessCredentials && mDefaultCredentials)
-			if (const AccessCredentials *creds = mDefaultCredentials->makeCredentials())
-				CSSM_DL_Authenticate(handle(), mAccessRequest, creds);	// ignore error
-	}
+
+        if (!mActive)
+        {
+            assert(mDbInfo == nil);
+            mHandle.DLHandle = dl()->handle();
+            check(CSSM_DL_DbOpen(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
+                                    mAccessRequest, mAccessCredentials,
+                                    mOpenParameters, &mHandle.DBHandle));
+            mActive = true;
+        }
+    }
+    
+    if (!mAccessCredentials && mDefaultCredentials)
+        if (const AccessCredentials *creds = mDefaultCredentials->makeCredentials())
+            CSSM_DL_Authenticate(handle(), mAccessRequest, creds);	// ignore error
 }
 
 void
@@ -190,7 +192,6 @@ DbImpl::close()
 void
 DbImpl::activate()
 {
-    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		if (mDbInfo)

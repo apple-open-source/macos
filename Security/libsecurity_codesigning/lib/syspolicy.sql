@@ -127,17 +127,21 @@ INSERT INTO feature (name, value, remarks)
 insert into authority (type, allow, priority, flags, label)
 	values (1, 0, -1.0E100, 1, 'No Matching Rule');
 
--- any Apple-signed installers except Developer ID
+-- any "genuine Apple-signed" installers
 insert into authority (type, allow, priority, flags, label, requirement)
-	values (2, 1, -1, 2, 'Apple Installer', 'anchor apple generic and ! certificate 1[field.1.2.840.113635.100.6.2.6]');
+	values (2, 1, -1, 2, 'Apple Installer', 'anchor apple generic and certificate 1[subject.CN] = "Apple Software Update Certification Authority"');
 
 -- Apple code signing
 insert into authority (type, allow, flags, label, requirement)
 	values (1, 1, 2, 'Apple System', 'anchor apple');
 
--- Mac App Store signing
+-- Mac App Store code signing
 insert into authority (type, allow, flags, label, requirement)
 	values (1, 1, 2, 'Mac App Store', 'anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9] exists');
+
+-- Mac App Store installer signing
+insert into authority (type, allow, flags, label, requirement)
+	values (2, 1, 2, 'Mac App Store', 'anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.10] exists');
 
 -- Caspian code and archive signing
 insert into authority (type, allow, flags, label, requirement)

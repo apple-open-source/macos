@@ -707,6 +707,8 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 			goto cleanup2;
 		}
 		PAM_LOG("Done chmod()");
+	} else {
+		(void)krb5_cc_switch(pam_context, ccache_perm);
 	}
 
 	asprintf(&cache_type_colon_name, "%s:%s", cache_type, cache_name);

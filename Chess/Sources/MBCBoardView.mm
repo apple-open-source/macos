@@ -43,8 +43,6 @@
 	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #import "MBCBoardView.h"
-#import "MBCBoardAnimation.h"
-#import "MBCMoveAnimation.h"
 
 //
 // Our implementation is distributed across several other files
@@ -136,11 +134,6 @@ void MBCColor::SetColor(NSColor * newColor)
 
 	if (sMax < 0) {
         //
-        // Test for retina display
-        //
-        if ([[self window] backingScaleFactor] > 1.5f)
-            return sMax = 4;
-        //
         // Test VRAM size
         //
 		GLint min_vram = 0;
@@ -156,6 +149,14 @@ void MBCColor::SetColor(NSColor * newColor)
                 min_vram = std::min(min_vram, cur_vram);
 		}
 		sMax = (min_vram > 256 ? 8 : 4);
+        //
+        // Test for retina display
+        //
+        float backingScaleFactor = [[self window] backingScaleFactor];
+        if (!backingScaleFactor)
+            backingScaleFactor = [[NSScreen mainScreen] backingScaleFactor];
+        if (backingScaleFactor > 1.5f)
+            sMax = (min_vram > 512 ? 4 : 2);
 	}
 
 	return sMax;
@@ -174,7 +175,6 @@ void MBCColor::SetColor(NSColor * newColor)
 	for (fMaxFSAA = [self maxAntiAliasing]+2; !pixelFormat; )
 		pixelFormat = [self pixelFormatWithFSAA:(fMaxFSAA -= 2)];
 	fCurFSAA = fMaxFSAA;
-    NSLog(@"FSAA %d\n", fCurFSAA);
     [super initWithFrame:rect pixelFormat:pixelFormat];
     [self setWantsBestResolutionOpenGLSurface:YES];
     [[self openGLContext] makeCurrentContext];
@@ -343,11 +343,9 @@ void MBCColor::SetColor(NSColor * newColor)
 
 - (void) profileDraw
 {
-	[self lockFocus];
-	for (int i=0; i<100; ++i) {
-		[self drawPosition];
-	}
-	[self unlockFocus];
+    dispatch_apply(100, dispatch_get_main_queue(), ^(size_t) {
+        [self drawNow];
+    });
 }
 
 - (void) needsUpdate
@@ -359,7 +357,6 @@ void MBCColor::SetColor(NSColor * newColor)
 
 - (void) endGame;
 {
-	[MBCAnimation cancelCurrentAnimation];
 	fSelectedPiece		= EMPTY;
 	fPickedSquare		= kInvalidSquare;
 	fWantMouse			= false;

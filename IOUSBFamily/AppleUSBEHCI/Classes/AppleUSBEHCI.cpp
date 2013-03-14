@@ -34,6 +34,7 @@
 
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 
+
 #include "AppleUSBEHCI.h"
 #include "AppleUSBEHCIDiagnostics.h"
 #include "AppleEHCIedMemoryBlock.h"
@@ -319,17 +320,9 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
          * Initialize my data and the hardware
          */
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+
 		
-		if (_v3ExpansionData->_onThunderbolt && !((_v3ExpansionData->_thunderboltModelID == kAppleThunderboltDisplay2011MID) && (_v3ExpansionData->_thunderboltVendorID == kAppleThunderboltVID)))
-		{
-			// if we are tunnelled, but not on an Apple Thunderbolt Display, then we disallow all controllers, including EHCI
-			{
-				USBLog(3, "AppleUSBEHCI[%p]::UIMInitialize - Thunderbolt EHCI controllers not allowed. Not initializing", this);
-				err =  kIOReturnUnsupported;
-				break;
-			}
-		}
-		
+        
 		setProperty("Errata", _errataBits, 32);
 		
 		// I could do this with an errata bit, but since it is something which will only get done at UIMInitialize time, and

@@ -1643,8 +1643,11 @@ void IOFramebuffer::saveGammaTables(void)
         						    kIOFBGammaDesiredError, maxCount, 
         						    &maxError))
 			{
-				data->appendBytes(bootGamma, bootGamma->length);
 				DEBG1(fb->thisName, " compressed gamma %d max error 0x%04x\n", bootGamma->length, maxError);
+				if (bootGamma->gamma.red.pointCount)
+				{
+					data->appendBytes(bootGamma, bootGamma->length);
+				}
 			}
 		}
 		while (false);
@@ -1653,7 +1656,7 @@ void IOFramebuffer::saveGammaTables(void)
 	IOFree(bootGamma, sizeof(IOFBBootGamma) 
 					+ maxCount * sizeof(IOFBGammaPoint));
 	sym = OSSymbol::withCStringNoCopy(kIOFBBootGammaKey);
-	if (sym)
+	if (sym && data->getLength())
 	{
 		options->setProperty(sym, data);
 		sym->release();
@@ -2334,7 +2337,7 @@ IOReturn IOFramebuffer::_extEntry(bool system, bool allowOffline, const char * w
 
     while (!pagingState && !gIOFBSystemPowerAckTo)
     {
-		IODisplayWrangler::activityChange(this);
+//		IODisplayWrangler::activityChange(this);
 		if (system)
 		{
 			FBUNLOCK(this);
@@ -2695,6 +2698,13 @@ void IOFramebuffer::deferredMoveCursor( IOFramebuffer * inst )
             err = inst->_setCursorState(
                         shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx,
                         shmem->cursorLoc.y - hs->y - shmem->screenBounds.miny, true );
+#if 0
+			// debug
+			shmem->cursorRect.minx = shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx;
+			shmem->cursorRect.miny = shmem->cursorLoc.y - hs->y - shmem->screenBounds.miny;
+			shmem->cursorRect.maxx = 0;
+			shmem->cursorRect.maxy = 0;
+#endif
         }
     }
     else
@@ -4406,6 +4416,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		clamshellProperty = gIOResourcesAppleClamshellState;
 		if (clamshellProperty)
 		{
+//			gIOFBLastClamshellState = 
 			gIOFBCurrentClamshellState = (kOSBooleanTrue == clamshellProperty);
 			DEBG1("S", " clamshell read %d\n", (int) gIOFBCurrentClamshellState);
 		
@@ -4427,13 +4438,8 @@ void IOFramebuffer::systemWork(OSObject * owner,
 			if (desktopMode)
 			{
 				// lid change, desktop mode
-				if (gIOFBLidOpenMode)
-				{
-					DEBG1("S", " desktop will reprobe\n");
-					resetClamshell();
-				}
-				else
-					gIOFBLastClamshellState = gIOFBCurrentClamshellState;
+				DEBG1("S", " desktop will reprobe\n");
+				resetClamshell();
 			}
 		}
 	}
@@ -4514,6 +4520,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		&& gIOFBSystemPower 
 		&& (kIOMessageSystemHasPoweredOn == gIOFBLastMuxMessage)
 		&& !(kIOFBWsWait & allState)
+		&& !(kIOFBCaptured & allState)
 		&& !(kIOFBDisplaysChanging & allState)) 
 	{
 		OSBitAndAtomic(~kIOFBEventProbeAll, &gIOFBGlobalEvents);
@@ -5016,17 +5023,6 @@ IOReturn IOFramebuffer::extEndConnectionChange(void)
 	controller->fbs[0]->messaged = false;
 	__private->controller->lastFinishedChange = __private->controller->lastMessagedChange;
 
-    if (!controller->mute)
-    {
-		IOFramebuffer * fb;
-		uint32_t idx;
-		for (idx = 0; (fb = controller->fbs[idx]); idx++)
-		{
-			if (!fb->__private->online)
-				fb->suspend(false);
-		}
-	}
-
 	if (gIOGraphicsControl)
 	{
 		IOReturn err;
@@ -5144,8 +5140,7 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
     if (__private->lastProcessedChange == __private->controller->connectChange)
         return (kIOReturnSuccess);
     
-    if (fg == mode)
-    	suspend(true);
+    if (fg == mode) suspend(true);
     
 	{
 		// connect change vars here
@@ -5208,6 +5203,8 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
 		DEBG1(thisName, " offline setDisplayMode(0x%x, %d) err %x msg %d susp %d\n",
 				(int32_t) __private->offlineMode, (int32_t) __private->currentDepth,
 				err, messaged, suspended);
+
+		if (fg == mode) suspend(false);
 	}
 
     err = kIOReturnSuccess;
@@ -5245,6 +5242,7 @@ bool IOFramebuffer::updateOnline(void)
 		{
 			for (modeNum = 0; modeNum < modeCount; modeNum++)
 			{
+				info.flags = 0;
 				err = getTimingInfoForDisplayMode(modeIDs[modeNum], &info);
 				if (kIOReturnSuccess != err)
 					continue;
@@ -6793,7 +6791,7 @@ void IOFramebuffer::initFB(void)
 			consoleDepth = pixelInfo.bitsPerPixel;
 		totalWidth = (pixelInfo.bytesPerRow * 8) / pixelInfo.bitsPerPixel;
 
-		if (__private->needsInit == 1)
+		if (false && __private->needsInit == 1)
 		{
 			AbsoluteTime_to_scalar(&now) = mach_absolute_time();
 			SUB_ABSOLUTETIME(&now, &__private->controller->initTime);
@@ -7204,7 +7202,9 @@ IOReturn IOFramebuffer::doSetup( bool full )
 			IODisplayModeInformation * info = (typeof(info)) data->getBytesNoCopy();
 			if (info->imageWidth)
 			{
-				if (((254 * __private->pixelInfo.activeWidth) / info->imageWidth) > k2xDPI)
+				if ((__private->pixelInfo.activeWidth >= 2048)
+				 && (__private->pixelInfo.activeHeight >= 1280)
+				 && (((254 * __private->pixelInfo.activeWidth) / info->imageWidth) > k2xDPI))
 					 __private->uiScale  = 2;
 				else __private->uiScale  = 1;
 			}

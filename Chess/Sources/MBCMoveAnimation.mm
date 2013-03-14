@@ -59,7 +59,7 @@
 
     [a runWithTime:1.0 view:view];
     
-    return self;
+    return a;
 }
 
 - (void) startState

@@ -3586,7 +3586,7 @@ static int checkAndSetIntValue(
 
     if(!valstr) return -1;
 
-    val = strtol(valstr, &endptr, 10);
+    val = strtol(valstr, &endptr, 0);
 
     if(0 != *endptr)
     {

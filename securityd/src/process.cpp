@@ -42,6 +42,8 @@
 Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
  :  mTaskPort(taskPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid())
 {
+	StLock<Mutex> _(*this);
+	
 	// set parent session
 	parent(Session::find(audit.sessionId(), true));
 
@@ -76,6 +78,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
 //
 void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
 {
+	StLock<Mutex> _(*this);
 	if (taskPort != mTaskPort) {
 		secdebug("SS", "Process %p(%d) reset mismatch (tp %d-%d)",
 			this, pid(), taskPort.port(), mTaskPort.port());

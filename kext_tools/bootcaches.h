@@ -39,6 +39,7 @@
 #include <IOKit/kext/kextmanager_types.h>   // uuid_string_t
 #include <mach-o/arch.h>
 
+#include "bootroot.h"
 
 // cache directories that we create (we also create kCSFDEPropertyCacheDir)
 #define kTSCacheDir         "/System/Library/Caches/com.apple.bootstamps"
@@ -144,8 +145,10 @@ int copyVolumeInfo(const char *vol_path, uuid_t *vol_uuid,
 int copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *encContext,
                    time_t *timeStamp);
 
-// ctors / dtors
-struct bootCaches* readBootCaches(char *volRoot);               // kextcache
+/* ctors / dtors */
+// for kextcache
+struct bootCaches* readBootCaches(char *volRoot, BRUpdateOpts_t opts);
+// and kextd
 struct bootCaches* readBootCachesForDADisk(DADiskRef dadisk);   // kextd
 
 void destroyCaches(struct bootCaches *caches);

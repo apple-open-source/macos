@@ -238,6 +238,7 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 		//
 		SRStopListening(fRecognizer);
 		[fLanguageModel release];
+        fLanguageModel = nil;
 		SRReleaseObject(fRecognizer);
 		SRCloseRecognitionSystem(fRecSystem);
 		fRecSystem	=	0;
@@ -579,6 +580,14 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
              object:fDocument userInfo:(id)move];
 		}
 	}
+}
+
+- (void) removeController
+{
+    //
+    // Avoid crashes from delayed methods
+    //
+    fController = nil;
 }
 
 @end

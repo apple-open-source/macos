@@ -264,18 +264,31 @@ void __IOHIDDeviceNotification(
     
     CFRetain(device);
     
-    CFIndex index = 0;
-    CFIndex count = CFArrayGetCount(device->removalCallbackArray);
-    while ((index < count) && (count == CFArrayGetCount(device->removalCallbackArray))) {
-        CFDataRef infoRef = (CFDataRef)CFArrayGetValueAtIndex(device->removalCallbackArray, index);
-        IOHIDDeviceRemovalCallbackInfo *info = (IOHIDDeviceRemovalCallbackInfo *)CFDataGetBytePtr(infoRef);
-        if (info->callback)
-            info->callback(info->context, kIOReturnSuccess, device);
-        index++;
-    }
+    CFArrayRef  tempRemovalCallbackArray = CFArrayCreateCopy(kCFAllocatorDefault, device->removalCallbackArray);
     
-    if (count != CFArrayGetCount(device->removalCallbackArray))
-        _IOHIDLog(ASL_LEVEL_ERR, "%s removal callbacks altered while in use by IOHIDDeviceRef %p\n", __func__, device);
+    if ( tempRemovalCallbackArray ) {
+        CFIndex count = CFArrayGetCount(tempRemovalCallbackArray);
+		CFIndex index = 0;
+			
+		for ( index=0; index<count; index++) {
+			IOHIDDeviceRemovalCallbackInfo *    info;
+			CFDataRef                           infoRef;
+		
+			infoRef = (CFDataRef)CFArrayGetValueAtIndex(tempRemovalCallbackArray, index);
+			if ( !infoRef )
+				continue;
+			
+			info = (IOHIDDeviceRemovalCallbackInfo *)CFDataGetBytePtr(infoRef);
+			if ( !info )
+				continue;
+			
+			if (!info->callback)
+				continue;
+		
+			info->callback(info->context, kIOReturnSuccess, device);
+		}
+        CFRelease(tempRemovalCallbackArray);
+    }
 
     CFRelease(device);
 }
@@ -310,40 +323,29 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     IOCFPlugInInterface **          plugInInterface     = NULL;
     IOHIDDeviceDeviceInterface **   deviceInterface     = NULL;
     IOHIDDeviceRef                  device              = NULL;
-    kern_return_t                   kr                  = kIOReturnSuccess;
-    HRESULT                         result              = S_FALSE;
     SInt32                          score               = 0;
 
-    kr = IOObjectRetain(service);
-    
-    if ( kr != kIOReturnSuccess )
-        return NULL;
-        
-    kr = IOCreatePlugInInterfaceForService(service, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score);
-                
-    if ( kr != kIOReturnSuccess ) 
-	return NULL;
+    require_noerr(IOObjectRetain(service), retain_fail);
+    require_noerr(IOCreatePlugInInterfaceForService(service, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score), plugin_fail);
+    require_noerr((*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID), (LPVOID)&deviceInterface), query_fail);
 
-    result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID), (LPVOID)&deviceInterface);
-        
-    if ( result != S_OK || !deviceInterface ) {
-        IODestroyPlugInInterface(plugInInterface);
-        return NULL;
-    }                                                                                                                                                                                
-    
     device = __IOHIDDeviceCreate(allocator, NULL);
-
-    if ( !device ) {
-        (*deviceInterface)->Release(deviceInterface);
-        IODestroyPlugInInterface(plugInInterface);
-        return NULL;
-    }
+    require(device, create_fail);
         
     device->plugInInterface = plugInInterface;
     device->deviceInterface = deviceInterface;
     device->service         = service;
 
     return device;
+    
+create_fail:
+    (*deviceInterface)->Release(deviceInterface);
+query_fail:
+    IODestroyPlugInInterface(plugInInterface);
+plugin_fail:
+    IOObjectRelease(service);
+retain_fail:
+    return NULL;
 }
 
 //------------------------------------------------------------------------------

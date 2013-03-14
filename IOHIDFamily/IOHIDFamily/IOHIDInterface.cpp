@@ -164,7 +164,7 @@ bool IOHIDInterface::start( IOService * provider )
     if ( OSDynamicCast(OSNumber, number) ) _reportInterval = number->unsigned32BitValue();
     OSSafeReleaseNULL(number);
     
-    registerService();
+    registerService(kIOServiceAsynchronous);
     
     return true;
 }

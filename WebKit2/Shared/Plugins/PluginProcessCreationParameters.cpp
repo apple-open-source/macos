@@ -39,6 +39,7 @@ PluginProcessCreationParameters::PluginProcessCreationParameters()
 void PluginProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
     encoder->encode(pluginPath);
+    encoder->encode(terminationTimeout);
 
 #if PLATFORM(MAC)
     encoder->encode(parentProcessName);
@@ -50,7 +51,8 @@ bool PluginProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, 
 {
     if (!decoder->decode(result.pluginPath))
         return false;
-
+    if (!decoder->decode(result.terminationTimeout))
+        return false;
 #if PLATFORM(MAC)
     if (!decoder->decode(result.parentProcessName))
         return false;

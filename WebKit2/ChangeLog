@@ -1,3 +1,1055 @@
+2013-01-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r138606
+
+    2013-01-01  Dan Bernstein  <mitz@apple.com>
+
+            <rdar://problem/12942239> Update copyright strings
+
+            Reviewed by Sam Weinig.
+
+            * Info.plist:
+            * NetworkProcess/Info.plist:
+            * PluginProcess/Info.plist:
+            * SharedWorkerProcess/Info.plist:
+            * WebProcess/Info.plist:
+            * WebProcessService/Info.plist:
+            * WebProcessServiceForWebKitDevelopment/Info.plist:
+
+2013-01-11  Anders Carlsson  <andersca@apple.com>
+
+        Merge r139464.
+
+    2013-01-11  Anders Carlsson  <andersca@apple.com>
+    
+            Incoming synchronous messages can sometimes arrive out of order
+            https://bugs.webkit.org/show_bug.cgi?id=106677
+            <rdar://problem/12889499>
+
+            Reviewed by Andreas Kling.
+
+            In cases where synchronous messages come in more than one connection at the same time, we can sometimes deliver
+            the synchronous messages before any pending asynchronous messages on that connection. This breaks FIFO ordering.
+
+            Fix this by separating the "dispatch all incoming synchronous messages" phase out into multiple phases, so we'll
+            schedule one call per connection instead of one call for all connections.
+
+            * Platform/CoreIPC/Connection.cpp:
+            (Connection::SyncMessageState):
+            (CoreIPC::Connection::SyncMessageState::SyncMessageState):
+            (CoreIPC::Connection::SyncMessageState::processIncomingMessage):
+            (CoreIPC::Connection::SyncMessageState::dispatchMessages):
+            (CoreIPC::Connection::SyncMessageState::dispatchMessageAndResetDidScheduleDispatchMessagesForConnection):
+            (CoreIPC::Connection::waitForSyncReply):
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r133937
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r133942 and 133943
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r133946
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r133947
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r133949
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r133969
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r134109
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r134834
+
+2012-12-13  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r134991
+
+2012-12-06  Anders Carlsson  <andersca@apple.com>
+
+        <rdar://problem/12828185> "Invalid message" crash reporter data should also include last sent sync message
+
+        Reviewed by Dan Bernstein.
+
+        Add a way to get the last sent sync message and pass it along to the invalid message callback.
+
+        * Platform/CoreIPC/Connection.cpp:
+        (CoreIPC::Connection::Connection):
+        (CoreIPC::Connection::sendSyncMessage):
+        * Platform/CoreIPC/Connection.h:
+        (CoreIPC::Connection::lastSentSyncMessageID):
+        (Connection):
+        * UIProcess/API/C/WKPagePrivate.h:
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit):
+        (WebKit::WebProcessProxy::didReceiveInvalidMessage):
+        (WebKit::WebProcessProxy::setInvalidMessageCallback):
+        * UIProcess/WebProcessProxy.h:
+        (WebProcessProxy):
+
+2012-11-28  Lucas Forschler  <lforschler@apple.com>
+
+        Windows build fix.
+        
+        * win/WebKit2.def:
+
+2012-11-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r119546
+
+    2012-06-04  Stephanie Lewis  <slewis@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=88370
+            Memory sampler should trigger low memory signal
+
+            Reviewed by Geoff Garen.
+
+            Send low memory signal when running the memory sampler.  We'd
+            like to test memory that cannot be freed.
+
+            * Shared/WebMemorySampler.cpp:
+            (WebKit::WebMemorySampler::sampleTimerFired):
+            * Shared/WebMemorySampler.h:
+            (WebMemorySampler):
+            * Shared/mac/WebMemorySampler.mac.mm:
+            (WebKit):
+            (WebKit::WebMemorySampler::sendMemoryPressureEvent):
+
+2012-11-27  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r128205 and parts of r127334.
+
+    2012-09-11  Brady Eidson  <beidson@apple.com>
+
+            We should wait longer before killing the PluginProcess.
+            <rdar://problem/12067728> and https://bugs.webkit.org/show_bug.cgi?id=96407
+
+            Reviewed by Anders Carlsson.
+
+            Currently we kill the PluginProcess 15 seconds after the last plug-in is destroyed.
+            This is short enough that most users will have the process killed many times during browsing sessions,
+            which is painful because relaunching the process is I/O and kernel intensive.
+
+            In an ideal world we could keep it around forever until the system tells us resources are running low.
+
+            In reality we do want to kill it occasionally to get a clean slate from any plug-in leaks.
+
+            A reasonable balance for now is to set a minimum lifetime of 30 minutes on the plug-in process and to 
+            extend the termination timer from 15 seconds to 10 minutes.
+
+            * PluginProcess/PluginProcess.cpp:
+            (WebKit::PluginProcess::PluginProcess):
+            (WebKit::PluginProcess::initializePluginProcess):
+            (WebKit::PluginProcess::setMinimumLifetime):
+            (WebKit):
+            (WebKit::PluginProcess::minimumLifetimeTimerFired):
+            * PluginProcess/PluginProcess.h:
+            (PluginProcess):
+
+            * Shared/Plugins/PluginProcessCreationParameters.cpp:
+            (WebKit::PluginProcessCreationParameters::encode):
+            (WebKit::PluginProcessCreationParameters::decode):
+            * Shared/Plugins/PluginProcessCreationParameters.h:
+            (PluginProcessCreationParameters):
+
+            * UIProcess/Plugins/PluginProcessProxy.cpp:
+            (WebKit):
+            (WebKit::PluginProcessProxy::didFinishLaunching):
+
+2012-11-27  Anders Carlsson  <andersca@apple.com>
+
+        <rdar://problem/11755093>
+        Add API to set a global function callback for when invalid messages are received from the web process.
+
+        * UIProcess/API/C/WKPage.cpp:
+        (WKPageSetInvalidMessageFunction):
+        * UIProcess/API/C/WKPagePrivate.h:
+        * UIProcess/WebPageProxy.cpp:
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit::WebProcessProxy::didReceiveInvalidMessage):
+        (WebKit::WebProcessProxy::setInvalidMessageCallback):
+        * UIProcess/WebProcessProxy.h:
+        (WebProcessProxy):
+
+2012-11-27  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r133702
+
+    2012-11-06  Anders Carlsson  <andersca@apple.com>
+
+            Update Java related WKSI function names
+            https://bugs.webkit.org/show_bug.cgi?id=101414
+
+            Reviewed by Sam Weinig.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::PluginInfoStore::shouldUsePlugin):
+            (WebKit::PluginInfoStore::policyForPlugin):
+            (WebKit::PluginInfoStore::reactivateInactivePlugin):
+
+2012-11-27  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r133371
+
+    2012-11-02  Anders Carlsson  <andersca@apple.com>
+
+            Don't instantiate the Java plug-in if it's inactive
+            https://bugs.webkit.org/show_bug.cgi?id=101102
+            <rdar://problem/12595679>
+
+            Reviewed by Andreas Kling.
+
+            * Shared/Plugins/PluginModuleInfo.h:
+            Add a PluginModuleLoadPolicy enum.
+
+            * UIProcess/Plugins/PluginInfoStore.cpp:
+            (WebKit::PluginInfoStore::policyForPlugin):
+            * UIProcess/Plugins/PluginInfoStore.h:
+            (PluginInfoStore):
+            Rename shouldBlockPlugin to policyForPlugin and make it return an enum so we can handle inactive plug-ins.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::shouldBlockPlugin):
+            Add helper function.
+
+            (WebKit::PluginInfoStore::policyForPlugin):
+            If the Java plug-in is inactive, return PluginModuleInactive.
+
+            (WebKit::PluginInfoStore::reactivateInactivePlugin):
+            If the given plug-in is the Java plug-in, call WKJLReportWebComponentsUsed() to reactivate it.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::unavailablePluginButtonClicked):
+            If the plug-in is inactive, try to reactivate it and reload the page if reactivation succeeded.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::getPluginPath):
+            * UIProcess/WebProcessProxy.h:
+            This now returns a plug-in load policy.
+
+            * UIProcess/WebProcessProxy.messages.in:
+            GetPluginPack now returns a load policy enum.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::shouldUnavailablePluginMessageBeButton):
+            Change this to a switch statement and always return true for RenderEmbeddedObject::PluginInactive.
+
+            (WebKit::WebChromeClient::unavailablePluginButtonClicked):
+            Add RenderEmbeddedObject::PluginInactive to the assertion.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::createPlugin):
+            Update now that GetPluginPath returns a pluginLoadPolicy enum.
+
+            (WebKit::canPluginHandleResponse):
+            Ditto.
+
+2012-11-27  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r133338
+
+    2012-11-02  Anders Carlsson  <andersca@apple.com>
+
+            Add a PluginInactive plug-in unavailability reason
+            https://bugs.webkit.org/show_bug.cgi?id=101089
+
+            Reviewed by Sam Weinig.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::unavailablePluginButtonClicked):
+
+2012-11-26  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r131975
+
+    2012-10-19  Andreas Kling  <kling@webkit.org>
+
+            Race condition in WebProcessProxy::handleGetPlugins().
+            <http://webkit.org/b/99903>
+            <rdar://problem/12541471>
+
+            Reviewed by Anders Carlsson.
+
+            Scope the Vector<PluginModuleInfo> so that all the destructors are guaranteed
+            to have run when sendDidGetPlugins() executes on the main thread.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::handleGetPlugins):
+
+2012-11-26  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r132713
+
+    2012-10-26  Anders Carlsson  <andersca@apple.com>
+
+            Crash when making NPRuntime calls with a null NPP pointer
+            https://bugs.webkit.org/show_bug.cgi?id=100569
+            <rdar://problem/11726426>
+            <rdar://problem/12352836>
+
+            Reviewed by Darin Adler.
+
+            Finally bite the bullet and remove the assertion from NetscapePlugin::fromNPP. The WebKit1 equivalent of this
+            function used to return the plug-in currently being initialized in NPP_New, but we've never done that in WebKit2
+            and it has never been necessary. The crashes fixed here are not from calls underneath NPP_New so fixing it wouldn't
+            do us any good anyway.
+
+            Also, make the PluginDestructionProtector handle a null plug-in gracefully.
+
+            * WebProcess/Plugins/Netscape/NetscapeBrowserFuncs.cpp:
+            (WebKit::PluginDestructionProtector::PluginDestructionProtector):
+            (PluginDestructionProtector):
+            * WebProcess/Plugins/Netscape/NetscapePlugin.cpp:
+            (WebKit::NetscapePlugin::fromNPP):
+
+2012-11-16  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r131280
+
+    2012-10-14  Jon Lee  <jonlee@apple.com>
+
+            Allow notification origin permission request when no js callback is provided
+            https://bugs.webkit.org/show_bug.cgi?id=63615
+            <rdar://problem/11059590>
+
+            Reviewed by Sam Weinig.
+
+            Null checks already exist for both standard and legacy API callbacks, so no changes are needed here
+            like there are in WebKit 1. The checks existed because the callbacks are held in a hash map used to keep
+            track of pending requests.
+
+            Also, add a check for a null callback when short circuiting.
+
+            * WebProcess/Notifications/NotificationPermissionRequestManager.cpp:
+            (WebKit::NotificationPermissionRequestManager::startRequest):
+
+2012-11-16  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r130565
+
+    2012-10-05  Tim Horton  <timothy_horton@apple.com>
+
+            [cg] GraphicsContextCG should ask CG whether the shadow offset workaround is required
+            https://bugs.webkit.org/show_bug.cgi?id=98565
+            <rdar://problem/12436468>
+
+            Reviewed by Simon Fraser.
+
+            Add wkCGContextDrawsWithCorrectShadowOffsets.
+
+            * WebProcess/WebCoreSupport/mac/WebSystemInterface.mm:
+            (InitWebCoreSystemInterface):
+
+2012-11-16  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r128088
+
+    2012-09-10  Brady Eidson  <beidson@apple.com>
+
+            Javascript in foreground tabs should not wait synchronously for plug-ins to load
+            <rdar://problem/12067415> and https://bugs.webkit.org/show_bug.cgi?id=96167
+
+            Reviewed by Geoff Garen.
+
+            Synchronously waiting for initialization to complete when javascript accesses the plug-in script object severely
+            reduces the effectiveness of having an asynchronous NPP_New.
+
+            Such as with background tabs that have never been viewed, we already have cases where JS calls into the plug-in 
+            element fail because we haven't bothered to initialize the plug-in.
+
+            We get a huge win by expanding that to foreground tabs that simply haven't finished initializing their plug-ins.
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::scriptObject): If initialization is not complete just return 0 - They can get at the script object later.
+
+            Remove the notion of "wait for asynchronous initialization" altogether:
+            * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+            (NetscapePlugin):
+            * WebProcess/Plugins/PDF/BuiltInPDFView.h:
+            (BuiltInPDFView):
+            * WebProcess/Plugins/Plugin.h:
+            (Plugin):
+            * WebProcess/Plugins/PluginProxy.cpp:
+            * WebProcess/Plugins/PluginProxy.h:
+            (PluginProxy):
+
+2012-11-15  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r130347
+
+    2012-10-03  Anders Carlsson  <andersca@apple.com>
+
+            Plugins are killed after 45 seconds if showing keychain "Allow/Deny" dialog
+            https://bugs.webkit.org/show_bug.cgi?id=85138
+            <rdar://problem/11406430>
+
+            Reviewed by Andreas Kling.
+
+            Remove the watchdog that would kill a plug-in if we've been waiting for a sync reply from it for more than 45 seconds.
+            It's unlikely that someone is going to wait 45 seconds for Safari to recover from a plug-in hang, and the timeout is
+            causing problems with plug-ins (see the bugzilla bug for more information).
+
+            * Platform/CoreIPC/Connection.cpp:
+            (CoreIPC::Connection::Connection):
+            (CoreIPC::Connection::waitForSyncReply):
+            * Platform/CoreIPC/Connection.h:
+            (Client):
+            (Connection):
+            * PluginProcess/PluginProcess.cpp:
+            * PluginProcess/PluginProcess.h:
+            (PluginProcess):
+            * PluginProcess/WebProcessConnection.cpp:
+            * PluginProcess/WebProcessConnection.h:
+            (WebProcessConnection):
+            * Shared/WebProcessCreationParameters.cpp:
+            (WebKit::WebProcessCreationParameters::encode):
+            (WebKit::WebProcessCreationParameters::decode):
+            * Shared/WebProcessCreationParameters.h:
+            (WebProcessCreationParameters):
+            * UIProcess/Plugins/PluginProcessManager.cpp:
+            * UIProcess/Plugins/PluginProcessManager.h:
+            (PluginProcessManager):
+            * UIProcess/Plugins/PluginProcessProxy.cpp:
+            * UIProcess/Plugins/PluginProcessProxy.h:
+            (PluginProcessProxy):
+            * UIProcess/WebConnectionToWebProcess.cpp:
+            * UIProcess/WebConnectionToWebProcess.h:
+            (WebConnectionToWebProcess):
+            * UIProcess/WebProcessProxy.cpp:
+            * UIProcess/WebProcessProxy.h:
+            (WebProcessProxy):
+            * UIProcess/WebProcessProxy.messages.in:
+            * UIProcess/mac/WebContextMac.mm:
+            (WebKit::WebContext::platformInitializeWebProcess):
+            * WebProcess/Plugins/PluginProcessConnection.cpp:
+            (WebKit::PluginProcessConnection::PluginProcessConnection):
+            * WebProcess/Plugins/PluginProcessConnection.h:
+            (PluginProcessConnection):
+            * WebProcess/WebConnectionToUIProcess.cpp:
+            * WebProcess/WebConnectionToUIProcess.h:
+            (WebConnectionToUIProcess):
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::runJavaScriptAlert):
+            (WebKit::WebChromeClient::runJavaScriptConfirm):
+            (WebKit::WebChromeClient::runJavaScriptPrompt):
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::WebProcess):
+            (WebKit::WebProcess::initializeWebProcess):
+            * WebProcess/WebProcess.h:
+            (WebProcess):
+
+2012-11-15  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r127595
+
+    2012-09-05  Brady Eidson  <beidson@apple.com>
+
+            Frequent crashes in PluginView::scriptObject under runtimeObjectCustomGetOwnPropertySlot
+            <rdar://problem/12142226> and https://bugs.webkit.org/show_bug.cgi?id=95026
+
+            Patch partially by Andras Becsi  <andras.becsi@nokia.com>
+
+            Reviewed by Andy Estes.
+
+            If a plug-in fails to initialize then the m_plugin pointer is cleared out.
+            When accessing the script object it is appropriate to unconditionally null check m_plugin.
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::scriptObject): Null check m_plugin before trying to use it.
+
+2012-11-13  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r129959
+
+    2012-09-28  Dan Bernstein  <mitz@apple.com>
+
+            <rdar://problem/12398537> WebKit2 lacks API for disabling document.cookie like -[WebView _setCookieEnabled:]
+            https://bugs.webkit.org/show_bug.cgi?id=97939
+
+            Reviewed by Sam Weinig.
+
+            * Shared/WebPreferencesStore.h:
+            (WebKit): Defined CookieEnabled key with a default value of true.
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetCookieEnabled): Added this setter.
+            (WKPreferencesGetCookieEnabled): Added this getter.
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences): Added a call to Settings::setCookieEnabled to push the
+            preference into Settings.
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r133379
+
+    2012-11-02  Anders Carlsson  <andersca@apple.com>
+
+            Very speculative ArgumentDecoder crash fix
+            https://bugs.webkit.org/show_bug.cgi?id=101130
+            <rdar://problem/11917046>
+
+            Reviewed by Sam Weinig.
+
+            Switch from fastMalloc/fastFree to system malloc/free in the hopes that it'll give more information about
+            a crash inside TCMalloc when freeing the argument data. (It seems unlikely that this is a bug in TCMalloc, but
+            switching to the system malloc could potentially give better error reporting).
+
+            * Platform/CoreIPC/ArgumentDecoder.cpp:
+            (CoreIPC::ArgumentDecoder::~ArgumentDecoder):
+            (CoreIPC::ArgumentDecoder::initialize):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r131018
+
+    2012-10-10  Jer Noble  <jer.noble@apple.com>
+
+            Disallow full screen mode keyboard access by default.
+            https://bugs.webkit.org/show_bug.cgi?id=98971
+            <rdar://problem/12474226>
+
+            Reviewed by Sam Weinig.
+
+            Only support full screen if keyboard access is not requested.
+
+            * UIProcess/WebFullScreenManagerProxy.cpp:
+            (WebKit::WebFullScreenManagerProxy::supportsFullScreen):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r126903
+
+    2012-08-28  Jon Lee  <jonlee@apple.com>
+
+            [WK2] Bugs in maintenance of internal state when user decides whether to grant notification permissions
+            https://bugs.webkit.org/show_bug.cgi?id=95220
+            <rdar://problem/12189895>
+
+            Reviewed by Jessie Berlin.
+
+            A couple of the maps maintained by the request manager should have been cleaned up when the user decided on
+            whether to grant a website permission to post notifications.
+
+            Also, the web process' copy of the permissions was not updated appropriately. This meant that in the
+            permission callback, Notification.permission was not the same value as the permission value included as
+            the first parameter of the callback.
+
+            This first surfaced as part of the work to bring Mac support for web notifications. I have a test that
+            will check for regressions in this area, once all of that has been checked in (bug 77969).
+
+            * WebProcess/Notifications/NotificationPermissionRequestManager.cpp:
+            (WebKit::NotificationPermissionRequestManager::didReceiveNotificationPermissionDecision):
+
+2012-11-09  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r126490
+
+    2012-08-23  Brady Eidson  <beidson@apple.com>
+
+            REGRESSION (r124815): PDF in frame does not display any more
+            <rdar://problem/12063306> and https://bugs.webkit.org/show_bug.cgi?id=94869
+
+            Reviewed by Alexey Proskuryakov.
+
+            * WebProcess/Plugins/PDF/BuiltInPDFView.mm:
+            (WebKit::BuiltInPDFView::initialize): Tell the controller that initialization was successful.
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r125695
+
+    2012-08-15  Brady Eidson  <beidson@apple.com>
+
+            Removing a plug-in element from a page opened in a background tab in Safari crashes
+            <rdar://problem/12057991> and https://bugs.webkit.org/show_bug.cgi?id=93913
+
+            Reviewed by Beth Dakin.
+
+            This only happens in WebKit2 with asynchronous plug-in initialization enabled.
+
+            * WebProcess/Plugins/PluginProxy.cpp:
+            (WebKit::PluginProxy::destroy): Null-check m_connection, as it might not have been created yet.
+
+            * win/WebKit2.def: Export Page::setCanStartMedia for InternalSettings/DRT use.
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r125457
+
+    2012-08-13  Brady Eidson  <beidson@apple.com>
+
+            With asynchronous plug-in initialization, WebProcess and PluginProcess can deadlock
+            <rdar://problem/12062125> and https://bugs.webkit.org/show_bug.cgi?id=93894
+
+            Reviewed by Alexey Proskuryakov.
+
+            A few things were in play here:
+            - The WebProcess thought the plug-in was done initializing but it wasn't.
+            - The sync message out from the PluginProcess was not being handled by the WebProcess.
+
+            Expose the ability for the PluginProcess to act as if it is handling a sync message and needs messages dispatched:
+            * Platform/CoreIPC/Connection.h:
+            (CoreIPC::Connection::incrementDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount):
+            (CoreIPC::Connection::decrementDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount):
+
+            * PluginProcess/PluginControllerProxy.cpp:
+            (WebKit::PluginControllerProxy::PluginControllerProxy):
+            (WebKit::PluginControllerProxy::setInitializationReply): Save the delayed reply for synchronous initialization.
+            (WebKit::PluginControllerProxy::takeInitializationReply): Give back the delayed reply for initialization completion.
+            (WebKit::PluginControllerProxy::initialize):
+            * PluginProcess/PluginControllerProxy.h:
+            (WebKit::PluginControllerProxy::isInitializing): Accessor so WebProcessConnection knows whether or not to store the
+              delayed reply for later.
+
+            * PluginProcess/WebProcessConnection.messages.in: Make the synchronous form of "CreatePlugin" have a delayed reply.
+            * PluginProcess/WebProcessConnection.cpp:
+            (WebKit::WebProcessConnection::createPlugin): Store away the delayed reply message so it can be responded to after
+              asynchronous initialization completes.
+            (WebKit::WebProcessConnection::createPluginAsynchronously): If there is a stored away delayed reply message, respond to
+              it instead of sending the asynchronously reply.
+            * PluginProcess/WebProcessConnection.h:
+            (WebProcessConnection):
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r125100
+
+    2012-08-08  Anders Carlsson  <andersca@apple.com>
+
+            REGRESSION: Crash when plug-in initialization fails
+            https://bugs.webkit.org/show_bug.cgi?id=93534
+            <rdar://problem/12059786>
+
+            Reviewed by Simon Fraser.
+
+            Protect the PluginProxy while calling out to functions that could cause it to be destroyed.
+
+            * WebProcess/Plugins/PluginProxy.cpp:
+            (WebKit::PluginProxy::didFailToCreatePluginInternal):
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r124815
+
+    2012-08-03  Brady Eidson  <beidson@apple.com>
+
+            Out-of-process plug-ins should support asynchronous initialization
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Reviewed by Anders Carlsson.
+
+            If a plug-in has been deemed capable of asynchronous initialization when run out of process...
+            ...then do that!
+
+            Add flags to communicate that this plugin create is meant to create a plug-in already requested asynchronously and
+            to include whether or not the initialize call should include an artificial delay (for testing):
+            * PluginProcess/PluginCreationParameters.cpp:
+            (WebKit::PluginCreationParameters::PluginCreationParameters):
+            (WebKit::PluginCreationParameters::encode):
+            (WebKit::PluginCreationParameters::decode):
+            * PluginProcess/PluginCreationParameters.h:
+            (PluginCreationParameters):
+
+            Add a flag for the UI Process to tell the PluginProcess that it supports asynchronous initialization:
+            * Shared/Plugins/PluginProcessCreationParameters.cpp:
+            (WebKit::PluginProcessCreationParameters::PluginProcessCreationParameters):
+            (WebKit::PluginProcessCreationParameters::encode):
+            (WebKit::PluginProcessCreationParameters::decode):
+            * Shared/Plugins/PluginProcessCreationParameters.h:
+            (PluginProcessCreationParameters):
+
+            Allow the UI Process to pass along whether the plug-on supports asynchronous initialization:
+            * UIProcess/Plugins/PluginProcessProxy.cpp:
+            (WebKit::PluginProcessProxy::pluginProcessCrashedOrFailedToLaunch):
+            (WebKit::PluginProcessProxy::didCreateWebProcessConnection):
+            * UIProcess/Plugins/PluginProcessProxy.h:
+            (PluginProcessProxy):
+            * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+            (WebKit::PluginProcessProxy::platformInitializePluginProcess):
+            * UIProcess/WebProcessProxy.messages.in:
+
+            Allow the Plugin Process to pass whether or not it supports asynchronous initialization, originally determined
+            in the UI Process, along to the WebProcess:
+            * PluginProcess/PluginProcess.cpp:
+            (WebKit::PluginProcess::PluginProcess):
+            (WebKit::PluginProcess::initializePluginProcess):
+            (WebKit::PluginProcess::createWebProcessConnection):
+            * PluginProcess/PluginProcess.h:
+            (PluginProcess):
+            * UIProcess/Plugins/PluginProcessProxy.messages.in:
+
+            Add a flag so PluginProcessConnections remember whether or not they support asynchronous initialization:
+            * WebProcess/Plugins/PluginProcessConnection.cpp:
+            (WebKit::PluginProcessConnection::PluginProcessConnection):
+            (WebKit::PluginProcessConnection::setSupportsAsynchronousPluginInitialization):
+            (WebKit):
+            * WebProcess/Plugins/PluginProcessConnection.h:
+            (WebKit::PluginProcessConnection::create):
+            (WebKit::PluginProcessConnection::supportsAsynchronousPluginInitialization):
+            (PluginProcessConnection):
+
+            Create PluginProcessConnections with the flag passed down from the PluginProcess about whether or not they
+            support asynchronous initialization:
+            * WebProcess/Plugins/PluginProcessConnectionManager.cpp:
+            (WebKit::PluginProcessConnectionManager::getPluginProcessConnection):
+
+            Responding to messages from the WebProcess, most of the heavy decision making in asynchronous initialization is here:
+            * PluginProcess/WebProcessConnection.cpp:
+            (WebKit::asynchronousInstanceIDsToIgnore): A set of instance IDs to *not* create asynchronously later because we know
+              we no longer need to.
+            (WebKit):
+            (WebKit::WebProcessConnection::didReceiveMessage):
+            (WebKit::WebProcessConnection::destroyPlugin): If the plug-in doesn't exist but is awaiting asynchronous creation, flag 
+              this instance ID in the "asynchronous ignore set".
+            (WebKit::WebProcessConnection::createPluginInternal): Renamed from createPlugin, actually does the plug-in creation.
+            (WebKit::WebProcessConnection::createPlugin): Adds the instance ID to the "asynchronous ignore set" then calls createPluginInternal.
+            (WebKit::WebProcessConnection::createPluginAsynchronously): If the instance ID is in the "asynchronous ignore set", remove it from the
+              set and do nothing else. Otherwise, perform the initialization and then send the asynchronous result back to the WebProcess.
+            * PluginProcess/WebProcessConnection.h:
+            (WebProcessConnection):
+            * PluginProcess/WebProcessConnection.messages.in:
+
+            Add helpers for asynchronous initialization that all plug-in types must implement:
+            * WebProcess/Plugins/Plugin.h:
+            (Plugin):
+
+            Add helpers for asynchronous initialization that plug-in controllers can override:
+            * WebProcess/Plugins/PluginController.h:
+            (PluginController):
+            (WebKit::PluginController::asynchronousPluginInitializationEnabled):
+            (WebKit::PluginController::asynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::PluginController::artificialPluginInitializationDelayEnabled):
+
+            Give PluginProxys the ability to initialize either asynchronously or synchronously, and also the ability to synchronously
+            wait for previously asynchronous initialization (in case their PluginScriptObject is required):
+            * WebProcess/Plugins/PluginProxy.cpp:
+            (WebKit::PluginProxy::PluginProxy):
+            (WebKit::PluginProxy::initialize): Store the plugin creation parameters as a member, and decide whether to try synchronous
+              or asynchronous initialization.
+            (WebKit):
+            (WebKit::PluginProxy::canInitializeAsynchronously): Answer based on preferences and what the PluginProcessConnection says
+              that it supports.
+            (WebKit::PluginProxy::waitForAsynchronousInitialization): Synchronously wait on initialization when asynchronous initialization
+              was previously requested.
+            (WebKit::PluginProxy::initializeSynchronously):
+            (WebKit::PluginProxy::didCreatePlugin): Double-check that we're still expecting asynchronous initialization, then call
+              through to didCreatePluginInternal.
+            (WebKit::PluginProxy::didCreatePluginInternal): Handle completion of initialization (both synchronously and asynchronously)
+            (WebKit::PluginProxy::didFailToCreatePlugin): Double-check that we're still expecting asynchronous initialization, then call
+              through to didFailToCreatePluginInternal.
+            (WebKit::PluginProxy::didFailToCreatePluginInternal): Handle failure to initialize (both synchronously and asynchronously)
+            (WebKit::PluginProxy::destroy):
+            * WebProcess/Plugins/PluginProxy.h:
+            (WebKit):
+            (WebKit::PluginProxy::isInitializingAsynchronously):
+            (PluginProxy):
+            * WebProcess/Plugins/PluginProxy.messages.in:
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::PluginView):
+            (WebKit::PluginView::~PluginView): Always destroy the plug-in even if it hasn't been initialized yet, as it might be initializing
+              right now.
+            (WebKit::PluginView::initializePlugin): Don't handle the result of initialization immediately. Break that out in to two
+              methods that will be called later.
+            (WebKit):
+            (WebKit::PluginView::didFailToInitializePlugin):
+            (WebKit::PluginView::didInitializePlugin):
+            (WebKit::PluginView::scriptObject): If we truly need the script object, then wait for a synchronous initialization of the plug-in.
+            (WebKit::PluginView::asynchronousPluginInitializationEnabled):
+            (WebKit::PluginView::asynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::PluginView::artificialPluginInitializationDelayEnabled):
+            * WebProcess/Plugins/PluginView.h:
+            (PluginView):
+
+            These methods shouldn't be called in the PluginProcess, only in the WebProcess:
+            * PluginProcess/PluginControllerProxy.cpp:
+            (WebKit::PluginControllerProxy::didInitializePlugin):
+            (WebKit):
+            (WebKit::PluginControllerProxy::didFailToInitializePlugin):
+            * PluginProcess/PluginControllerProxy.h:
+            (PluginControllerProxy):
+
+            NetscapePlugin is for in-process plug-ins:
+            * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+            (NetscapePlugin):
+            (WebKit::NetscapePlugin::waitForAsynchronousInitialization):
+            (WebKit::NetscapePlugin::isInitializingAsynchronously):
+
+            Built-in PDFView is currently only in-process:
+            * WebProcess/Plugins/PDF/BuiltInPDFView.h:
+            (BuiltInPDFView):
+            (WebKit::BuiltInPDFView::waitForAsynchronousInitialization):
+            (WebKit::BuiltInPDFView::isInitializingAsynchronously):
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r124652
+
+    2012-08-03  Brady Eidson  <beidson@apple.com>
+
+            Small part of "Out-of-process plug-ins should support asynchronous initialization."
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Unreviewed (build fix).
+
+            * Shared/WebPreferencesStore.h:
+            (WebKit): Include this file which has the declaration of the new pref.
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r124649
+
+    2012-08-03  Brady Eidson  <beidson@apple.com>
+
+            Small part of "Out-of-process plug-ins should support asynchronous initialization."
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Reviewed by Anders Carlsson.
+
+            -Add API-level preferences for forcing asynchronous initialization of all plug-ins (for testing).
+            -Make sure "overridePreference" is hooked up properly for all needed preferences.
+
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetAsynchronousPluginInitializationEnabledForAllPlugins):
+            (WKPreferencesGetAsynchronousPluginInitializationEnabledForAllPlugins):
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+
+            * WebProcess/InjectedBundle/InjectedBundle.cpp:
+            (WebKit::InjectedBundle::overrideBoolPreferenceForTestRunner):
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage):
+            (WebKit::WebPage::updatePreferences):
+            * WebProcess/WebPage/WebPage.h:
+            (WebKit::WebPage::setAsynchronousPluginInitializationEnabled):
+            (WebKit::WebPage::asynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::WebPage::setAsynchronousPluginInitializationEnabledForAllPlugins):
+            (WebKit::WebPage::setArtificialPluginInitializationDelayEnabled):
+            (WebPage):
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r124393
+
+    2012-08-01  Brady Eidson  <beidson@apple.com>
+
+            Small part of "Out-of-process plug-ins should support asynchronous initialization."
+            <rdar://problem/10598594> and https://bugs.webkit.org/show_bug.cgi?id=92919
+
+            Reviewed by Anders Carlsson.
+
+            Add API-level preferences for:
+            - Is asynchronous plug-in initialization enabled.
+            - Is an artificial initialization delay (for testing purposes) enabled.
+
+            * Shared/WebPreferencesStore.h:
+            (WebKit):
+
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetAsynchronousPluginInitializationEnabled):
+            (WKPreferencesGetAsynchronousPluginInitializationEnabled):
+            (WKPreferencesSetArtificialPluginInitializationDelayEnabled):
+            (WKPreferencesGetArtificialPluginInitializationDelayEnabled):
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage):
+            (WebKit::WebPage::updatePreferences):
+            * WebProcess/WebPage/WebPage.h:
+            (WebKit::WebPage::asynchronousPluginInitializationEnabled):
+            (WebKit::WebPage::artificialPluginInitializationDelayEnabled):
+            (WebPage):
+
+2012-11-07  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r129535
+
+    2012-09-25  Akash Vaswani  <avaswani@apple.com>
+
+            Crash after clicking in plugin at kauaiexplorer.com
+            <rdar://problem/11525987/> and https://bugs.webkit.org/show_bug.cgi?id=90925
+
+            Reviewed by Sam Weinig.
+
+            Bug: Clicking the plugin to navigate away from the page caused the browser to crash.
+                 This is because it is possible for a beforeunload handler to destroy the plugin
+                 while it is still needed. In this case the handler set visibility to "none" and
+                 then accessed a property on the plugin script object. This forced a layout
+                 that destroyed the plugin.
+            Fix: Protecting PluginView objects until they are no longer required.
+                 This was done by adding a RefPtr at the beginning of performURLRequest() 
+
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::performURLRequest):
+
+2012-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r128935
+
+    2012-09-18  Anders Carlsson  <andersca@apple.com>
+
+            Division by zero crash in BackingStore::scroll
+            https://bugs.webkit.org/show_bug.cgi?id=97046
+            <rdar://problem/11722564>
+
+            Reviewed by Dan Bernstein.
+
+            It appears that DrawingAreaImpl::scroll can be called with an empty scroll rect. Do nothing
+            if that's the case. Also, assert that the scrolling rect in BackingStoreMac is never empty.
+
+            * UIProcess/mac/BackingStoreMac.mm:
+            (WebKit::BackingStore::scroll):
+            * WebProcess/WebPage/DrawingAreaImpl.cpp:
+            (WebKit::DrawingAreaImpl::scroll):
+
+2012-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r128792
+
+    2012-09-17  Anders Carlsson  <andersca@apple.com>
+
+            Crash if we fail to allocate memory for the argument encoder buffer.
+            https://bugs.webkit.org/show_bug.cgi?id=88367
+
+            Reviewed by Andreas Kling.
+            <rdar://problem/11488239>
+
+            Since there's no way to recover from malloc returning null here, just crash.
+
+            * Platform/CoreIPC/ArgumentEncoder.cpp:
+            (CoreIPC::ArgumentEncoder::grow):
+
+2012-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r128774
+
+    2012-09-17  Anders Carlsson  <andersca@apple.com>
+
+            Don't load a blocked plug-in if a non-blocked version of the same plug-in exists
+            https://bugs.webkit.org/show_bug.cgi?id=96933
+            <rdar://problem/12206720>
+
+            Reviewed by Andreas Kling.
+
+            If a plug-in with the same bundle identifier already exists and it's blocked, remove it and replace it
+            with the other version.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::PluginInfoStore::shouldUsePlugin):
+
+2012-11-05  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r125176
+
+    2012-08-09  Dan Bernstein  <mitz@apple.com>
+
+            <rdar://problem/12035637> 32-bit PluginProcess launches without appropriate DYLD environment variables if UI process is 64-bit only
+            https://bugs.webkit.org/show_bug.cgi?id=93596
+
+            Reviewed by Mark Rowe.
+
+            * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+            (WebKit::ProcessLauncher::launchProcess): Changed to pass the current architecture, rather than
+            the intended child process architecture, to the DynamicLinkerEnvironmentExtractor constructor.
+
+2012-11-05  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r125091
+
+    2012-08-08  Beth Dakin  <bdakin@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=92275
+            Need a way to get a snapshot image that does not show the selection
+            -and corresponding-
+            <rdar://problem/11956802>
+
+            Reviewed by Anders Carlsson.
+
+            Added new API WKBundlePageCreateSnapshotWithOptions()
+
+            New enum SnapshotOptions tracks whether snapshots should exclude 
+            selection highlighting in addition to tracking whether the image is 
+            sharable like the original ImageOptions.
+            * Shared/API/c/WKImage.h:
+            * Shared/API/c/WKSharedAPICast.h:
+            (WebKit::snapshotOptionsFromImageOptions):
+            (WebKit):
+            (WebKit::toSnapshotOptions):
+            * Shared/ImageOptions.h:
+
+            New API.
+            * WebProcess/InjectedBundle/API/c/WKBundlePage.h:
+            * WebProcess/InjectedBundle/API/c/WKBundlePage.cpp:
+            (WKBundlePageCreateSnapshotWithOptions):
+
+            These existing APIs all now call 
+            WebPage::scaledSnapshotWithOptions().
+            (WKBundlePageCreateSnapshotInViewCoordinates):
+            (WKBundlePageCreateSnapshotInDocumentCoordinates):
+            (WKBundlePageCreateScaledSnapshotInDocumentCoordinates):
+
+            This patch removes WebPage::snapshotInViewCoordinates(), 
+            WebPage::snapshotInDocumentCoordinates(), and 
+            WebPage::scaledSnapshotInDocumentCoordinates(). All of the logic is 
+            now consolidated into WebPage::scaledSnapshotWithOptions(). It turns 
+            out that we never did anything different for document coordinates 
+            versus view coordinates, so that complexity could just be eliminated 
+            outright.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::snapshotOptionsToImageOptions):
+            (WebKit::WebPage::scaledSnapshotWithOptions):
+            (WebKit):
+            * WebProcess/WebPage/WebPage.h:
+            (WebPage):
+
+2012-11-02  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r124724
+
+    2012-08-05  Benjamin Poulain  <bpoulain@apple.com>
+
+            Assert in checkValidity() in hashtable.h from WebGeolocationManager::didFailToDeterminePosition() when fetching http://html5demos.com/geo
+            https://bugs.webkit.org/show_bug.cgi?id=80386
+
+            Reviewed by Alexey Proskuryakov.
+
+            WebKit2's WebGeolocationManager was delivering events without accounting that each event
+            can modify the list of page that need delivery.
+            Any page can remove itself by invoking clearWatch() from the callback function. A page can also cause another
+            page to be removed.
+
+            This patch solves the issue by taking a copy of the list of page before delivery. Each page is
+            referenced as it can be deleted during the delivery.
+
+            Unfortunately, this cannot be tested due to missing features of WebKitTestRunner.
+
+            * WebProcess/Geolocation/WebGeolocationManager.cpp:
+            (WebKit::WebGeolocationManager::didChangePosition):
+            (WebKit::WebGeolocationManager::didFailToDeterminePosition):
+
+2012-10-19  Lucas Forschler  <lforschler@apple.com>
+
+        <rdar://problem/12523419> Use v2 bundle page loader client structure.
+
+        We already had a callback from v2 implemented, so we should update to this version.
+ 
+        * Shared/APIClientTraits.cpp:
+        * Shared/APIClientTraits.h:
+        * WebProcess/InjectedBundle/API/c/WKBundlePage.h:
+
 2012-08-31  Timothy Hatcher  <timothy@apple.com>
 
         Merge r127319.
@@ -47301,5 +48353,3 @@
         socketpair().
 
 == Rolled over to ChangeLog-2011-06-04 ==
-.
-.

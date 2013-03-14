@@ -87,6 +87,7 @@ typedef void (*WKBundlePageDidCommitLoadForFrameCallback)(WKBundlePageRef page, 
 typedef void (*WKBundlePageDidDocumentFinishLoadForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKTypeRef* userData, const void *clientInfo);
 typedef void (*WKBundlePageDidFinishLoadForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKTypeRef* userData, const void *clientInfo);
 typedef void (*WKBundlePageDidFinishDocumentLoadForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKTypeRef* userData, const void *clientInfo);
+typedef void (*WKBundlePageDidFinishProgressCallback)(WKBundlePageRef page, const void *clientInfo);
 typedef void (*WKBundlePageDidFailLoadWithErrorForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKErrorRef error, WKTypeRef* userData, const void *clientInfo);
 typedef void (*WKBundlePageDidSameDocumentNavigationForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKSameDocumentNavigationType type, WKTypeRef* userData, const void *clientInfo);
 typedef void (*WKBundlePageDidReceiveTitleForFrameCallback)(WKBundlePageRef page, WKStringRef title, WKBundleFrameRef frame, WKTypeRef* userData, const void *clientInfo);
@@ -142,11 +143,14 @@ struct WKBundlePageLoaderClient {
     WKBundlePageWillDisconnectDOMWindowExtensionFromGlobalObjectCallback    willDisconnectDOMWindowExtensionFromGlobalObject;
     WKBundlePageDidReconnectDOMWindowExtensionToGlobalObjectCallback        didReconnectDOMWindowExtensionToGlobalObject;
     WKBundlePageWillDestroyGlobalObjectForDOMWindowExtensionCallback        willDestroyGlobalObjectForDOMWindowExtension;
+
+    // Version 2
+    WKBundlePageDidFinishProgressCallback                                   didFinishProgress;
     WKBundlePageShouldForceUniversalAccessFromLocalURLCallback              shouldForceUniversalAccessFromLocalURL;
 };
 typedef struct WKBundlePageLoaderClient WKBundlePageLoaderClient;
 
-enum { kWKBundlePageLoaderClientCurrentVersion = 1 };
+enum { kWKBundlePageLoaderClientCurrentVersion = 2 };
 
 enum {
     WKBundlePagePolicyActionPassThrough,
@@ -388,8 +392,14 @@ WK_EXPORT bool WKBundlePageCanHandleRequest(WKURLRequestRef request);
 
 WK_EXPORT bool WKBundlePageFindString(WKBundlePageRef page, WKStringRef target, WKFindOptions findOptions);
 
+WK_EXPORT WKImageRef WKBundlePageCreateSnapshotWithOptions(WKBundlePageRef page, WKRect rect, WKSnapshotOptions options);
+
+// We should deprecate these functions in favor of just using WKBundlePageCreateSnapshotWithOptions.
 WK_EXPORT WKImageRef WKBundlePageCreateSnapshotInViewCoordinates(WKBundlePageRef page, WKRect rect, WKImageOptions options);
 WK_EXPORT WKImageRef WKBundlePageCreateSnapshotInDocumentCoordinates(WKBundlePageRef page, WKRect rect, WKImageOptions options);
+
+// We should keep this function since it allows passing a scale factor, but we should re-name it to
+// WKBundlePageCreateScaledSnapshotWithOptions.
 WK_EXPORT WKImageRef WKBundlePageCreateScaledSnapshotInDocumentCoordinates(WKBundlePageRef page, WKRect rect, double scaleFactor, WKImageOptions options);
 
 WK_EXPORT double WKBundlePageGetBackingScaleFactor(WKBundlePageRef page);

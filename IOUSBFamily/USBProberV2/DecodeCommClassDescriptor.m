@@ -93,3 +93,31 @@
 }
 
 @end
+
+
+@implementation DecodeMassStorageDescriptor
+
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice {
+    
+	char 	buf[500];
+    UASPipeDescriptor	*		desc = (UASPipeDescriptor *) p;
+    
+    if ( desc->bDescriptorType == kUSBClassSpecificDescriptor )
+    {
+        switch (desc->bPipeID)
+        {
+            case 0: sprintf((char *)buf, "Undefined"); break;
+            case 1: sprintf((char *)buf, "Command"); break;
+            case 2: sprintf((char *)buf, "Status"); break;
+            case 3: sprintf((char *)buf, "Data-in"); break;
+            case 4: sprintf((char *)buf, "Data-out"); break;
+            default: sprintf((char *)buf, "Undefined"); break;
+
+        }
+
+        [thisDevice addProperty:"Class-Specific UAS Pipe Usage" withValue:buf atDepth:(int)ENDPOINT_LEVEL];
+        
+        
+    }
+}
+@end

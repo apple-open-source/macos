@@ -49,21 +49,19 @@ bool AppleSmartBatteryManagerUserClient::initWithTask(task_t owningTask,
 {    
     uint32_t            _pid;
 
-     /* Only root processes may grab exclusive OS access of the SMBus
-     * To be clear; 'exclusive' in this context only means that 
-     * SmartBattery traffic from the OS is temporarily suspended while
-     * a client with exclusive access is open.
-     * Our one and only expected exclusive access client is the Battery Updater.
-     */
-    if (kSBExclusiveSMBusAccessType == type)
+     /* 1. Only root processes may open a SmartBatteryManagerUserClient.
+      * 2. Attempts to create exclusive UserClients will fail if an
+      *     exclusive user client is attached.
+      * 3. Non-exclusive clients will not be able to perform transactions
+      *     while an exclusive client is attached.
+      * 3a. Only battery firmware updaters should bother being exclusive.
+      */
+    if ( kIOReturnSuccess !=
+            clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator))
     {
-        if ( kIOReturnSuccess != 
-                clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator))
-        {
-            return false;     
-        }
+        return false;
     }
-    
+        
     if (!super::initWithTask(owningTask, security_id, type, properties)) {    
         return false;
     }
@@ -91,7 +89,8 @@ bool AppleSmartBatteryManagerUserClient::start( IOService * provider )
     if (kSBExclusiveSMBusAccessType == fUserClientType)
     {
         if(!fOwner->requestExclusiveSMBusAccess(true)) {
-            // Could not obtain exclusive access to SmartBattery
+            // requestExclusiveSMBusAccess will return false if there's already
+            // an exclusive user client.
             return false;
         }
     }
@@ -209,6 +208,12 @@ AppleSmartBatteryManagerUserClient::externalMethod(
             break;
             
         case kSBSMBusReadWriteWord:
+            if ((kSBExclusiveSMBusAccessType != fUserClientType) && fOwner->hasExclusiveClient())
+            {
+                /* SmartBatteryManager should not perform this request if there's an exclusive client
+                 * attached, and this client isn't the exclusive client. */
+                return kIOReturnSuccess;
+            }
             // Struct in, struct out
             return fOwner->performExternalTransaction(
                                             (void *)arguments->structureInput,

@@ -5478,7 +5478,9 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
         return kIOReturnNotOpen;
 
     if (ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline, false)) {
-        TICKLE_DISPLAY(event->type);
+        if (typeMask & NX_WAKEMASK) {
+			TICKLE_DISPLAY(event->type);
+        }
         return kIOReturnSuccess;
     }
 

@@ -635,9 +635,11 @@ void WebContext::handleGetPlugins(uint64_t requestID, bool refresh)
 
     OwnPtr<Vector<PluginInfo> > pluginInfos = adoptPtr(new Vector<PluginInfo>);
 
-    Vector<PluginModuleInfo> plugins = m_pluginInfoStore.plugins();
-    for (size_t i = 0; i < plugins.size(); ++i)
-        pluginInfos->append(plugins[i].info);
+    {
+        Vector<PluginModuleInfo> plugins = m_pluginInfoStore.plugins();
+        for (size_t i = 0; i < plugins.size(); ++i)
+            pluginInfos->append(plugins[i].info);
+    }
 
     // NOTE: We have to pass the PluginInfo vector to the secondary thread via a pointer as otherwise
     //       we'd end up with a deref() race on all the WTF::Strings it contains.
@@ -649,21 +651,20 @@ void WebContext::getPlugins(CoreIPC::Connection*, uint64_t requestID, bool refre
     m_pluginWorkQueue.dispatch(bind(&WebContext::handleGetPlugins, this, requestID, refresh));
 }
 
-void WebContext::getPluginPath(const String& mimeType, const String& urlString, String& pluginPath, bool& blocked)
+void WebContext::getPluginPath(const String& mimeType, const String& urlString, String& pluginPath, uint32_t& pluginLoadPolicy)
 {
     MESSAGE_CHECK_URL(urlString);
 
     String newMimeType = mimeType.lower();
 
-    blocked = false;
+    pluginLoadPolicy = PluginModuleLoadNormally;
     PluginModuleInfo plugin = pluginInfoStore().findPlugin(newMimeType, KURL(KURL(), urlString));
     if (!plugin.path)
         return;
 
-    if (pluginInfoStore().shouldBlockPlugin(plugin)) {
-        blocked = true;
+    pluginLoadPolicy = PluginInfoStore::policyForPlugin(plugin);
+    if (pluginLoadPolicy != PluginModuleLoadNormally)
         return;
-    }
 
     pluginPath = plugin.path;
 }

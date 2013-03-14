@@ -51,6 +51,7 @@
 #include "RenderEmbeddedObject.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
+#include "ScrollingCoordinator.h"
 #include "StyleResolver.h"
 #include "TiledBacking.h"
 
@@ -117,8 +118,12 @@ RenderLayerBacking::RenderLayerBacking(RenderLayer* layer)
     if (m_usingTiledCacheLayer) {
         if (Page* page = renderer()->frame()->page()) {
             if (TiledBacking* tiledBacking = m_graphicsLayer->tiledBacking()) {
+                Frame* frame = renderer()->frame();
                 tiledBacking->setIsInWindow(page->isOnscreen());
-                tiledBacking->setCanHaveScrollbars(renderer()->frame()->view()->canHaveScrollbars());
+                if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator()) {
+                    bool shouldLimitTileCoverage = !frame->view()->canHaveScrollbars() || scrollingCoordinator->shouldUpdateScrollLayerPositionOnMainThread();
+                    tiledBacking->setTileCoverage(shouldLimitTileCoverage ? TiledBacking::CoverageForVisibleArea : TiledBacking::CoverageForScrolling);
+                }
             }
         }
     }
@@ -277,7 +282,7 @@ void RenderLayerBacking::updateCompositedBounds()
         LayoutRect clippingBounds = view->unscaledDocumentRect();
 
         if (m_owningLayer != rootLayer)
-            clippingBounds.intersect(m_owningLayer->backgroundClipRect(rootLayer, 0, true).rect()); // FIXME: Incorrect for CSS regions.
+            clippingBounds.intersect(m_owningLayer->backgroundClipRect(rootLayer, 0, AbsoluteClipRects).rect()); // FIXME: Incorrect for CSS regions.
 
         LayoutPoint delta;
         m_owningLayer->convertToLayerCoords(rootLayer, delta);
@@ -477,7 +482,7 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
         // Call calculateRects to get the backgroundRect which is what is used to clip the contents of this
         // layer. Note that we call it with temporaryClipRects = true because normally when computing clip rects
         // for a compositing layer, rootLayer is the layer itself.
-        IntRect parentClipRect = pixelSnappedIntRect(m_owningLayer->backgroundClipRect(compAncestor, 0, true).rect()); // FIXME: Incorrect for CSS regions.
+        IntRect parentClipRect = pixelSnappedIntRect(m_owningLayer->backgroundClipRect(compAncestor, 0, TemporaryClipRects).rect()); // FIXME: Incorrect for CSS regions.
         ASSERT(parentClipRect != PaintInfo::infiniteRect());
         m_ancestorClippingLayer->setPosition(FloatPoint() + (parentClipRect.location() - graphicsLayerParentLocation));
         m_ancestorClippingLayer->setSize(parentClipRect.size());
@@ -722,6 +727,35 @@ bool RenderLayerBacking::updateOverflowControlsLayers(bool needsHorizontalScroll
     }
 
     return layersChanged;
+}
+
+void RenderLayerBacking::positionOverflowControlsLayers(const IntSize& offsetFromRoot)
+{
+    IntSize offsetFromRenderer = m_graphicsLayer->offsetFromRenderer();
+    if (GraphicsLayer* layer = layerForHorizontalScrollbar()) {
+        Scrollbar* hBar = m_owningLayer->horizontalScrollbar();
+        if (hBar) {
+            layer->setPosition(hBar->frameRect().location() - offsetFromRoot - offsetFromRenderer);
+            layer->setSize(hBar->frameRect().size());
+        }
+        layer->setDrawsContent(hBar);
+    }
+    
+    if (GraphicsLayer* layer = layerForVerticalScrollbar()) {
+        Scrollbar* vBar = m_owningLayer->verticalScrollbar();
+        if (vBar) {
+            layer->setPosition(vBar->frameRect().location() - offsetFromRoot - offsetFromRenderer);
+            layer->setSize(vBar->frameRect().size());
+        }
+        layer->setDrawsContent(vBar);
+    }
+
+    if (GraphicsLayer* layer = layerForScrollCorner()) {
+        const LayoutRect& scrollCornerAndResizer = m_owningLayer->scrollCornerAndResizerRect();
+        layer->setPosition(scrollCornerAndResizer.location() - offsetFromRenderer);
+        layer->setSize(scrollCornerAndResizer.size());
+        layer->setDrawsContent(!scrollCornerAndResizer.isEmpty());
+    }
 }
 
 bool RenderLayerBacking::updateForegroundLayer(bool needsForegroundLayer)
@@ -1157,8 +1191,7 @@ void RenderLayerBacking::setContentsNeedDisplayInRect(const IntRect& r)
 
 void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext* context,
                     const IntRect& paintDirtyRect, // In the coords of rootLayer.
-                    PaintBehavior paintBehavior, GraphicsLayerPaintingPhase paintingPhase,
-                    RenderObject* paintingRoot)
+                    PaintBehavior paintBehavior, GraphicsLayerPaintingPhase paintingPhase)
 {
     if (paintsIntoWindow()) {
         ASSERT_NOT_REACHED();
@@ -1176,10 +1209,11 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         paintFlags |= RenderLayer::PaintLayerPaintingCompositingMaskPhase;
         
     // FIXME: GraphicsLayers need a way to split for RenderRegions.
-    m_owningLayer->paintLayerContents(rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, 0, paintFlags);
+    RenderLayer::LayerPaintingInfo paintingInfo(rootLayer, paintDirtyRect, paintBehavior);
+    m_owningLayer->paintLayerContents(context, paintingInfo, paintFlags);
 
     if (m_owningLayer->containsDirtyOverlayScrollbars())
-        m_owningLayer->paintOverlayScrollbars(context, paintDirtyRect, paintBehavior, paintingRoot);
+        m_owningLayer->paintLayerContents(context, paintingInfo, paintFlags | RenderLayer::PaintLayerPaintingOverlayScrollbars);
 
     ASSERT(!m_owningLayer->m_usedTransparency);
 }
@@ -1213,7 +1247,7 @@ void RenderLayerBacking::paintContents(const GraphicsLayer* graphicsLayer, Graph
         dirtyRect.intersect(clip);
 
         // We have to use the same root as for hit testing, because both methods can compute and cache clipRects.
-        paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintBehaviorNormal, paintingPhase, renderer());
+        paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintBehaviorNormal, paintingPhase);
 
         if (m_usingTiledCacheLayer)
             m_owningLayer->renderer()->frame()->view()->setLastPaintTime(currentTime());

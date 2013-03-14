@@ -97,6 +97,7 @@ enum {
 #define _publishedFeatureID     _reserved->publishedFeatureID
 #define _supportedWakeFilters   _reserved->supportedWakeFilters
 #define _disabledWakeFilters    _reserved->disabledWakeFilters
+#define _wompEnabledAssertionID _reserved->wompEnabledAssertionID
 
 #define kWOMPFeatureKey         "WakeOnMagicPacket"
 
@@ -307,6 +308,12 @@ void IOEthernetInterface::free()
 
 	if ( _reserved )
 	{
+        if (kIOPMUndefinedDriverAssertionID != _wompEnabledAssertionID)
+        {
+            getPMRootDomain()->releasePMAssertion(_wompEnabledAssertionID);
+            _wompEnabledAssertionID = kIOPMUndefinedDriverAssertionID;
+        }
+
         if (_disabledWakeFilters)
         {
             _disabledWakeFilters->release();
@@ -1436,5 +1443,21 @@ void IOEthernetInterface::reportInterfaceWakeFlags( IONetworkController * ctr )
     {
         ifnet_set_wake_flags(ifnet, filters, IFNET_WAKE_ON_MAGIC_PACKET);
         DLOG("en%u: ifnet_set_wake_flags = %x\n", getUnitNumber(), filters);
+
+        // Lazy create of kernel assertion
+        if (kIOPMUndefinedDriverAssertionID == _wompEnabledAssertionID)
+        {
+            _wompEnabledAssertionID = getPMRootDomain()->createPMAssertion(
+                kIOPMDriverAssertionMagicPacketWakeEnabledBit,
+                (filters & IFNET_WAKE_ON_MAGIC_PACKET) ?
+                    kIOPMDriverAssertionLevelOn : kIOPMDriverAssertionLevelOff,
+                this, getName());
+        }
+        else
+        {
+            getPMRootDomain()->setPMAssertionLevel(_wompEnabledAssertionID,
+                (filters & IFNET_WAKE_ON_MAGIC_PACKET) ?
+                    kIOPMDriverAssertionLevelOn : kIOPMDriverAssertionLevelOff);
+        }
     }
 }

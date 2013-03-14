@@ -96,10 +96,11 @@ private:
     bool             _controllerLostPower;  // true if controller is unusable
 
     struct ExpansionData { 
-		UInt32      altMTU;                 // track the physical mtu of controller
-		UInt32      publishedFeatureID;     // id for published wake packet
+        UInt32      altMTU;                 // track the physical mtu of controller
+        UInt32      publishedFeatureID;     // id for published wake packet
         uint32_t    supportedWakeFilters;   // bitmask of supported wake filters
         OSNumber *  disabledWakeFilters;    // OSNumber of disabled wake filters
+        uint64_t    wompEnabledAssertionID;
 	};
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */

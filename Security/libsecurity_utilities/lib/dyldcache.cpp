@@ -43,6 +43,9 @@ const DYLDCache::ArchType DYLDCache::architectures[] = {
 	{ 0 }
 };
 
+const DYLDCache::ArchType DYLDCache::defaultArchitecture =
+	{ 0, 0, "dyld_v1 default", "unknown", littleEndian };
+
 
 //
 // Architecture matching and lookup
@@ -60,6 +63,8 @@ const DYLDCache::ArchType *DYLDCache::matchArchitecture(const dyld_cache_header 
 	for (const ArchType *arch = architectures; arch->cpu; arch++)
 		if (!strcmp(header.magic, arch->magic))
 			return arch;
+	if (!strncmp(header.magic, "dyld_v1 ", 8))
+		return &defaultArchitecture;
 	return NULL;
 }
 

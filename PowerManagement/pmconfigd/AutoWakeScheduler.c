@@ -488,6 +488,8 @@ void poweronTimerExpiredCallout(CFDictionaryRef event __unused)
 
 void wakeScheduleCallout(CFDictionaryRef event)
 {    
+   // Nothing to do here. 'kIOPMUserWakeAlarmScheduledKey'  property is set/unset 
+   // before system goes to sleep
     return;
 }
 

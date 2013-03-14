@@ -8,6 +8,7 @@
  */
 #include "kextutil_main.h"
 #include "kext_tools_util.h"
+#include "security.h"
 
 #include <libc.h>
 #include <sysexits.h>
@@ -1194,6 +1195,10 @@ processKext(
     if (result != EX_OK) {
         goto finish;
     }
+    
+    /* <rdar://problem/12435992> Message tracing for kext loads
+     */
+    logMTMessage(aKext);
 
    /* Reread loaded kext info to reflect newly-loaded kexts
     * if we need to save symbols (which requires load addresses)

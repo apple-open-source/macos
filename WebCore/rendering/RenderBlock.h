@@ -54,6 +54,9 @@ template <class Run> class BidiRunList;
 template <class Iterator> struct MidpointState;
 typedef BidiResolver<InlineIterator, BidiRun> InlineBidiResolver;
 typedef MidpointState<InlineIterator> LineMidpointState;
+typedef WTF::ListHashSet<RenderBox*> TrackedRendererListHashSet;
+typedef WTF::HashMap<const RenderBlock*, TrackedRendererListHashSet*> TrackedDescendantsMap;
+typedef WTF::HashMap<const RenderBox*, HashSet<RenderBlock*>*> TrackedContainerMap;
 
 enum CaretType { CursorCaret, DragCaret };
 
@@ -99,15 +102,19 @@ public:
     virtual void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0);
 
     void insertPositionedObject(RenderBox*);
-    void removePositionedObject(RenderBox*);
+    static void removePositionedObject(RenderBox*);
     void removePositionedObjects(RenderBlock*);
 
-    typedef ListHashSet<RenderBox*, 4> PositionedObjectsListHashSet;
-    PositionedObjectsListHashSet* positionedObjects() const { return m_positionedObjects.get(); }
+    TrackedRendererListHashSet* positionedObjects() const;
+    bool hasPositionedObjects() const
+    {
+        TrackedRendererListHashSet* objects = positionedObjects();
+        return objects && !objects->isEmpty();
+    }
 
     void addPercentHeightDescendant(RenderBox*);
     static void removePercentHeightDescendant(RenderBox*);
-    HashSet<RenderBox*>* percentHeightDescendants() const;
+    TrackedRendererListHashSet* percentHeightDescendants() const;
     static bool hasPercentHeightContainerMap();
     static bool hasPercentHeightDescendant(RenderBox*);
     static void clearPercentHeightDescendantsFrom(RenderBox*);
@@ -376,6 +383,9 @@ public:
 
     LayoutUnit computeStartPositionDeltaForChildAvoidingFloats(const RenderBox* child, LayoutUnit childMarginStart, RenderRegion* = 0, LayoutUnit offsetFromLogicalTopOfFirstPage = 0);
 
+    void placeRunInIfNeeded(RenderObject* newChild, PlaceGeneratedRunInFlag);
+    bool runInIsPlacedIntoSiblingBlock(RenderObject* runIn);
+
 #ifndef NDEBUG
     void showLineTreeAndMark(const InlineBox* = 0, const char* = 0, const InlineBox* = 0, const char* = 0, const RenderObject* = 0) const;
 #endif
@@ -496,6 +506,9 @@ private:
     void layoutBlockChildren(bool relayoutChildren, LayoutUnit& maxFloatLogicalBottom);
     void layoutInlineChildren(bool relayoutChildren, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom);
     BidiRun* handleTrailingSpaces(BidiRunList<BidiRun>&, BidiContext*);
+
+    void insertIntoTrackedRendererMaps(RenderBox* descendant, TrackedDescendantsMap*&, TrackedContainerMap*&);
+    static void removeFromTrackedRendererMaps(RenderBox* descendant, TrackedDescendantsMap*&, TrackedContainerMap*&);
 
     virtual void borderFitAdjust(LayoutRect&) const; // Shrink the box in which the border paints if border-fit is set.
 
@@ -907,7 +920,11 @@ private:
     bool handleSpecialChild(RenderBox* child, const MarginInfo&);
     bool handleFloatingChild(RenderBox* child, const MarginInfo&);
     bool handlePositionedChild(RenderBox* child, const MarginInfo&);
-    bool handleRunInChild(RenderBox* child);
+
+    RenderBoxModelObject* createReplacementRunIn(RenderBoxModelObject* runIn);
+    void moveRunInUnderSiblingBlockIfNeeded(RenderObject* runIn);
+    void moveRunInToOriginalPosition(RenderObject* runIn);
+
     LayoutUnit collapseMargins(RenderBox* child, MarginInfo&);
     LayoutUnit clearFloatsIfNeeded(RenderBox* child, MarginInfo&, LayoutUnit oldTopPosMargin, LayoutUnit oldTopNegMargin, LayoutUnit yPos);
     LayoutUnit estimateLogicalTopPosition(RenderBox* child, const MarginInfo&, LayoutUnit& estimateWithoutPagination);
@@ -1053,9 +1070,6 @@ protected:
         const RenderBlock* m_renderer;
     };
     OwnPtr<FloatingObjects> m_floatingObjects;
-    
-    typedef PositionedObjectsListHashSet::const_iterator Iterator;
-    OwnPtr<PositionedObjectsListHashSet> m_positionedObjects;
 
     // Allocated only when some of these fields have non-default values
     struct RenderBlockRareData {

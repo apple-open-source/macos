@@ -37,6 +37,7 @@
 #include "heim_threads.h"
 #include "heimbase.h"
 
+
 void
 _gss_mg_release_cred(struct _gss_cred *cred)
 {

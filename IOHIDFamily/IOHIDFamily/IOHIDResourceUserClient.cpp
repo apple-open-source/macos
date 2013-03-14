@@ -479,7 +479,7 @@ IOReturn IOHIDResourceDeviceUserClient::getReport(IOMemoryDescriptor *report, IO
     
         header.direction   = kIOHIDResourceReportDirectionIn;
         header.type        = reportType;
-        header.reportID    = options&0xf;
+        header.reportID    = options&0xff;
         header.length      = report->getLength();
         header.token       = (intptr_t)retData;
 
@@ -529,7 +529,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReport(IOMemoryDescriptor *report, IO
     
         header.direction   = kIOHIDResourceReportDirectionOut;
         header.type        = reportType;
-        header.reportID    = options&0xf;
+        header.reportID    = options&0xff;
         header.length      = report->getLength();
         header.token       = (intptr_t)retData;
 

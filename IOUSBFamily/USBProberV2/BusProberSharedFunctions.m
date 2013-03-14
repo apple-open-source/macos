@@ -464,12 +464,31 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls) {
                 case kUSBMassStorageRBCSubClass:        sub = @"Reduced Block Commands"; break;
                 case kUSBMassStorageATAPISubClass:  	sub = @"ATAPI"; break;
                 case kUSBMassStorageQIC157SubClass:  	sub = @"QIC-157"; break;
-                case kUSBMassStorageUFISubClass:  	sub = @"UFI"; break;
+                case kUSBMassStorageUFISubClass:  		sub = @"UFI"; break;
                 case kUSBMassStorageSFF8070iSubClass:  	sub = @"SFF-8070i"; break;
-                case kUSBMassStorageSCSISubClass:  	sub = @"SCSI"; break;
-                default:                        	sub = @"Unknown"; break;
+                case kUSBMassStorageSCSISubClass:  		sub = @"SCSI"; break;
+                default:                        		sub = @"Unknown"; break;
             }
-            break;
+			
+			switch (pcls[2])
+			{
+                case kMSCProtocolControlBulkInterrupt:
+                    protocol = @"Control/Bulk/Interrupt";
+                    break;
+                case kMSCProtocolControlBulk:
+                    protocol = @"Control/Bulk";
+                    break;
+                case kMSCProtocolBulkOnly:
+                    protocol = @"Bulk Only";
+                    break;
+                case kMSCProtocolUSBAttachedSCSI:
+                    protocol = @"UAS";
+                    break;
+                default:
+                    protocol = @"Unknown";
+                    break;
+			}
+           break;
             
         case kUSBHubClass:
             cls = @"Hub";

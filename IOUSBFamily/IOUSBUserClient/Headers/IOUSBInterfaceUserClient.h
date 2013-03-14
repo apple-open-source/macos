@@ -234,7 +234,9 @@ public:
  */
 class IOUSBInterfaceUserClientV2 : public IOUserClient
 {
-    OSDeclareDefaultStructors(IOUSBInterfaceUserClientV2)
+	friend class IOUSBInterfaceUserClientV3;
+
+	OSDeclareDefaultStructors(IOUSBInterfaceUserClientV2)
 
 private:
     IOUSBInterface *							fOwner;
@@ -256,6 +258,7 @@ private:
 		bool									fOpenedForExclusiveAccess;
 		bool									fDelayedWorkLoopFree;
 		bool									fOwnerWasReleased;
+		UInt8									fOriginalAlternateInterface;
     };
     
     IOUSBInterfaceUserClientExpansionData *		fIOUSBInterfaceUserClientExpansionData;
@@ -322,7 +325,9 @@ public:
 	static	IOReturn							_GetEndpointProperties(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
 	virtual IOReturn                            GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, uint64_t *transferType, uint64_t *maxPacketSize, uint64_t *interval);
     
- 	static	IOReturn							_GetConfigDescriptor(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+ 	static	IOReturn							_GetEndpointPropertiesV3(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+
+	static	IOReturn							_GetConfigDescriptor(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
 	virtual IOReturn							GetConfigDescriptor(UInt8 configIndex, IOUSBConfigurationDescriptorPtr desc, UInt32 *size);
 	virtual IOReturn							GetConfigDescriptor(UInt8 configIndex, IOMemoryDescriptor * mem, uint32_t *size);
     // working with pipes
@@ -331,7 +336,9 @@ public:
     virtual IOReturn                            GetPipeProperties(UInt8 pipeRef, uint64_t *direction, uint64_t *number, uint64_t *transferType, uint64_t *maxPacketSize, uint64_t *interval);
     
 	static	IOReturn							_GetPipePropertiesV2(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
-	
+
+	static	IOReturn							_GetPipePropertiesV3(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+
 	static	IOReturn							_ReadPipe(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
 	virtual IOReturn							ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32 completionTimeout, mach_vm_address_t buffer, mach_vm_size_t size, IOUSBCompletion * completion);
 	virtual IOReturn                            ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32 completionTimeout, void *buf, UInt32 *size);
@@ -460,8 +467,12 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBInterfaceUserClientV2, 13);
     virtual IOReturn                            GetPipePropertiesV2(UInt8 pipeRef, uint64_t *direction, uint64_t *number, uint64_t *transferType, uint64_t *maxPacketSize, uint64_t *interval, uint64_t *maxBurst, uint64_t *mult, uint64_t *bytesPerInterval);
 
-    OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 14);
-    OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 15);
+    OSMetaClassDeclareReservedUsed(IOUSBInterfaceUserClientV2, 14);
+	virtual IOReturn                            GetPipePropertiesV3(UInt8 pipeRef, UInt8 propertyVersion, IOUSBEndpointProperties *properties, UInt32 *size);
+
+    OSMetaClassDeclareReservedUsed(IOUSBInterfaceUserClientV2, 15);
+	virtual IOReturn                            GetEndpointPropertiesV3(UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 propertyVersion, IOUSBEndpointProperties *properties, UInt32 *size);
+	
     OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 16);
     OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 17);
     OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 18);

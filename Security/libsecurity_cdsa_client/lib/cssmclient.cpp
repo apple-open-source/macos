@@ -398,25 +398,29 @@ ModuleImpl::appNotifyCallback(RawModuleEvents *handler)
 void
 ModuleImpl::activate()
 {
-    StLock<Mutex> _(mActivateMutex);
-	if (!mActive)
-	{
-		session()->init();
-		// @@@ install handler here (use central dispatch with override)
-		secdebug("callback","In ModuleImpl::activate, mAppNotifyCallback=%p, mAppNotifyCallbackCtx=%p",
-			mAppNotifyCallback, mAppNotifyCallbackCtx);
-		check(CSSM_ModuleLoad(&guid(), CSSM_KEY_HIERARCHY_NONE, mAppNotifyCallback, mAppNotifyCallbackCtx));
-		mActive = true;
-		session()->catchExit();
-	}
+    {
+        StLock<Mutex> _(mActivateMutex);
+        if (!mActive)
+        {
+            session()->init();
+            // @@@ install handler here (use central dispatch with override)
+            secdebug("callback","In ModuleImpl::activate, mAppNotifyCallback=%p, mAppNotifyCallbackCtx=%p",
+                mAppNotifyCallback, mAppNotifyCallbackCtx);
+            check(CSSM_ModuleLoad(&guid(), CSSM_KEY_HIERARCHY_NONE, mAppNotifyCallback, mAppNotifyCallbackCtx));
+            mActive = true;
+        }
+    }
+
+	session()->catchExit();
 }
 
 void
 ModuleImpl::deactivate()
 {
-    StLock<Mutex> _(mActivateMutex);
 	if (!isIdle())
 		Error::throwMe(Error::objectBusy);
+
+    StLock<Mutex> _(mActivateMutex);
 	if (mActive)
 	{
 		mActive = false;

@@ -42,6 +42,7 @@ namespace WebCore {
 
 RenderSVGModelObject::RenderSVGModelObject(SVGStyledElement* node)
     : RenderObject(node)
+    , m_hasSVGShadow(false)
 {
 }
 
@@ -60,10 +61,15 @@ void RenderSVGModelObject::mapLocalToContainer(RenderBoxModelObject* repaintCont
     SVGRenderSupport::mapLocalToContainer(this, repaintContainer, transformState, wasFixed);
 }
 
+const RenderObject* RenderSVGModelObject::pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
+{
+    return SVGRenderSupport::pushMappingToContainer(this, ancestorToStopAt, geometryMap);
+}
+
 // Copied from RenderBox, this method likely requires further refactoring to work easily for both SVG and CSS Box Model content.
 // FIXME: This may also need to move into SVGRenderSupport as the RenderBox version depends
 // on borderBoundingBox() which SVG RenderBox subclases (like SVGRenderBlock) do not implement.
-LayoutRect RenderSVGModelObject::outlineBoundsForRepaint(RenderBoxModelObject* repaintContainer, LayoutPoint*) const
+LayoutRect RenderSVGModelObject::outlineBoundsForRepaint(RenderBoxModelObject* repaintContainer, const RenderGeometryMap*) const
 {
     LayoutRect box = enclosingLayoutRect(repaintRectInLocalCoordinates());
     adjustRectForOutlineAndShadow(box);

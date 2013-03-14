@@ -290,10 +290,6 @@ void WebProcessProxy::getPluginProcessConnection(const String& pluginPath, PassR
     PluginProcessManager::shared().getPluginProcessConnection(context()->pluginInfoStore(), pluginPath, reply);
 }
 
-void WebProcessProxy::pluginSyncMessageSendTimedOut(const String& pluginPath)
-{
-    PluginProcessManager::shared().pluginSyncMessageSendTimedOut(pluginPath);
-}
 #endif
 
 void WebProcessProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
@@ -378,16 +374,17 @@ void WebProcessProxy::didClose(CoreIPC::Connection*)
         pages[i]->processDidCrash();
 }
 
-void WebProcessProxy::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID)
+void (*s_invalidMessageCallback)(uint32_t messageID, uint32_t lastSentSyncMessageID);
+
+void WebProcessProxy::didReceiveInvalidMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID)
 {
     WTFLogAlways("Received an invalid message from the web process with message ID %x\n", messageID.toInt());
 
+    if (s_invalidMessageCallback)
+        s_invalidMessageCallback(messageID.toInt(), connection->lastSentSyncMessageID());
+
     // Terminate the WebProcesses.
     terminate();
-}
-
-void WebProcessProxy::syncMessageSendTimedOut(CoreIPC::Connection*)
-{
 }
 
 void WebProcessProxy::didBecomeUnresponsive(ResponsivenessTimer*)
@@ -508,6 +505,11 @@ void WebProcessProxy::updateTextCheckerState()
         return;
 
     send(Messages::WebProcess::SetTextCheckerState(TextChecker::state()), 0);
+}
+
+void WebProcessProxy::setInvalidMessageCallback(void (*invalidMessageCallback)(uint32_t, uint32_t))
+{
+    s_invalidMessageCallback = invalidMessageCallback;
 }
 
 } // namespace WebKit

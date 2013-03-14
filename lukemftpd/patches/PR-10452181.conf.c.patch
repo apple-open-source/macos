@@ -1,0 +1,18 @@
+diff -Naur tnftpd-20100324/src/conf.c tnftpd/src/conf.c
+--- tnftpd-20100324/src/conf.c	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/conf.c	2011-12-22 14:35:42.000000000 -0800
+@@ -181,7 +181,13 @@
+ 		
+ 		NEXTWORD(p, word);
+ 		NEXTWORD(p, class);
+-		NEXTWORD(p, arg);
++		
++		if (strcasecmp(word, "chroot") == 0 ||
++		    strcasecmp(word, "homedir") == 0)
++			arg = p;
++		else
++			NEXTWORD(p, arg);
++
+ 		if (EMPTYSTR(word) || EMPTYSTR(class))
+ 			continue;
+ 		if (strcasecmp(class, "none") == 0)

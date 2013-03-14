@@ -70,7 +70,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 struct SameSizeAsRenderBlock : public RenderBox {
-    void* pointers[3];
+    void* pointers[2];
     RenderObjectChildList children;
     RenderLineBoxList lineBoxes;
     uint32_t bitfields;
@@ -95,11 +95,11 @@ struct SameSizeAsMarginInfo {
 typedef WTF::HashMap<const RenderBox*, ColumnInfo*> ColumnInfoMap;
 static ColumnInfoMap* gColumnInfoMap = 0;
 
-typedef WTF::HashMap<const RenderBlock*, HashSet<RenderBox*>*> PercentHeightDescendantsMap;
-static PercentHeightDescendantsMap* gPercentHeightDescendantsMap = 0;
+static TrackedDescendantsMap* gPositionedDescendantsMap = 0;
+static TrackedDescendantsMap* gPercentHeightDescendantsMap = 0;
 
-typedef WTF::HashMap<const RenderBox*, HashSet<RenderBlock*>*> PercentHeightContainerMap;
-static PercentHeightContainerMap* gPercentHeightContainerMap = 0;
+static TrackedContainerMap* gPositionedContainerMap = 0;
+static TrackedContainerMap* gPercentHeightContainerMap = 0;
     
 typedef WTF::HashMap<RenderBlock*, ListHashSet<RenderInline*>*> ContinuationOutlineTableMap;
 
@@ -207,6 +207,26 @@ RenderBlock::RenderBlock(Node* node)
     COMPILE_ASSERT(sizeof(RenderBlock::MarginInfo) == sizeof(SameSizeAsMarginInfo), MarginInfo_should_stay_small);
 }
 
+static void removeBlockFromDescendantAndContainerMaps(RenderBlock* block, TrackedDescendantsMap*& descendantMap, TrackedContainerMap*& containerMap)
+{
+    if (TrackedRendererListHashSet* descendantSet = descendantMap->take(block)) {
+        TrackedRendererListHashSet::iterator end = descendantSet->end();
+        for (TrackedRendererListHashSet::iterator descendant = descendantSet->begin(); descendant != end; ++descendant) {
+            HashSet<RenderBlock*>* containerSet = containerMap->get(*descendant);
+            ASSERT(containerSet);
+            if (!containerSet)
+                continue;
+            ASSERT(containerSet->contains(block));
+            containerSet->remove(block);
+            if (containerSet->isEmpty()) {
+                containerMap->remove(*descendant);
+                delete containerSet;
+            }
+        }
+        delete descendantSet;
+    }
+}
+
 RenderBlock::~RenderBlock()
 {
     if (m_floatingObjects)
@@ -215,24 +235,10 @@ RenderBlock::~RenderBlock()
     if (hasColumns())
         delete gColumnInfoMap->take(this);
 
-    if (gPercentHeightDescendantsMap) {
-        if (HashSet<RenderBox*>* descendantSet = gPercentHeightDescendantsMap->take(this)) {
-            HashSet<RenderBox*>::iterator end = descendantSet->end();
-            for (HashSet<RenderBox*>::iterator descendant = descendantSet->begin(); descendant != end; ++descendant) {
-                HashSet<RenderBlock*>* containerSet = gPercentHeightContainerMap->get(*descendant);
-                ASSERT(containerSet);
-                if (!containerSet)
-                    continue;
-                ASSERT(containerSet->contains(this));
-                containerSet->remove(this);
-                if (containerSet->isEmpty()) {
-                    gPercentHeightContainerMap->remove(*descendant);
-                    delete containerSet;
-                }
-            }
-            delete descendantSet;
-        }
-    }
+    if (gPercentHeightDescendantsMap)
+        removeBlockFromDescendantAndContainerMaps(this, gPercentHeightDescendantsMap, gPercentHeightContainerMap);
+    if (gPositionedDescendantsMap)
+        removeBlockFromDescendantAndContainerMaps(this, gPositionedDescendantsMap, gPositionedContainerMap);
 }
 
 void RenderBlock::willBeDestroyed()
@@ -579,14 +585,6 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
     if (beforeChild && childrenInline())
         deleteLineBoxTree();
 
-    // We have to remove the descendant child from our positioned objects list
-    // before we do the split and move some of the children to cloneBlock. Since
-    // we are doing layout anyway, it is easier to blow away the entire list, than
-    // traversing down the subtree looking for positioned childs and then remove them
-    // from our positioned objects list.
-    if (beforeChild)
-        removePositionedObjects(0);
-
     // Now take all of the children from beforeChild to the end and remove
     // them from |this| and place them in the clone.
     moveChildrenTo(cloneBlock, beforeChild, 0, true);
@@ -639,12 +637,6 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
         if (isLastChild && currChildNextSibling != blockCurr->lastChild())
             currChildNextSibling = 0; // We destroyed the last child, so now we need to update
                                       // the value of currChildNextSibling.
-
-        // It is possible that positioned objects under blockCurr are going to be moved to cloneBlock.
-        // Since we are doing layout anyway, it is easier to blow away the entire list, than
-        // traversing down the subtree looking for positioned children and then remove them
-        // from our positioned objects list.
-        blockCurr->removePositionedObjects(0);
 
         // Now we need to take all of the children starting from the first child
         // *after* currChild and append them all to the clone.
@@ -857,6 +849,10 @@ void RenderBlock::addChildIgnoringAnonymousColumnBlocks(RenderObject* newChild, 
         }
     }
 
+    // Nothing goes before the intruded run-in.
+    if (beforeChild && beforeChild->isRunIn() && runInIsPlacedIntoSiblingBlock(beforeChild))
+        beforeChild = beforeChild->nextSibling();
+
     // Check for a spanning element in columns.
     RenderBlock* columnsBlockAncestor = columnsBlockForSpanningElement(newChild);
     if (columnsBlockAncestor) {
@@ -937,6 +933,9 @@ void RenderBlock::addChildIgnoringAnonymousColumnBlocks(RenderObject* newChild, 
     }
 
     RenderBox::addChild(newChild, beforeChild);
+ 
+    // Handle placement of run-ins.
+    placeRunInIfNeeded(newChild, DoNotPlaceGeneratedRunIn);
 
     if (madeBoxesNonInline && parent() && isAnonymousBlock() && parent()->isRenderBlock())
         toRenderBlock(parent())->removeLeftoverAnonymousBlock(this);
@@ -1045,6 +1044,13 @@ void RenderBlock::makeChildrenNonInline(RenderObject *insertionPoint)
 
     deleteLineBoxTree();
 
+    // Since we are going to have block children, we have to move
+    // back the run-in to its original place.
+    if (child->isRunIn()) {
+        moveRunInToOriginalPosition(child);
+        child = firstChild();
+    }
+
     while (child) {
         RenderObject *inlineRunStart, *inlineRunEnd;
         getInlineRun(child, insertionPoint, inlineRunStart, inlineRunEnd);
@@ -1150,15 +1156,21 @@ void RenderBlock::collapseAnonymousBoxChild(RenderBlock* parent, RenderObject* c
     RenderBlock* anonBlock = toRenderBlock(parent->children()->removeChildNode(parent, child, child->hasLayer()));
     anonBlock->moveAllChildrenTo(parent, nextSibling, child->hasLayer());
     // Delete the now-empty block's lines and nuke it.
-    if (!parent->documentBeingDestroyed())
-        anonBlock->deleteLineBoxTree();
-    if (!parent->documentBeingDestroyed() && childFlowThread && childFlowThread->isRenderNamedFlowThread())
+    anonBlock->deleteLineBoxTree();
+    if (childFlowThread && childFlowThread->isRenderNamedFlowThread())
         toRenderNamedFlowThread(childFlowThread)->removeFlowChildInfo(anonBlock);
     anonBlock->destroy();
 }
 
 void RenderBlock::removeChild(RenderObject* oldChild)
 {
+    // No need to waste time in merging or removing empty anonymous blocks.
+    // We can just bail out if our document is getting destroyed.
+    if (documentBeingDestroyed()) {
+        RenderBox::removeChild(oldChild);
+        return;
+    }
+
     // If this child is a block, and if our previous and next siblings are
     // both anonymous blocks with inline content, then we can go ahead and
     // fold the inline content back together.
@@ -1180,12 +1192,14 @@ void RenderBlock::removeChild(RenderObject* oldChild)
             // column span flag if it is set.
             ASSERT(!inlineChildrenBlock->continuation());
             RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyleWithDisplay(style(), BLOCK);
-            children()->removeChildNode(this, inlineChildrenBlock, inlineChildrenBlock->hasLayer());
+            // Cache this value as it might get changed in setStyle() call.
+            bool inlineChildrenBlockHasLayer = inlineChildrenBlock->hasLayer();
             inlineChildrenBlock->setStyle(newStyle);
+            children()->removeChildNode(this, inlineChildrenBlock, inlineChildrenBlockHasLayer);
             
             // Now just put the inlineChildrenBlock inside the blockChildrenBlock.
             blockChildrenBlock->children()->insertChildNode(blockChildrenBlock, inlineChildrenBlock, prev == inlineChildrenBlock ? blockChildrenBlock->firstChild() : 0,
-                                                            inlineChildrenBlock->hasLayer() || blockChildrenBlock->hasLayer());
+                                                            inlineChildrenBlockHasLayer || blockChildrenBlock->hasLayer());
             next->setNeedsLayoutAndPrefWidthsRecalc();
             
             // inlineChildrenBlock got reparented to blockChildrenBlock, so it is no longer a child
@@ -1226,7 +1240,7 @@ void RenderBlock::removeChild(RenderObject* oldChild)
         }
     }
 
-    if (!firstChild() && !documentBeingDestroyed()) {
+    if (!firstChild()) {
         // If this was our last child be sure to clear out our line boxes.
         if (childrenInline())
             deleteLineBoxTree();
@@ -1639,20 +1653,21 @@ void RenderBlock::addOverflowFromFloats()
 
 void RenderBlock::addOverflowFromPositionedObjects()
 {
-    if (!m_positionedObjects)
+    TrackedRendererListHashSet* positionedDescendants = positionedObjects();
+    if (!positionedDescendants)
         return;
 
     RenderBox* positionedObject;
-    Iterator end = m_positionedObjects->end();
-    for (Iterator it = m_positionedObjects->begin(); it != end; ++it) {
+    TrackedRendererListHashSet::iterator end = positionedDescendants->end();
+    for (TrackedRendererListHashSet::iterator it = positionedDescendants->begin(); it != end; ++it) {
         positionedObject = *it;
         
         // Fixed positioned elements don't contribute to layout overflow, since they don't scroll with the content.
         if (positionedObject->style()->position() != FixedPosition) {
-            int x = positionedObject->x();
+            LayoutUnit x = positionedObject->x();
             if (style()->shouldPlaceBlockDirectionScrollbarOnLogicalLeft())
                 x -= verticalScrollbarWidth();
-            addOverflowFromChild(positionedObject, IntSize(x, positionedObject->y()));
+            addOverflowFromChild(positionedObject, LayoutSize(x, positionedObject->y()));
         }
     }
 }
@@ -1729,8 +1744,7 @@ bool RenderBlock::handleSpecialChild(RenderBox* child, const MarginInfo& marginI
 {
     // Handle in the given order
     return handlePositionedChild(child, marginInfo)
-        || handleFloatingChild(child, marginInfo)
-        || handleRunInChild(child);
+        || handleFloatingChild(child, marginInfo);
 }
 
 
@@ -1754,80 +1768,152 @@ bool RenderBlock::handleFloatingChild(RenderBox* child, const MarginInfo& margin
     return false;
 }
 
-bool RenderBlock::handleRunInChild(RenderBox* child)
+static void destroyRunIn(RenderBoxModelObject* runIn)
 {
-    // See if we have a run-in element with inline children.  If the
-    // children aren't inline, then just treat the run-in as a normal
-    // block.
-    if (!child->isRunIn() || !child->childrenInline())
-        return false;
+    ASSERT(runIn->isRunIn());
+    ASSERT(!runIn->firstChild());
+
+    // Delete our line box tree. This is needed as our children got moved
+    // and our line box tree is no longer valid.
+    if (runIn->isRenderBlock())
+        toRenderBlock(runIn)->deleteLineBoxTree();
+    else if (runIn->isRenderInline())
+        toRenderInline(runIn)->deleteLineBoxTree();
+    else
+        ASSERT_NOT_REACHED();
+
+    runIn->destroy();
+}
+
+void RenderBlock::placeRunInIfNeeded(RenderObject* newChild, PlaceGeneratedRunInFlag flag)
+{
+    if (newChild->isRunIn() && (flag == PlaceGeneratedRunIn || !newChild->isBeforeOrAfterContent()))
+        moveRunInUnderSiblingBlockIfNeeded(newChild);
+    else if (RenderObject* prevSibling = newChild->previousSibling()) {
+        if (prevSibling->isRunIn() && (flag == PlaceGeneratedRunIn || !newChild->isBeforeOrAfterContent()))
+            moveRunInUnderSiblingBlockIfNeeded(prevSibling);
+    }
+}
+
+RenderBoxModelObject* RenderBlock::createReplacementRunIn(RenderBoxModelObject* runIn)
+{
+    ASSERT(runIn->isRunIn());
+
+    // First we destroy any :before/:after content. It will be regenerated by the new run-in.
+    // Exception is if the run-in itself is generated.
+    if (runIn->style()->styleType() != BEFORE && runIn->style()->styleType() != AFTER) {
+        RenderObject* generatedContent;
+        if (runIn->getCachedPseudoStyle(BEFORE) && (generatedContent = runIn->beforePseudoElementRenderer()))
+            generatedContent->destroy();
+        if (runIn->getCachedPseudoStyle(AFTER) && (generatedContent = runIn->afterPseudoElementRenderer()))
+            generatedContent->destroy();
+    }
+
+    bool newRunInShouldBeBlock = !runIn->isRenderBlock();
+    Node* runInNode = runIn->node();
+    RenderBoxModelObject* newRunIn = 0;
+    if (newRunInShouldBeBlock)
+        newRunIn = new (renderArena()) RenderBlock(runInNode ? runInNode : document());
+    else
+        newRunIn = new (renderArena()) RenderInline(runInNode ? runInNode : document());
+    newRunIn->setStyle(runIn->style());
+ 
+    runIn->moveAllChildrenTo(newRunIn, true);
+
+    // If the run-in had an element, we need to set the new renderer.
+    if (runInNode)
+        runInNode->setRenderer(newRunIn);
+
+    return newRunIn;
+}
+
+void RenderBlock::moveRunInUnderSiblingBlockIfNeeded(RenderObject* runIn)
+{
+    ASSERT(runIn->isRunIn());
+
+    // See if we have inline children. If the children aren't inline,
+    // then just treat the run-in as a normal block.
+    if (!runIn->childrenInline())
+        return;
 
     // FIXME: We don't handle non-block elements with run-in for now.
-    if (!child->isRenderBlock())
-        return false;
+    if (!runIn->isRenderBlock())
+        return;
 
-    // Run-in child shouldn't intrude into the sibling block if it is part of a
-    // continuation chain. In that case, treat it as a normal block.
-    if (child->isElementContinuation() || child->virtualContinuation())
-        return false;
+    // FIXME: We don't support run-ins with or as part of a continuation
+    // as it makes the back-and-forth placing complex.
+    if (runIn->isElementContinuation() || runIn->virtualContinuation())
+        return;
 
     // Check if this node is allowed to run-in. E.g. <select> expects its renderer to
     // be a RenderListBox or RenderMenuList, and hence cannot be a RenderInline run-in.
-    Node* runInNode = child->node();
-    if (runInNode && runInNode->hasTagName(selectTag))
-        return false;
-    
-    if (runInNode && runInNode->hasTagName(progressTag)) 
-        return false;
+    if (!runIn->canBeReplacedWithInlineRunIn())
+        return;
 
-    RenderBlock* blockRunIn = toRenderBlock(child);
-    RenderObject* curr = blockRunIn->nextSibling();
-    if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn() || curr->isAnonymous() || curr->isFloatingOrPositioned())
-        return false;
+    RenderObject* curr = runIn->nextSibling();
+    if (!curr || !curr->isRenderBlock() || !curr->childrenInline())
+        return;
 
-    RenderBlock* currBlock = toRenderBlock(curr);
+    // Per CSS3, "A run-in cannot run in to a block that already starts with a
+    // run-in or that itself is a run-in".
+    if (curr->isRunIn() || (curr->firstChild() && curr->firstChild()->isRunIn()))
+        return;
 
-    // First we destroy any :before/:after content. It will be regenerated by the new inline.
-    // Exception is if the run-in itself is generated.
-    if (child->style()->styleType() != BEFORE && child->style()->styleType() != AFTER) {
-        RenderObject* generatedContent;
-        if (child->getCachedPseudoStyle(BEFORE) && (generatedContent = child->beforePseudoElementRenderer()))
-            generatedContent->destroy();
-        if (child->getCachedPseudoStyle(AFTER) && (generatedContent = child->afterPseudoElementRenderer()))
-            generatedContent->destroy();
-    }
+    if (curr->isAnonymous() || curr->isFloatingOrPositioned())
+        return;
 
-    // Remove the old child.
-    children()->removeChildNode(this, blockRunIn);
+    RenderBoxModelObject* oldRunIn = toRenderBoxModelObject(runIn);
+    RenderBoxModelObject* newRunIn = createReplacementRunIn(oldRunIn);
+    destroyRunIn(oldRunIn);
 
-    // Create an inline.
-    RenderInline* inlineRunIn = new (renderArena()) RenderInline(runInNode ? runInNode : document());
-    inlineRunIn->setStyle(blockRunIn->style());
-
-    // Move the nodes from the old child to the new child
-    for (RenderObject* runInChild = blockRunIn->firstChild(); runInChild;) {
-        RenderObject* nextSibling = runInChild->nextSibling();
-        blockRunIn->children()->removeChildNode(blockRunIn, runInChild);
-        inlineRunIn->addChild(runInChild); // Use addChild instead of appendChildNode since it handles correct placement of the children relative to :after-generated content.
-        runInChild = nextSibling;
-    }
-
-    // Now insert the new child under |currBlock|. Use addChild instead of insertChildNode since it handles correct placement of the children, esp where we cannot insert
+    // Now insert the new child under |curr| block. Use addChild instead of insertChildNode
+    // since it handles correct placement of the children, especially where we cannot insert
     // anything before the first child. e.g. details tag. See https://bugs.webkit.org/show_bug.cgi?id=58228.
-    currBlock->addChild(inlineRunIn, currBlock->firstChild());
-    
-    // If the run-in had an element, we need to set the new renderer.
-    if (runInNode)
-        runInNode->setRenderer(inlineRunIn);
+    curr->addChild(newRunIn, curr->firstChild());
 
-    // Destroy the block run-in, which includes deleting its line box tree.
-    blockRunIn->deleteLineBoxTree();
-    blockRunIn->destroy();
+    // Make sure that |this| get a layout since its run-in child moved.
+    curr->setNeedsLayoutAndPrefWidthsRecalc();
+}
 
-    // The block acts like an inline, so just null out its
-    // position.
-    
+bool RenderBlock::runInIsPlacedIntoSiblingBlock(RenderObject* runIn)
+{
+    ASSERT(runIn->isRunIn());
+
+    // If we don't have a parent, we can't be moved into our sibling block.
+    if (!parent())
+        return false;
+
+    // An intruded run-in needs to be an inline.
+    if (!runIn->isRenderInline())
+        return false;
+
     return true;
+}
+
+void RenderBlock::moveRunInToOriginalPosition(RenderObject* runIn)
+{
+    ASSERT(runIn->isRunIn());
+
+    if (!runInIsPlacedIntoSiblingBlock(runIn))
+        return;
+
+    // FIXME: Run-in that are now placed in sibling block can break up into continuation
+    // chains when new children are added to it. We cannot easily send them back to their
+    // original place since that requires writing integration logic with RenderInline::addChild
+    // and all other places that might cause continuations to be created (without blowing away
+    // |this|). Disabling this feature for now to prevent crashes.
+    if (runIn->isElementContinuation() || runIn->virtualContinuation())
+        return;
+
+    RenderBoxModelObject* oldRunIn = toRenderBoxModelObject(runIn);
+    RenderBoxModelObject* newRunIn = createReplacementRunIn(oldRunIn);
+    destroyRunIn(oldRunIn);
+
+    // Add the run-in block as our previous sibling.
+    parent()->addChild(newRunIn, this);
+
+    // Make sure that the parent holding the new run-in gets layout.
+    parent()->setNeedsLayoutAndPrefWidthsRecalc();
 }
 
 LayoutUnit RenderBlock::collapseMargins(RenderBox* child, MarginInfo& marginInfo)
@@ -2127,9 +2213,9 @@ void RenderBlock::setLogicalTopForChild(RenderBox* child, LayoutUnit logicalTop,
 void RenderBlock::layoutBlockChildren(bool relayoutChildren, LayoutUnit& maxFloatLogicalBottom)
 {
     if (gPercentHeightDescendantsMap) {
-        if (HashSet<RenderBox*>* descendants = gPercentHeightDescendantsMap->get(this)) {
-            HashSet<RenderBox*>::iterator end = descendants->end();
-            for (HashSet<RenderBox*>::iterator it = descendants->begin(); it != end; ++it) {
+        if (TrackedRendererListHashSet* descendants = gPercentHeightDescendantsMap->get(this)) {
+            TrackedRendererListHashSet::iterator end = descendants->end();
+            for (TrackedRendererListHashSet::iterator it = descendants->begin(); it != end; ++it) {
                 RenderBox* box = *it;
                 while (box != this) {
                     if (box->normalChildNeedsLayout())
@@ -2406,15 +2492,16 @@ bool RenderBlock::simplifiedLayout()
 
 void RenderBlock::layoutPositionedObjects(bool relayoutChildren)
 {
-    if (!m_positionedObjects)
+    TrackedRendererListHashSet* positionedDescendants = positionedObjects();
+    if (!positionedDescendants)
         return;
         
     if (hasColumns())
         view()->layoutState()->clearPaginationInformation(); // Positioned objects are not part of the column flow, so they don't paginate with the columns.
 
     RenderBox* r;
-    Iterator end = m_positionedObjects->end();
-    for (Iterator it = m_positionedObjects->begin(); it != end; ++it) {
+    TrackedRendererListHashSet::iterator end = positionedDescendants->end();
+    for (TrackedRendererListHashSet::iterator it = positionedDescendants->begin(); it != end; ++it) {
         r = *it;
         // When a non-positioned block element moves, it may have positioned children that are implicitly positioned relative to the
         // non-positioned block.  Rather than trying to detect all of these movement cases, we just always lay out positioned
@@ -2462,10 +2549,11 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren)
 
 void RenderBlock::markPositionedObjectsForLayout()
 {
-    if (m_positionedObjects) {
+    TrackedRendererListHashSet* positionedDescendants = positionedObjects();
+    if (positionedDescendants) {
         RenderBox* r;
-        Iterator end = m_positionedObjects->end();
-        for (Iterator it = m_positionedObjects->begin(); it != end; ++it) {
+        TrackedRendererListHashSet::iterator end = positionedDescendants->end();
+        for (TrackedRendererListHashSet::iterator it = positionedDescendants->begin(); it != end; ++it) {
             r = *it;
             r->setChildNeedsLayout(true);
         }
@@ -3057,13 +3145,13 @@ void RenderBlock::paintSelection(PaintInfo& paintInfo, const LayoutPoint& paintO
     }
 }
 
-static void clipOutPositionedObjects(const PaintInfo* paintInfo, const LayoutPoint& offset, RenderBlock::PositionedObjectsListHashSet* positionedObjects)
+static void clipOutPositionedObjects(const PaintInfo* paintInfo, const LayoutPoint& offset, TrackedRendererListHashSet* positionedObjects)
 {
     if (!positionedObjects)
         return;
     
-    RenderBlock::PositionedObjectsListHashSet::const_iterator end = positionedObjects->end();
-    for (RenderBlock::PositionedObjectsListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
+    TrackedRendererListHashSet::const_iterator end = positionedObjects->end();
+    for (TrackedRendererListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
         RenderBox* r = *it;
         paintInfo->context->clipOut(IntRect(offset.x() + r->x(), offset.y() + r->y(), r->width(), r->height()));
     }
@@ -3101,10 +3189,10 @@ GapRects RenderBlock::selectionGaps(RenderBlock* rootBlock, const LayoutPoint& r
         LayoutRect flippedBlockRect(offsetFromRootBlock.width(), offsetFromRootBlock.height(), width(), height());
         rootBlock->flipForWritingMode(flippedBlockRect);
         flippedBlockRect.moveBy(rootBlockPhysicalPosition);
-        clipOutPositionedObjects(paintInfo, flippedBlockRect.location(), m_positionedObjects.get());
+        clipOutPositionedObjects(paintInfo, flippedBlockRect.location(), positionedObjects());
         if (isBody() || isRoot()) // The <body> must make sure to examine its containingBlock's positioned objects.
             for (RenderBlock* cb = containingBlock(); cb && !cb->isRenderView(); cb = cb->containingBlock())
-                clipOutPositionedObjects(paintInfo, LayoutPoint(cb->x(), cb->y()), cb->m_positionedObjects.get()); // FIXME: Not right for flipped writing modes.
+                clipOutPositionedObjects(paintInfo, LayoutPoint(cb->x(), cb->y()), cb->positionedObjects()); // FIXME: Not right for flipped writing modes.
         if (m_floatingObjects) {
             const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
             FloatingObjectSetIterator end = floatingObjectSet.end();
@@ -3395,6 +3483,74 @@ RenderBlock* RenderBlock::blockBeforeWithinSelectionRoot(LayoutSize& offset) con
     return beforeBlock;
 }
 
+void RenderBlock::insertIntoTrackedRendererMaps(RenderBox* descendant, TrackedDescendantsMap*& descendantsMap, TrackedContainerMap*& containerMap)
+{
+    if (!descendantsMap) {
+        descendantsMap = new TrackedDescendantsMap;
+        containerMap = new TrackedContainerMap;
+    }
+    
+    TrackedRendererListHashSet* descendantSet = descendantsMap->get(this);
+    if (!descendantSet) {
+        descendantSet = new TrackedRendererListHashSet;
+        descendantsMap->set(this, descendantSet);
+    }
+    bool added = descendantSet->add(descendant).isNewEntry;
+    if (!added) {
+        ASSERT(containerMap->get(descendant));
+        ASSERT(containerMap->get(descendant)->contains(this));
+        return;
+    }
+    
+    HashSet<RenderBlock*>* containerSet = containerMap->get(descendant);
+    if (!containerSet) {
+        containerSet = new HashSet<RenderBlock*>;
+        containerMap->set(descendant, containerSet);
+    }
+    ASSERT(!containerSet->contains(this));
+    containerSet->add(this);
+}
+
+void RenderBlock::removeFromTrackedRendererMaps(RenderBox* descendant, TrackedDescendantsMap*& descendantsMap, TrackedContainerMap*& containerMap)
+{
+    if (!descendantsMap)
+        return;
+    
+    HashSet<RenderBlock*>* containerSet = containerMap->take(descendant);
+    if (!containerSet)
+        return;
+    
+    HashSet<RenderBlock*>::iterator end = containerSet->end();
+    for (HashSet<RenderBlock*>::iterator it = containerSet->begin(); it != end; ++it) {
+        RenderBlock* container = *it;
+
+        // FIXME: Disabling this assert temporarily until we fix the layout
+        // bugs associated with positioned objects not properly cleared from
+        // their ancestor chain before being moved. See webkit bug 93766.
+        // ASSERT(descendant->isDescendantOf(container));
+
+        TrackedRendererListHashSet* descendantSet = descendantsMap->get(container);
+        ASSERT(descendantSet);
+        if (!descendantSet)
+            continue;
+        ASSERT(descendantSet->contains(descendant));
+        descendantSet->remove(descendant);
+        if (descendantSet->isEmpty()) {
+            descendantsMap->remove(container);
+            delete descendantSet;
+        }
+    }
+    
+    delete containerSet;
+}
+
+TrackedRendererListHashSet* RenderBlock::positionedObjects() const
+{
+    if (gPositionedDescendantsMap)
+        return gPositionedDescendantsMap->get(this);
+    return 0;
+}
+
 void RenderBlock::insertPositionedObject(RenderBox* o)
 {
     ASSERT(!isAnonymousBlock());
@@ -3402,37 +3558,27 @@ void RenderBlock::insertPositionedObject(RenderBox* o)
     if (o->isRenderFlowThread())
         return;
     
-    // Create the list of special objects if we don't aleady have one
-    if (!m_positionedObjects)
-        m_positionedObjects = adoptPtr(new PositionedObjectsListHashSet);
-
-    m_positionedObjects->add(o);
-
-    if (o->style()->position() == FixedPosition && view())
-        view()->insertFixedPositionedObject(o);
+    insertIntoTrackedRendererMaps(o, gPositionedDescendantsMap, gPositionedContainerMap);
 }
 
 void RenderBlock::removePositionedObject(RenderBox* o)
 {
-    if (m_positionedObjects)
-        m_positionedObjects->remove(o);
-
-    if (view())
-        view()->removeFixedPositionedObject(o);
+    removeFromTrackedRendererMaps(o, gPositionedDescendantsMap, gPositionedContainerMap);
 }
 
 void RenderBlock::removePositionedObjects(RenderBlock* o)
 {
-    if (!m_positionedObjects)
+    TrackedRendererListHashSet* positionedDescendants = positionedObjects();
+    if (!positionedDescendants)
         return;
     
     RenderBox* r;
     
-    Iterator end = m_positionedObjects->end();
+    TrackedRendererListHashSet::iterator end = positionedDescendants->end();
     
     Vector<RenderBox*, 16> deadObjects;
 
-    for (Iterator it = m_positionedObjects->begin(); it != end; ++it) {
+    for (TrackedRendererListHashSet::iterator it = positionedDescendants->begin(); it != end; ++it) {
         r = *it;
         if (!o || r->isDescendantOf(o)) {
             if (o)
@@ -3451,7 +3597,7 @@ void RenderBlock::removePositionedObjects(RenderBlock* o)
     }
     
     for (unsigned i = 0; i < deadObjects.size(); i++)
-        m_positionedObjects->remove(deadObjects.at(i));
+        removePositionedObject(deadObjects.at(i));
 }
 
 RenderBlock::FloatingObject* RenderBlock::insertFloatingObject(RenderBox* o)
@@ -3729,60 +3875,15 @@ void RenderBlock::newLine(EClear clear)
 
 void RenderBlock::addPercentHeightDescendant(RenderBox* descendant)
 {
-    if (!gPercentHeightDescendantsMap) {
-        gPercentHeightDescendantsMap = new PercentHeightDescendantsMap;
-        gPercentHeightContainerMap = new PercentHeightContainerMap;
-    }
-
-    HashSet<RenderBox*>* descendantSet = gPercentHeightDescendantsMap->get(this);
-    if (!descendantSet) {
-        descendantSet = new HashSet<RenderBox*>;
-        gPercentHeightDescendantsMap->set(this, descendantSet);
-    }
-    bool added = descendantSet->add(descendant).isNewEntry;
-    if (!added) {
-        ASSERT(gPercentHeightContainerMap->get(descendant));
-        ASSERT(gPercentHeightContainerMap->get(descendant)->contains(this));
-        return;
-    }
-
-    HashSet<RenderBlock*>* containerSet = gPercentHeightContainerMap->get(descendant);
-    if (!containerSet) {
-        containerSet = new HashSet<RenderBlock*>;
-        gPercentHeightContainerMap->set(descendant, containerSet);
-    }
-    ASSERT(!containerSet->contains(this));
-    containerSet->add(this);
+    insertIntoTrackedRendererMaps(descendant, gPercentHeightDescendantsMap, gPercentHeightContainerMap);
 }
 
 void RenderBlock::removePercentHeightDescendant(RenderBox* descendant)
 {
-    if (!gPercentHeightContainerMap)
-        return;
-
-    HashSet<RenderBlock*>* containerSet = gPercentHeightContainerMap->take(descendant);
-    if (!containerSet)
-        return;
-
-    HashSet<RenderBlock*>::iterator end = containerSet->end();
-    for (HashSet<RenderBlock*>::iterator it = containerSet->begin(); it != end; ++it) {
-        RenderBlock* container = *it;
-        HashSet<RenderBox*>* descendantSet = gPercentHeightDescendantsMap->get(container);
-        ASSERT(descendantSet);
-        if (!descendantSet)
-            continue;
-        ASSERT(descendantSet->contains(descendant));
-        descendantSet->remove(descendant);
-        if (descendantSet->isEmpty()) {
-            gPercentHeightDescendantsMap->remove(container);
-            delete descendantSet;
-        }
-    }
-
-    delete containerSet;
+    removeFromTrackedRendererMaps(descendant, gPercentHeightDescendantsMap, gPercentHeightContainerMap);
 }
 
-HashSet<RenderBox*>* RenderBlock::percentHeightDescendants() const
+TrackedRendererListHashSet* RenderBlock::percentHeightDescendants() const
 {
     return gPercentHeightDescendantsMap ? gPercentHeightDescendantsMap->get(this) : 0;
 }

@@ -408,12 +408,13 @@ public:
 	 @param speed of the device: kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, kUSBDeviceSpeedHigh or kUSBDeviceSpeedSuper
 	 @param endpoint description of endpoint to connect to
 	 @param maxStreams maximum number of streams pipe supports
+	 @param maxBurstAndMult maximum number of bursts and burst multiplier
 	 */
-	virtual IOReturn 		OpenSSPipe(   USBDeviceAddress 	address,
-									 UInt8 		speed,
-									 Endpoint *		endpoint,
-									 UInt32   maxStreams,
-                                     UInt32   maxBurst);
+	virtual IOReturn 		OpenSSPipe(USBDeviceAddress 	address,
+									   UInt8				speed,
+									   Endpoint *			endpoint,
+									   UInt32				maxStreams,
+									   UInt32				maxBurstAndMult);
     
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  26);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  27);

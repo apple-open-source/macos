@@ -155,6 +155,8 @@ using std::max;
 
 - (void) shutdown
 {
+    fDocument = nil;
+    [self enableEngineMoves:NO];
 	[fEngineTask terminate];
 }
 

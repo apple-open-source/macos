@@ -52,7 +52,7 @@ static int	truncate_playlist(const char *pfname, char *larg);
 static int  add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared, const bool low_priority);
 static int  add_directory(struct BC_playlist *pc, const char *fname, const int batch, const bool shared);
 static int  add_fseventsd_files(struct BC_playlist *pc, const int batch, const bool shared);
-static int  add_playlist_for_preheated_user(struct BC_playlist *pc);
+static int  add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk);
 static int  add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch, int shared);
 
 static int verbose;
@@ -237,7 +237,7 @@ isRootCPDK()
 {
 	//*********************************************//
 	// Get the bsd device name for the root volume //
-	//*********************************************//	
+	//*********************************************//
 	
 	char* bsdDevPath = NULL;
 	
@@ -372,97 +372,97 @@ do_boot_cache()
 	/* set up to start recording with no playback */
 	pc = NULL;
 	
-    if (! isCompositeDisk) {
-        /*
-         * If we have a playlist, open it and prepare to load it.
-         */
-        error = BC_read_playlist(pfname, &pc);
-        
-        /*
-         * If the playlist is missing or invalid, ignore it. We'll
-         * overwrite it later.
-         */
-        if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
-            warnx("could not read playlist %s: %s", pfname, strerror(error));
-            return error;
-        }
-        
-        int last_shutdown_was_clean = 0;
-        size_t wasCleanSz = sizeof(wasCleanSz);
-        error = sysctlbyname("vfs.generic.root_unmounted_cleanly", &last_shutdown_was_clean, &wasCleanSz, NULL, 0);
-        if (error != 0) {
-            warnx("Unable to check for hard shutdown");
-        }
-        
-        if (pc) {
-            
-            /*
-             * Remove the consumed playlist: it'll be replaced once BootCache 
-             * completes successfully.
-             */
-            
-            //char prev_path[MAXPATHLEN];
-            //snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
-            //error = rename(pfname, prev_path); // for debugging
-            error = unlink(pfname);
-            if (error != 0 && errno != ENOENT)
-                errx(1, "could not unlink bootcache playlist %s: %d %s", pfname, errno, strerror(errno));
-            
-            if (! last_shutdown_was_clean) {
-                struct timeval start_time = {0,0}, end_time = {0,0};
-                (void)gettimeofday(&start_time, NULL); // can't fail
-                
-                // Make sure the unlink hits disk in case we panic rdar://8947415
-                int fd = open("/var/db/", O_RDONLY);
-                if (fd != -1) {
-                    if (-1 != fcntl(fd, F_FULLFSYNC)) {
-                        fprintf(stderr, "Synced /var/db/\n");
-                    } else {
-                        warnx("Unable to sync /var/db/: %d %s", errno, strerror(errno));
-                    }
-                    close(fd);
-                } else {
-                    warnx("Unable to open /var/db/: %d %s", errno, strerror(errno));
-                }
-                
-                (void)gettimeofday(&end_time, NULL); // can't fail
-                timersub(&end_time, &start_time, &end_time);
-                // warnx("Took %dus to sync /var/db/\n", end_time.tv_usec);
-            }
-            
-            // rdar://9424845 Add any files we know are read in every boot, but change every boot
-            add_fseventsd_files(pc, 0, false);
-            add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0, false);
-            add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2, false);
-            
-        } else {
-            if (last_shutdown_was_clean) {
-                pc = calloc(1, sizeof(*pc));
-                
-                // No Root playlist: we're during an install so use our premade logical playlists
-                
-                add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0, false);
-                add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2, false);
-            }
-        }
-        
-        // If we don't have a playlist here, we don't want to play back anything
-        if (pc) {
-            // Add the login playlist of user we expect to log in to the boot playlist
-            if (0 != add_playlist_for_preheated_user(pc)) {
-                // Unable to add user playlist, add 32-bit shared cache to low-priority playlist
+	/*
+	 * If we have a playlist, open it and prepare to load it.
+	 */
+	error = BC_read_playlist(pfname, &pc);
+	
+	/*
+	 * If the playlist is missing or invalid, ignore it. We'll
+	 * overwrite it later.
+	 */
+	if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
+		warnx("could not read playlist %s: %s", pfname, strerror(error));
+		return error;
+	}
+	
+	int last_shutdown_was_clean = 0;
+	size_t wasCleanSz = sizeof(wasCleanSz);
+	error = sysctlbyname("vfs.generic.root_unmounted_cleanly", &last_shutdown_was_clean, &wasCleanSz, NULL, 0);
+	if (error != 0) {
+		warnx("Unable to check for hard shutdown");
+	}
+	
+	if (pc) {
+		
+		/*
+		 * Remove the consumed playlist: it'll be replaced once BootCache 
+		 * completes successfully.
+		 */
+		
+		//char prev_path[MAXPATHLEN];
+		//snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
+		//error = rename(pfname, prev_path); // for debugging
+		error = unlink(pfname);
+		if (error != 0 && errno != ENOENT)
+			errx(1, "could not unlink bootcache playlist %s: %d %s", pfname, errno, strerror(errno));
+		
+		if (! last_shutdown_was_clean) {
+			struct timeval start_time = {0,0}, end_time = {0,0};
+			(void)gettimeofday(&start_time, NULL); // can't fail
+			
+			// Make sure the unlink hits disk in case we panic rdar://8947415
+			int fd = open("/var/db/", O_RDONLY);
+			if (fd != -1) {
+				if (-1 != fcntl(fd, F_FULLFSYNC)) {
+					fprintf(stderr, "Synced /var/db/\n");
+				} else {
+					warnx("Unable to sync /var/db/: %d %s", errno, strerror(errno));
+				}
+				close(fd);
+			} else {
+				warnx("Unable to open /var/db/: %d %s", errno, strerror(errno));
+			}
+			
+			(void)gettimeofday(&end_time, NULL); // can't fail
+			timersub(&end_time, &start_time, &end_time);
+			// warnx("Took %dus to sync /var/db/\n", end_time.tv_usec);
+		}
+		
+		if (! isCompositeDisk) {
+			// rdar://9424845 Add any files we know are read in every boot, but change every boot
+			add_fseventsd_files(pc, 0, false);
+			add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0, false);
+			add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2, false);
+		}
+	} else {
+		if (last_shutdown_was_clean) {
+			pc = calloc(1, sizeof(*pc));
+			
+			// No Root playlist: we're during an install so use our premade logical playlists
+			
+			if (! isCompositeDisk) {
+				add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0, false);
+				add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2, false);
+			}
+		}
+	}
+	
+	// If we don't have a playlist here, we don't want to play back anything
+	if (pc) {
+		// Add the login playlist of user we expect to log in to the boot playlist
+		if (0 != add_playlist_for_preheated_user(pc, isCompositeDisk)) {
+			// Unable to add user playlist, add 32-bit shared cache to low-priority playlist
 #if defined __x86_64__
-                add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
-                warnx("Added 32-bit shared cache to the low priority batch");
+			add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
+			warnx("Added 32-bit shared cache to the low priority batch");
 #endif
-            }
-            
-            // rdar://9021675 Always warm the shared cache
-            add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
-        }
-        
-    }
-    
+		}
+		
+		// rdar://9021675 Always warm the shared cache
+		add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
+	}
+
 	error = BC_start(pc);
 	if (error != 0)
 		warnx("could not start cache: %d %s", error, strerror(error));
@@ -475,7 +475,7 @@ do_boot_cache()
  * Fetch or create a login playlist for the given user and add it to the provided playlist in subsequent batches
  */
 static int
-add_playlist_for_preheated_user(struct BC_playlist *pc) {
+add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	
 	if (!pc) return 1;
 	
@@ -588,6 +588,10 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 				if (iteration == 0) {
 					// We can't tell the order between apps, so just put them all background to give the login playlist priority
 					batch_offset = TAL_LOGIN_BACKGROUND_APP_BATCH_NUM;
+					if (isCompositeDisk) {
+						//rdar://11294417 All user data is low priority on composite disks
+						flags |= BC_PE_LOWPRIORITY;
+					}
 				} else {
 					// Non-running apps are low-priority
 					batch_offset = TAL_LOGIN_LOWPRI_DATA_BATCH_NUM;
@@ -666,8 +670,10 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 		goto out;
 	}
 	
-	// Add any files we know are read in every login, but change every login
-	// --- none yet, use add_file ---
+	if (! isCompositeDisk) {
+		// Add any files we know are read in every login, but change every login
+		// --- none yet, use add_file ---
+	}
 	
 	// Slide the user playlist by the number of batches we have in the boot playlist
 	int batch_max = 0;
@@ -1188,7 +1194,7 @@ print_playlist(const char *pfname, int source)
 	struct BC_playlist_mount *pm;
 	struct BC_playlist_entry *pe;
 	int i;
-	u_int64_t size, size_lowpri;
+	u_int64_t size = 0, size_lowpri = 0, size_batch[BC_MAXBATCHES] = {0};
 	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to print");
@@ -1220,8 +1226,6 @@ print_playlist(const char *pfname, int source)
 	/*
 	 * Print entries in source or "human-readable" format.
 	 */
-	size = 0;
-	size_lowpri = 0;
 	for (i = 0; i < pc->p_nentries; i++) {
 		pe = pc->p_entries + i;
 		if (source) {
@@ -1236,13 +1240,19 @@ print_playlist(const char *pfname, int source)
 			size_lowpri += pe->pe_length;
 		} else {
 			size += pe->pe_length;
+			size_batch[pe->pe_batch] += pe->pe_length;
 		}
 	}
 	if (source) {
 		printf("};\n");
 	} else {
-		printf("%llu bytes\n", size);
-		printf("%llu low-priority bytes\n", size_lowpri);
+		printf("%12llu bytes\n", size);
+		printf("%12llu low-priority bytes\n", size_lowpri);
+		for (i = 0; i < BC_MAXBATCHES; i++) {
+			if (size_batch[i] != 0) {
+				printf("%12llu bytes batch %d\n", size_batch[i], i);
+			}
+		}
 	}
 	
 	PC_FREE_ZERO(pc);	

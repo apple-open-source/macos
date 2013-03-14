@@ -92,11 +92,14 @@
 {
     [self removeChessObservers];
     [fObservers release];
-    if (![logView superview])
-        [logView release];
     [primaryLocalization release];
     [alternateLocalization release];
     [super dealloc];
+}
+
+- (void)endAnimation
+{
+    fCurAnimation = nil;
 }
 
 - (void)windowDidLoad
@@ -197,11 +200,13 @@
              //     Due to a plethora of mutual observers, circular references prevent
              //     proper deallocation unless we remove all of observers first.
              //
+             [fCurAnimation endState];
              [board removeChessObservers];
              [engine removeChessObservers];
              [engine shutdown];
              [gameInfo removeChessObservers];
              [interactive removeChessObservers];
+             [interactive removeController];
              [remote removeChessObservers];
              [self removeChessObservers];
          }]];
@@ -525,11 +530,12 @@ uint32_t sAttributesForSides[] = {
             [controller setValue:100.0 forAchievement:@"AppleChess_Checker"];
         if (move->fEnPassant)
             [controller setValue:100.0 forAchievement:@"AppleChess_Sidestepped"];
-        if (move->fPromotion)
+        if (move->fPromotion) {
             if (Piece(move->fPromotion) == QUEEN)
                 [controller setValue:100.0 forAchievement:@"AppleChess_Promotional_Value"];
             else
                 [controller setValue:100.0 forAchievement:@"AppleChess_Promotional_Discount"];
+        }
         if (move->fCommand == kCmdMove && Piece(move->fPiece) == PAWN
          && (labs((int)Row(move->fFromSquare)-(int)Row(move->fToSquare)) == 2)
         )
@@ -582,7 +588,7 @@ uint32_t sAttributesForSides[] = {
     [self updateAchievementsForMove:move];
     
 	if (move->fAnimate)
-		[MBCMoveAnimation moveAnimation:move board:board view:gameView];
+		fCurAnimation = [MBCMoveAnimation moveAnimation:move board:board view:gameView];
 	else 
 		[[NSNotificationQueue defaultQueue] 
          enqueueNotification:
@@ -614,7 +620,7 @@ uint32_t sAttributesForSides[] = {
 		//
 		// Rotate board
 		//
-		[MBCBoardAnimation boardAnimation:gameView];
+		fCurAnimation = [MBCBoardAnimation boardAnimation:gameView];
 	}
 }
 
@@ -798,6 +804,21 @@ uint32_t sAttributesForSides[] = {
 {
     [[self document] setObject:[NSNumber numberWithFloat:angle] forKey:kMBCBoardAngle];
     [[self document] setObject:[NSNumber numberWithFloat:spin] forKey:kMBCBoardSpin];
+}
+
+- (IBAction) profileDraw:(id)sender
+{
+    timeval startTime;
+    gettimeofday(&startTime, NULL);
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        timeval endTime;
+        [gameView profileDraw];
+        gettimeofday(&endTime, NULL);
+        double elapsed = endTime.tv_sec-startTime.tv_sec
+        +0.000001*(endTime.tv_usec-startTime.tv_usec);
+        NSLog(@"Profiling took %4.2fs, %4.0fms per frame",
+              elapsed, elapsed*10.0);
+    });
 }
 
 #pragma mark -

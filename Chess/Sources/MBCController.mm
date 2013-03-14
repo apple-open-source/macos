@@ -51,8 +51,6 @@
 #import "MBCInteractivePlayer.h"
 #import "MBCDocument.h"
 #import "MBCGameInfo.h"
-#import "MBCBoardAnimation.h"
-#import "MBCMoveAnimation.h"
 #import "MBCUserDefaults.h"
 #import "MBCDebug.h"
 

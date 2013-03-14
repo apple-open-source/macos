@@ -766,9 +766,11 @@ static bool isEventHandlerAttribute(const QualifiedName& name)
     return name.namespaceURI().isNull() && name.localName().startsWith("on");
 }
 
+// FIXME: Share code with Element::isURLAttribute.
 static bool isAttributeToRemove(const QualifiedName& name, const AtomicString& value)
-{    
-    return (name.localName().endsWith(hrefAttr.localName()) || name == srcAttr || name == actionAttr) && protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(value));       
+{
+    return (name.localName() == hrefAttr.localName() || name.localName() == nohrefAttr.localName()
+        || name == srcAttr || name == actionAttr || name == formactionAttr) && protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(value));
 }
 
 void Element::parserSetAttributes(const Vector<Attribute>& attributeVector, FragmentScriptingPermission scriptingPermission)
@@ -900,17 +902,6 @@ void Element::setChangedSinceLastFormControlChangeEvent(bool)
 {
 }
 
-void Element::willRemove()
-{
-#if ENABLE(FULLSCREEN_API)
-    if (containsFullScreenElement())
-        setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(false);
-#endif
-    if (ShadowTree* tree = shadowTree())
-        tree->willRemove();
-    ContainerNode::willRemove();
-}
-
 Node::InsertionNotificationRequest Element::insertedInto(Node* insertionPoint)
 {
     // need to do superclass processing first so inDocument() is true
@@ -943,6 +934,11 @@ Node::InsertionNotificationRequest Element::insertedInto(Node* insertionPoint)
 
 void Element::removedFrom(Node* insertionPoint)
 {
+#if ENABLE(FULLSCREEN_API)
+    if (containsFullScreenElement())
+        setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(false);
+#endif
+
     setSavedLayerScrollOffset(IntSize());
 
     if (insertionPoint->inDocument()) {
@@ -1152,6 +1148,16 @@ void Element::recalcStyle(StyleChange change)
         }
     }
     StyleResolverParentPusher parentPusher(this);
+
+    // FIXME: This does not care about sibling combinators. Will be necessary in XBL2 world.
+    if (hasShadowRoot()) {
+        ShadowTree* tree = shadowTree();
+        if (change >= Inherit || tree->childNeedsStyleRecalc() || tree->needsStyleRecalc()) {
+            parentPusher.push();
+            tree->recalcShadowTreeStyle(change);
+        }
+    }
+
     // FIXME: This check is good enough for :hover + foo, but it is not good enough for :hover + foo + bar.
     // For now we will just worry about the common case, since it's a lot trickier to get the second case right
     // without doing way too much re-resolution.
@@ -1174,14 +1180,6 @@ void Element::recalcStyle(StyleChange change)
         }
         forceCheckOfNextElementSibling = childRulesChanged && hasDirectAdjacentRules;
         forceCheckOfAnyElementSibling = forceCheckOfAnyElementSibling || (childRulesChanged && hasIndirectAdjacentRules);
-    }
-    // FIXME: This does not care about sibling combinators. Will be necessary in XBL2 world.
-    if (hasShadowRoot()) {
-        ShadowTree* tree = shadowTree();
-        if (change >= Inherit || tree->childNeedsStyleRecalc() || tree->needsStyleRecalc()) {
-            parentPusher.push();
-            tree->recalcShadowTreeStyle(change);
-        }
     }
 
     clearNeedsStyleRecalc();

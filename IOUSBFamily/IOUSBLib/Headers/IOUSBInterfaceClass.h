@@ -49,7 +49,7 @@ protected:
     virtual ~IOUSBInterfaceClass();
 
     static IOCFPlugInInterface			sIOCFPlugInInterfaceV1;
-    static IOUSBInterfaceInterface500  	sUSBInterfaceInterfaceV500;
+    static IOUSBInterfaceInterface550  	sUSBInterfaceInterfaceV550;
 
     struct InterfaceMap					fUSBInterface;
     io_service_t						fService;
@@ -157,6 +157,17 @@ public:
     virtual IOReturn					GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime);
     // ----- new with 5.0.0
 	virtual IOReturn					GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 *address, UInt8 *attributes, UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval);
+    // ----- new with 5.5.0
+	virtual IOReturn					GetPipePropertiesV3(UInt8 pipeRef, IOUSBEndpointProperties *properties);
+    virtual IOReturn					GetEndpointPropertiesV3(IOUSBEndpointProperties *properties);
+	virtual IOReturn 					SupportsStreams(UInt8 pipeRef, UInt32 *supportsStreams);
+	virtual IOReturn					CreateStreams(UInt8 pipeRef, UInt32 streamID);
+	virtual IOReturn					GetConfiguredStreams(UInt8 pipeRef, UInt32 *configuredStreams);
+	virtual IOReturn					ReadStreamsPipeTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout);
+	virtual IOReturn					WriteStreamsPipeTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout);
+	virtual IOReturn					ReadStreamsPipeAsyncTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
+	virtual IOReturn					WriteStreamsPipeAsyncTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
+	virtual IOReturn					AbortStreamsPipe(UInt8 pipeRef, UInt32 streamID);
 private:
     IOReturn							GetPropertyInfo(void);
 
@@ -234,8 +245,19 @@ protected:
     static IOUSBDescriptorHeader *interfaceFindNextAltInterface( void *self, const void *currentDescriptor, IOUSBFindInterfaceRequest *request);
     // ----------------- added in 3.0.0
     static IOReturn				interfaceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime);
-   // ----------------- added in 5.0.0
+	// ----------------- added in 5.0.0
     static IOReturn				interfaceGetPipePropertiesV2(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *address, UInt8 *attributes,  UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval);
+	// ----------------- added in 5.5.0
+    static IOReturn				interfaceGetPipePropertiesV3(void *self, UInt8 pipeRef, IOUSBEndpointProperties *properties);
+    static IOReturn				interfaceGetEndpointPropertiesV3(void *self, IOUSBEndpointProperties *properties);
+	static IOReturn 			interfaceSupportsStreams(void *self, UInt8 pipeRef, UInt32 *supportsStreams);
+	static IOReturn				interfaceCreateStreams(void *self, UInt8 pipeRef, UInt32 streamID);
+	static IOReturn				interfaceGetConfiguredStreams(void *self, UInt8 pipeRef, UInt32 *configuredStreams);
+	static IOReturn				interfaceReadStreamsPipeTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout);
+	static IOReturn				interfaceWriteStreamsPipeTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout);
+	static IOReturn				interfaceReadStreamsPipeAsyncTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
+	static IOReturn				interfaceWriteStreamsPipeAsyncTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
+	static IOReturn				interfaceAbortStreamsPipe(void *self, UInt8 pipeRef, UInt32 streamID);
 };
 
 #endif /* !_IOKIT_IOUSBInterfaceClass_H */

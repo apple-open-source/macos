@@ -71,6 +71,7 @@ public:
 	uid_t creatorUid() const	{ return mCreatorUid; }
 	gid_t creatorGid() const	{ return mCreatorGid; }
     SecStaticCodeRef creatorCode() const { return mCreatorCode; }
+	std::string creatorPath() const;
 	pid_t creatorPid() const	{ return mCreatorPid; }
 	bool creatorSandboxed() const { return mCreatorSandboxed; }
 	
@@ -99,7 +100,7 @@ public:
     };
 
 private:
-	Mutex mLock;					// object lock
+	mutable Mutex mLock;			// object lock
 	AuthorizationBlob mHandle;		// official randomized blob marker
 	CredentialSet mBaseCreds;		// credentials we're based on
 	

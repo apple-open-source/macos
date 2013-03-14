@@ -25,7 +25,7 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
-#define VersionNumber   "4.1.22"
+#define VersionNumber   "4.1.23"
 
     // USB CDC Common Defintions
 		
@@ -472,5 +472,33 @@ static inline UInt8 Asciify(UInt8 i)
     else return(55  + i);
 	
 }		
-	
+
+/* Message Tracing Defines */
+#define CDC_ASL_MAX_FMT_LEN		1024
+#define CDC_ASL_MSG_LEN			"         0"
+#define CDC_ASL_LEVEL_NOTICE		5
+#define CDC_ASL_KEY_DOMAIN         "com.apple.message.domain"
+#define CDC_ASL_KEY_SIG			"com.apple.message.signature"
+#define CDC_ASL_KEY_SIG2			"com.apple.message.signature2"
+#define CDC_ASL_KEY_SIG3			"com.apple.message.signature3"
+#define CDC_ASL_KEY_SUCCESS		"com.apple.message.success"
+#define CDC_ASL_SUCCESS_VALUE		1
+#define CDC_ASL_KEY_VALUE			"com.apple.message.value"
+#define CDC_ASL_KEY_MSG			"Message"
+
+#define CDC_ASL_DOMAIN             "com.apple.commssw.cdc.device"
+
+extern "C"
+{
+#include <sys/kernel.h>
+#include <IOKit/IOLib.h>
+#include <sys/systm.h>
+#include <sys/malloc.h>
+#include <sys/syslog.h>
+#include <sys/fslog.h>
+#include <IOKit/IOLib.h>
+    extern void cdc_LogToMessageTracer(const char *domain, const char *signature, const char *signature2, const char *signature3, u_int64_t optValue, int optSucceeded);
+    
+}
+
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,13 +45,11 @@
 
 #define UNUSED(x) ((void)x)
 
-
 #pragma mark -
 #pragma mark Vendor Specific Device Support
 #define kIOUSBMassStorageCharacteristics		"USB Mass Storage Characteristics"
 #define kIOUSBMassStoragePreferredSubclass		"Preferred Subclass"
 #define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
-#define kIOUSBMassStorageResetOnResume			"Reset On Resume"
 #define kIOUSBMassStorageUseStandardUSBReset	"Use Standard USB Reset"
 #define kIOUSBKnownCSWTagIssues					"Known CSW Tag Issues"
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
@@ -60,7 +58,11 @@
 #define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
 #define kIOUSBMassStorageEnableSuspendResumePM	"Enable Port Suspend-Resume PM"
 #define kIOUSBMassStoragePostResetCoolDown		"Reset Recovery Time"
+
+#ifndef EMBEDDED
 #define kIOUSBMassStorageSuspendOnReboot        "Suspend On Reboot"
+#define kIOUSBMassStorageResetOnResume			"Reset On Resume"
+#endif // EMBEDDED
 
 enum 
 {
@@ -71,6 +73,10 @@ enum
 {
 	kIOUSBMassStorageReconfigurationTimeoutMS = 5000
 };
+
+
+
+#ifndef EMBEDDED
 
 #pragma mark -
 #pragma mark CBI Protocol Strutures
@@ -87,6 +93,8 @@ struct CBIRequestBlock
 };
 
 typedef struct CBIRequestBlock	CBIRequestBlock;
+
+#endif // EMBEDDED
 
 #pragma mark -
 #pragma mark Bulk Only Protocol Structures
@@ -145,7 +153,11 @@ private:
 	// pipe to the appropriate endpoint.
     IOUSBPipe *					fBulkInPipe;
     IOUSBPipe *					fBulkOutPipe;
+    
+#ifndef EMBEDDED
     IOUSBPipe *					fInterruptPipe;
+#endif // EMBEDDED
+    
 	IOUSBDevRequest				fUSBDeviceRequest;
 	UInt8						fPreferredSubclass;
 	UInt8						fPreferredProtocol;
@@ -155,11 +167,13 @@ private:
   	// LUN, such as CBI and CB, this number will be zero.
   	UInt8						fMaxLogicalUnitNumber;
 
+#ifndef EMBEDDED
 	// ---- Member variables used by CBI protocol ----
 	bool						fCBICommandStructInUse; 
 
 	CBIRequestBlock				fCBICommandRequestBlock;
-	
+#endif // EMBEDDED
+    
 	// ---- Member variables used by Bulk Only protocol ----
  	// Command tag, this driver just uses a sequential counter that is
  	// incremented for each CBW that is sent to the device.
@@ -182,7 +196,9 @@ protected:
 		IOUSBPipe *				fPotentiallyStalledPipe;
 		bool					fUseUSBResetNotBOReset;
 		bool					fAbortCurrentSCSITaskInProgress;
+#ifndef EMBEDDED
 		IOMemoryDescriptor *	fCBIMemoryDescriptor;
+#endif // EMBEDDED
 		IOMemoryDescriptor *	fBulkOnlyCBWMemoryDescriptor;
 		IOMemoryDescriptor *	fBulkOnlyCSWMemoryDescriptor;
         bool                    fDeviceAttached;
@@ -191,15 +207,23 @@ protected:
         bool                    fKnownCSWTagMismatchIssues;
         bool                    fPortSuspendResumeForPMEnabled;
         bool                    fPortIsSuspended;
+#ifndef EMBEDDED
 		bool					fRequiresResetOnResume;
 		bool					fAutonomousSpinDownWorkAround;
+#endif // EMBEDDED
 		UInt8					fConsecutiveResetCount;
+#ifndef EMBEDDED
 		bool					fClearStallInProgress;				/* OBSOLETE */
+#endif // EMBEDDED
 		bool					fTerminationDeferred;
+#ifndef EMBEDDED
 		UInt32					fRequiredMaxBusStall;
+#endif // EMBEDDED
 		bool					fBlockOnResetThread;
-		UInt32					fPostDeviceResetCoolDownInterval;
+        UInt32					fPostDeviceResetCoolDownInterval;
+#ifndef EMBEDDED
 		bool					fSuspendOnReboot;
+#endif // EMBEDDED
 	};
     ExpansionData *				reserved;
 	
@@ -208,7 +232,6 @@ protected:
 	#define fPotentiallyStalledPipe				reserved->fPotentiallyStalledPipe
     #define fUseUSBResetNotBOReset				reserved->fUseUSBResetNotBOReset
 	#define fAbortCurrentSCSITaskInProgress		reserved->fAbortCurrentSCSITaskInProgress
-	#define fCBIMemoryDescriptor                reserved->fCBIMemoryDescriptor
 	#define	fBulkOnlyCBWMemoryDescriptor		reserved->fBulkOnlyCBWMemoryDescriptor
 	#define	fBulkOnlyCSWMemoryDescriptor		reserved->fBulkOnlyCSWMemoryDescriptor
     #define fDeviceAttached                     reserved->fDeviceAttached
@@ -217,19 +240,24 @@ protected:
     #define fKnownCSWTagMismatchIssues          reserved->fKnownCSWTagMismatchIssues
     #define fPortSuspendResumeForPMEnabled      reserved->fPortSuspendResumeForPMEnabled
     #define fPortIsSuspended                    reserved->fPortIsSuspended
+    #define fConsecutiveResetCount				reserved->fConsecutiveResetCount
+    #define fTerminationDeferred				reserved->fTerminationDeferred
+    #define fBlockOnResetThread					reserved->fBlockOnResetThread
+    #define fPostDeviceResetCoolDownInterval	reserved->fPostDeviceResetCoolDownInterval
+    
+#ifndef EMBEDDED
+	#define fCBIMemoryDescriptor                reserved->fCBIMemoryDescriptor
 	#define fRequiresResetOnResume				reserved->fRequiresResetOnResume
 	#define fAutonomousSpinDownWorkAround		reserved->fAutonomousSpinDownWorkAround
-	#define fConsecutiveResetCount				reserved->fConsecutiveResetCount
 	#define fClearStallInProgress				reserved->fClearStallInProgress
-	#define fTerminationDeferred				reserved->fTerminationDeferred
 	#define fRequiredMaxBusStall				reserved->fRequiredMaxBusStall
-	#define fBlockOnResetThread					reserved->fBlockOnResetThread
-	#define fPostDeviceResetCoolDownInterval	reserved->fPostDeviceResetCoolDownInterval
-	#define fSuspendOnReboot					reserved->fSuspendOnReboot
-	
+    #define fSuspendOnReboot					reserved->fSuspendOnReboot
+#endif // EMBEDDED
+    
 	// Enumerated constants used to control various aspects of this
 	// driver.
 	
+#ifndef EMBEDDED
 	// Enumerations for Mass Storage Class Subclass types
 	enum
 	{
@@ -240,6 +268,7 @@ protected:
 		kUSBStorageSFF8070iSubclass			= 5,
 		kUSBStorageSCSITransparentSubclass	= 6
 	};
+#endif // EMBEDDED
 
 	// The supported USB Mass Storage Class transport protocols.
 	enum
@@ -280,8 +309,11 @@ protected:
 	IOUSBPipe *				GetControlPipe( void );
 	IOUSBPipe *				GetBulkInPipe( void );
 	IOUSBPipe *				GetBulkOutPipe( void );
+    
+#ifndef EMBEDDED
 	IOUSBPipe *				GetInterruptPipe( void );
-	
+#endif // EMBEDDED
+    
 	// Methods for getting and setting the maximum LUN of a device.
 	UInt8					GetMaxLogicalUnitNumber( void ) const;
 	void					SetMaxLogicalUnitNumber( UInt8 maxLUN );
@@ -293,19 +325,23 @@ protected:
 	virtual	bool			BeginProvidedServices( void );
 	virtual	bool			EndProvidedServices( void );
 	
+#ifndef EMBEDDED
 	// The Protocol specific helper methods for SendSCSICommand	
 	virtual IOReturn		SendSCSICommandForCBIProtocol(
-                  				SCSITaskIdentifier request );
+                                                          SCSITaskIdentifier request );
+#endif// EMBEDDED 
 	
 	virtual IOReturn		SendSCSICommandForBulkOnlyProtocol(
-								SCSITaskIdentifier request );
-
+                                                               SCSITaskIdentifier request );
+    
+#ifndef EMBEDDED
 	// The Protocol specific helper methods for AbortSCSICommand	
 	virtual IOReturn		AbortSCSICommandForCBIProtocol(
-								SCSITaskIdentifier abortTask );
+                                                           SCSITaskIdentifier abortTask );
+#endif // EMBEDDED
 	
 	virtual IOReturn		AbortSCSICommandForBulkOnlyProtocol(
-								SCSITaskIdentifier abortTask );
+                                                                SCSITaskIdentifier abortTask );
 
 	// Helper methods for performing general USB device requests
 	virtual IOReturn		ClearFeatureEndpointStall( 
@@ -316,6 +352,7 @@ protected:
 								void *				endpointStatus,
 								IOUSBCompletion	*	completion );
 	
+#ifndef EMBEDDED
  	/* All CBI transport related methods.
  	 */
 	// All definitions and structures for the CBI Protocol
@@ -359,6 +396,7 @@ protected:
 						CBIRequestBlock *		cbiRequestBlock,
 		                IOReturn				resultingStatus,
 		                UInt32					bufferSizeRemaining );
+#endif // EMBEDDED
 		                
  	/* All Bulk Only transport related methods, structures and enums.
  	 */
@@ -458,18 +496,23 @@ public:
 	
 	virtual IOReturn	HandlePowerOn( void );
 	
+#ifndef EMBEDDED
 	virtual void		systemWillShutdown ( IOOptionBits specifier );
+#endif // EMBEDDED
 	
 protected:
 
 	static IOReturn		sWaitForReset( void * refcon );
 	IOReturn			GatedWaitForReset( void );
 	
+#ifndef EMBEDDED
 	static IOReturn		sWaitForTaskAbort( void * refcon );			/* OBSOLETE */
 	IOReturn			GatedWaitForTaskAbort( void );				/* OBSOLETE */
-	
+#endif // EMBEDDED
+    
 	static void			sResetDevice( void * refcon );
-	
+
+#ifndef EMBEDDED
 	static void			sAbortCurrentSCSITask( void * refcon );		/* OBSOLETE */
 	
     OSMetaClassDeclareReservedUsed( IOUSBMassStorageClass, 1 );
@@ -483,7 +526,8 @@ protected:
 		                	void *			parameter,
 		                	IOReturn		status,
 		                	UInt32			bufferSizeRemaining );	/* OBSOLETE */
-
+#endif // EMBEDDED
+    
     void                ResetDeviceNow( bool waitForReset );
 	
 	void                AbortCurrentSCSITask( void );

@@ -542,8 +542,8 @@ bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
                 self->_interfaceNub = 0;
             }
         }
-    else 
-    {
+        else
+        {
             self->_interfaceNub->release();
             self->_interfaceNub = 0;
         }
@@ -887,32 +887,26 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
             *handler = NULL;
             return kIOReturnNotReady;
         }
-
+        
         if ( properties ) {
             properties->setObject( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue );
         }
-
+        
         IOWorkLoop *loop = getWorkLoop();
-
+        
         IOReturn result = kIOReturnNotReady;
-
+        
         if ( loop ) {
-            if (lockForArbitration(true)) {
-                result = loop->runAction( OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIDDevice::newUserClientGated ),
-                                          this, owningTask, security_id, properties, handler );
-                unlockForArbitration();
-            }
-            else {
-                IOLog( "IOHIDDevice::newUserClient failed to get the arbitration lock\n" );
-            }
+            result = loop->runAction(OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIDDevice::newUserClientGated ),
+                                     this, owningTask, security_id, properties, handler );
         }
         else {
             IOLog( "IOHIDDevice::newUserClient failed to get a workloop\n" );
         }
-
+        
         return result;
     }
-
+    
     return super::newUserClient( owningTask, security_id, type, properties, handler );
 }
 

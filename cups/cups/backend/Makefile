@@ -128,7 +128,7 @@ install-exec:	$(INSTALLXPC)
 		$(RM) $(SERVERBIN)/backend/$$file; \
 		$(LN) ipp $(SERVERBIN)/backend/$$file; \
 	done
-	if test "x$(DNSSD_BACKEND)" != x; then \
+	if test "x$(DNSSD_BACKEND)" != x -a `uname` = Darwin; then \
 		$(RM) $(SERVERBIN)/backend/mdns; \
 		$(LN) $(DNSSD_BACKEND) $(SERVERBIN)/backend/mdns; \
 	fi
@@ -212,9 +212,6 @@ testsupplies:	testsupplies.o libbackend.a ../cups/$(LIBCUPSSTATIC)
 	$(CC) $(LDFLAGS) -o testsupplies testsupplies.o libbackend.a \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
-	if test -x /usr/bin/dsymutil; then \
-		/usr/bin/dsymutil testsupplies; \
-	fi
 
 
 #
@@ -235,8 +232,10 @@ libbackend.a:	$(LIBOBJS)
 dnssd:	dnssd.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o dnssd dnssd.o libbackend.a $(LIBS)
-	$(RM) mdns
-	$(LN) dnssd mdns
+	if test `uname` = Darwin; then \
+		$(RM) mdns; \
+		$(LN) dnssd mdns; \
+	fi
 
 
 #

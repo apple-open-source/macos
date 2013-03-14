@@ -46,12 +46,12 @@ CssmKey(keyData.Length, csp->allocator().alloc<uint8>(keyData.Length))
 }
 
 KeyImpl::~KeyImpl()
+try
 {
-	try
-	{
-		deactivate();
-	}
-	catch(...) {}
+	deactivate();
+}
+catch (...)
+{
 }
 
 void

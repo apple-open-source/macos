@@ -534,6 +534,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     m_hasDirtyStyleResolver = false;
     m_pendingStylesheets = 0;
     m_ignorePendingStylesheets = false;
+    m_needsNotifyRemoveAllPendingStylesheet = false;
     m_hasNodesWithPlaceholderStyle = false;
     m_pendingSheetLayout = NoLayoutWithPendingSheets;
 
@@ -998,8 +999,11 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
                 return 0;
             }
         }
-        if (source->parentNode())
+        if (source->parentNode()) {
             source->parentNode()->removeChild(source.get(), ec);
+            if (ec)
+                return 0;
+        }
     }
 
     this->adoptIfNeeded(source.get());
@@ -2070,6 +2074,7 @@ void Document::detach()
 
 void Document::prepareForDestruction()
 {
+    disconnectDescendantFrames();
     if (DOMWindow* window = this->domWindow())
         window->willDetachDocumentFromFrame();
     detach();
@@ -3203,7 +3208,7 @@ void Document::setSelectedStylesheetSet(const String& aString)
 }
 
 // This method is called whenever a top-level stylesheet has finished loading.
-void Document::removePendingSheet()
+void Document::removePendingSheet(RemovePendingSheetNotificationType notification)
 {
     // Make sure we knew this sheet was pending, and that our count isn't out of sync.
     ASSERT(m_pendingStylesheets > 0);
@@ -3218,6 +3223,18 @@ void Document::removePendingSheet()
     if (m_pendingStylesheets)
         return;
 
+    if (notification == RemovePendingSheetNotifyLater) {
+        setNeedsNotifyRemoveAllPendingStylesheet();
+        return;
+    }
+    
+    didRemoveAllPendingStylesheet();
+}
+
+void Document::didRemoveAllPendingStylesheet()
+{
+    m_needsNotifyRemoveAllPendingStylesheet = false;
+
     styleResolverChanged(RecalcStyleIfNeeded);
 
     if (ScriptableDocumentParser* parser = scriptableDocumentParser())
@@ -3226,6 +3243,7 @@ void Document::removePendingSheet()
     if (m_gotoAnchorNeededAfterStylesheetsLoad && view())
         view()->scrollToFragment(m_url);
 }
+
 
 void Document::evaluateMediaQueryList()
 {
@@ -5357,9 +5375,17 @@ void Document::requestFullScreenForElement(Element* element, unsigned short flag
         // There is a previously-established user preference, security risk, or platform limitation.
         if (!page() || !page()->settings()->fullScreenEnabled())
             break;
-        
-        if (!page()->chrome()->client()->supportsFullScreenForElement(element, flags & Element::ALLOW_KEYBOARD_INPUT))
-            break;
+
+        if (!page()->chrome()->client()->supportsFullScreenForElement(element, flags & Element::ALLOW_KEYBOARD_INPUT)) {
+            // The new full screen API does not accept a "flags" parameter, so fall back to disallowing
+            // keyboard input if the chrome client refuses to allow keyboard input.
+            if (!inLegacyMozillaMode && flags & Element::ALLOW_KEYBOARD_INPUT) {
+                flags &= ~Element::ALLOW_KEYBOARD_INPUT;
+                if (!page()->chrome()->client()->supportsFullScreenForElement(element, false))
+                    break;
+            } else
+                break;
+        }
 
         // 2. Let doc be element's node document. (i.e. "this")
         Document* currentDoc = this;
@@ -5563,7 +5589,7 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
     }
 
     if (m_fullScreenElement != documentElement())
-        RenderFullScreen::wrapRenderer(renderer, this);
+        RenderFullScreen::wrapRenderer(renderer, renderer ? renderer->parent() : 0, this);
 
     m_fullScreenElement->setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(true);
     
@@ -5675,6 +5701,10 @@ void Document::setFullScreenRendererBackgroundColor(Color backgroundColor)
     
 void Document::fullScreenChangeDelayTimerFired(Timer<Document>*)
 {
+    // Since we dispatch events in this function, it's possible that the
+    // document will be detached and GC'd. We protect it here to make sure we
+    // can finish the function successfully.
+    RefPtr<Document> protectDocument(this);
     Deque<RefPtr<Node> > changeQueue;
     m_fullScreenChangeEventTargetQueue.swap(changeQueue);
 
@@ -5682,6 +5712,9 @@ void Document::fullScreenChangeDelayTimerFired(Timer<Document>*)
         RefPtr<Node> node = changeQueue.takeFirst();
         if (!node)
             node = documentElement();
+        // The dispatchEvent below may have blown away our documentElement.
+        if (!node)
+            continue;
 
         // If the element was removed from our tree, also message the documentElement.
         if (!contains(node.get()))
@@ -5697,6 +5730,9 @@ void Document::fullScreenChangeDelayTimerFired(Timer<Document>*)
         RefPtr<Node> node = errorQueue.takeFirst();
         if (!node)
             node = documentElement();
+        // The dispatchEvent below may have blown away our documentElement.
+        if (!node)
+            continue;
         
         // If the node was removed from our tree, also message the documentElement.
         if (!contains(node.get()))

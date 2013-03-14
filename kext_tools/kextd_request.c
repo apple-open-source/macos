@@ -54,6 +54,7 @@
 #include "kextd_mach.h"  // mig-generated, not in project
 
 #include "bootcaches.h"
+#include "security.h"
 
 
 #define setCrashLogMessage(m)
@@ -392,7 +393,7 @@ bool kextd_process_kernel_requests(void)
     if (prelinkedKernelRequested) {
         Boolean       readOnlyFS = FALSE;
         struct statfs statfsBuffer;
-
+        
        /* If the statfs() fails we will forge ahead and try kextcache.
         * Only if we know for sure it's read-only do we skip.
         */
@@ -1160,6 +1161,10 @@ kextdProcessUserLoadRequest(
             goto finish;
         }
     }
+
+    /* <rdar://problem/12435992> Message tracing for kext loads
+     */
+    logMTMessage(theKext);
 
    /* The codepath from this function will do any error logging
     * and cleanup needed.

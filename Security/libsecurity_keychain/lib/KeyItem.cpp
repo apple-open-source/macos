@@ -99,7 +99,7 @@ KeyItem::KeyItem(const CssmClient::Key &key) :
 		MacOSError::throwMe(paramErr);
 }
 
-KeyItem::~KeyItem() throw()
+KeyItem::~KeyItem()
 {
 }
 

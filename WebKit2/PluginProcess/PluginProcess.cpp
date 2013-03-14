@@ -64,8 +64,6 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static const double shutdownTimeout = 15.0;
-
 PluginProcess& PluginProcess::shared()
 {
     DEFINE_STATIC_LOCAL(PluginProcess, pluginProcess, ());
@@ -73,7 +71,7 @@ PluginProcess& PluginProcess::shared()
 }
 
 PluginProcess::PluginProcess()
-    : ChildProcess(shutdownTimeout)
+    : ChildProcess(0)
 #if PLATFORM(MAC)
     , m_compositingRenderServerPort(MACH_PORT_NULL)
 #endif
@@ -150,15 +148,13 @@ void PluginProcess::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::Mess
 {
 }
 
-void PluginProcess::syncMessageSendTimedOut(CoreIPC::Connection*)
-{
-}
-
 void PluginProcess::initializePluginProcess(const PluginProcessCreationParameters& parameters)
 {
     ASSERT(!m_pluginModule);
 
     m_pluginPath = parameters.pluginPath;
+
+    setTerminationTimeout(parameters.terminationTimeout);
 
     platformInitialize(parameters);
 }

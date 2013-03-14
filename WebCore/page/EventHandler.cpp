@@ -493,6 +493,7 @@ static int textDistance(const Position& start, const Position& end)
 
 bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestResults& event)
 {
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
     Node* innerNode = targetNode(event);
     if (!(innerNode && innerNode->renderer() && m_mouseDownMayStartSelect))
         return false;
@@ -1671,8 +1672,8 @@ static RenderLayer* layerForNode(Node* node)
 
 bool EventHandler::mouseMoved(const PlatformMouseEvent& event)
 {
-    MaximumDurationTracker maxDurationTracker(&m_maxMouseMovedDuration);
     RefPtr<FrameView> protector(m_frame->view());
+    MaximumDurationTracker maxDurationTracker(&m_maxMouseMovedDuration);
 
 
 #if ENABLE(TOUCH_EVENTS)

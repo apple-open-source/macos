@@ -314,7 +314,7 @@ newrmconf()
 	new->idvl_p = genlist_init();
 	new->nonce_size = DEFAULT_NONCE_SIZE;
 	new->passive = FALSE;
-	new->ike_frag = ISAKMP_FRAG_FORCE;
+	new->ike_frag = ISAKMP_FRAG_ON;
 	new->esp_frag = IP_MAXPACKET;
 	new->ini_contact = TRUE;
 	new->mode_cfg = FALSE;

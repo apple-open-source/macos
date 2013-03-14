@@ -76,6 +76,7 @@ bool MachORep::candidate(FileDesc &fd)
 	case MH_DYLIB:
 	case MH_DYLINKER:
 	case MH_BUNDLE:
+	case MH_KEXT_BUNDLE:
 	case MH_PRELOAD:
 		return true;		// dynamic image; supported
 	case MH_OBJECT:

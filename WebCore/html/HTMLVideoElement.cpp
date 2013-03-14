@@ -87,14 +87,6 @@ void HTMLVideoElement::attach()
 #endif
 }
 
-void HTMLVideoElement::detach()
-{
-    HTMLMediaElement::detach();
-    
-    if (!shouldDisplayPosterImage() && m_imageLoader)
-        m_imageLoader.clear();
-}
-
 void HTMLVideoElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
 {
     if (attr->name() == widthAttr)
@@ -126,8 +118,6 @@ void HTMLVideoElement::parseAttribute(Attribute* attr)
                 m_imageLoader = adoptPtr(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
         } else {
-            if (m_imageLoader)
-                m_imageLoader.clear();
             if (renderer())
                 toRenderImage(renderer())->imageResource()->setCachedImage(0); 
         }

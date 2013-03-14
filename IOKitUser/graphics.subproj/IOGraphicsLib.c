@@ -110,6 +110,10 @@ typedef struct DMDisplayTimingInfoRec   DMDisplayTimingInfoRec;
 
 static kern_return_t 
 IOFramebufferServerOpen( mach_port_t connect );
+kern_return_t
+IOFramebufferServerFinishOpen( io_connect_t connect );
+static kern_return_t
+IOFramebufferFinishOpen( IOFBConnectRef connectRef );
 
 static kern_return_t
 IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef );
@@ -379,7 +383,9 @@ IOFBCreateSharedCursor( io_connect_t connect,
         unsigned int version,
         unsigned int maxWidth, unsigned int maxHeight )
 {
-    IOFramebufferServerOpen( connect );
+
+	IOFramebufferServerOpen( connect );
+    IOFramebufferServerFinishOpen( connect );
 
     uint64_t inData[] = { version, maxWidth, maxHeight };
     return IOConnectCallMethod(connect, 0,                      // Index
@@ -1468,6 +1474,13 @@ IOFBSetKernelConfig( IOFBConnectRef connectRef )
     return( err );
 }
 
+static void 
+IOFBDictSetValues(const void *key, const void *value, void *context)
+{
+    CFMutableDictionaryRef dict = context;
+    CFDictionarySetValue(dict, key, value);
+}
+
 __private_extern__ kern_return_t
 IOFBSetKernelDisplayConfig( IOFBConnectRef connectRef )
 {
@@ -1526,11 +1539,19 @@ IOFBSetKernelDisplayConfig( IOFBConnectRef connectRef )
     data = CFDataCreate(kCFAllocatorDefault,
                         (UInt8 *) &attributes[0], 
                         attrIdx * sizeof(attributes[0]));
-    if (data)
+
+    if (data && connectRef->displayAttributes)
     {
-        err = IOConnectSetCFProperty( connectRef->connect, CFSTR(kIODisplayAttributesKey), data );
-        CFDictionarySetValue(connectRef->kernelInfo, CFSTR(kIODisplayAttributesKey), data);
+        CFDictionarySetValue(connectRef->displayAttributes, CFSTR(kIODisplayAttributesKey), data);
         CFRelease(data);
+
+		CFDictionaryRef attrDict;
+		attrDict = CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayAttributesKey));
+		if (attrDict && (CFDictionaryGetTypeID() == CFGetTypeID(attrDict)))
+			CFDictionaryApplyFunction(attrDict, &IOFBDictSetValues, connectRef->displayAttributes);
+
+        err = IOConnectSetCFProperty(connectRef->connect, CFSTR(kIODisplayAttributesKey), connectRef->displayAttributes);
+//      CFDictionarySetValue(connectRef->kernelInfo, CFSTR(kIODisplayAttributesKey), connectRef->displayAttributes);
     }
 
     return( err );
@@ -2842,6 +2863,8 @@ IOFBCreateOverrides( IOFBConnectRef connectRef )
             CFDictionarySetValue( ovr, CFSTR(kIODisplayIsDigitalKey), obj );
         if( (obj = CFDictionaryGetValue( oldOvr, CFSTR(kDisplayFixedPixelFormat)) ))
             CFDictionarySetValue( ovr, CFSTR(kDisplayFixedPixelFormat), obj );
+        if( (obj = CFDictionaryGetValue( oldOvr, CFSTR(kIODisplayAttributesKey)) ))
+            CFDictionarySetValue( ovr, CFSTR(kIODisplayAttributesKey), obj );
         if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("trng")) ))
             CFDictionarySetValue( ovr, CFSTR("trng"), obj );
         if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("drng")) ))
@@ -4058,15 +4081,7 @@ IOFramebufferServerOpen( mach_port_t connect )
 {
     mach_port_t                 masterPort;
     IOFBConnectRef              connectRef, next;
-    IODisplayModeID             mode, otherMode;
-    IOIndex                     depth, minDepth, otherDepth;
-    IODisplayModeID             startMode;
-    IOIndex                     startDepth;
-    UInt32                      startFlags = 0;
     IOReturn                    err;
-    IODisplayModeInformation *  otherInfo, info;
-    CFDictionaryRef             dict;
-    CFDataRef                   data;
     CFNumberRef                 num;
 
     if (gConnectRefDict && IOFBConnectToRef(connect))
@@ -4162,12 +4177,52 @@ IOFramebufferServerOpen( mach_port_t connect )
                 &IOFBInterestCallback, connectRef,
                 &connectRef->interestNotifier );
 
-        IOFBUpdateConnectState( connectRef );
-        err = IOFBRebuild( connectRef, false );
-        if( kIOReturnSuccess != err)
-            continue;
-
     } while( false );
+
+    return (kIOReturnSuccess);
+}
+
+kern_return_t
+IOFramebufferServerFinishOpen( io_connect_t connect )
+{
+    IOFBConnectRef next, connectRef;
+    SInt32         dependentIndex;
+
+	connectRef = IOFBConnectToRef( connect );
+	if (!connectRef) return( kIOReturnBadArgument );
+
+	for (dependentIndex = 0; dependentIndex < 32; dependentIndex++)
+	{
+		next = connectRef;
+		do
+		{
+			if (next->dependentIndex == dependentIndex) IOFramebufferFinishOpen(next);
+			next = next->nextDependent;
+		}
+		while( next && (next != connectRef) );
+	}
+
+	return (kIOReturnSuccess);
+}
+
+static kern_return_t
+IOFramebufferFinishOpen(IOFBConnectRef connectRef)
+{
+    IODisplayModeID             mode, otherMode;
+    IOIndex                     depth, minDepth, otherDepth;
+    IODisplayModeID             startMode;
+    IOIndex                     startDepth;
+    UInt32                      startFlags = 0;
+    IOReturn                    err;
+    IODisplayModeInformation *  otherInfo, info;
+    CFDictionaryRef             dict;
+    CFDataRef                   data;
+
+    if (connectRef->opened) return (kIOReturnSuccess);
+    connectRef->opened = true;
+
+	IOFBUpdateConnectState( connectRef );
+	err = IOFBRebuild( connectRef, false );
 
     if (!(kIOFBConnectStateOnline & connectRef->state))
         return( kIOReturnSuccess );
@@ -4180,7 +4235,7 @@ IOFramebufferServerOpen( mach_port_t connect )
         if( err)
             continue;
 
-        err = IOFBGetDisplayModeInformation( connect, startMode, &info);
+        err = _IOFBGetDisplayModeInformation( connectRef, startMode, &info);
         if( err)
             continue;
 
@@ -4253,11 +4308,11 @@ IOFramebufferServerOpen( mach_port_t connect )
         
     DEBG(connectRef, "setMode %x, %d from %x, %d\n", 
             (int) startMode, (int) startDepth, (int) mode, (int) depth);
-    IOFBSetDisplayModeAndDepth( connect, startMode, startDepth );
+    IOFBSetDisplayModeAndDepth( connectRef->connect, startMode, startDepth );
 
     if (kIODisplayModeIDCurrent != startMode)
     {
-        IOFBSetStartupDisplayModeAndDepth(connect, startMode, startDepth);
+        IOFBSetStartupDisplayModeAndDepth(connectRef->connect, startMode, startDepth);
     }
 
     return( kIOReturnSuccess );

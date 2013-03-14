@@ -177,7 +177,7 @@ private:
     static bool _publishDisplayNotificationHandler(void * target, 
                                                    void * ref, 
                                                    IOService * newService, 
-                                                   IONotifier * notifier );
+                                                   IONotifier * notifier );    
     static bool _publishDeviceNotificationHandler(void * target, 
                                                   void * refCon, 
                                                   IOService * newService, 

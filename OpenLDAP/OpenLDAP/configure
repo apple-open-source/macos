@@ -16815,7 +16815,7 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-int main(int argc, char *argv)
+int main(int argc, char **argv)
 {
 	int kqfd = kqueue();
 	exit (kqfd == -1 ? 1 : 0);

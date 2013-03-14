@@ -43,7 +43,6 @@ typedef uint16_t ___attr_t;
 typedef char ___io_path_t[1024];
 
 __private_extern__ int             ___chattr( const char * path, ___attr_t attr, ___attr_t noattr );
-__private_extern__ int             ___initgroups( uid_t uid, gid_t basegid );
 __private_extern__ int             ___isautofs( const char * path );
 __private_extern__ int             ___mkdir( const char * path, mode_t mode );
 __private_extern__ void            ___vproc_transaction_begin( void );

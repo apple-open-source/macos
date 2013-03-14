@@ -148,9 +148,6 @@ WebProcess::WebProcess()
     , m_notificationManager(this)
 #endif
     , m_iconDatabaseProxy(this)
-#if ENABLE(PLUGIN_PROCESS)
-    , m_disablePluginProcessMessageTimeout(false)
-#endif
 #if USE(SOUP)
     , m_soupRequestManager(this)
 #endif
@@ -252,10 +249,6 @@ void WebProcess::initializeWebProcess(const WebProcessCreationParameters& parame
 
 #if USE(CFURLSTORAGESESSIONS)
     WebCore::ResourceHandle::setPrivateBrowsingStorageSessionIdentifierBase(parameters.uiProcessBundleIdentifier);
-#endif
-
-#if ENABLE(PLUGIN_PROCESS)
-    m_disablePluginProcessMessageTimeout = parameters.disablePluginProcessMessageTimeout;
 #endif
 }
 
@@ -710,10 +703,6 @@ void WebProcess::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::Message
     // we'll let it slide.
 }
 
-void WebProcess::syncMessageSendTimedOut(CoreIPC::Connection*)
-{
-}
-
 void WebProcess::didReceiveMessageOnConnectionWorkQueue(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, bool& didHandleMessage)
 {
     if (messageID.is<CoreIPC::MessageClassWebProcess>()) {
@@ -764,12 +753,12 @@ WebPageGroupProxy* WebProcess::webPageGroup(const WebPageGroupData& pageGroupDat
 static bool canPluginHandleResponse(const ResourceResponse& response)
 {
     String pluginPath;
-    bool blocked;
+    uint32_t pluginLoadPolicy;
 
-    if (!WebProcess::shared().connection()->sendSync(Messages::WebContext::GetPluginPath(response.mimeType(), response.url().string()), Messages::WebContext::GetPluginPath::Reply(pluginPath, blocked), 0))
+    if (!WebProcess::shared().connection()->sendSync(Messages::WebContext::GetPluginPath(response.mimeType(), response.url().string()), Messages::WebContext::GetPluginPath::Reply(pluginPath, pluginLoadPolicy), 0))
         return false;
-
-    return !blocked && !pluginPath.isEmpty();
+    
+    return pluginLoadPolicy != PluginModuleBlocked && !pluginPath.isEmpty();
 }
 
 bool WebProcess::shouldUseCustomRepresentationForResponse(const ResourceResponse& response) const

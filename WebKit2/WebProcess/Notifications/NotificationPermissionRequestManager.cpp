@@ -81,7 +81,8 @@ void NotificationPermissionRequestManager::startRequest(SecurityOrigin* origin, 
 {
     NotificationClient::Permission permission = permissionLevel(origin);
     if (permission != NotificationClient::PermissionNotAllowed) {
-        callback->handleEvent();
+        if (callback)
+            callback->handleEvent();
         return;
     }
     
@@ -130,6 +131,11 @@ void NotificationPermissionRequestManager::didReceiveNotificationPermissionDecis
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     if (!isRequestIDValid(requestID))
         return;
+
+    RefPtr<WebCore::SecurityOrigin> origin = m_idToOriginMap.take(requestID);
+    m_originToIDMap.remove(origin);
+
+    WebProcess::shared().notificationManager().didUpdateNotificationDecision(origin->toString(), allowed);
 
 #if ENABLE(LEGACY_NOTIFICATIONS)
     RefPtr<VoidCallback> voidCallback = m_idToVoidCallbackMap.take(requestID);

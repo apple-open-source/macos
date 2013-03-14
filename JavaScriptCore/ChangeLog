@@ -1,3 +1,247 @@
+2013-01-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r138606
+
+    2013-01-01  Dan Bernstein  <mitz@apple.com>
+
+            <rdar://problem/12942239> Update copyright strings
+
+            Reviewed by Sam Weinig.
+
+            * Info.plist:
+
+2012-11-16  Andy Estes  <aestes@apple.com>
+
+        Merge r130102.
+
+    2012-10-01  Filip Pizlo  <fpizlo@apple.com>
+
+        Address a FIXME in JSArray::sort
+        https://bugs.webkit.org/show_bug.cgi?id=98080
+        <rdar://problem/12407844>
+
+        Reviewed by Oliver Hunt.
+
+        Get rid of fast sorting of sparse maps. I don't know that it's broken but I do know that we don't
+        have coverage for it. Then also address the FIXME in JSArray::sort regarding side-effecting
+        compare functions.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSort):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sortNumeric):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::compactForSorting):
+        * runtime/JSArray.h:
+        (JSArray):
+        * runtime/JSObject.h:
+        (JSC::JSObject::hasSparseMap):
+        (JSObject):
+
+2012-11-14  Lucas Forschler  <lforschler@apple.com>
+
+        Merge fix for <rdar://problem/12691662>.
+
+    2012-11-14  Filip Pizlo  <fpizlo@apple.com>
+
+        Value recovery for arguments should be based on the argument-aware prediction.
+        <rdar://problem/12046032>
+
+        Reviewed by Gavin Barraclough, Oliver Hunt, and Filip Pizlo.
+        
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge fix for <rdar://problem/12486173>.
+
+    2012-11-12  Filip Pizlo  <fpizlo@apple.com>
+
+        Redundant phi elimination breaks CFA.
+        <rdar://problem/11152598>
+
+        Reviewed by Gavin Barraclough.
+
+        * dfg/DFGDriver.cpp:
+        (JSC::DFG::compile):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge fix for <rdar://problem/12486142>.
+
+    2012-08-13  Filip Pizlo  <fpizlo@apple.com>
+
+            Value recovery for arguments should be based on the argument-aware prediction.
+            <rdar://problem/12046032>
+
+            Reviewed by Gavin Barraclough.
+        
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge fix for <rdar://problem/12486142>.
+
+    2012-08-13  Filip Pizlo  <fpizlo@apple.com>
+
+            Value recovery for arguments should always just indicate that the argument is in the register file, and
+            not attempt to claim anything about the tag.
+            <rdar://problem/12046032>
+
+            The code previously attempted to base the value recovery on the VariableAccessData prediction. This is
+            wrong for two reasons: first, SetLocals speculate on the argument-aware prediction, which is different
+            from the prediction, if the argument was used to store different types; and second, even if the
+            argument-aware prediction indicates some unboxed type (int, bool, or cell) then it must be the case
+            that the tag that was stored by the caller would be identical to the tag implied by the prediction -
+            so OSR can just assume that the argument already holds a fully decorated JSValue. Of special note are
+            double predictions: the DFG has never stored unboxed doubles into arguments, so those don't need
+            special treatment here.
+
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+
+    2012-07-24  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG method checks should keep the receiver of the property access alive until all checks complete.
+            <rdar://problem/11781190>
+
+            Reviewed by Gavin Barraclough.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::parseBlock):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r129440
+
+    2012-09-24  Filip Pizlo  <fpizlo@apple.com>
+
+            Nested try/finally should not confuse the finally unpopper in BytecodeGenerator::emitComplexJumpScopes
+            https://bugs.webkit.org/show_bug.cgi?id=97508
+            <rdar://problem/12361132>
+
+            Reviewed by Sam Weinig.
+
+            We're reusing some vector for multiple iterations of a loop, but we were forgetting to clear its
+            contents from one iteration to the next. Hence if you did multiple iterations of finally unpopping
+            (like in a nested try/finally and a jump out of both of them) then you'd get a corrupted try
+            context stack afterwards.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::emitComplexJumpScopes):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r126718
+
+    2012-08-24  Filip Pizlo  <fpizlo@apple.com>
+
+            Finally inlining should correctly track the catch context
+            https://bugs.webkit.org/show_bug.cgi?id=94986
+            <rdar://problem/11753784>
+
+            Reviewed by Sam Weinig.
+
+            This fixes two behaviors:
+
+            1) Throwing from a finally block. Previously, we would seem to reenter the finally
+               block - though only once.
+
+            2) Executing a finally block from some nested context, for example due to a
+               'continue', 'break', or 'return' in the try. This would execute the finally
+               block in the context of of the try block, which could lead to either scope depth
+               mismatches or reexecutions of the finally block on throw, similarly to (1) but
+               for different reasons.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC):
+            (JSC::BytecodeGenerator::pushFinallyContext):
+            (JSC::BytecodeGenerator::emitComplexJumpScopes):
+            (JSC::BytecodeGenerator::pushTry):
+            (JSC::BytecodeGenerator::popTryAndEmitCatch):
+            * bytecompiler/BytecodeGenerator.h:
+            (FinallyContext):
+            (TryData):
+            (JSC):
+            (TryContext):
+            (TryRange):
+            (BytecodeGenerator):
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::TryNode::emitBytecode):
+
+2012-11-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r129577
+
+    2012-09-25  Filip Pizlo  <fpizlo@apple.com>
+
+            We shouldn't use the optimized versions of shift/unshift if the user is doing crazy things to the array
+            https://bugs.webkit.org/show_bug.cgi?id=97603
+            <rdar://problem/12370864>
+
+            Reviewed by Gavin Barraclough.
+
+            You changed the length behind our backs? No optimizations for you then!
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::shift):
+            (JSC::unshift):
+            * runtime/JSArray.cpp:
+            (JSC::JSArray::shiftCount):
+
+2012-11-09  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r126624
+
+    2012-08-24  Oliver Hunt  <oliver@apple.com>
+
+            Always null check cells before marking
+            https://bugs.webkit.org/show_bug.cgi?id=94968
+
+            Reviewed by Geoffrey Garen.
+
+            Originally we tried to minimise null checks by only null checking values
+            that we knew could be null, however given that we can't ever guarantee
+            when a GC will happen, we're better off just always assuming that a null
+            check will be necessary.  This results in a much less fragile code base
+            as we can add GC allocations to object initialisers without having to
+            subsequently worry about whether the object we are initialising will need
+            to add a bunch of null checks in its visitChildren implementation.
+
+            * heap/MarkStack.cpp:
+            (JSC::MarkStack::internalAppend):
+            * heap/MarkStackInlineMethods.h:
+            (JSC::MarkStack::append):
+            (JSC::MarkStack::appendUnbarrieredPointer):
+            * runtime/Structure.h:
+            (JSC::MarkStack::internalAppend):
+
+2012-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r125806
+
+    2012-08-16  Filip Pizlo  <fpizlo@apple.com>
+
+            All op_resolve_global instructions should end up in the list of global resolve instructions
+            https://bugs.webkit.org/show_bug.cgi?id=94247
+            <rdar://problem/12103500>
+
+            Reviewed by Mark Hahnenberg.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::emitResolveWithBase):
+
+2012-09-20  Roger Fong  <roger_fong@apple.com>
+
+        Enable opportunistic garbage collecting on Windows.
+
+        Reviewed by Mark Hahnenberg
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+
 2012-08-14  Lucas Forschler  <lforschler@apple.com>
 
     Merge r124272.
@@ -69184,5 +69428,3 @@
         global object's register storage, and initializing new registers.
 
 == Rolled over to ChangeLog-2011-02-16 ==
-.
-.

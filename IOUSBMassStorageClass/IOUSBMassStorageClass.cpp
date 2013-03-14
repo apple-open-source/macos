@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -285,8 +285,10 @@ IOUSBMassStorageClass::start ( IOService * provider )
 	// release these objects if instantition is not successful.
     fBulkInPipe 	= NULL;
     fBulkOutPipe	= NULL;
+#ifndef EMBEDDED
     fInterruptPipe	= NULL;
-	
+#endif // EMBEDDED
+    
 	// Default is to have no clients
 	fClients		= NULL;
 	
@@ -300,8 +302,10 @@ IOUSBMassStorageClass::start ( IOService * provider )
 	
 	// Initialize all CBI related member variables to their default 	
 	// states.
+#ifndef EMBEDDED
 	fCBICommandStructInUse = false;
-
+#endif // EMBEDDED
+    
     // Flag we use to indicate whether or not the device requires the standard
     // USB device reset instead of the BO reset. This applies to BO devices only.
     fUseUSBResetNotBOReset = false;
@@ -317,20 +321,22 @@ IOUSBMassStorageClass::start ( IOService * provider )
 	
     // Used to determine if we're going to block on the reset thread or not.
 	fBlockOnResetThread = false;
-	
-	// Some devices with complicated interal logic require some "cool down" time following a 
-	// USB device reset before they can resume servicing requests.
-	fPostDeviceResetCoolDownInterval = 0;
     
     // Used to determine where we should close our provider at time of termination.
     fTerminating = false;
-    
+
     // IOSAM may request that we suspend/resume our port instead of spin up/down media.
     fPortSuspendResumeForPMEnabled = false;
-    
+
+#ifndef EMBEDDED
 	// Workaround flag for devices which spin themselves up/down and have problems with driver intervention. 
 	fAutonomousSpinDownWorkAround = false;
-	
+    
+    // Some devices with complicated interal logic require some "cool down" time following a 
+	// USB device reset before they can resume servicing requests.
+	fPostDeviceResetCoolDownInterval = 0;
+#endif // EMBEDDED
+    
 	// Check if the personality for this device specifies a preferred protocol
     characterDict = OSDynamicCast ( OSDictionary, getProperty( kIOUSBMassStorageCharacteristics ) );
 	if ( characterDict == NULL )
@@ -390,6 +396,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
             fPortSuspendResumeForPMEnabled = true;
         }
        		
+#ifndef EMBEDDED
        	// Check if this device is known to have problems when waking from sleep
 		if ( characterDict->getObject( kIOUSBMassStorageResetOnResume ) != NULL )
 		{
@@ -398,7 +405,8 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			fRequiresResetOnResume = true;
 			
 		}
-		
+#endif // EMBEDDED
+        
 		// Check to see if this device requires some time after USB reset to collect itself.
 		if ( characterDict->getObject( kIOUSBMassStoragePostResetCoolDown ) != NULL )
 		{
@@ -434,6 +442,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			
 		}
         
+#ifndef EMBEDDED
 		// Check if the device needs to be suspended on reboot
 		if ( characterDict->getObject ( kIOUSBMassStorageSuspendOnReboot ) != NULL )
 		{
@@ -441,6 +450,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			fSuspendOnReboot = true;
 			
 		}
+#endif // EMBEDDED
  
 	}
 		
@@ -452,10 +462,9 @@ IOUSBMassStorageClass::start ( IOService * provider )
     STATUS_LOG ( ( 7, "%s[%p]: Configure the Storage interface", getName(), this ) );
     switch ( GetInterfaceProtocol() )
     {
-	
     	case kProtocolControlBulkInterrupt:
     	{
-		
+#ifndef EMBEDDED
 			RecordUSBTimeStamp ( UMC_TRACE ( kCBIProtocolDeviceDetected ),
 								 ( uintptr_t ) this, NULL,
 								 NULL, NULL );
@@ -477,7 +486,10 @@ IOUSBMassStorageClass::start ( IOService * provider )
 
             result = fCBIMemoryDescriptor->prepare();
             require_success ( result, abortStart );
-            
+#else // EMBEDDED
+            // We don't support CBI for iOS. We simply return false here.
+            goto abortStart;
+#endif // EMBEDDED
 	    }
     	break;
     	
@@ -628,7 +640,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
 		}
 	
 	}
-		
+    
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
 	
 	characterDict->release ( );
@@ -696,12 +708,14 @@ abortStart:
 	
 	}
 
+#ifndef EMBEDDED
 	if ( fCBIMemoryDescriptor != NULL )
 	{
 		fCBIMemoryDescriptor->complete();
 		fCBIMemoryDescriptor->release();
         fCBIMemoryDescriptor = NULL;
 	}
+#endif  // EMBEDDED
 	
 	if ( fBulkOnlyCBWMemoryDescriptor != NULL )
 	{
@@ -760,6 +774,7 @@ IOUSBMassStorageClass::stop ( IOService * provider )
 		
 	}
 	
+#ifndef EMBEDDED
 	if ( fInterruptPipe != NULL )
 	{
 		
@@ -767,6 +782,7 @@ IOUSBMassStorageClass::stop ( IOService * provider )
 		fInterruptPipe = NULL;
 		
 	}
+#endif  // EMBEDDED
 
 	//	Release our retain on the provider's workLoop.
 	
@@ -798,6 +814,7 @@ require_nonzero ( reserved, Exit );
 		
     }
     
+#ifndef EMBEDDED
     if ( fCBIMemoryDescriptor != NULL )
     {
 		
@@ -806,6 +823,7 @@ require_nonzero ( reserved, Exit );
         fCBIMemoryDescriptor = NULL;
 		
     }
+#endif // EMBEDDED
     
     if ( fBulkOnlyCBWMemoryDescriptor != NULL )
     {
@@ -857,11 +875,15 @@ IOUSBMassStorageClass::message ( UInt32 type, IOService * provider, void * argum
 		
 			STATUS_LOG ( ( 2, "%s[%p]: message  kIOUSBMessagePortHasBeenResumed.", getName ( ), this ) );
 		
+#ifndef EMBEDDED
 			if ( fRequiresResetOnResume == true )
 			{   
 				ResetDeviceNow ( true );
 			}
-			
+#else // EMBEDDED
+            ResetDeviceNow ( true );
+#endif // EMBEDDED
+            
 		}
 		break;
 			
@@ -942,15 +964,21 @@ IOUSBMassStorageClass::didTerminate ( IOService * provider, IOOptionBits options
 		fBulkOutPipe->Abort ( );
 	}
 	
+#ifndef EMBEDDED
 	if ( fInterruptPipe != NULL )
 	{
 		fInterruptPipe->Abort ( );
 	}
+#endif // EMBEDDED
 	
 	//	If we have a SCSI task outstanding, we will block here until it completes.
 	//	This ensures that we don't try to send requests to our provider after we have closed it.
 	
+#ifndef EMBEDDED
 	fTerminationDeferred = fBulkOnlyCommandStructInUse | fCBICommandStructInUse;
+#else // EMBEDDED
+    fTerminationDeferred = fBulkOnlyCommandStructInUse;
+#endif // EMBEDDED
     
 	RecordUSBTimeStamp (	UMC_TRACE ( kDidTerminateCalled ),
 						( uintptr_t ) this, ( unsigned int ) fTerminationDeferred, NULL, NULL );
@@ -987,6 +1015,8 @@ ErrorExit:
 }
 
 
+#ifndef EMBEDDED
+
 //--------------------------------------------------------------------------------------------------
 //	systemWillShutdown																		[PUBLIC]
 //--------------------------------------------------------------------------------------------------
@@ -1007,6 +1037,8 @@ IOUSBMassStorageClass::systemWillShutdown ( IOOptionBits specifier )
 	super::systemWillShutdown ( specifier );
 	
 }
+
+#endif // EMBEDDED
 
 
 //--------------------------------------------------------------------------------------------------
@@ -1303,8 +1335,11 @@ IOUSBMassStorageClass::SendSCSICommand (
 	
 	require_action ( ( isInactive ( ) == false ), ErrorExit, status = kIOReturnNoDevice );
 	
+#ifndef EMBEDDED
+    
    	if ( GetInterfaceProtocol() == kProtocolBulkOnly )
 	{
+#endif // EMBEDDED
 	
 		status = SendSCSICommandForBulkOnlyProtocol ( request );
 		
@@ -1312,7 +1347,9 @@ IOUSBMassStorageClass::SendSCSICommand (
 								( uintptr_t ) this, ( uintptr_t ) request, status, NULL );
 									
    		STATUS_LOG ( ( 5, "%s[%p]: SendSCSICommandforBulkOnlyProtocol returned %x", getName ( ), this, status ) );
-		
+	
+#ifndef EMBEDDED
+        
 	}
 	
 	else
@@ -1326,6 +1363,7 @@ IOUSBMassStorageClass::SendSCSICommand (
    		STATUS_LOG ( ( 5, "%s[%p]: SendSCSICommandforCBIProtocol returned %x", getName ( ), this, status ) );
 		
 	}
+#endif // EMBEDDED
 	
 	//	A nonzero status indicates that we could not post the USB CBW request to the device, probably due to termination.
 	//	In that case, we fail this task via a call to CommandCompleted().
@@ -1379,8 +1417,11 @@ IOUSBMassStorageClass::CompleteSCSICommand ( SCSITaskIdentifier request, IORetur
 	check ( fWorkLoop->inGate ( ) == true );
 
 	fBulkOnlyCommandStructInUse = false;
+    
+#ifndef EMBEDDED
 	fCBICommandStructInUse = false;
-
+#endif // EMBEDDED
+    
 	//	Clear the count of consecutive I/Os which required a USB Device Reset.
 	fConsecutiveResetCount = 0;
 								
@@ -1442,16 +1483,21 @@ IOUSBMassStorageClass::AbortSCSICommand ( SCSITaskIdentifier abortTask )
 	RecordUSBTimeStamp (	UMC_TRACE( kAbortedTask ),
 							( uintptr_t ) this, ( uintptr_t ) abortTask, NULL, NULL );
 	
+#ifndef EMBEDDED
 	if ( GetInterfaceReference()->GetInterfaceProtocol() == kProtocolBulkOnly )
 	{
+#endif // EMBEDDED
 		status = AbortSCSICommandForBulkOnlyProtocol( abortTask );
    		STATUS_LOG ( ( 5, "%s[%p]: abortCDBforBulkOnlyProtocol returned %x", getName(), this, status ) );
-	}
+#ifndef EMBEDDED
+    }
+    
 	else
 	{
 		status = AbortSCSICommandForCBIProtocol( abortTask );
    		STATUS_LOG ( ( 5, "%s[%p]: abortCDBforCBIProtocol returned %x", getName(), this, status ) );
 	}
+#endif // EMBEDDED
 
 	// Since the driver currently does not support abort, return an error	
 	return kSCSIServiceResponse_FUNCTION_REJECTED;
@@ -1574,6 +1620,7 @@ IOUSBMassStorageClass::IsProtocolServiceSupported (
 		}
 		break;
 
+#ifndef EMBEDDED
 		case kSCSIProtocolFeature_ProtocolSpecificPowerControl:
 		{
 			
@@ -1602,6 +1649,7 @@ IOUSBMassStorageClass::IsProtocolServiceSupported (
 			
 		}
 		break;
+#endif // EMBEDDED
 		
 		default:
 		break;
@@ -1678,6 +1726,8 @@ IOUSBMassStorageClass::HandleProtocolServiceFeature (
 				isSupported = true;
 				
 			}
+            
+#ifndef EMBEDDED
 			else if ( fAutonomousSpinDownWorkAround == true )
 			{
 				
@@ -1691,6 +1741,7 @@ IOUSBMassStorageClass::HandleProtocolServiceFeature (
 				isSupported = true;
 				
 			}
+#endif // EMBEDDED
 				
 		}
 		break;
@@ -1754,9 +1805,13 @@ IOUSBMassStorageClass::ClearFeatureEndpointStall (
 	{
 		require ( completion == &GetBulkOnlyRequestBlock()->boCompletion, Exit );
 	}
-	else {
+
+#ifndef EMBEDDED
+	else
+    {
 		require ( completion == &GetCBIRequestBlock()->cbiCompletion, Exit );
 	}
+#endif // EMBEDDED
 	
 	//	Increment the retain count here, in order to keep our object around while the spawned thread executes.
 	//	This retain will be balanced by a release in the spawned thread when it exits.
@@ -1938,6 +1993,7 @@ IOUSBMassStorageClass::GetBulkOutPipe ( void )
 }
 
 
+#ifndef EMBEDDED
 //--------------------------------------------------------------------------------------------------
 //	GetInterruptPipe																	 [PROTECTED]
 //--------------------------------------------------------------------------------------------------
@@ -1947,6 +2003,7 @@ IOUSBMassStorageClass::GetInterruptPipe ( void )
 {
 	return fInterruptPipe;
 }
+#endif // EMBEDDED
 
 
 //--------------------------------------------------------------------------------------------------
@@ -1975,6 +2032,7 @@ IOUSBMassStorageClass::SetMaxLogicalUnitNumber ( UInt8 maxLUN )
 #pragma mark *** Accessor Methods For CBI Protocol Variables ***
 #pragma mark -
 
+#ifndef EMBEDDED
 
 //--------------------------------------------------------------------------------------------------
 //	GetCBIRequestBlock																	 [PROTECTED]
@@ -2006,6 +2064,8 @@ IOUSBMassStorageClass::ReleaseCBIRequestBlock ( CBIRequestBlock * cbiRequestBloc
 	return;
 	
 }
+
+#endif // EMBEDDED
 
 #pragma mark -
 #pragma mark *** Accessor Methods For Bulk Only Protocol Variables ***
@@ -2073,8 +2133,10 @@ IOUSBMassStorageClass::AcceptSCSITask ( SCSITaskIdentifier request, bool * accep
 	
 	*accepted = false;
 	
+#ifndef EMBEDDED
 	if ( GetInterfaceProtocol ( ) == kProtocolBulkOnly )
 	{
+#endif // EMBEDDED
 		
 		if ( fBulkOnlyCommandStructInUse == true  )
 		{
@@ -2086,7 +2148,8 @@ IOUSBMassStorageClass::AcceptSCSITask ( SCSITaskIdentifier request, bool * accep
 		}
 		
 		fBulkOnlyCommandStructInUse = true;
-		
+	
+#ifndef EMBEDDED
 	}
 	
 	else
@@ -2105,6 +2168,7 @@ IOUSBMassStorageClass::AcceptSCSITask ( SCSITaskIdentifier request, bool * accep
 		fCBICommandStructInUse = true;
 		
 	}
+#endif // EMBEDDED
 	
 	*accepted = true;
 	
@@ -2163,8 +2227,10 @@ IOUSBMassStorageClass::GatedCompleteSCSICommand (
 	require ( taskStatus != NULL, Exit );
 	
 	fBulkOnlyCommandStructInUse = false;
+#ifndef EMBEDDED
 	fCBICommandStructInUse 		= false;
-	
+#endif // EMBEDDED
+    
 	//	Clear the count of consecutive I/Os which required a USB Device Reset.
 	fConsecutiveResetCount = 0;
 	
@@ -2204,15 +2270,19 @@ IOUSBMassStorageClass::HandlePowerOn ( void )
 	// fix it so that it is.
 	STATUS_LOG(( 6, "%s[%p]: HandlePowerOn", getName(), this ));
 	
+#ifndef EMBEDDED
 	if ( ( GetStatusEndpointStatus ( GetBulkInPipe(), &eStatus[0], NULL ) != kIOReturnSuccess ) ||
 		 ( fRequiresResetOnResume == true ) )
 	{   
 		
 		RecordUSBTimeStamp ( UMC_TRACE ( kHandlePowerOnUSBReset ), ( uintptr_t ) this, NULL, NULL, NULL );
 							 
-        ResetDeviceNow( true );
+        ResetDeviceNow ( true );
         
 	}
+#else
+        ResetDeviceNow( true );
+#endif
 	
 	// If our port was suspended before sleep, it would have been resumed as part
 	// of the global resume on system wake.
@@ -2367,6 +2437,7 @@ IOUSBMassStorageClass::GatedWaitForReset ( void )
 }
 
 
+#ifndef EMBEDDED
 //--------------------------------------------------------------------------------------------------
 //	sWaitForTaskAbort															 [STATIC][PROTECTED]
 //--------------------------------------------------------------------------------------------------
@@ -2387,6 +2458,7 @@ IOUSBMassStorageClass::GatedWaitForTaskAbort ( void )
 {
 	return kIOReturnUnsupported;
 }
+#endif // EMBEDDED
 
 
 //--------------------------------------------------------------------------------------------------
@@ -2476,10 +2548,12 @@ IOUSBMassStorageClass::sResetDevice ( void * refcon )
 		driver->fBulkOutPipe->ClearPipeStall ( false );
 	}
 	
+#ifndef EMBEDDED
 	if ( driver->fInterruptPipe != NULL )
 	{
 		driver->fInterruptPipe->ClearPipeStall ( false );
 	}
+#endif // EMBEDDED
 	
 	
 ErrorExit:
@@ -2515,7 +2589,7 @@ ErrorExit:
 			timeout++;
 			
 		}
-		
+
 		// Do we have a device which requires some to collect itself following a USB device reset?
 		// We only do this if the device successfully reconfigured.
 		if ( ( driver->fPostDeviceResetCoolDownInterval != 0 ) && 
@@ -2582,7 +2656,7 @@ Exit:
 }
 
 
-
+#ifndef EMBEDDED
 //--------------------------------------------------------------------------------------------------
 //	sAbortCurrentSCSITask														 [STATIC][PROTECTED]
 //--------------------------------------------------------------------------------------------------
@@ -2591,6 +2665,8 @@ void
 IOUSBMassStorageClass::sAbortCurrentSCSITask ( void * refcon )
 {
 }
+#endif // EMBEDDED
+
 
 //--------------------------------------------------------------------------------------------------
 //	ClearPipeStall - Method to recover from a pipe stall.
@@ -2648,10 +2724,13 @@ IOUSBMassStorageClass::ClearPipeStall( void )
 	{
 		completion = &GetBulkOnlyRequestBlock()->boCompletion;
 	}
+    
+#ifndef EMBEDDED
 	else
 	{
 		completion = &GetCBIRequestBlock()->cbiCompletion;
 	}
+#endif // EMBEDDED
 	
 	interfaceRef = GetInterfaceReference();
 	require ( interfaceRef != NULL, Exit );
@@ -2678,8 +2757,8 @@ Exit:
 }
 
 
+#ifndef EMBEDDED 
 OSMetaClassDefineReservedUsed ( IOUSBMassStorageClass, 1 );
-
 
 //--------------------------------------------------------------------------------------------------
 //	StartDeviceRecovery -	The recovery sequence to restore functionality for
@@ -2706,6 +2785,7 @@ IOUSBMassStorageClass::StartDeviceRecovery ( void )
 		fBulkOnlyCommandRequestBlock.boCompletion.action 		= &this->DeviceRecoveryCompletionAction;
 		status = GetStatusEndpointStatus ( GetBulkInPipe(), &eStatus[0], &fBulkOnlyCommandRequestBlock.boCompletion);
 	}
+    
 	else if ( fCBICommandStructInUse == true )
 	{
 		// Set up the IOUSBCompletion structure
@@ -2713,7 +2793,7 @@ IOUSBMassStorageClass::StartDeviceRecovery ( void )
 		fCBICommandRequestBlock.cbiCompletion.action 		= &this->DeviceRecoveryCompletionAction;
 		status = GetStatusEndpointStatus ( GetBulkInPipe(), &eStatus[0], &fCBICommandRequestBlock.cbiCompletion);
    	}
-	
+    
 	return status;
 }
 
@@ -2727,7 +2807,6 @@ OSMetaClassDefineReservedUsed ( IOUSBMassStorageClass, 2 );
 void
 IOUSBMassStorageClass::FinishDeviceRecovery ( IOReturn status )
 {
-
 	ResetDeviceNow( false );
 }
 
@@ -2753,6 +2832,7 @@ IOUSBMassStorageClass::DeviceRecoveryCompletionAction (
 	theMSC->FinishDeviceRecovery ( status );
 	
 }
+#endif // EMBEDDED
 
 
 //--------------------------------------------------------------------------------------------------
@@ -2802,7 +2882,11 @@ Exit:
 	
 	// If the reset didnt happen complete the failed command with an error here.
 	if ( ( result == KERN_FAILURE ) && 
+#ifndef EMBEDDED
 		 ( fBulkOnlyCommandStructInUse | fCBICommandStructInUse ) )
+#else
+        fBulkOnlyCommandStructInUse )
+#endif // EMBEDDED
 	{
 		AbortCurrentSCSITask ( );
 	}
@@ -2860,10 +2944,13 @@ IOUSBMassStorageClass::AbortCurrentSCSITask ( void )
 	{
 		currentTask = fBulkOnlyCommandRequestBlock.request;
 	}
+    
+#ifndef EMBEDDED
 	else if( fCBICommandStructInUse == true )
 	{
 		currentTask = fCBICommandRequestBlock.request;
 	}
+#endif // EMBEDDED
 	
 	if ( currentTask != NULL )
 	{
@@ -2871,10 +2958,13 @@ IOUSBMassStorageClass::AbortCurrentSCSITask ( void )
 		SCSITaskStatus			taskStatus;
 	
 		fBulkOnlyCommandStructInUse 			= false;
-		fCBICommandStructInUse 					= false;
 		fBulkOnlyCommandRequestBlock.request 	= NULL;
+        
+#ifndef EMBEDDED
+        fCBICommandStructInUse 					= false;
 		fCBICommandRequestBlock.request 		= NULL;
-
+#endif // EMBEDDED
+        
 		//	Increment the count of consecutive I/Os which were aborted during a reset.	
 		//	If that count is greater than the max, then consider the drive unusable, and mark the device as detached
 		//	so that the non-responsive volume doesn't hang restart, shutdown or applications.

@@ -1,0 +1,113 @@
+--- tnftpd-20100324/src/ftpd.c	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/ftpd.c	2011-12-05 18:26:05.000000000 -0800
+@@ -337,7 +337,9 @@
+ 	emailaddr = NULL;
+ 	hostname[0] = '\0';
+ 	homedir[0] = '\0';
++#ifndef HAVE_MEMBERSHIP_H	
+ 	gidcount = 0;
++#endif
+ 	is_oob = 0;
+ 	version = FTPD_VERSION;
+ 	auth_required = AUTH_NONE;
+@@ -1241,6 +1243,24 @@
+ 		}
+ 
+ 					/* have a group specifier */
++#ifdef HAVE_MEMBERSHIP_H	
++		if ((p = strchr(word, ':')) != NULL) {
++			int found=0;
++
++			if (pw == NULL)
++				continue;	/* no match for unknown user */
++			*p++ = '\0';
++		
++			struct group *g;
++			g = getgrnam(p);
++			uuid_t userUUID, groupUUID;
++			if (mbr_gid_to_uuid(g->gr_gid, groupUUID) == 0)
++				if (mbr_uid_to_uuid(pw->pw_uid, userUUID) == 0)
++					if (mbr_check_membership(userUUID, groupUUID, &found) == 0)
++						if (!found)
++						continue;
++		}
++#else					
+ 		if ((p = strchr(word, ':')) != NULL) {
+ 			gid_t	*groups, *ng;
+ 			int	 gsize, i, found;
+@@ -1273,6 +1293,7 @@
+ 			if (!found)
+ 				continue;
+ 		}
++#endif
+ 
+ 					/* check against username glob */
+ 		if (fnmatch(word, name, 0) != 0)
+@@ -1395,7 +1416,9 @@
+ 	askpasswd = 0;
+ 	permitted = 0;
+ 	quietmessages = 0;
++#ifndef HAVE_MEMBERSHIP_H	
+ 	gidcount = 0;
++#endif
+ 	curclass.type = CLASS_REAL;
+ 	(void) seteuid((uid_t)0);
+ #ifdef	LOGIN_CAP
+@@ -1590,11 +1613,13 @@
+ 		}
+ 	}
+ #endif
++#ifndef HAVE_MEMBERSHIP_H	
+ 	gidcount = getgroups(0, NULL);
+ 	if (gidlist)
+ 		free(gidlist);
+ 	gidlist = malloc(gidcount * sizeof *gidlist);
+ 	gidcount = getgroups(gidcount, gidlist);
++#endif
+ 
+ 	/* open utmp/wtmp before chroot */
+ 	login_utmp(ttyline, pw->pw_name, remotehost, &his_addr);
+--- tnftpd-20100324/src/extern.h	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/extern.h	2011-12-05 18:33:59.000000000 -0800
+@@ -322,8 +322,10 @@
+ GLOBAL	int		ftpd_debug;
+ GLOBAL	char		*emailaddr;
+ GLOBAL	int		form;
++#ifndef HAVE_MEMBERSHIP_H
+ GLOBAL	int		gidcount;	/* number of entries in gidlist[] */
+ GLOBAL	gid_t		*gidlist;
++#endif
+ GLOBAL	int		hasyyerrored;
+ GLOBAL	char		hostname[MAXHOSTNAMELEN+1];
+ GLOBAL	char		homedir[MAXPATHLEN];
+--- tnftpd-20100324/src/cmds.c	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/cmds.c	2011-12-05 16:40:51.000000000 -0800
+@@ -796,14 +796,27 @@
+ static int
+ matchgroup(gid_t gid)
+ {
++#ifdef HAVE_MEMBERSHIP_H	
++	int found = 0;
++	uuid_t userUUID, groupUUID;
++	
++	if (mbr_gid_to_uuid(gid, groupUUID) == 0)
++		if (mbr_uid_to_uuid(getuid(), userUUID) == 0)
++			if (mbr_check_membership(userUUID, groupUUID, &found) == 0)
++				return found;
++				
++	return (0);
++#else
+ 	int	i;
+ 
+ 	for (i = 0; i < gidcount; i++)
+ 		if (gid == gidlist[i])
+ 			return(1);
+ 	return (0);
++#endif
+ }
+ 
++
+ static void
+ mlsname(FILE *fp, factelem *fe)
+ {
+

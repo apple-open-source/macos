@@ -311,7 +311,7 @@ void WebChromeClient::runJavaScriptAlert(Frame* frame, const String& alertText)
     m_page->injectedBundleUIClient().willRunJavaScriptAlert(m_page, alertText, webFrame);
 
     unsigned syncSendFlags = (WebCore::AXObjectCache::accessibilityEnabled()) ? CoreIPC::SpinRunLoopWhileWaitingForReply : 0;
-    WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::RunJavaScriptAlert(webFrame->frameID(), alertText), Messages::WebPageProxy::RunJavaScriptAlert::Reply(), m_page->pageID(), CoreIPC::Connection::DefaultTimeout, syncSendFlags);
+    WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::RunJavaScriptAlert(webFrame->frameID(), alertText), Messages::WebPageProxy::RunJavaScriptAlert::Reply(), m_page->pageID(), CoreIPC::Connection::NoTimeout, syncSendFlags);
 }
 
 bool WebChromeClient::runJavaScriptConfirm(Frame* frame, const String& message)
@@ -323,7 +323,7 @@ bool WebChromeClient::runJavaScriptConfirm(Frame* frame, const String& message)
 
     unsigned syncSendFlags = (WebCore::AXObjectCache::accessibilityEnabled()) ? CoreIPC::SpinRunLoopWhileWaitingForReply : 0;
     bool result = false;
-    if (!WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::RunJavaScriptConfirm(webFrame->frameID(), message), Messages::WebPageProxy::RunJavaScriptConfirm::Reply(result), m_page->pageID(), CoreIPC::Connection::DefaultTimeout, syncSendFlags))
+    if (!WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::RunJavaScriptConfirm(webFrame->frameID(), message), Messages::WebPageProxy::RunJavaScriptConfirm::Reply(result), m_page->pageID(), CoreIPC::Connection::NoTimeout, syncSendFlags))
         return false;
 
     return result;
@@ -337,7 +337,7 @@ bool WebChromeClient::runJavaScriptPrompt(Frame* frame, const String& message, c
     m_page->injectedBundleUIClient().willRunJavaScriptPrompt(m_page, message, defaultValue, webFrame);
 
     unsigned syncSendFlags = (WebCore::AXObjectCache::accessibilityEnabled()) ? CoreIPC::SpinRunLoopWhileWaitingForReply : 0;
-    if (!WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::RunJavaScriptPrompt(webFrame->frameID(), message, defaultValue), Messages::WebPageProxy::RunJavaScriptPrompt::Reply(result), m_page->pageID(), CoreIPC::Connection::DefaultTimeout, syncSendFlags))
+    if (!WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::RunJavaScriptPrompt(webFrame->frameID(), message, defaultValue), Messages::WebPageProxy::RunJavaScriptPrompt::Reply(result), m_page->pageID(), CoreIPC::Connection::NoTimeout, syncSendFlags))
         return false;
 
     return !result.isNull();
@@ -470,19 +470,27 @@ void WebChromeClient::scrollRectIntoView(const IntRect&) const
 
 bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
-    if (pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing || pluginUnavailabilityReason == RenderEmbeddedObject::InsecurePluginVersion) {
+    switch (pluginUnavailabilityReason) {
+    case RenderEmbeddedObject::PluginMissing:
         // FIXME: <rdar://problem/8794397> We should only return true when there is a
         // missingPluginButtonClicked callback defined on the Page UI client.
+    case RenderEmbeddedObject::InsecurePluginVersion:
+    case RenderEmbeddedObject::PluginInactive:
         return true;
+
+
+    case RenderEmbeddedObject::PluginCrashed:
+        return false;
     }
 
+    ASSERT_NOT_REACHED();
     return false;
 }
     
 void WebChromeClient::unavailablePluginButtonClicked(Element* element, RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
     ASSERT(element->hasTagName(objectTag) || element->hasTagName(embedTag) || element->hasTagName(appletTag));
-    ASSERT(pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing || pluginUnavailabilityReason == RenderEmbeddedObject::InsecurePluginVersion);
+    ASSERT(pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing || pluginUnavailabilityReason == RenderEmbeddedObject::InsecurePluginVersion || pluginUnavailabilityReason == RenderEmbeddedObject::PluginInactive);
 
     HTMLPlugInImageElement* pluginElement = static_cast<HTMLPlugInImageElement*>(element);
 

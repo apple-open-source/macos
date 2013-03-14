@@ -345,10 +345,6 @@ void RenderBoxModelObject::destroyLayer()
 
 void RenderBoxModelObject::willBeDestroyed()
 {
-    // This must be done before we destroy the RenderObject.
-    if (m_layer)
-        m_layer->clearClipRects();
-
     // A continuation of this RenderObject should be destroyed at subclasses.
     ASSERT(!continuation());
 
@@ -3043,6 +3039,42 @@ void RenderBoxModelObject::mapAbsoluteToLocalPoint(bool fixed, bool useTransform
         transformState.applyTransform(t, preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
     } else
         transformState.move(containerOffset.width(), containerOffset.height(), preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
+}
+
+void RenderBoxModelObject::moveChildTo(RenderBoxModelObject* toBoxModelObject, RenderObject* child, RenderObject* beforeChild, bool fullRemoveInsert)
+{
+    // We assume that callers have cleared their positioned objects list for child moves (!fullRemoveInsert) so the
+    // positioned renderer maps don't become stale. It would be too slow to do the map lookup on each call.
+    ASSERT(!fullRemoveInsert || !isRenderBlock() || !toRenderBlock(this)->hasPositionedObjects());
+
+    ASSERT(this == child->parent());
+    ASSERT(!beforeChild || toBoxModelObject == beforeChild->parent());
+    if (fullRemoveInsert && (toBoxModelObject->isRenderBlock() || toBoxModelObject->isRenderInline())) {
+        // Takes care of adding the new child correctly if toBlock and fromBlock
+        // have different kind of children (block vs inline).
+        toBoxModelObject->addChild(virtualChildren()->removeChildNode(this, child), beforeChild);
+    } else
+        toBoxModelObject->virtualChildren()->insertChildNode(toBoxModelObject, virtualChildren()->removeChildNode(this, child, fullRemoveInsert), beforeChild, fullRemoveInsert);
+}
+
+void RenderBoxModelObject::moveChildrenTo(RenderBoxModelObject* toBoxModelObject, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, bool fullRemoveInsert)
+{
+    // This condition is rarely hit since this function is usually called on
+    // anonymous blocks which can no longer carry positioned objects (see r120761)
+    // or when fullRemoveInsert is false.
+    if (fullRemoveInsert && isRenderBlock()) {
+        RenderBlock* block = toRenderBlock(this);
+        if (block->hasPositionedObjects())
+            block->removePositionedObjects(0);
+    }
+
+    ASSERT(!beforeChild || toBoxModelObject == beforeChild->parent());
+    for (RenderObject* child = startChild; child && child != endChild; ) {
+        // Save our next sibling as moveChildTo will clear it.
+        RenderObject* nextSibling = child->nextSibling();
+        moveChildTo(toBoxModelObject, child, beforeChild, fullRemoveInsert);
+        child = nextSibling;
+    }
 }
 
 } // namespace WebCore

@@ -411,7 +411,7 @@ IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataT
                     err = _controller->GetRootHubStringDescriptor((request->wValue & 0x00ff), fullDesc);
 					if ( (err == kIOReturnSuccess) && (fullDesc->getLength() > 0) )
 					{
-						newLength = fullDesc->getLength();
+						newLength = fullDesc->getLength() - offset;
 						if (newLength < request->wLength)
 							request->wLength = newLength;
 						bcopy(fullDesc->getBytesNoCopy(offset,request->wLength), (char *)request->pData, request->wLength);

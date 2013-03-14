@@ -60,7 +60,9 @@ class RenderBoxModelObject;
 class RenderInline;
 class RenderBlock;
 class RenderFlowThread;
+class RenderGeometryMap;
 class RenderLayer;
+class RenderNamedFlowThread;
 class RenderTable;
 class RenderTheme;
 class TransformState;
@@ -102,6 +104,11 @@ enum BoxSide {
 enum MarkingBehavior {
     MarkOnlyThis,
     MarkContainingBlockChain,
+};
+
+enum PlaceGeneratedRunInFlag {
+    PlaceGeneratedRunIn,
+    DoNotPlaceGeneratedRunIn
 };
 
 const int caretWidth = 1;
@@ -214,6 +221,8 @@ public:
 
     // Function to return our enclosing flow thread if we are contained inside one.
     RenderFlowThread* enclosingRenderFlowThread() const;
+
+    RenderNamedFlowThread* enclosingRenderNamedFlowThread() const;
 
     virtual bool isEmpty() const { return firstChild() == 0; }
 
@@ -437,6 +446,7 @@ public:
     // to inherit from RenderSVGObject -> RenderObject (some need RenderBlock inheritance for instance)
     virtual void setNeedsTransformUpdate() { }
     virtual void setNeedsBoundariesUpdate();
+    virtual bool needsBoundariesUpdate() { return false; }
 
     // Per SVG 1.1 objectBoundingBox ignores clipping, masking, filter effects, opacity and stroke-width.
     // This is used for all computation of objectBoundingBox relative units and by SVGLocatable::getBBox().
@@ -578,7 +588,7 @@ public:
     // Returns the object containing this one. Can be different from parent for positioned elements.
     // If repaintContainer and repaintContainerSkipped are not null, on return *repaintContainerSkipped
     // is true if the renderer returned is an ancestor of repaintContainer.
-    RenderObject* container(RenderBoxModelObject* repaintContainer = 0, bool* repaintContainerSkipped = 0) const;
+    RenderObject* container(const RenderBoxModelObject* repaintContainer = 0, bool* repaintContainerSkipped = 0) const;
 
     virtual RenderObject* hoverAncestor() const { return parent(); }
 
@@ -679,7 +689,7 @@ public:
 
     // Return the offset from the container() renderer (excluding transforms). In multi-column layout,
     // different offsets apply at different points, so return the offset that applies to the given point.
-    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&) const;
+    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const;
     // Return the offset from an object up the container() chain. Asserts that none of the intermediate objects have transforms.
     LayoutSize offsetFromAncestorContainer(RenderObject*) const;
     
@@ -870,6 +880,10 @@ public:
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&, ApplyContainerFlipOrNot = ApplyContainerFlip, bool* wasFixed = 0) const;
     virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
 
+    // Pushes state onto RenderGeometryMap about how to map coordinates from this renderer to its container, or ancestorToStopAt (whichever is encountered first).
+    // Returns the renderer which was mapped to (container or ancestorToStopAt).
+    virtual const RenderObject* pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap&) const;
+
     bool shouldUseTransformFromContainer(const RenderObject* container) const;
     void getTransformFromContainer(const RenderObject* container, const LayoutSize& offsetInContainer, TransformationMatrix&) const;
     
@@ -909,7 +923,12 @@ protected:
     virtual void willBeDestroyed();
     void arenaDelete(RenderArena*, void* objectBase);
 
-    virtual LayoutRect outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/, LayoutPoint* /*cachedOffsetToRepaintContainer*/ = 0) const { return LayoutRect(); }
+    virtual LayoutRect outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/, const RenderGeometryMap* = 0) const { return LayoutRect(); }
+
+    virtual bool canBeReplacedWithInlineRunIn() const;
+
+    virtual void insertedIntoTree();
+    virtual void willBeRemovedFromTree();
 
 private:
     RenderStyle* firstLineStyleSlowCase() const;

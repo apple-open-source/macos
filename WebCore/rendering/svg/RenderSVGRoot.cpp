@@ -60,6 +60,7 @@ RenderSVGRoot::RenderSVGRoot(SVGStyledElement* node)
     , m_objectBoundingBoxValid(false)
     , m_isLayoutSizeChanged(false)
     , m_needsBoundariesOrTransformUpdate(true)
+    , m_hasSVGShadow(false)
 {
 }
 
@@ -368,12 +369,12 @@ void RenderSVGRoot::computeFloatRectForRepaint(RenderBoxModelObject* repaintCont
     // and then call RenderBox's method to handle all the normal CSS Box model bits
     repaintRect = m_localToBorderBoxTransform.mapRect(repaintRect);
 
-    // Apply initial viewport clip - not affected by overflow settings    
-    repaintRect.intersect(pixelSnappedBorderBoxRect());
-
     const SVGRenderStyle* svgStyle = style()->svgStyle();
     if (const ShadowData* shadow = svgStyle->shadow())
         shadow->adjustRectForShadow(repaintRect);
+
+    // Apply initial viewport clip - not affected by overflow settings
+    repaintRect.intersect(pixelSnappedBorderBoxRect());
 
     LayoutRect rect = enclosingIntRect(repaintRect);
     RenderReplaced::computeRectForRepaint(repaintContainer, rect, fixed);
@@ -391,6 +392,11 @@ void RenderSVGRoot::mapLocalToContainer(RenderBoxModelObject* repaintContainer, 
     RenderReplaced::mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState, ApplyContainerFlip, wasFixed);
 }
 
+const RenderObject* RenderSVGRoot::pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
+{
+    return RenderReplaced::pushMappingToContainer(ancestorToStopAt, geometryMap);
+}
+
 void RenderSVGRoot::updateCachedBoundaries()
 {
     m_objectBoundingBox = FloatRect();
@@ -398,9 +404,12 @@ void RenderSVGRoot::updateCachedBoundaries()
     m_strokeBoundingBox = FloatRect();
     m_repaintBoundingBox = FloatRect();
 
-    SVGRenderSupport::computeContainerBoundingBoxes(this, m_objectBoundingBox, m_objectBoundingBoxValid, m_strokeBoundingBox, m_repaintBoundingBox);
-    SVGRenderSupport::intersectRepaintRectWithResources(this, m_repaintBoundingBox);
-    m_repaintBoundingBox.inflate(borderAndPaddingWidth());
+    SVGRenderSupport::computeContainerBoundingBoxes(this, m_objectBoundingBox, m_objectBoundingBoxValid, m_strokeBoundingBox, m_repaintBoundingBoxExcludingShadow);
+    SVGRenderSupport::intersectRepaintRectWithResources(this, m_repaintBoundingBoxExcludingShadow);
+    m_repaintBoundingBoxExcludingShadow.inflate(borderAndPaddingWidth());
+
+    m_repaintBoundingBox = m_repaintBoundingBoxExcludingShadow;
+    SVGRenderSupport::intersectRepaintRectWithShadows(this, m_repaintBoundingBox);
 }
 
 bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)

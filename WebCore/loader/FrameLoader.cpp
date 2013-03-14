@@ -515,9 +515,7 @@ void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, boo
         m_frame->document()->cancelParsing();
         m_frame->document()->stopActiveDOMObjects();
         if (m_frame->document()->attached()) {
-            m_frame->document()->willRemove();
             m_frame->document()->prepareForDestruction();
-            
             m_frame->document()->removeFocusedNodeOfSubtree(m_frame->document());
         }
     }
@@ -1484,6 +1482,10 @@ void FrameLoader::stopAllLoaders(ClearProvisionalItemPolicy clearProvisionalItem
     // If this method is called from within this method, infinite recursion can occur (3442218). Avoid this.
     if (m_inStopAllLoaders)
         return;
+    
+    // Calling stopLoading() on the provisional document loader can blow away
+    // the frame from underneath.
+    RefPtr<Frame> protect(m_frame);
 
     m_inStopAllLoaders = true;
 
@@ -3165,8 +3167,10 @@ void FrameLoader::dispatchDidCommitLoad()
 
     m_client->dispatchDidCommitLoad();
 
-    if (isLoadingMainFrame())
+    if (isLoadingMainFrame()) {
         m_frame->page()->resetSeenPlugins();
+        m_frame->page()->resetSeenMediaEngines();
+    }
 
     InspectorInstrumentation::didCommitLoad(m_frame, m_documentLoader.get());
 }

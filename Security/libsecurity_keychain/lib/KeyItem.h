@@ -57,7 +57,7 @@ public:
 
 	KeyItem(const CssmClient::Key &key);
 
-    virtual ~KeyItem() throw();
+    virtual ~KeyItem();
 
 	virtual void update();
 	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);

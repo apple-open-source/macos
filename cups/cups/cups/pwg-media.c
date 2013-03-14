@@ -1,5 +1,5 @@
 /*
- * "$Id: pwg-media.c 3810 2012-05-04 23:39:14Z msweet $"
+ * "$Id: pwg-media.c 3970 2012-10-24 11:44:57Z msweet $"
  *
  *   PWG media name API implementation for CUPS.
  *
@@ -924,5 +924,5 @@ pwg_compare_pwg(_pwg_media_t *a,	/* I - First size */
 
 
 /*
- * End of "$Id: pwg-media.c 3810 2012-05-04 23:39:14Z msweet $".
+ * End of "$Id: pwg-media.c 3970 2012-10-24 11:44:57Z msweet $".
  */

@@ -27,9 +27,7 @@
 
 #include <fcntl.h>
 #include <paths.h>
-#include <pwd.h>
 #include <sysexits.h>
-#include <unistd.h>
 #include <vproc.h>
 #include <sys/attr.h>
 #include <sys/stat.h>
@@ -77,20 +75,6 @@ __private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t n
     }
 
     return status;
-}
-
-__private_extern__ int ___initgroups( uid_t uid, gid_t basegid )
-{
-    struct passwd * user;
-
-    user = getpwuid( uid );
-
-    if ( user )
-    {
-        return initgroups( user->pw_name, basegid );
-    }
-
-    return -1;
 }
 
 __private_extern__ int ___isautofs( const char * path )

@@ -34,3 +34,11 @@
 + (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice;
 
 @end
+
+@interface DecodeMassStorageDescriptor : NSObject {
+    
+}
+
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice;
+
+@end

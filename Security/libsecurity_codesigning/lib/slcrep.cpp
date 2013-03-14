@@ -84,6 +84,15 @@ size_t DYLDCacheRep::pageSize(const SigningContext &)
 
 
 //
+// Signing limit is the start of the (trailing) signature
+//
+size_t DYLDCacheRep::signingLimit()
+{
+	return mCache.mapSize();
+}
+
+
+//
 // Retrieve a component from the executable.
 // Our mCache has mapped the entire file, so we just fish the contents out of
 // the mapped area as needed.

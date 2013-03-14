@@ -72,7 +72,6 @@
 - (void) awakeFromNib;
 - (IBAction) newGame:(id)sender;
 - (void)startNewOnlineGame:(GKTurnBasedMatch *)match withDocument:(MBCDocument *)doc;
-- (IBAction) profileDraw:(id)sender;
 - (void) loadMatch:(NSString *)matchID;
 - (void) setValue:(float)value forAchievement:(NSString *)ident;
 - (void) updateApplicationBadge;

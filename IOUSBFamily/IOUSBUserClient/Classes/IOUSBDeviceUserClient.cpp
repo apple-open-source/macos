@@ -1755,7 +1755,7 @@ IOUSBDeviceUserClientV2::GetBandwidthAvailableForDevice(uint64_t *pBandwidth)
     IOReturn		ret = kIOReturnUnsupported;
 	UInt32			bandwidth;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailableForDevice",  this);
+    USBLog(7, "+IOUSBDeviceUserClientV2[%p]::GetBandwidthAvailableForDevice",  this);
 	
     if (fOwner && !isInactive())
     {
@@ -1770,7 +1770,7 @@ IOUSBDeviceUserClientV2::GetBandwidthAvailableForDevice(uint64_t *pBandwidth)
 				ret = myController->GetBandwidthAvailableForDevice(fOwner, &bandwidth);
 				if ( ret == kIOReturnSuccess )
 				{
-					USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailableForDevice  got %d bytes",  this, (uint32_t)bandwidth);
+					USBLog(5, "+IOUSBDeviceUserClientV2[%p]::GetBandwidthAvailableForDevice  got %d bytes",  this, (uint32_t)bandwidth);
 					*pBandwidth = bandwidth;
 				}
 			}
@@ -1781,7 +1781,7 @@ IOUSBDeviceUserClientV2::GetBandwidthAvailableForDevice(uint64_t *pBandwidth)
 	
     if (ret)
 	{
-        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailableForDevice - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
+        USBLog(3, "IOUSBDeviceUserClientV2[%p]::GetBandwidthAvailableForDevice - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     return ret;
@@ -2500,19 +2500,17 @@ IOUSBDeviceUserClientV2::ReleaseWorkLoopAndGate()
 	
 	if (fWorkLoop && fGate)
 	{
-		fWorkLoop->removeEventSource(fGate);
+        IOCommandGate * gate = fGate;
+        IOWorkLoop * workLoop = fWorkLoop;
+        
+        fGate = NULL;
+        fWorkLoop = NULL;
+        
+		workLoop->removeEventSource(gate);
+        
+		gate->release();
+        workLoop->release();
 		
-		if (fGate)
-		{
-			fGate->release();
-			fGate = NULL;
-		}
-		
-		if (fWorkLoop)
-		{
-			fWorkLoop->release();
-			fWorkLoop = NULL;
-		}
 	}
 	
 	if (fWakePort != MACH_PORT_NULL)

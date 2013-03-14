@@ -106,6 +106,9 @@ public:
     // return: false means "exclusive access already granted", "true" means success
     bool requestExclusiveSMBusAccess(bool request);
     
+    // Returns true if an exclusive AppleSmartBatteryUserClient is attached. False otherwise.
+    bool hasExclusiveClient(void);
+    
 private:
     // Called by AppleSmartBatteryManagerUserClient
     IOReturn inhibitCharging(int level);        

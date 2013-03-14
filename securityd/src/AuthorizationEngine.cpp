@@ -164,16 +164,15 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 
         string processName = "unknown";
         string authCreatorName = "unknown";
-        if (SecCodeRef code = Server::process().currentGuest()) {
-            CFRef<CFURLRef> path;
-            if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
-                processName = cfString(path);
+		{
+			StLock<Mutex> _(Server::process());
+	        if (SecCodeRef code = Server::process().currentGuest()) {
+	            CFRef<CFURLRef> path;
+    	        if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
+        	        processName = cfString(path);
+			}
         }
-        if (SecStaticCodeRef code = auth.creatorCode()) {
-            CFRef<CFURLRef> path;
-            if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
-                authCreatorName = cfString(path);
-        }
+		authCreatorName = auth.creatorPath();
 		
         if (sandbox_check(Server::process().pid(), "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, (*it)->name())) {
             Syslog::error("Sandbox denied authorizing right '%s' by client '%s' [%d]", (*it)->name(), processName.c_str(), Server::process().pid());

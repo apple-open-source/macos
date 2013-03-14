@@ -114,16 +114,13 @@ void RenderTableSection::styleDidChange(StyleDifference diff, const RenderStyle*
         table->invalidateCollapsedBorders();
 }
 
-void RenderTableSection::willBeDestroyed()
+void RenderTableSection::willBeRemovedFromTree()
 {
-    RenderTable* recalcTable = table();
-    
-    RenderBox::willBeDestroyed();
-    
-    // recalc cell info because RenderTable has unguarded pointers
-    // stored that point to this RenderTableSection.
-    if (recalcTable)
-        recalcTable->setNeedsSectionRecalc();
+    RenderBox::willBeRemovedFromTree();
+
+    // Preventively invalidate our cells as we may be re-inserted into
+    // a new table which would require us to rebuild our structure.
+    setNeedsCellRecalc();
 }
 
 void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild)
@@ -581,9 +578,9 @@ void RenderTableSection::layoutRows()
                 }
             }
 
-            if (HashSet<RenderBox*>* percentHeightDescendants = cell->percentHeightDescendants()) {
-                HashSet<RenderBox*>::iterator end = percentHeightDescendants->end();
-                for (HashSet<RenderBox*>::iterator it = percentHeightDescendants->begin(); it != end; ++it) {
+            if (ListHashSet<RenderBox*>* percentHeightDescendants = cell->percentHeightDescendants()) {
+                ListHashSet<RenderBox*>::iterator end = percentHeightDescendants->end();
+                for (ListHashSet<RenderBox*>::iterator it = percentHeightDescendants->begin(); it != end; ++it) {
                     RenderBox* box = *it;
                     if (!box->isReplaced() && !box->scrollsOverflow() && !flexAllChildren)
                         continue;

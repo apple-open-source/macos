@@ -26,6 +26,7 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include "IOSystemConfiguration.h"
+#include <sys/time.h>
 
 #include "powermanagement_mig.h"
 #include "powermanagement.h"
@@ -387,6 +388,9 @@ IOReturn IOPMAssertionDeclareUserActivity(
     mach_port_t     pm_server = MACH_PORT_NULL;
     kern_return_t   kern_result = KERN_SUCCESS;
     IOReturn        err;
+    static struct timeval prev_ts = {0,0};
+    struct timeval ts;
+
 
     CFMutableDictionaryRef  properties = NULL;
     CFDataRef               flattenedProps  = NULL;
@@ -396,6 +400,15 @@ IOReturn IOPMAssertionDeclareUserActivity(
         goto exit;
     }
     
+    gettimeofday(&ts, NULL);
+    if (ts.tv_sec - prev_ts.tv_sec <= 10) {
+       if ( *AssertionID == kIOPMNullAssertionID )
+          *AssertionID = 0xabcd; /* Give a dummy id */
+       return_code = kIOReturnSuccess;
+       goto exit;
+    }
+    prev_ts = ts;
+
     err = _pm_connect(&pm_server);
     if(kIOReturnSuccess != err) {
         return_code = kIOReturnInternalError;

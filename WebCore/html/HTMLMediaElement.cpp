@@ -1473,6 +1473,29 @@ void HTMLMediaElement::mediaPlayerNetworkStateChanged(MediaPlayer*)
     endProcessingMediaPlayerCallback();
 }
 
+static void logMediaLoadRequest(Page* page, const String& mediaEngine, const String& errorMessage, bool succeeded)
+{
+    if (!page || !page->settings()->diagnosticLoggingEnabled())
+        return;
+
+    ChromeClient* client = page->chrome()->client();
+
+    if (!succeeded) {
+        client->logDiagnosticMessage(DiagnosticLoggingKeys::mediaLoadingFailedKey(), errorMessage, DiagnosticLoggingKeys::failKey());
+        return;
+    }
+
+    client->logDiagnosticMessage(DiagnosticLoggingKeys::mediaLoadedKey(), mediaEngine, DiagnosticLoggingKeys::noopKey());
+
+    if (!page->hasSeenAnyMediaEngine())
+        client->logDiagnosticMessage(DiagnosticLoggingKeys::pageContainsAtLeastOneMediaEngineKey(), emptyString(), DiagnosticLoggingKeys::noopKey());
+
+    if (!page->hasSeenMediaEngine(mediaEngine))
+        client->logDiagnosticMessage(DiagnosticLoggingKeys::pageContainsMediaEngineKey(), mediaEngine, DiagnosticLoggingKeys::noopKey());
+
+    page->sawMediaEngine(mediaEngine);
+}
+
 static String stringForNetworkState(MediaPlayer::NetworkState state)
 {
     switch (state) {
@@ -1524,8 +1547,7 @@ void HTMLMediaElement::mediaLoadingFailed(MediaPlayer::NetworkState error)
         mediaControls()->reportedError();
     }
 
-    if (document()->page() && document()->page()->settings()->diagnosticLoggingEnabled())
-        document()->page()->chrome()->client()->logDiagnosticMessage(DiagnosticLoggingKeys::mediaLoadingFailedKey(), stringForNetworkState(error), DiagnosticLoggingKeys::failKey());
+    logMediaLoadRequest(document()->page(), String(), stringForNetworkState(error), false);
 }
 
 void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
@@ -1655,8 +1677,7 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
         if (renderer())
             renderer()->updateFromElement();
 
-        if (document()->page() && document()->page()->settings()->diagnosticLoggingEnabled())
-            document()->page()->chrome()->client()->logDiagnosticMessage(DiagnosticLoggingKeys::mediaLoadedKey(), m_player->engineDescription(), DiagnosticLoggingKeys::noopKey());
+        logMediaLoadRequest(document()->page(), m_player->engineDescription(), String(), true);
     }
 
     bool shouldUpdateDisplayState = false;
@@ -3210,14 +3231,14 @@ void HTMLMediaElement::sourceWasAdded(HTMLSourceElement* source)
     scheduleNextSourceChild();
 }
 
-void HTMLMediaElement::sourceWillBeRemoved(HTMLSourceElement* source)
+void HTMLMediaElement::sourceWasRemoved(HTMLSourceElement* source)
 {
-    LOG(Media, "HTMLMediaElement::sourceWillBeRemoved(%p)", source);
+    LOG(Media, "HTMLMediaElement::sourceWasRemoved(%p)", source);
 
 #if !LOG_DISABLED
     if (source->hasTagName(sourceTag)) {
         KURL url = source->getNonEmptyURLAttribute(srcAttr);
-        LOG(Media, "HTMLMediaElement::sourceWillBeRemoved - 'src' is %s", urlForLogging(url).utf8().data());
+        LOG(Media, "HTMLMediaElement::sourceWasRemoved - 'src' is %s", urlForLogging(url).utf8().data());
     }
 #endif
 
@@ -3225,9 +3246,8 @@ void HTMLMediaElement::sourceWillBeRemoved(HTMLSourceElement* source)
         return;
 
     if (source == m_nextChildNodeToConsider) {
-        m_nextChildNodeToConsider = m_nextChildNodeToConsider->nextSibling();
-        if (!m_nextChildNodeToConsider)
-            m_nextChildNodeToConsider = 0;
+        if (m_currentSourceNode)
+            m_nextChildNodeToConsider = m_currentSourceNode->nextSibling();
         LOG(Media, "HTMLMediaElement::sourceRemoved - m_nextChildNodeToConsider set to %p", m_nextChildNodeToConsider.get());
     } else if (source == m_currentSourceNode) {
         // Clear the current source node pointer, but don't change the movie as the spec says:

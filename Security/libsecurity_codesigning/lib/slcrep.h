@@ -49,6 +49,7 @@ public:
 	
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
 	size_t pageSize(const SigningContext &ctx);
+	size_t signingLimit();
 	std::string format();
 	
 	static bool candidate(UnixPlusPlus::FileDesc &fd);

@@ -691,7 +691,7 @@ void _setBatteryHealthConfidence(
     }
 
     double compareRatioTo = 0.80;
-    double capRatio = 1.0; 
+    double capRatio = 1.0;
 
     if (0 != b->designCap)
     {
@@ -709,8 +709,8 @@ void _setBatteryHealthConfidence(
         compareRatioTo = 0.80;
     }
 
-    if (capRatio > 1.5) {
-        // Poor|Perm Failure = max-capacity is more than 1.5x of the design-capacity.
+    if (capRatio > 1.2) {
+        // Poor|Perm Failure = max-capacity is more than 1.2x of the design-capacity.
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
     } else if (capRatio >= compareRatioTo) {

@@ -314,7 +314,24 @@ __BEGIN_DECLS
  */
 
 #define kIOPMAssertionAppliesToLimitedPowerKey  CFSTR("AppliesToLimitedPower")
+/*!
+ * @define          kIOPMAssertionAppliesOnLidClose
+ *
+ * @abstract        The CFDictionary key in assertion info dictionarty for enabling assertion when lid is closed.
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value
+ *                  <code>kCFBooleanTrue</code> or <code>kCFBooleanFalse</code>. A value of 
+ *                  kCFBooleanTrue means that the assertion is applied even when lid is closed.
+ *                  A value of kCFBooleanFalse means that the assertion is applied only when 
+ *                  lid is open. 
+ *
+ *                  This property is valid only for assertion <code>@link kIOPMAssertionUserIsActive @/link</code>. 
+ *                  By default, this assertion is applied only when lid is open and setting this assertion property
+ *                  changes that default behavior. This assertion property has no meaning on systems with no lid 
+ *                  and it is treated as no-op.
+ */
 
+#define kIOPMAssertionAppliesOnLidClose         CFSTR("AppliesOnLidClose")
 
 
 /*!

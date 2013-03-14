@@ -942,9 +942,9 @@ void SpeculativeJIT::compile(BasicBlock& block)
         if (nodeIndex == NoNode || m_jit.graph().argumentIsCaptured(i))
             m_arguments[i] = ValueSource(ValueInRegisterFile);
         else
-            m_arguments[i] = ValueSource::forPrediction(at(nodeIndex).variableAccessData()->prediction());
+            m_arguments[i] = ValueSource::forPrediction(at(nodeIndex).variableAccessData()->argumentAwarePrediction());
     }
-    
+
     m_state.reset();
     m_state.beginBasicBlock(&block);
     
@@ -958,7 +958,7 @@ void SpeculativeJIT::compile(BasicBlock& block)
         else if (at(nodeIndex).variableAccessData()->shouldUseDoubleFormat())
             m_variables[i] = ValueSource(DoubleInRegisterFile);
         else
-            m_variables[i] = ValueSource::forPrediction(at(nodeIndex).variableAccessData()->prediction());
+            m_variables[i] = ValueSource::forPrediction(at(nodeIndex).variableAccessData()->argumentAwarePrediction());
     }
     
     m_lastSetOperand = std::numeric_limits<int>::max();

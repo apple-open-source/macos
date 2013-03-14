@@ -1,5 +1,5 @@
 /*
- * "$Id: ippserver.c 3620 2012-01-19 17:02:56Z msweet $"
+ * "$Id: ippserver.c 3970 2012-10-24 11:44:57Z msweet $"
  *
  *   Sample IPP/2.0 server for CUPS.
  *
@@ -5251,5 +5251,5 @@ valid_job_attributes(
 
 
 /*
- * End of "$Id: ippserver.c 3620 2012-01-19 17:02:56Z msweet $".
+ * End of "$Id: ippserver.c 3970 2012-10-24 11:44:57Z msweet $".
  */

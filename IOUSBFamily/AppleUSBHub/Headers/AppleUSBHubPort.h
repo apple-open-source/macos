@@ -30,6 +30,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
+
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/USBHub.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -156,7 +157,7 @@ private:
 	
     static void						PortInitEntry(OSObject *target);					// this will run on its own thread
     static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
-    static void						AddDeviceEntry(OSObject *target);					// this will run on its own thread
+    static void						AddDeviceEntry(OSObject *target, thread_call_param_t issueRemoveDevice);					// this will run on its own thread
     static void						EnablePowerAfterOvercurrentEntry(OSObject *target);	// this will run on its own thread
 
     IOReturn						DetachDevice();
@@ -180,7 +181,7 @@ public:
 	virtual void					free(void);
 
 protected:
-    void							AddDevice(void);									// this runs on a separate thread
+    void							AddDevice(bool issueRemoveDevice);									// this runs on a separate thread
     void							RemoveDevice(void);
     IOReturn						ResetPort();
     IOReturn						ClearTT(bool multiTTs, UInt32 options);
@@ -206,8 +207,8 @@ protected:
     IOReturn						ReEnumeratePort(UInt32 options);
 	bool							IsCaptiveOverride(UInt16 vendorID, UInt16 prodID);
 	bool							ShouldApplyDisconnectWorkaround();
-	IOReturn						LaunchAddDeviceThread();
-	IOReturn						LaunchAddDeviceThreadGated();
+	IOReturn						LaunchAddDeviceThread(bool issueRemoveDevice = false);
+	IOReturn						LaunchAddDeviceThreadGated(bool issueRemoveDevice = false);
 
     void							DisplayOverCurrentNotice(bool individual);
 	void							EnablePowerAfterOvercurrent();

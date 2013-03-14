@@ -58,8 +58,6 @@
 }
 
 - (void) runWithTime:(float)seconds view:(MBCBoardView *)view;
-
-+ (void) cancelCurrentAnimation;
  
 @end
 

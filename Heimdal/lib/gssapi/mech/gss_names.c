@@ -30,6 +30,7 @@
 
 #include "mech_locl.h"
 
+
 OM_uint32
 _gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_const_OID mech,
 	     struct _gss_mechanism_name **output_mn)

@@ -398,6 +398,8 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
             if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
             {
                 value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey );
+
+                value = value ? value : kCFBooleanTrue;
             }
             else
             {
@@ -408,10 +410,14 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
                 if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
                 {
                     value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey );
+
+                    value = value ? value : kCFBooleanFalse;
                 }
                 else
                 {
                     value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey );
+
+                    value = value ? value : kCFBooleanTrue;
                 }
             }
 
@@ -426,6 +432,8 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
             if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
             {
                 value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey );
+
+                value = value ? value : kCFBooleanFalse;
             }
             else
             {
@@ -436,10 +444,14 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
                 if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
                 {
                     value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey );
+
+                    value = value ? value : kCFBooleanTrue;
                 }
                 else
                 {
                     value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey );
+
+                    value = value ? value : kCFBooleanFalse;
                 }
             }
 

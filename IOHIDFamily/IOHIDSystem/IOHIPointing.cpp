@@ -339,7 +339,7 @@ bool IOHIPointing::start(IOService * provider)
    * life).  Register ourselves as a nub to kick off matching.
    */
 
-	registerService(kIOServiceSynchronous);
+	registerService(kIOServiceAsynchronous);
 
 	return true;
 }

@@ -75,9 +75,9 @@ static void __DACommandExecute( char * const *           argv,
      * Execute a command as the specified user.  The argument list must be NULL terminated.
      */
 
-    pid_t executablePID = 0;
-    int   outputPipe[2] = { -1, -1 };
-    int   status        = EX_OK;
+    pid_t           executablePID = 0;
+    int             outputPipe[2] = { -1, -1 };
+    int             status        = EX_OK;
 
     /*
      * State our assumptions.
@@ -112,7 +112,6 @@ static void __DACommandExecute( char * const *           argv,
          */
 
         setgid( userGID );
-        ___initgroups( userUID, userGID );
         setuid( userUID );
 
         for ( fd = getdtablesize() - 1; fd > -1; fd-- )

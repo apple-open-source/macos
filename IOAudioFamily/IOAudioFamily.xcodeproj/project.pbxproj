@@ -13,6 +13,12 @@
 		30D6E62E145A427B00DBD097 /* IOAudioBlitterLibDispatch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30CE74C0126E5931006D705F /* IOAudioBlitterLibDispatch.cpp */; };
 		30DA50441451D10A006CF664 /* IOAudioBlitterLibDispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = 30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */; };
 		8BAB7444145B2345000048A5 /* IOAudioBlitterLibDispatch.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */; };
+		8BC08A861561C9C200CA98A1 /* BigNum128.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BC08A821561C9C200CA98A1 /* BigNum128.cpp */; };
+		8BC08A871561C9C200CA98A1 /* BigNum128.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BC08A831561C9C200CA98A1 /* BigNum128.h */; };
+		8BC08A881561C9C200CA98A1 /* IOAudioTimeIntervalFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BC08A841561C9C200CA98A1 /* IOAudioTimeIntervalFilter.cpp */; };
+		8BC08A891561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BC08A851561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h */; };
+		8BC08A8C1561D4D500CA98A1 /* IOAudioTimeIntervalFilter.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8BC08A851561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h */; };
+		8BC08A911562C6F000CA98A1 /* BigNum128.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8BC08A831561C9C200CA98A1 /* BigNum128.h */; };
 		D63C4CC90B20BFAE0047FE0F /* IOAudioControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E17FFE702AD11CA29EB /* IOAudioControl.h */; };
 		D63C4CCA0B20BFAE0047FE0F /* IOAudioControlUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */; };
 		D63C4CCB0B20BFAE0047FE0F /* IOAudioDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */; };
@@ -80,6 +86,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/audio";
 			dstSubfolderSpec = 0;
 			files = (
+				8BC08A911562C6F000CA98A1 /* BigNum128.h in CopyFiles */,
 				8BAB7444145B2345000048A5 /* IOAudioBlitterLibDispatch.h in CopyFiles */,
 				D63C4CFF0B20BFAE0047FE0F /* IOAudioControl.h in CopyFiles */,
 				D63C4D000B20BFAE0047FE0F /* IOAudioControlUserClient.h in CopyFiles */,
@@ -90,6 +97,7 @@
 				D63C4D050B20BFAE0047FE0F /* IOAudioPort.h in CopyFiles */,
 				D63C4D060B20BFAE0047FE0F /* IOAudioSelectorControl.h in CopyFiles */,
 				D63C4D070B20BFAE0047FE0F /* IOAudioStream.h in CopyFiles */,
+				8BC08A8C1561D4D500CA98A1 /* IOAudioTimeIntervalFilter.h in CopyFiles */,
 				D63C4D080B20BFAE0047FE0F /* IOAudioToggleControl.h in CopyFiles */,
 				D63C4D090B20BFAE0047FE0F /* IOAudioTypes.h in CopyFiles */,
 				D63C4D0A0B20BFAE0047FE0F /* IOAudioDefines.h in CopyFiles */,
@@ -145,6 +153,10 @@
 		4027DBB9010E532A05CA29EB /* HISTORY.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = HISTORY.rtf; sourceTree = "<group>"; };
 		4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "IOAudioFamily-README.rtf"; sourceTree = "<group>"; };
 		79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = "Info-IOAudioFamily.plist"; sourceTree = "<group>"; };
+		8BC08A821561C9C200CA98A1 /* BigNum128.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BigNum128.cpp; sourceTree = "<group>"; };
+		8BC08A831561C9C200CA98A1 /* BigNum128.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BigNum128.h; sourceTree = "<group>"; };
+		8BC08A841561C9C200CA98A1 /* IOAudioTimeIntervalFilter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioTimeIntervalFilter.cpp; sourceTree = "<group>"; };
+		8BC08A851561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAudioTimeIntervalFilter.h; sourceTree = "<group>"; };
 		D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOAudioFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIOAudioFloatLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4D160B20BFAE0047FE0F /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -192,6 +204,8 @@
 				06F44E22FFE702AD11CA29EB /* IOAudioTypes.h */,
 				01577ADFFFEC9C1011CA29EB /* IOAudioDefines.h */,
 				15F1CA6BFFEC8F6A11CA29EB /* IOAudioDebug.h */,
+				8BC08A851561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h */,
+				8BC08A831561C9C200CA98A1 /* BigNum128.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -244,6 +258,8 @@
 				1B71235B00570F9911CA29EB /* IOAudioSelectorControl.cpp */,
 				06F44E15FFE702AD11CA29EB /* IOAudioStream.cpp */,
 				1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */,
+				8BC08A841561C9C200CA98A1 /* IOAudioTimeIntervalFilter.cpp */,
+				8BC08A821561C9C200CA98A1 /* BigNum128.cpp */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -281,6 +297,8 @@
 				D63C4CD40B20BFAE0047FE0F /* IOAudioSelectorControl.h in Headers */,
 				D63C4CD50B20BFAE0047FE0F /* IOAudioToggleControl.h in Headers */,
 				30DA50441451D10A006CF664 /* IOAudioBlitterLibDispatch.h in Headers */,
+				8BC08A871561C9C200CA98A1 /* BigNum128.h in Headers */,
+				8BC08A891561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -467,6 +485,8 @@
 				D63C4CE00B20BFAE0047FE0F /* IOAudioStream.cpp in Sources */,
 				D63C4CE10B20BFAE0047FE0F /* IOAudioSelectorControl.cpp in Sources */,
 				D63C4CE20B20BFAE0047FE0F /* IOAudioToggleControl.cpp in Sources */,
+				8BC08A861561C9C200CA98A1 /* BigNum128.cpp in Sources */,
+				8BC08A881561C9C200CA98A1 /* IOAudioTimeIntervalFilter.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -561,7 +581,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.9fc10;
+				MODULE_VERSION = 1.8.9fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -608,7 +628,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.9fc10;
+				MODULE_VERSION = 1.8.9fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -651,7 +671,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.9fc10;
+				MODULE_VERSION = 1.8.9fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",

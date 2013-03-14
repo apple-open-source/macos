@@ -115,9 +115,9 @@ struct updatingVol {
     OSKextLogSpec errLogSpec;           // flags for file access errors
     CFArrayRef boots;                   // BSD Names of Apple_Boot partitions
     DASessionRef dasession;             // handle to diskarb
+    BRUpdateOpts_t opts;                // bitfield of flags
 
     // default to false for the common kextcache -u case
-    Boolean expectUpToDate;             // expecting things to be right (-U)
     Boolean earlyBoot;                  // detect early boot check
     Boolean doRPS, doMisc, doBooters;   // what needs updating
     Boolean doSanitize, cleanOnceDir;   // how to cleanse each helper
@@ -134,7 +134,7 @@ struct updatingVol {
     char dstdir[PATH_MAX];              // full path to main dest.
     char efidst[PATH_MAX], ofdst[PATH_MAX];
     Boolean onAPM;                      // tweak support based on pmap
-    Boolean detectedRecovery;           // any com.apple.recovery.boot?
+    Boolean detectedRecovery;           // seen com.apple.recovery.boot?
 };
 
 
@@ -399,7 +399,7 @@ checkForMissingFiles(struct updatingVol *up)
               "Looking for missing files.");
    
     // forced updates not allowed with -U (early boot)
-    if (up->expectUpToDate)  return;
+    if (up->opts & kBRUExpectUpToDate)  return;
     
     /* looking for missing .VolumeIcon.icns, SystemVersion.plist, 
      * PlatformSupport.plist, .disk_label, etc
@@ -691,19 +691,20 @@ finish:
 #define BOOTCOUNT 1
 static int
 initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
-            int expectUpToDate)
+            BRUpdateOpts_t opts)
 {
-    int opres, result = ELAST + 1;      // circa 4/24/2012, all paths set
-    const void         *values[BOOTCOUNT] = { helperBSDName };
+    int opres, result = ELAST + 1;      // all paths should reset
+    const void  *values[BOOTCOUNT] = { helperBSDName };
 
-    // start fresh (caller's job to have called releaseContext())
+    // start fresh (all booleans to default false values)
     bzero(up, sizeof(struct updatingVol));
 
     // callers want to rely on these log spec values even after failure
     up->warnLogSpec = kOSKextLogArchiveFlag | kOSKextLogWarningLevel;
     up->errLogSpec = kOSKextLogArchiveFlag | kOSKextLogErrorLevel;
 
-    up->expectUpToDate = expectUpToDate;
+    // stash opts for subroutines
+    up->opts = opts;
 
     // takeVolumeForPath() wants a char* ... comes before up->caches = ...
     if (!CFURLGetFileSystemRepresentation(srcVol, /* resolveToBase */ true,
@@ -720,7 +721,7 @@ initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
 
     // For now, kextcache -U in early boot doesn't lock.
     // (part of why kextd delays auto-rebuild for 5 minutes)
-    if (expectUpToDate && getppid() == 2 /* launchctl */) {
+    if ((opts & kBRUExpectUpToDate) && getppid() == 2 /* launchctl */) {
         up->earlyBoot = true;
     } else {
         if ((opres = takeVolumeForPath(up->srcRoot))) { // lock (logs)
@@ -729,7 +730,7 @@ initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
     }
 
     // initializing the context fails if there's no bootcaches.plist
-    if (!(up->caches = readBootCaches(up->srcRoot))) {
+    if (!(up->caches = readBootCaches(up->srcRoot, opts))) {
         result = errno ? errno : ELAST + 1;
         goto finish;
     }
@@ -877,6 +878,45 @@ finish:
 }
 
 
+/*
+ * needUpdatesNoUUID() checks the top-level bootstamps directory.
+ * 12369781: allow asr to change the fsys UUID w/o first boot rebooting
+ *
+ */
+static int
+needUpdatesNoUUID(CFURLRef volURL, Boolean *anyCritical)
+{
+    int rval = ELAST + 1;           // all paths should reset
+    Boolean doAnyNoUUID = false;
+    char volRoot[PATH_MAX];
+    struct bootCaches *caches = NULL;
+
+    if (!CFURLGetFileSystemRepresentation(volURL, /* resolve */ true,
+                                          (UInt8*)volRoot, sizeof(volRoot))) {
+        OSKextLogStringError(NULL);
+        rval = ENOMEM; goto finish;
+    }
+
+    caches = readBootCaches(volRoot, kBRUAnyBootStamps);
+    if (!caches) {
+        rval = errno ? errno : ELAST + 1;
+        goto finish;
+    }
+
+    // needUpdates() has already been called once with higher verbosity
+    doAnyNoUUID = needUpdates(caches, NULL, NULL, NULL,
+                              kOSKextLogGeneralFlag | kOSKextLogDetailLevel);
+
+    if (anyCritical) {
+        *anyCritical = doAnyNoUUID;
+    }
+
+finish:
+    if (caches)     destroyCaches(caches);
+
+    return rval;
+}
+
 /******************************************************************************
 * checkUpdateCachesAndBoots() returns
 * - success (EX_OK / 0) if nothing needs updating
@@ -889,17 +929,18 @@ finish:
                     "-> hanging on out of date caches"
 #define BRDBG_CONS_MSG "[via /dev/console] " BRDBG_HANG_MSG "\n"
 int
-checkUpdateCachesAndBoots(CFURLRef volumeURL, updateOpts_t opts)
+checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 {
     int opres, result = ELAST + 1;          // try to always set on error
     OSKextLogSpec oodLogSpec = kOSKextLogGeneralFlag | kOSKextLogBasicLevel;
-    Boolean expectUpToDate = (opts & kExpectUpToDate);
+    Boolean expectUpToDate = (opts & kBRUExpectUpToDate);
     Boolean doAny, cachesUpToDate = false;
+    Boolean loggedOOD = false;
     struct updatingVol up = { /*NULL...*/ };
     up.curbootfd = -1;
 
     // try to configure 'up'; treat missing data per opts
-    if ((opres = initContext(&up, volumeURL, NULL, expectUpToDate))) {
+    if ((opres = initContext(&up, volumeURL, NULL, opts))) {
         char *bcmsg = NULL;
         CFArrayRef helpers;
         switch (opres) {        // describe known problems
@@ -907,7 +948,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, updateOpts_t opts)
             case EFTYPE: bcmsg = "unrecognized " kBootCachesPath; break;
             default:     break;
         }
-        if ((opts & kForceUpdateHelpers) &&
+        if ((opts & kBRUForceUpdateHelpers) &&
                 (helpers = BRCopyActiveBootPartitions(volumeURL))) {
             // helper partitions + -f => we require bootcaches.plist
             OSKextLog(NULL,up.errLogSpec,"%s: %s; aborting",up.srcRoot,bcmsg);
@@ -937,11 +978,11 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, updateOpts_t opts)
     }
 
     // record partial success
-    up.helpersOptional = (opts & kHelpersOptional);
+    up.helpersOptional = (opts & kBRUHelpersOptional);
     cachesUpToDate = true;
     
     // 9455881: If requested, only update the caches
-    if (opts & kCachesOnly) {
+    if (opts & kBRUCachesOnly) {
         goto doneUpdatingHelpers;
     }
 
@@ -958,8 +999,15 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, updateOpts_t opts)
 
     // figure out what needs updating
     // needUpdates() also populates the timestamp values used by updateStamps()
+    // 12370665 tracks ignoring 'misc' files for the expectUpToDate (-U) case
     doAny = needUpdates(up.caches, &up.doRPS, &up.doBooters, &up.doMisc,
                         oodLogSpec);
+
+    // for -U, give the non-UUID paths a chance (possibly resetting doAny)
+    if (doAny && expectUpToDate) {
+        loggedOOD = true;
+        (void)needUpdatesNoUUID(volumeURL, &doAny);
+    }
 
 #ifdef BRDBG_OOD_HANG_BOOT_F
     // check to see if out of date at early boot should cause a hang
@@ -976,13 +1024,20 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, updateOpts_t opts)
 #endif  // BRDBG_OOD_HANG_BOOT_F
 
     // force ignores needUpdates() and does extra helper cleanup
-    if (opts & kForceUpdateHelpers) {
+    if (opts & kBRUForceUpdateHelpers) {
         up.doRPS = up.doBooters = up.doMisc = true;
         up.cleanOnceDir = true;
     } else if (!doAny) {
         // LogLevelBasic is only emitted with -v and above
-        OSKextLog(NULL, kOSKextLogBasicLevel | kOSKextLogFileAccessFlag,
-                  "%s: helper partitions appear up to date.", up.srcRoot);
+        // 'Warning' level clarifies previous "not cached" messages
+        OSKextLogSpec utdlogSpec = kOSKextLogFileAccessFlag;
+        if (loggedOOD) {
+            utdlogSpec |= kOSKextLogWarningLevel;
+        } else {
+            utdlogSpec |= kOSKextLogBasicLevel;
+        }
+        OSKextLog(NULL, utdlogSpec, "%s: helper partitions appear up to date.",
+                  up.srcRoot);
         goto doneUpdatingHelpers;
     }
 
@@ -1012,7 +1067,7 @@ doneUpdatingHelpers:
     // success
     result = 0;
 
-    // kExpectUpToDate is used to differentiate "success: everything clean"
+    // kBRUExpectUpToDate is used to differentiate "success: everything clean"
     // from "successfully updated:" the latter exits with EX_OSFILE.  During
     // early boot, this informs launchd to force a reboot off fresh caches.
     if (doAny && expectUpToDate) {
@@ -1053,7 +1108,7 @@ BRUpdateBootFiles(CFURLRef volURL, Boolean force)
     if (!volURL)
         return EINVAL;
 
-    return checkUpdateCachesAndBoots(volURL, force ? kForceUpdateHelpers : 0);
+    return checkUpdateCachesAndBoots(volURL, force?kBRUForceUpdateHelpers:0);
 }
 
 
@@ -1147,13 +1202,14 @@ finish:
 * see bootroot.h for more details
 ******************************************************************************/
 OSStatus
-BRCopyBootFilesToDir(CFURLRef srcVol,
+BRCopyBootFilesWithOpts(CFURLRef srcVol,
                      CFURLRef initialRoot,
                      CFDictionaryRef bootPrefOverrides,
                      CFStringRef targetBSDName,
                      CFURLRef targetDir,
                      BRBlessStyle blessSpec,
-                     CFStringRef pickerLabel)
+                     CFStringRef pickerLabel,
+                     BRUpdateOpts_t opts)
 {
     OSStatus            result = ELAST + 1;     // generic = safest
     OSStatus            errnum;
@@ -1167,13 +1223,14 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
     }
     
     // attempt to detect updates that will later look valid to Boot!=Root
-    // X: re targetBSDName, BRCopyActiveBootPartitions() doesn't know future
+    // XX: can't tell if helperBSDName will be "the" helper for srcVol
+    // XXX: could do better on existing B!=R, but need to review DM/FDE
     // XX 9173158 tracks teaching B!=R to temporarily ignore custom configs
     isBRDefault = !targetDir && (blessSpec & kBRBlessFSDefault) &&
                   CFEqual(srcVol, initialRoot);
 
     // configure a single-helper context
-    errnum = initContext(&up, srcVol, targetBSDName, false /*expectUTD*/);
+    errnum = initContext(&up, srcVol, targetBSDName, opts);
     if (errnum) {
         result = errnum; goto finish;
     }
@@ -1186,7 +1243,7 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
     }
 
     // if appropriate, gather timestamp data to apply on success
-    if (isBRDefault) {
+    if (isBRDefault || opts & kBRUAnyBootStamps) {
         (void)needUpdates(up.caches, NULL, NULL, NULL,
                           kOSKextLogGeneralFlag | kOSKextLogProgressLevel);
     }
@@ -1216,8 +1273,14 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
     }
 
     // update stamps if this is likely [to later be] a valid B!=R setup
-    // XXX this currently updates stamps for multi-PV when it should not. :P
-    if (isBRDefault) {
+    if (isBRDefault || (opts & kBRUAnyBootStamps)) {
+        if (opts & kBRUAnyBootStamps) {
+            // if writing top-level bootstamps, attempt start fresh
+            char cachedir[PATH_MAX];
+            pathcpy(cachedir, up.caches->root);
+            pathcat(cachedir, kTSCacheDir);
+            (void)sdeepunlink(up.caches->cachefd, cachedir);
+        }
         errnum = updateStamps(up.caches, kBCStampsApplyTimes);
         if (errnum) {
             result = errnum; goto finish;
@@ -1231,6 +1294,20 @@ finish:
     releaseContext(&up, result);
 
     return result;
+}
+
+OSStatus
+BRCopyBootFilesToDir(CFURLRef srcVol,
+                     CFURLRef initialRoot,
+                     CFDictionaryRef bootPrefOverrides,
+                     CFStringRef targetBSDName,
+                     CFURLRef targetDir,
+                     BRBlessStyle blessSpec,
+                     CFStringRef pickerLabel)
+{
+    return BRCopyBootFilesWithOpts(srcVol, initialRoot, bootPrefOverrides,
+                                   targetBSDName, targetDir, blessSpec,
+                                   pickerLabel, kBRUOptsNone);
 }
 
 OSStatus
@@ -1423,7 +1500,7 @@ BREraseBootFiles(CFURLRef srcVolRoot, CFStringRef helperBSDName)
         result = EINVAL; goto finish;
     }
 
-    opres = initContext(&up, srcVolRoot, helperBSDName, false /*expUTD*/);
+    opres = initContext(&up, srcVolRoot, helperBSDName, kBRUOptsNone);
     if (opres) {
         result = opres; goto finish;
     }
@@ -2620,6 +2697,28 @@ finish:
 
     return rval;
 }
+
+
+/******************************************************************************
+* activateMisc renames .new files to final names and relabels the volumes
+* active label indicates an updated helper partition
+* - construct new label with a trailing number as appropriate
+* - use BLGenerateLabelData() and overwrite any copied-down label
+* X need to be consistent throughout regarding missing misc files (esp. label?)
+******************************************************************************/
+/*
+ * writeLabels() writes correctly-formatted label and related files.
+ * These files should be removed first via nukeLabels().
+ *
+ * Since com.apple.recovery.boot is generally only present in CoreStorage
+ * helpers, the net effect of writeLabel()'s policy of
+ *     if (up->bootIdx == 0 || up->detectedRecovery) {
+ * is that CoreStorage will get .root_uuid files (and matching label data)
+ * in all Apple_Boot helpers while non-CS (AppleRAID, third party) will get
+ * 'Mac HD', 'Mac HD 2', ... 'Mac HD <n>' in their helpers.  The absence of
+ * .root_uuid in subsequent helpers should prevent EFI from merging any of
+ * these non-CS helpers.  See 11129639 and related for more details.
+ */
 
 // see makebootpath() at top of file
 #define MAKEBOOTPATHcont(path, rpath) do { \

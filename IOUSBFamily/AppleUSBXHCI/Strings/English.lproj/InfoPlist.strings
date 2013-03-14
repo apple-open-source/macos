@@ -1,0 +1,3 @@
+﻿/* Localized versions of Info.plist keys */
+CFBundleName = "I/O Kit Driver for USB XHCI Controllers";
+

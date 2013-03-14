@@ -49,7 +49,7 @@ class TileCache : public TiledBacking {
     WTF_MAKE_NONCOPYABLE(TileCache);
 
 public:
-    static PassOwnPtr<TileCache> create(WebTileCacheLayer*, const IntSize& tileSize);
+    static PassOwnPtr<TileCache> create(WebTileCacheLayer*);
     ~TileCache();
 
     void tileCacheLayerBoundsChanged();
@@ -69,12 +69,13 @@ public:
     void setTileDebugBorderColor(CGColorRef);
 
 private:
-    TileCache(WebTileCacheLayer*, const IntSize& tileSize);
+    TileCache(WebTileCacheLayer*);
 
     // TiledBacking member functions.
     virtual void visibleRectChanged(const IntRect&) OVERRIDE;
     virtual void setIsInWindow(bool) OVERRIDE;
-    virtual void setCanHaveScrollbars(bool) OVERRIDE;
+    virtual void setTileCoverage(TileCoverage) OVERRIDE;
+    virtual TileCoverage tileCoverage() const OVERRIDE { return m_tileCoverage; }
 
     IntRect bounds() const;
 
@@ -83,6 +84,7 @@ private:
     void getTileIndexRangeForRect(const IntRect&, TileIndex& topLeft, TileIndex& bottomRight);
 
     IntRect tileCoverageRect() const;
+    IntSize tileSizeForCoverageRect(const IntRect&) const;
 
     void scheduleTileRevalidation(double interval);
     void tileRevalidationTimerFired(Timer<TileCache>*);
@@ -96,7 +98,7 @@ private:
 
     WebTileCacheLayer* m_tileCacheLayer;
     RetainPtr<CALayer> m_tileContainerLayer;
-    const IntSize m_tileSize;
+    IntSize m_tileSize;
     IntRect m_visibleRect;
 
     typedef HashMap<TileIndex, RetainPtr<WebTileLayer> > TileMap;
@@ -108,7 +110,7 @@ private:
     CGFloat m_deviceScaleFactor;
 
     bool m_isInWindow;
-    bool m_canHaveScrollbars;
+    TileCoverage m_tileCoverage;
     bool m_acceleratesDrawing;
 
     RetainPtr<CGColorRef> m_tileDebugBorderColor;

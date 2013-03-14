@@ -1,5 +1,5 @@
 /*
- * Copyright 짤 1997-2011 Apple Inc.  All rights reserved.
+ * Copyright � 1997-2011 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOKitKeys.h>
+
 
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
@@ -109,7 +110,7 @@ OSDefineAbstractStructors(IOUSBControllerV3, IOUSBControllerV2)
 //
 //================================================================================================
 //
-#pragma mark 짜짜짜짜 IOKit methods 짜짜짜짜
+#pragma mark ⅴⅴ IOKit methods ⅴⅴ
 bool 
 IOUSBControllerV3::init(OSDictionary * propTable)
 {
@@ -147,29 +148,24 @@ IOUSBControllerV3::start( IOService * provider )
 	_device = OSDynamicCast(IOPCIDevice, provider);
 	if (_device == NULL)
 	{
-		return false;
+		goto ErrorExit;
 	}
 	
 	// the controller speed is set in the ::init methods of the controller subclasses
 	if (_controllerSpeed == kUSBDeviceSpeedFull)
 	{
 		err = CheckForEHCIController(provider);
-		if (err)
+		if (err != kIOReturnSuccess)
 		{
 			USBLog(1, "IOUSBControllerV3(%s)[%p]::start - CheckForEHCIController returned (%p)", getName(), this, (void*)err);
 			USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, err, 0, 1 );
-			return false;
+			goto ErrorExit;
 		}
 	}
     	
 	if ( !super::start(provider))
 	{
-		if (_ehciController)
-		{
-			_ehciController->release();
-			_ehciController = NULL;
-		}
-        return  false;
+		goto ErrorExit;
 	}
 	
 	
@@ -186,26 +182,47 @@ IOUSBControllerV3::start( IOService * provider )
 	{
 		USBLog(1, "IOUSBControllerV3[%p]::UIMInitialize - couldn't allocate timer event source", this);
 		USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, kIOReturnNoMemory, 0, 2 );
-		return kIOReturnNoMemory;
+		goto ErrorExit;
 	}
 	
 	if ( _workLoop->addEventSource( _rootHubTimer ) != kIOReturnSuccess )
 	{
 		USBLog(1, "IOUSBControllerV3[%p]::UIMInitialize - couldn't add timer event source", this);
 		USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, kIOReturnError, 0, 3 );
-		return kIOReturnError;
+		goto ErrorExit;
 	}
 		
 	// initialize PM
 	err = InitForPM();
-	if (err)
+	if (err != kIOReturnSuccess)
 	{
 		USBLog(1, "IOUSBControllerV3(%s)[%p]::start - InitForPM returned (%p)", getName(), this, (void*)err);
 		USBTrace( kUSBTController, kTPControllerV3Start, (uintptr_t)this, err, 0, 4 );
-		return false;
+		goto ErrorExit;
 	}
 	
 	return true;
+	
+ErrorExit:
+	
+	if (_ehciController)
+	{
+		_ehciController->release();
+		_ehciController = NULL;
+	}
+	
+    if (_rootHubTimer)
+    {
+		_rootHubTimer->cancelTimeout();
+		
+        if ( _workLoop )
+            _workLoop->removeEventSource(_rootHubTimer);
+        
+        _rootHubTimer->release();
+        _rootHubTimer = NULL;
+    }
+
+	return  false;
 }
 
 
@@ -271,9 +288,9 @@ IOUSBControllerV3::didTerminate( IOService * provider, IOOptionBits options, boo
 // maxCapabilityForDomainState
 //
 // Overrides superclass implementation, to account for a couple of scenarios
-// 짜 when we are waking from hibernation, we need to force the state to kUSBPowerStateOff and then to kUSBPowerStateOn
-// 짜 when we have received a systemWillShutdown call, we force the proper state based on that
-// 짜 when our parent is going into Doze mode (which is different than our low power mode) then we switch to ON
+// � when we are waking from hibernation, we need to force the state to kUSBPowerStateOff and then to kUSBPowerStateOn
+// � when we have received a systemWillShutdown call, we force the proper state based on that
+// � when our parent is going into Doze mode (which is different than our low power mode) then we switch to ON
 //		that state change always happens from PCI SLEEP, which means we wake from sleep without having lost power
 //
 // NB: the domainState is actually the outputCharacter of our parent node or nodes in the power plane
@@ -609,7 +626,7 @@ IOUSBControllerV3::free()
 
 
 
-#pragma mark 짜짜짜짜 class methods 짜짜짜짜
+#pragma mark ⅴⅴ class methods ⅴⅴ
 IOReturn
 IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 {
@@ -1896,7 +1913,7 @@ IOUSBControllerV3::DoCreateStreams(OSObject *owner, void *arg0, void *arg1, void
 	return me->UIMCreateStreams(functionNumber, endpointNumber, direction, maxStream);
 }
 
-#pragma mark 짜짜짜짜짜 IOUSBController methods 짜짜짜짜짜
+#pragma mark ⅴⅴ� IOUSBController methods ⅴⅴ�
 //
 // These methods are implemented in IOUSBController, and they all call runAction to synchronize them
 // We used to close the workLoop gate when we are sleeping, and we needed to stop doing that. So we run
@@ -2155,7 +2172,7 @@ IOUSBControllerV3::IsocIO(IOMemoryDescriptor *buffer, UInt64 frameStart, UInt32 
 
 
 
-#pragma mark 짜짜짜짜짜 IOUSBControllerV2 methods 짜짜짜짜짜
+#pragma mark ⅴⅴ� IOUSBControllerV2 methods ⅴⅴ�
 //
 // These methods are implemented in IOUSBController, and they all call runAction to synchronize them
 // We used to close the workLoop gate when we are sleeping, and we needed to stop doing that. So we run
@@ -2167,8 +2184,10 @@ IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *end
 	return OpenPipe(address, speed, endpoint, 0, 0);
 }
 
+
+
 IOReturn
-IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurst)
+IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *endpoint, UInt32 maxStreams, UInt32 maxBurstAndMult)
 {	
 	IOReturn	kr;
 	
@@ -2176,13 +2195,13 @@ IOUSBControllerV3::OpenPipe(USBDeviceAddress address, UInt8 speed, Endpoint *end
 	if ( kr != kIOReturnSuccess )
 		return kr;
 
-	if( (maxStreams == 0) && (maxBurst == 0) )
+	if( (maxStreams == 0) && (maxBurstAndMult == 0) )
 	{
 		return IOUSBControllerV2::OpenPipe(address, speed, endpoint);
 	}
 	else
 	{
-		return IOUSBControllerV2::OpenSSPipe(address, speed, endpoint, maxStreams, maxBurst);
+		return IOUSBControllerV2::OpenSSPipe(address, speed, endpoint, maxStreams, maxBurstAndMult);
 	}
 
 }
@@ -2250,234 +2269,6 @@ IOUSBControllerV3::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress	address, 
 
 
 
-UInt32			
-IOUSBControllerV3::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisionID )
-{
-	UInt32	errataBits = IOUSBController::GetErrataBits(vendorID, deviceID, revisionID);
-	
-	OSBoolean *				tunnelledProp = NULL;
-	OSData *				thunderboltModelIDProp = NULL;
-    OSData *                thunderboltVendorIDProp = NULL;
-    IOService *				parent = _device;
-
-	if (_device)
-	{
-		// We should figure out how to differentiate between the PCIe slot on a Dr. B and the 
-		// motherboards chips on the same platform, but for now they will all fail
-		tunnelledProp = OSDynamicCast(OSBoolean, _device->getProperty(kIOPCITunnelledKey));
-		if (tunnelledProp && tunnelledProp->isTrue())
-		{
-			int		retries = 10;
-			
-			_onThunderbolt = true;
-			
-            // 10186556 - when running tunneled, go ahead and set rMBS for the lifetime of this controller
-            requireMaxBusStall(25000);
-			while (!isInactive() && retries--)
-            {
-                while  (parent != NULL)
-                {
-                    OSObject            *thunderboltModelIDObj;
-                    OSObject            *thunderboltVendorIDObj;
-                    IORegistryEntry     *nextParent;
-                    
-                    thunderboltModelIDObj = parent->copyProperty(kIOThunderboltTunnelEndpointDeviceMIDProp);
-                    thunderboltVendorIDObj = parent->copyProperty(kIOThunderboltTunnelEndpointDeviceVIDProp);
-                    
-                    thunderboltModelIDProp = OSDynamicCast(OSData, thunderboltModelIDObj);
-                    thunderboltVendorIDProp = OSDynamicCast(OSData, thunderboltVendorIDObj);
-                    
-                    if (thunderboltModelIDProp && thunderboltVendorIDProp)
-                    {
-                        // we found what we were looking for. We will break out of this while loop and will release the two objects
-                        // after we discover what is in them (although we release them under their new casted types)
-                        // first release the registry entry that we found them in, unless it is us (which it shouldn't be)
-                        if (parent != _device)
-                            parent->release();
-                        break;
-                    }
-                    
-                    // these releases would be for the cases where we found one object but not the other, or if one or 
-                    // both of them existed but was not the correct type (OSData)
-                    if (thunderboltModelIDObj)
-                    {
-                        thunderboltModelIDProp = NULL;
-                        thunderboltModelIDObj->release();
-                    }
-                    
-                    if (thunderboltVendorIDObj)
-                    {
-                        thunderboltVendorIDProp = NULL;
-                        thunderboltVendorIDObj->release();
-                    }
-                    
-                    // get the next registry entry up the tree. we use copyParent so that we have a reference, in case
-                    // an entry goes away while we are looking - which could happen since TBolt can be unplugged
-					nextParent = parent->copyParentEntry(gIOServicePlane);
-                    
-                    // we are done with the old registry entry at this point
-                    if (parent != _device)
-                        parent->release();
-                    
-                    // copy the new parent to the iVar (making sure it is the correct type, which it better be
-                    parent = OSDynamicCast(IOService, nextParent);
-                    if ((parent == NULL) && (nextParent != NULL))
-                    {
-                        // this would be exceedingly strange
-                        nextParent->release();
-                    }
-                }
-                
-                // if they both were found, then we break out of the retry loop as well (we still own a reference to each of them)
-                if (thunderboltModelIDProp && thunderboltVendorIDProp)
-                    break;
-                
-                // we didn't find a node with both.. sleep for 1 second and try again. this happens often with the TBolt display
-                // not that parent will be NULL at this point so we don't need to release it
-                IOSleep(1000);                                                          // wait up to 10 seconds for this to occur
-                parent = _device;                                                       // start over
-            }
-            
-            if (!isInactive())
-            {
-                if (thunderboltModelIDProp && thunderboltVendorIDProp)
-                {
-                    _thunderboltModelID = *(UInt32*)thunderboltModelIDProp->getBytesNoCopy();
-                    _thunderboltVendorID = *(UInt32*)thunderboltVendorIDProp->getBytesNoCopy();
-                }
-                else
-                {
-                    // if we didn't get the model ID, then assume it is the 2011 display
-                    _thunderboltModelID = kAppleThunderboltDisplay2011MID;
-                    _thunderboltVendorID = kAppleThunderboltVID;
-                }
-
-                // save the model ID in case someone else (i.e. Audio) wants to use it
-                setProperty(kIOThunderboltTunnelEndpointDeviceMIDProp, _thunderboltModelID, 32);
-                setProperty(kIOThunderboltTunnelEndpointDeviceVIDProp, _thunderboltVendorID, 32);
-#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-                setProperty("Tbolt Model ID retries", retries, 32);
-#endif
-            }
-            
-            // we need to do these two releases whether we are inactive or not
-            if (thunderboltModelIDProp)
-                thunderboltModelIDProp->release();
-            
-            if (thunderboltVendorIDProp)
-                thunderboltVendorIDProp->release();
-		}
-		
-		if (_onThunderbolt && (_thunderboltModelID == kAppleThunderboltDisplay2011MID) && (_thunderboltVendorID == kAppleThunderboltVID))
-		{
-			if (!(gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
-			{
-				USBLog(5,"IOUSBControllerV3[%p]::GetErrataBits  found PCI-Thunderbolt property, adding the errata", this);
-				errataBits |= kErrataDontUseCompanionController;
-			}
-			
-			// mark the root hub port as having port 1 captive
-			if (_device->getProperty(kAppleInternalUSBDevice) == NULL)
-				_device->setProperty(kAppleInternalUSBDevice, (unsigned long long)2, 8);
-
-			// make sure we are assumed to be a built in controller
-			if (_device->getProperty("built-in") == NULL)
-				_device->setProperty("built-in", (unsigned long long)0, 8);
-			
-			if (errataBits & kErrataDisablePCIeLinkOnSleep)
-			{
-				OSObject *				aProperty = NULL;
-				IOService *				parent = _device;
-				IOPCIDevice *			highestPCIDevice = NULL;
-				IOPCIDevice *			tempPCIDevice = NULL;
-                IORegistryEntry *       nextParent = NULL;
-				
-				while (  parent != NULL )
-				{
-					// We need to chase up the tree looking for the root complex, which will have the PCI-Thunderbolt node in it
-					aProperty = parent->copyProperty("PCI-Thunderbolt");
-					
-					// if we found it and we have recorded a highest PCI bridge between us and there, then add the disable property
-					if ( OSDynamicCast( OSNumber, aProperty) != NULL )
-					{						
-						// if we have an IOPCIDevice in our upstream which is the same vendorID as the controller, then we mark it
-						if (highestPCIDevice)
-                        {
-							highestPCIDevice->setProperty(kIOPMPCISleepResetKey, kOSBooleanTrue);
-                            highestPCIDevice->release();
-                            highestPCIDevice = NULL;
-                        }
-						
-                        // release the property since we are breaking out of the loop
-                        aProperty->release();
-                        
-                        // release the parent iVar as long as it is not my actual parent (which does not have an extra retain at this point)
-                        if (parent != _device)
-                            parent->release();
-                        
-						break;
-					}
-					
-                    if (aProperty)
-                    {
-                        // exceedingly rare - would only happen if the property existed but was not an OSNumber
-                        aProperty->release();
-                        aProperty = NULL;
-                    }
-                    
-					// while going up the tree, look for any IOPCIDevice (really a PCIe bridge) with the same
-					// vendorID as the USB Host Controller. As we find them, remember the highest one, which is the
-					// Pericom upstream bridge
-					nextParent = parent->copyParentEntry(gIOServicePlane);
-                    
-                    // now that I have the next one, I can release the old (if it isn't me)
-                    if (parent != _device)
-                        parent->release();
-                    
-                    parent = OSDynamicCast(IOService, nextParent);
-                    
-                    if ((parent == NULL) && (nextParent != NULL))
-                    {
-                        // this would be exceedingly strange
-                        nextParent->release();
-                    }
-                    
-					tempPCIDevice = OSDynamicCast(IOPCIDevice, parent);
-                    
-                    // it would not be unusual for the following check to fail
-					if (tempPCIDevice)
-					{
-                        OSObject    *vendObj;
-						OSData		*vendProp;
-						UInt32		tempVend;
-						
-						// get this chips vendID, deviceID, revisionID
-						vendObj     = tempPCIDevice->copyProperty( "vendor-id" );
-						vendProp     = OSDynamicCast(OSData, vendObj);
-						if (vendProp)
-						{
-							tempVend = *((UInt32 *) vendProp->getBytesNoCopy());
-							if (tempVend == vendorID)
-                            {
-                                if (highestPCIDevice)
-                                {
-                                    // this is normal.. we will usually find 2 before we get where we are going
-                                    highestPCIDevice->release();
-                                }
-								highestPCIDevice = tempPCIDevice;
-                                highestPCIDevice->retain();
-                            }
-						}
-                        if (vendObj)
-                            vendObj->release();
-					}
-				}
-			}
-		}
-	}
-	return errataBits;
-}
-
 
 //	this method fixes up some config space registers in an NEC uPD720101 controller (both EHCI and OHCI)
 //	specifically it enables or re-enables the PME generation from D3 cold register
@@ -2514,6 +2305,8 @@ IOUSBControllerV3::FixupNECControllerConfigRegisters(void)
 		_device->configWrite32(kNECuPD720101EXT1, ext1);
 	}
 }
+
+
 
 USBDeviceAddress 
 IOUSBControllerV3::UIMGetActualDeviceAddress(USBDeviceAddress current)
@@ -2563,11 +2356,11 @@ IOUSBControllerV3::UIMCreateSSIsochEndpoint(
                                             UInt32				maxPacketSize,
                                             UInt8				direction,
                                             UInt8				interval,
-                                            UInt32              maxBurst)
+                                            UInt32              maxBurstAndMult)
 {
 	// UIM should override this method if it supprts streams
 	
-#pragma unused (functionAddress, endpointNumber, maxPacketSize, direction, interval, maxBurst)
+#pragma unused (functionAddress, endpointNumber, maxPacketSize, direction, interval, maxBurstAndMult)
     
     return kIOReturnUnsupported;			// not implemented
 }

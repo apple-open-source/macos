@@ -79,13 +79,9 @@ int main(int argc, char * argv[])
     
  //     bzero( shmem, shmemSize); // make sure its read only!
     
-	printf("cursorShow %d, hw %d, frame %d, (%d, %d), cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
-		shmem[index]->cursorShow, shmem[index]->hardwareCursorActive, 
-		shmem[index]->frame, shmem[index]->cursorLoc.x, shmem[index]->cursorLoc.y,
-		shmem[index]->cursorRect.minx, shmem[index]->cursorRect.miny, 
-		shmem[index]->cursorRect.maxx, shmem[index]->cursorRect.maxy,
-		shmem[index]->saveRect.minx, shmem[index]->saveRect.miny, 
-		shmem[index]->saveRect.maxx, shmem[index]->saveRect.maxy);
+	printf("screenBounds (%d, %d), (%d, %d)\n",
+		shmem[index]->screenBounds.minx, shmem[index]->screenBounds.miny, 
+		shmem[index]->screenBounds.maxx, shmem[index]->screenBounds.maxy);
 
     }
     maxIndex = index;
@@ -110,12 +106,14 @@ int main(int argc, char * argv[])
 	}
 	for (index = 0; index < maxIndex; index++)
 	{
-	    if (!shmem[index])
-		continue;
-	    printf("[%d] cursorShow %d, hw %d, frame %d, (%d, %d), cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
+	    if (!shmem[index]) continue;
+		if ((shmem[index]->screenBounds.maxx - shmem[index]->screenBounds.minx) < 128) continue;
+
+	    printf("[%d] cursorShow %d, hw %d, frame %d, loc (%d, %d), hs (%d, %d), cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
 		    index, 
 		    shmem[index]->cursorShow, shmem[index]->hardwareCursorActive, 
 		    shmem[index]->frame, shmem[index]->cursorLoc.x, shmem[index]->cursorLoc.y,
+			shmem[index]->hotSpot[0].x, shmem[index]->hotSpot[0].y,
 		    shmem[index]->cursorRect.minx, shmem[index]->cursorRect.miny, 
 		    shmem[index]->cursorRect.maxx, shmem[index]->cursorRect.maxy,
 		    shmem[index]->saveRect.minx, shmem[index]->saveRect.miny, 

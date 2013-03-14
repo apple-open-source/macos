@@ -504,6 +504,8 @@ void IOHIDElementPrivate::free()
         _colArrayReportHandlers = 0;
     }
     
+    OSSafeReleaseNULL(_dataValue);
+    
     super::free();
 }
 

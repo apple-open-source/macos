@@ -58,6 +58,5 @@ gss_release_name(OM_uint32 *minor_status,
 	*input_name = GSS_C_NO_NAME;
 
 	_gss_mg_release_name(name);
-
 	return (GSS_S_COMPLETE);
 }

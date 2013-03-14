@@ -136,6 +136,7 @@ private:
 		Architecture architecture() const { return Architecture(cpu, sub); }
 	};
 	static const ArchType architectures[];
+	static const ArchType defaultArchitecture;
 	
 	static const ArchType *matchArchitecture(const dyld_cache_header &header);
 

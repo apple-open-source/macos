@@ -5798,14 +5798,14 @@ reachPerform(void *info)
 	      defer ? ", deferred" : "",
 	      forced ? ", forced" : "");
 
+	/* update flags / interface */
+	_reach_set(&targetPrivate->info, &reach_info, cycle);
+
 	/* as needed, defer the notification */
 	if (defer) {
 		MUTEX_UNLOCK(&targetPrivate->lock);
 		return;
 	}
-
-	/* update flags / interface */
-	_reach_set(&targetPrivate->info, &reach_info, cycle);
 
 	/* save last notification info */
 	_reach_set(&targetPrivate->last_notify, &reach_info, cycle);

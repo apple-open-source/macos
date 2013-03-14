@@ -1,7 +1,7 @@
 /*
 	File:		MBCAnimation.mm
 	Contains:	General animation infrastructure.
-	Copyright:	Â© 2002-2010 by Apple Inc., all rights reserved.
+	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -45,22 +45,13 @@
 
 #import "MBCAnimation.h"
 #import "MBCBoardView.h"
+#import "MBCBoardWin.h"
 
 #include <algorithm>
 
 using std::min;
 
 @implementation MBCAnimation
-
-static id	sCurAnimation = nil;
-
-+ (void) cancelCurrentAnimation
-{
-	if (sCurAnimation) {
-		[sCurAnimation endState];
-		sCurAnimation = nil;
-	}
-}
 
 - (void) scheduleNextStep
 {
@@ -69,7 +60,6 @@ static id	sCurAnimation = nil;
 
 - (void) startState 		
 {
-	sCurAnimation = self;
 	[fView startAnimation];
 }
 
@@ -78,7 +68,6 @@ static id	sCurAnimation = nil;
 - (void) endState			
 {
 	[fView animationDone];
-	sCurAnimation = nil;
 }
 
 - (void) doStep:(id)arg
@@ -99,7 +88,8 @@ static id	sCurAnimation = nil;
 	fLastElapsed = elapsed;
 	if (elapsed >= 1.0f) {
 		[self endState];
-		[self autorelease];
+        [[[fView window] windowController] endAnimation];
+		[self release];
 		[fView setNeedsDisplay:YES];
 	} else {
 		[self scheduleNextStep];

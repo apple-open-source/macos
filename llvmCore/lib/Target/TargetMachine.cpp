@@ -28,7 +28,7 @@ namespace llvm {
   bool PrintMachineCode;
   bool NoFramePointerElim;
   bool NoFramePointerElimNonLeaf;
-  bool NoExcessFPPrecision;
+  FPOpFusion::FPOpFusionMode AllowFPOpFusion;
   bool UnsafeFPMath;
   bool NoInfsFPMath;
   bool NoNaNsFPMath;
@@ -64,11 +64,19 @@ DisableFPElimNonLeaf("disable-non-leaf-fp-elim",
   cl::desc("Disable frame pointer elimination optimization for non-leaf funcs"),
   cl::location(NoFramePointerElimNonLeaf),
   cl::init(false));
-static cl::opt<bool, true>
-DisableExcessPrecision("disable-excess-fp-precision",
-  cl::desc("Disable optimizations that may increase FP precision"),
-  cl::location(NoExcessFPPrecision),
-  cl::init(false));
+static cl::opt<FPOpFusion::FPOpFusionMode, true>
+FuseFPOps("fp-contract",
+  cl::desc("Enable aggresive formation of fused FP ops"),
+  cl::location(AllowFPOpFusion),
+  cl::init(FPOpFusion::Standard),
+  cl::values(
+    clEnumValN(FPOpFusion::Fast, "fast",
+               "Fuse FP ops whenever profitable"),
+    clEnumValN(FPOpFusion::Standard, "on",
+               "Only fuse 'blessed' FP ops."),
+    clEnumValN(FPOpFusion::Strict, "off",
+               "Only fuse FP ops when the result won't be effected."),
+    clEnumValEnd));
 static cl::opt<bool, true>
 EnableFPMAD("enable-fp-mad",
   cl::desc("Enable less precise MAD instructions to be generated"),

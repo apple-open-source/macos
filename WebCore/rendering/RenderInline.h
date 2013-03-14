@@ -49,7 +49,7 @@ public:
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const;
     virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const;
 
-    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&) const;
+    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const;
 
     IntRect linesBoundingBox() const;
     LayoutRect linesVisualOverflowBoundingBox() const;
@@ -57,6 +57,7 @@ public:
     InlineFlowBox* createAndAppendInlineFlowBox();
 
     void dirtyLineBoxes(bool fullLayout);
+    void deleteLineBoxTree();
 
     RenderLineBoxList* lineBoxes() { return &m_lineBoxes; }
     const RenderLineBoxList* lineBoxes() const { return &m_lineBoxes; }
@@ -131,6 +132,7 @@ private:
     virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, LayoutRect&, bool fixed) const;
 
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState&, ApplyContainerFlipOrNot = ApplyContainerFlip, bool* wasFixed = 0) const;
+    virtual const RenderObject* pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap&) const;
 
     virtual VisiblePosition positionForPoint(const LayoutPoint&);
 

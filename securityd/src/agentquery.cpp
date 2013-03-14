@@ -262,8 +262,11 @@ void
 SecurityAgentQuery::inferHints(Process &thisProcess)
 {
     string guestPath;
-	if (SecCodeRef clientCode = thisProcess.currentGuest())
-		guestPath = codePath(clientCode);
+	{
+		StLock<Mutex> _(thisProcess);
+		if (SecCodeRef clientCode = thisProcess.currentGuest())
+			guestPath = codePath(clientCode);
+	}
 	AuthItemSet processHints = clientHints(SecurityAgent::bundle, guestPath,
 		thisProcess.pid(), thisProcess.uid());
 	mClientHints.insert(processHints.begin(), processHints.end());
@@ -870,8 +873,10 @@ void QueryInvokeMechanism::run(const AuthValueVector &inArguments, AuthItemSet &
     // prepopulate with client hints
 	inHints.insert(mClientHints.begin(), mClientHints.end());
 
-	if (Server::active().inDarkWake())
-		CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
+    if (mAuthHostType == securityAgent) {
+        if (Server::active().inDarkWake())
+            CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
+    }
 
     setArguments(inArguments);
     setInput(inHints, inContext);

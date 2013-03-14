@@ -44,20 +44,23 @@ using namespace std;
 
 namespace WebCore {
 
-PassOwnPtr<TileCache> TileCache::create(WebTileCacheLayer* tileCacheLayer, const IntSize& tileSize)
+static const int defaultTileCacheWidth = 512;
+static const int defaultTileCacheHeight = 512;
+
+PassOwnPtr<TileCache> TileCache::create(WebTileCacheLayer* tileCacheLayer)
 {
-    return adoptPtr(new TileCache(tileCacheLayer, tileSize));
+    return adoptPtr(new TileCache(tileCacheLayer));
 }
 
-TileCache::TileCache(WebTileCacheLayer* tileCacheLayer, const IntSize& tileSize)
+TileCache::TileCache(WebTileCacheLayer* tileCacheLayer)
     : m_tileCacheLayer(tileCacheLayer)
     , m_tileContainerLayer(adoptCF([[CALayer alloc] init]))
-    , m_tileSize(tileSize)
+    , m_tileSize(defaultTileCacheWidth, defaultTileCacheHeight)
     , m_tileRevalidationTimer(this, &TileCache::tileRevalidationTimerFired)
     , m_scale(1)
     , m_deviceScaleFactor(1)
     , m_isInWindow(true)
-    , m_canHaveScrollbars(true)
+    , m_tileCoverage(CoverageForVisibleArea)
     , m_acceleratesDrawing(false)
     , m_tileDebugBorderWidth(0)
 {
@@ -217,18 +220,17 @@ void TileCache::setIsInWindow(bool isInWindow)
     m_isInWindow = isInWindow;
 
     if (!m_isInWindow) {
-        // Schedule a timeout to drop tiles that are outside of the visible rect in 4 seconds.
         const double tileRevalidationTimeout = 4;
         scheduleTileRevalidation(tileRevalidationTimeout);
     }
 }
 
-void TileCache::setCanHaveScrollbars(bool canHaveScrollbars)
+void TileCache::setTileCoverage(TileCoverage coverage)
 {
-    if (m_canHaveScrollbars == canHaveScrollbars)
+    if (coverage == m_tileCoverage)
         return;
 
-    m_canHaveScrollbars = canHaveScrollbars;
+    m_tileCoverage = coverage;
     scheduleTileRevalidation(0);
 }
 
@@ -276,8 +278,12 @@ void TileCache::getTileIndexRangeForRect(const IntRect& rect, TileIndex& topLeft
 
     topLeft.setX(max(clampedRect.x() / m_tileSize.width(), 0));
     topLeft.setY(max(clampedRect.y() / m_tileSize.height(), 0));
-    bottomRight.setX(max(clampedRect.maxX() / m_tileSize.width(), 0));
-    bottomRight.setY(max(clampedRect.maxY() / m_tileSize.height(), 0));
+
+    int bottomXRatio = ceil((float)clampedRect.maxX() / m_tileSize.width());
+    bottomRight.setX(max(bottomXRatio - 1, 0));
+
+    int bottomYRatio = ceil((float)clampedRect.maxY() / m_tileSize.height());
+    bottomRight.setY(max(bottomYRatio - 1, 0));
 }
 
 IntRect TileCache::tileCoverageRect() const
@@ -287,15 +293,25 @@ IntRect TileCache::tileCoverageRect() const
     // If the page is not in a window (for example if it's in a background tab), we limit the tile coverage rect to the visible rect.
     // Furthermore, if the page can't have scrollbars (for example if its body element has overflow:hidden) it's very unlikely that the
     // page will ever be scrolled so we limit the tile coverage rect as well.
-    if (m_isInWindow && m_canHaveScrollbars) {
+    if (m_isInWindow) {
         // Inflate the coverage rect so that it covers 2x of the visible width and 3x of the visible height.
         // These values were chosen because it's more common to have tall pages and to scroll vertically,
         // so we keep more tiles above and below the current area.
-        tileCoverageRect.inflateX(tileCoverageRect.width() / 2);
-        tileCoverageRect.inflateY(tileCoverageRect.height());
+        if (m_tileCoverage & CoverageForHorizontalScrolling)
+            tileCoverageRect.inflateX(tileCoverageRect.width() / 2);
+
+        if (m_tileCoverage & CoverageForVerticalScrolling)
+            tileCoverageRect.inflateY(tileCoverageRect.height());
     }
 
     return tileCoverageRect;
+}
+
+IntSize TileCache::tileSizeForCoverageRect(const IntRect& coverageRect) const
+{
+    if (m_tileCoverage == CoverageForVisibleArea)
+        return coverageRect.size();
+    return IntSize(defaultTileCacheWidth, defaultTileCacheHeight);
 }
 
 void TileCache::scheduleTileRevalidation(double interval)
@@ -324,6 +340,10 @@ void TileCache::revalidateTiles()
 
     IntRect tileCoverageRect = this->tileCoverageRect();
 
+    IntSize oldTileSize = m_tileSize;
+    m_tileSize = tileSizeForCoverageRect(tileCoverageRect);
+    bool tileSizeChanged = m_tileSize != oldTileSize;
+
     Vector<TileIndex> tilesToRemove;
 
     for (TileMap::iterator it = m_tiles.begin(), end = m_tiles.end(); it != end; ++it) {
@@ -331,7 +351,7 @@ void TileCache::revalidateTiles()
 
         WebTileLayer* tileLayer = it->second.get();
 
-        if (!rectForTileIndex(tileIndex).intersects(tileCoverageRect)) {
+        if (!rectForTileIndex(tileIndex).intersects(tileCoverageRect) || tileSizeChanged) {
             // Remove this layer.
             [tileLayer removeFromSuperlayer];
             [tileLayer setTileCache:0];

@@ -36,7 +36,7 @@
 
 /* These are the values from parsing "remote {}"
    block of the config file. */
-#define ISAKMP_FRAG_OFF		FLASE   /* = 0 */
+#define ISAKMP_FRAG_OFF		FALSE   /* = 0 */
 #define ISAKMP_FRAG_ON		TRUE    /* = 1 */
 #define ISAKMP_FRAG_FORCE	2
 

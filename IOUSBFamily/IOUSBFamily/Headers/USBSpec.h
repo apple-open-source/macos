@@ -360,6 +360,11 @@ enum {
     
 };
 
+	enum USBClassSpecificDesc {
+		kUSBClassSpecificDescriptor		= 0x24
+	};
+	
+
 /*!
 @enum	Interface Protocol
  @discussion Reported in the bInterfaceProtocol field of the Interface Descriptor.
@@ -427,12 +432,23 @@ enum {
     kUSBbEndpointDirectionBit				= 7,
     kUSBbEndpointDirectionMask				= ( 1 << kUSBbEndpointDirectionBit ),
     kUSBEndpointDirectionOut				= 0x00,
-    kUSBEndpointDirectionIn				= 0x80,
-    kUSBEndpointbmAttributesTransferTypeMask		= 0x03,
-    kUSBEndpointbmAttributesSynchronizationTypeMask	= 0x0c,
+    kUSBEndpointDirectionIn					= 0x80,
+	
+    kUSBEndpointbmAttributesTransferTypeMask			= 0x03,
+    kUSBEndpointbmAttributesSynchronizationTypeMask		= 0x0c,
     kUSBEndpointbmAttributesSynchronizationTypeShift	= 2,
-    kUSBEndpointbmAttributesUsageTypeMask		= 0x30,
-    kUSBEndpointbmAttributesUsageTypeShift		= 4
+    kUSBEndpointbmAttributesUsageTypeMask				= 0x30,
+    kUSBEndpointbmAttributesUsageTypeShift				= 4,
+	
+	kUSBPeriodicInterruptUsageType			= 0,
+	kUSBNotificationInterruptUsageType 		= 1,
+	kUSBNoSynchronizationIsocSyncType		= 0,
+	kUSBAsynchronousIsocSyncType			= 1,
+	kUSBAdaptiveIsocSyncType				= 2,
+	kUSBSynchronousIsocSyncType				= 3,
+	kUSBDataIsocUsageType					= 0,
+	kUSBFeedbackIsocUsageType				= 1,
+	kUSBImplicitFeedbackDataIsocUsageType 	= 2
 };
 
 	/*!

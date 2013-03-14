@@ -69,6 +69,7 @@
 #endif /* !NO_BOOT_ROOT */
 #include "mkext1_file.h"
 #include "compression.h"
+#include "security.h"
 
 // constants
 #define MKEXT_PERMS             (0644)
@@ -135,7 +136,7 @@ int main(int argc, char * const * argv)
             /* kernel? */ true);
         tool_openlog("com.apple.kextcache");
     }
-
+    
    /*****
     * Process args & check for permission to load.
     */
@@ -146,7 +147,7 @@ int main(int argc, char * const * argv)
         }
         goto finish;
     }
-
+    
    /*****
     * Now that we have a custom verbose level set by options,
     * check the filter kextd passed in and combine them.
@@ -840,14 +841,14 @@ ExitStatus doUpdateVolume(KextcacheArgs *toolArgs)
     int result;                         // errno-type value
     IOReturn pmres = kIOReturnError;    // init against future re-flow
     IOPMAssertionID awakeForUpdate;     // valid if pmres == 0
-    updateOpts_t opts = 0;
+    BRUpdateOpts_t opts = kBRUOptsNone;
 
-    if (toolArgs->forceUpdateFlag)  { opts |= kForceUpdateHelpers;  }
-    if (toolArgs->expectUpToDate)   { opts |= kExpectUpToDate;      }
-    if (toolArgs->cachesOnly)       { opts |= kCachesOnly;          }
+    if (toolArgs->forceUpdateFlag)  { opts |= kBRUForceUpdateHelpers;  }
+    if (toolArgs->expectUpToDate)   { opts |= kBRUExpectUpToDate;      }
+    if (toolArgs->cachesOnly)       { opts |= kBRUCachesOnly;          }
     if (toolArgs->installerCalled) {
-        opts |= kHelpersOptional;
-        opts |= kForceUpdateHelpers;
+        opts |= kBRUHelpersOptional;
+        opts |= kBRUForceUpdateHelpers;
     }
 
     // unless -F is passed, keep machine awake for for duration
@@ -2168,6 +2169,9 @@ ExitStatus filterKextsForCache(
             }
             if (!CFArrayContainsValue(kextArray, RANGE_ALL(kextArray), theKext)) {
                 CFArrayAppendValue(kextArray, theKext);
+                /* <rdar://problem/12435992> Message tracing for kext loads
+                 */
+                logMTMessage(theKext);
             }
         }
     }

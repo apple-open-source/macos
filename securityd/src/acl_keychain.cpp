@@ -84,34 +84,40 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 			mode = (mode & ~CSSM_ACL_KEYCHAIN_PROMPT_INVALID) | (flags & CSSM_ACL_KEYCHAIN_PROMPT_INVALID);
 		
 		// determine signed/validity status of client, without reference to any particular Code Requirement
-		SecCodeRef clientCode = process.currentGuest();
-		Server::active().longTermActivity();
-		OSStatus validation = clientCode ? SecCodeCheckValidity(clientCode, kSecCSDefaultFlags, NULL) : errSecCSStaticCodeNotFound;
-		switch (validation) {
-		case noErr:							// client is signed and valid
-			secdebug("kcacl", "client is valid, proceeding");
-			break;
-		case errSecCSUnsigned:				// client is not signed
-			if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED)) {
-				secdebug("kcacl", "client is unsigned, suppressing prompt");
-				return false;
-			}
-			break;
-		case errSecCSSignatureFailed:		// client signed but signature is broken
-		case errSecCSGuestInvalid:			// client signed but dynamically invalid
-		case errSecCSStaticCodeNotFound:	// client not on disk (or unreadable)
-			if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_INVALID)) {
-				secdebug("kcacl", "client is invalid, suppressing prompt");
-				Syslog::info("suppressing keychain prompt for invalidly signed client %s(%d)",
+		SecCodeRef clientCode = NULL;
+		OSStatus validation = errSecCSStaticCodeNotFound;
+		{
+			StLock<Mutex> _(process);
+			Server::active().longTermActivity();
+			clientCode = process.currentGuest();
+			if (clientCode)
+				validation = SecCodeCheckValidity(clientCode, kSecCSDefaultFlags, NULL);
+			switch (validation) {
+			case noErr:							// client is signed and valid
+				secdebug("kcacl", "client is valid, proceeding");
+				break;
+			case errSecCSUnsigned:				// client is not signed
+				if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED)) {
+					secdebug("kcacl", "client is unsigned, suppressing prompt");
+					return false;
+				}
+				break;
+			case errSecCSSignatureFailed:		// client signed but signature is broken
+			case errSecCSGuestInvalid:			// client signed but dynamically invalid
+			case errSecCSStaticCodeNotFound:	// client not on disk (or unreadable)
+				if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_INVALID)) {
+					secdebug("kcacl", "client is invalid, suppressing prompt");
+					Syslog::info("suppressing keychain prompt for invalidly signed client %s(%d)",
+						process.getPath().c_str(), process.pid());
+					return false;
+				}
+				Syslog::info("attempting keychain prompt for invalidly signed client %s(%d)",
 					process.getPath().c_str(), process.pid());
+				break;
+			default:							// something else went wrong
+				secdebug("kcacl", "client validation failed rc=%d, suppressing prompt", int32_t(validation));
 				return false;
 			}
-			Syslog::info("attempting keychain prompt for invalidly signed client %s(%d)",
-				process.getPath().c_str(), process.pid());
-			break;
-		default:							// something else went wrong
-			secdebug("kcacl", "client validation failed rc=%d, suppressing prompt", int32_t(validation));
-			return false;
 		}
 		
 		// At this point, we're committed to try to Pop The Question. Now, how?
@@ -122,6 +128,7 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 
 		// an application (i.e. Keychain Access.app :-) can force this option
 		if (clientCode && validation == noErr) {
+			StLock<Mutex> _(process);
 			CFRef<CFDictionaryRef> dict;
 			if (SecCodeCopySigningInformation(clientCode, kSecCSDefaultFlags, &dict.aref()) == noErr)
 				if (CFDictionaryRef info = CFDictionaryRef(CFDictionaryGetValue(dict, kSecCodeInfoPList)))
@@ -146,6 +153,7 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 
 			// process an "always allow..." response
 			if (query.remember && clientCode) {
+				StLock<Mutex> _(process);
 				RefPointer<OSXCode> clientXCode = new OSXCodeWrap(clientCode);
 				RefPointer<AclSubject> subject = new CodeSignatureAclSubject(OSXVerifier(clientXCode));
 				SecurityServerAcl::addToStandardACL(context, subject);

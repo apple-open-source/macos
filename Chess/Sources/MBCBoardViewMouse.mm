@@ -77,7 +77,7 @@ class MBCUnProjector : private MBCProjector {
 public:
 	MBCUnProjector(GLdouble winX, GLdouble winY);
 	
-	MBCPosition UnProject();
+	MBCPosition UnProject(MBCBoardView * view);
 	MBCPosition UnProject(GLfloat knownY);
 private:
 	GLdouble	fWinX;
@@ -108,13 +108,19 @@ MBCUnProjector::MBCUnProjector(GLdouble winX, GLdouble winY)
 {
 }
 
-MBCPosition MBCUnProjector::UnProject()
+MBCPosition MBCUnProjector::UnProject(MBCBoardView * view)
 {
 	MBCPosition	pos;
 	GLfloat		z;
 	GLdouble 	wv[3];
 
     glReadPixels((GLint)fWinX, (GLint)fWinY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &z);
+    if (z < 0.0001) {
+        if (MBCDebug::LogMouse())
+            fprintf(stderr, "Z buffer corruption, redrawing scene\n");
+        [view drawNow];
+        glReadPixels((GLint)fWinX, (GLint)fWinY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &z);
+    }
     gluUnProject(fWinX, fWinY, z, fMVMatrix, fProjMatrix, fViewport, 
 				 wv+0, wv+1, wv+2);
 
@@ -209,7 +215,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
     mouse = [self convertPointToBacking:mouse];
 	MBCUnProjector	unproj(mouse.x, mouse.y);
 	
-	return unproj.UnProject();
+	return unproj.UnProject(self);
 }
 
 - (MBCPosition) mouseToPositionIgnoringY:(NSPoint)mouse

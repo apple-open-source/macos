@@ -717,13 +717,6 @@ void DAPreferenceListRefresh( void )
              * Build the preference list.
              */
 
-            CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanTrue  );
-            CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey,  kCFBooleanFalse );
-            CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanTrue  );
-            CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanFalse );
-            CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey,  kCFBooleanTrue  );
-            CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey, kCFBooleanFalse );
-
             preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( "autodiskmount" ), CFSTR( "autodiskmount.xml" ) );
 
             if ( preferences )

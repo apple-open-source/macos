@@ -286,7 +286,11 @@ extern "C" {
 		kTPInterfaceUCChangeOutstandingIO		= 7,
 		kTPInterfaceUCReqComplete				= 8,
 		kTPInterfaceUCIsoReqComplete			= 9,
-		kTPInterfaceUCLLIsoReqComplete			= 10
+		kTPInterfaceUCLLIsoReqComplete			= 10,
+        kTPInterfaceUCReadIsochPipe             = 11,
+        kTPInterfaceUCWriteIsochPipe            = 12,
+        kTPInterfaceUCReadLLIsochPipe           = 13,
+        kTPInterfaceUCWriteLLIsochPipe          = 14,
 	};
 	
 	
@@ -678,6 +682,9 @@ extern "C" {
         kTPXHCIRead64Reg                        = 43,
         kTPXHCIWrite32Reg                       = 44,
         kTPXHCIWrite64Reg                       = 45,
+        
+        // Miscellaneous
+        kTPXHCIUIMCreateIsochTransfer           = 46
    };
 	
 	// USB XHCI Interrupt Tracepoints			

@@ -50,7 +50,7 @@ __END_DECLS
 
 #define PFM64_SIZE    (2ULL*GB)
 // NPHYSMAP
-#define PFM64_MAX     (100ULL*GB)
+// #define PFM64_MAX     (100ULL*GB)
 
 #define DLOGC(configurator, fmt, args...)                  \
     do {                                    \
@@ -308,7 +308,7 @@ bool CLASS::createRoot(void)
 	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
 	if (cpuPhysBits > 44) cpuPhysBits = 44;
 	start = (1ULL << cpuPhysBits);
-	if (start > PFM64_MAX) start = PFM64_MAX;
+//	if (start > PFM64_MAX) start = PFM64_MAX;
 
 	start -= PFM64_SIZE;
     size   = PFM64_SIZE;
@@ -1900,20 +1900,14 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
 {
     IOPCIRange *    range;
     IOPCIScalar     start, end, upper, size;
-    uint32_t        bar0, bar1;
 
     bridgeProbeBusRange(bridge, reset);
 
-    // Probe bridge BAR0 and BAR1 (is it ever implemented?)
+    // Probe bridge BAR0 and BAR1
 
-    bar0 = configRead32(bridge, kIOPCIConfigBaseAddress0);
-    bar1 = configRead32(bridge, kIOPCIConfigBaseAddress1);
-    if (bar0 || bar1)
-    {
-        safeProbeBaseAddressRegister(bridge, kIOPCIRangeBAR1, reset);
-        DLOG_RANGE("  bridge BAR0", bridge->ranges[kIOPCIRangeBAR0]);
-        DLOG_RANGE("  bridge BAR1", bridge->ranges[kIOPCIRangeBAR1]);
-    }
+	safeProbeBaseAddressRegister(bridge, kIOPCIRangeBAR1, reset);
+	DLOG_RANGE("  bridge BAR0", bridge->ranges[kIOPCIRangeBAR0]);
+	DLOG_RANGE("  bridge BAR1", bridge->ranges[kIOPCIRangeBAR1]);
 
     // Probe memory base and limit
 

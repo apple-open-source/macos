@@ -331,7 +331,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(2, "%s[%p]::Read - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+        USBLog(2, "%s[%p]::Read - ep direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
 		return kIOReturnBadArgument;
     }
     
@@ -524,7 +524,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     // Validate its a outty pipe and that we have a buffer
     if ((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "%s[%p]::Write - direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
+        USBLog(5, "%s[%p]::Write - ep direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
 		return kIOReturnBadArgument;
     }
 
@@ -708,7 +708,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 		// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
 	if ( (endpoint->direction != kUSBOut) && ( endpoint->direction != kUSBIn) )
 	{		
-		USBLog(5, "%s[%p]::IsocIO - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
+		USBLog(5, "%s[%p]::IsocIO - ep Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
 		return kIOReturnBadArgument;
 	}
 
@@ -856,7 +856,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
 	if ( (endpoint->direction != kUSBOut) && ( endpoint->direction != kUSBIn) )
 	{		
-		USBLog(1, "%s[%p]::IsocIO(LL) - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
+		USBLog(1, "%s[%p]::IsocIO(LL) - ep Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
 		USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, endpoint->direction, kIOReturnBadArgument, 6 );
 		return kIOReturnBadArgument;
 	}

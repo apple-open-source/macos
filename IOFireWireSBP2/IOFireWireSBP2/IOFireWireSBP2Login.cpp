@@ -1370,7 +1370,12 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
 	
     fLoginState = kLoginStateLoggingIn;  		// set state
 	
-	fLastORB = NULL;
+    if( fLastORB )
+    {
+        fLastORB->release();
+        fLastORB = NULL;
+    }
+
 	fLastORBAddress = FWAddress(0,0);
 	
 	// to quote sbp-2 : ... truncated login response data 
@@ -2330,7 +2335,11 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
 		// cancel timer, won't get here if its not set
 		fReconnectTimeoutCommand->cancel(kIOReturnAborted);
 
-        fLastORB = NULL;
+        if( fLastORB )
+        {
+            fLastORB->release();
+            fLastORB = NULL;
+        }
 		fLastORBAddress = FWAddress(0,0);
         fLoginState = kLoginStateConnected;
 
@@ -2710,7 +2719,11 @@ void IOFireWireSBP2Login::clearAllTasksInSet( void )
 		}
 	}
 	
-	fLastORB = NULL;
+    if( fLastORB )
+    {
+        fLastORB->release();
+        fLastORB = NULL;
+    }
 	fLastORBAddress = FWAddress(0,0);
 }
 
@@ -2945,12 +2958,19 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
     {
         if( commandFlags & kFWSBP2CommandImmediate )
         {
+            if( fLastORB )
+            {
+                fLastORB->release();
+                fLastORB = NULL;
+            }
+            
 			FWAddress orbAddress(0,0);
 			orb->getORBAddress( &orbAddress );
 			
 			fLastORBAddress.nodeID = OSSwapHostToBigInt16(orbAddress.nodeID);
 			fLastORBAddress.addressHi = OSSwapHostToBigInt16(orbAddress.addressHi);
 			fLastORBAddress.addressLo = OSSwapHostToBigInt32(orbAddress.addressLo);
+            orb->retain();
 			fLastORB = orb;
 
 			if( fFetchAgentWriteCommandInUse )
@@ -3491,6 +3511,12 @@ IOReturn IOFireWireSBP2Login::appendORB( IOFireWireSBP2ORB * orb )
     IOReturn status = kIOReturnSuccess;
     if( fLastORB != NULL && fLastORB != orb )
     {
+        if( fLastORB )
+        {
+            fLastORB->release();
+            fLastORB = NULL;
+        }
+        
 		FWAddress orb_address(0,0);
         orb->getORBAddress( &orb_address );
         setNextORBAddress( fLastORB, orb_address );
@@ -3498,6 +3524,7 @@ IOReturn IOFireWireSBP2Login::appendORB( IOFireWireSBP2ORB * orb )
 		fLastORBAddress.nodeID = OSSwapHostToBigInt16(orb_address.nodeID);
 		fLastORBAddress.addressHi = OSSwapHostToBigInt16(orb_address.addressHi);
 		fLastORBAddress.addressLo = OSSwapHostToBigInt32(orb_address.addressLo);
+        orb->retain();
         fLastORB = orb;
     }
     else

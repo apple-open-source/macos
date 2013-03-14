@@ -353,11 +353,27 @@
 		3EB33C1C1330EAF700688D55 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E9EABF80F545CE000522032 /* libutil.dylib */; };
 		3EB33C4B1330EB6A00688D55 /* renumerate.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EB33C4A1330EB6A00688D55 /* renumerate.c */; };
 		3EB33C551330EBE700688D55 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3EB33C541330EBE700688D55 /* CoreFoundation.framework */; };
+		3EC36A3715F1570E002A6780 /* IOUSBInterfaceUserClientV3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EC36A3515F1570D002A6780 /* IOUSBInterfaceUserClientV3.cpp */; };
+		3EC36A3915F15843002A6780 /* IOUSBInterfaceUserClientV3.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EC36A3315F155A9002A6780 /* IOUSBInterfaceUserClientV3.h */; };
 		3EC47B74140D96FB00A30455 /* IOUSBPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EC47B73140D96FB00A30455 /* IOUSBPriv.h */; };
 		3EC47B77140D978100A30455 /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
 		3EC47B78140D978100A30455 /* IOUSBPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EC47B73140D96FB00A30455 /* IOUSBPriv.h */; };
 		3EC6B5FD0D9221310096A601 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3EC6B5FB0D9221310096A601 /* Localizable.strings */; };
 		3ED21AC115BDFBE7001910A5 /* KLog.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8B180B5D42870029974F /* KLog.kext */; };
+		3ED3855216012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3853D16012985008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp */; };
+		3ED3855316012986008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3853E16012985008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp */; };
+		3ED3855416012986008B5CB3 /* AppleUSBXHCI_IsocQueues.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3853F16012985008B5CB3 /* AppleUSBXHCI_IsocQueues.cpp */; };
+		3ED3855516012986008B5CB3 /* AppleUSBXHCI_PwrMgmt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3854016012986008B5CB3 /* AppleUSBXHCI_PwrMgmt.cpp */; };
+		3ED3855616012986008B5CB3 /* AppleUSBXHCI_RootHub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3854116012986008B5CB3 /* AppleUSBXHCI_RootHub.cpp */; };
+		3ED3855716012986008B5CB3 /* AppleUSBXHCIUIM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3854216012986008B5CB3 /* AppleUSBXHCIUIM.cpp */; };
+		3ED3855816012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ED3854416012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.h */; };
+		3ED3855916012986008B5CB3 /* AppleUSBXHCI_Bandwidth.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ED3854516012986008B5CB3 /* AppleUSBXHCI_Bandwidth.h */; };
+		3ED3855A16012986008B5CB3 /* AppleUSBXHCI_IsocQueues.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ED3854616012986008B5CB3 /* AppleUSBXHCI_IsocQueues.h */; };
+		3ED3855B16012986008B5CB3 /* AppleUSBXHCI_RootHub.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ED3854716012986008B5CB3 /* AppleUSBXHCI_RootHub.h */; };
+		3ED3855C16012986008B5CB3 /* AppleUSBXHCIUIM.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ED3854816012986008B5CB3 /* AppleUSBXHCIUIM.h */; };
+		3ED3855D16012986008B5CB3 /* XHCI.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ED3854916012986008B5CB3 /* XHCI.h */; };
+		3ED3855F16012986008B5CB3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3ED3854D16012986008B5CB3 /* InfoPlist.strings */; };
+		3EE8224B16013050001F9A03 /* AppleUSBXHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EBFD16A1601264400B85B43 /* AppleUSBXHCI.kext */; };
 		3EEFE80A14D7A2ED007E8A42 /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
 		3EF4FF9D0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */; };
 		3EFE2F1B0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */; };
@@ -532,6 +548,13 @@
 			remoteGlobalIDString = 3EAF8ABB0B5D42870029974F;
 			remoteInfo = "IOUSBCompositeDriver (Upgraded)";
 		};
+		3ED3853616012951008B5CB3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3EBFD14A1601264400B85B43;
+			remoteInfo = AppleUSBXHCI;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -574,6 +597,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				3EE8224B16013050001F9A03 /* AppleUSBXHCI.kext in CopyFiles */,
 				3EAF8B930B5D42870029974F /* AppleUSBMergeNub.kext in CopyFiles */,
 				3EAF8B940B5D42870029974F /* IOUSBHIDDriverSafeBoot.kext in CopyFiles */,
 				3EAF8B950B5D42870029974F /* IOUSBHIDDriver.kext in CopyFiles */,
@@ -784,6 +808,9 @@
 		3EB4E83213280578000DD9C1 /* DecodeBOSDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DecodeBOSDescriptor.h; path = USBProberV2/DecodeBOSDescriptor.h; sourceTree = "<group>"; };
 		3EB4E83313280578000DD9C1 /* DecodeBOSDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DecodeBOSDescriptor.m; path = USBProberV2/DecodeBOSDescriptor.m; sourceTree = "<group>"; };
 		3EB871C4041D183100000164 /* IOUSBAppleIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBAppleIDs.h; path = IOUSBFamily/Headers/IOUSBAppleIDs.h; sourceTree = "<group>"; };
+		3EBFD16A1601264400B85B43 /* AppleUSBXHCI.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBXHCI.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		3EC36A3315F155A9002A6780 /* IOUSBInterfaceUserClientV3.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOUSBInterfaceUserClientV3.h; path = IOUSBUserClient/Headers/IOUSBInterfaceUserClientV3.h; sourceTree = "<group>"; };
+		3EC36A3515F1570D002A6780 /* IOUSBInterfaceUserClientV3.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBInterfaceUserClientV3.cpp; path = IOUSBUserClient/Classes/IOUSBInterfaceUserClientV3.cpp; sourceTree = "<group>"; };
 		3EC47B62140D5D4800A30455 /* ExtensionSelector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ExtensionSelector.h; path = USBProberV2/ExtensionSelector.h; sourceTree = "<group>"; };
 		3EC47B63140D5D4800A30455 /* ExtensionSelector.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = ExtensionSelector.m; path = USBProberV2/ExtensionSelector.m; sourceTree = "<group>"; };
 		3EC47B73140D96FB00A30455 /* IOUSBPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBPriv.h; path = IOUSBFamily/Headers/IOUSBPriv.h; sourceTree = "<group>"; };
@@ -850,6 +877,20 @@
 		3ECD852104F3CB07003312CD /* USBLoggerController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = USBLoggerController.m; path = USBProberV2/USBLoggerController.m; sourceTree = "<group>"; };
 		3ECD852304F3CB07003312CD /* USBProberIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = USBProberIcon.icns; path = USBProberV2/USBProberIcon.icns; sourceTree = "<group>"; };
 		3ECD852404F3CB07003312CD /* USBVendors.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = USBVendors.txt; path = USBProberV2/USBVendors.txt; sourceTree = "<group>"; };
+		3ED3853D16012985008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_AsyncQueues.cpp; sourceTree = "<group>"; };
+		3ED3853E16012985008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_Bandwidth.cpp; sourceTree = "<group>"; };
+		3ED3853F16012985008B5CB3 /* AppleUSBXHCI_IsocQueues.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_IsocQueues.cpp; sourceTree = "<group>"; };
+		3ED3854016012986008B5CB3 /* AppleUSBXHCI_PwrMgmt.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_PwrMgmt.cpp; sourceTree = "<group>"; };
+		3ED3854116012986008B5CB3 /* AppleUSBXHCI_RootHub.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_RootHub.cpp; sourceTree = "<group>"; };
+		3ED3854216012986008B5CB3 /* AppleUSBXHCIUIM.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCIUIM.cpp; sourceTree = "<group>"; };
+		3ED3854416012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBXHCI_AsyncQueues.h; sourceTree = "<group>"; };
+		3ED3854516012986008B5CB3 /* AppleUSBXHCI_Bandwidth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBXHCI_Bandwidth.h; sourceTree = "<group>"; };
+		3ED3854616012986008B5CB3 /* AppleUSBXHCI_IsocQueues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBXHCI_IsocQueues.h; sourceTree = "<group>"; };
+		3ED3854716012986008B5CB3 /* AppleUSBXHCI_RootHub.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBXHCI_RootHub.h; sourceTree = "<group>"; };
+		3ED3854816012986008B5CB3 /* AppleUSBXHCIUIM.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUSBXHCIUIM.h; sourceTree = "<group>"; };
+		3ED3854916012986008B5CB3 /* XHCI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XHCI.h; sourceTree = "<group>"; };
+		3ED3854E16012986008B5CB3 /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		3ED38569160129DD008B5CB3 /* AppleUSBXHCI.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppleUSBXHCI.plist; path = AppleUSBXHCI/AppleUSBXHCI.plist; sourceTree = "<group>"; };
 		3ED3F24504F3CC01001BF1E8 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = USBProberV2/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		3ED3F24904F3CC01001BF1E8 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = USBProberV2/English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		3ED3F24D04F3CC1A001BF1E8 /* Info/Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info/Info.plist; path = USBProberV2/Info.plist; sourceTree = "<group>"; };
@@ -891,11 +932,8 @@
 		DDBF20220BA0A01B007CE86C /* IOUSBControllerV3.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBControllerV3.cpp; path = IOUSBFamily/Classes/IOUSBControllerV3.cpp; sourceTree = "<group>"; };
 		DDEF074C0928F77C00645C8D /* AppleUHCIListElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = AppleUHCIListElement.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		DDEF07530928F7A500645C8D /* AppleUHCIListElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleUHCIListElement.h; sourceTree = "<group>"; };
-		F5008DF602A6832401000164 /* Deva Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Deva Example"; sourceTree = "<group>"; };
-		F5008E1002A6833601000164 /* Ezloader Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Ezloader Example"; sourceTree = "<group>"; };
 		F505B9C8012177F501573190 /* IOUSBWorkLoop.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBWorkLoop.cpp; path = IOUSBFamily/Classes/IOUSBWorkLoop.cpp; sourceTree = "<group>"; };
 		F505B9C9012177F501573190 /* IOUSBWorkLoop.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOUSBWorkLoop.h; path = IOUSBFamily/Headers/IOUSBWorkLoop.h; sourceTree = "<group>"; };
-		F517150D022D3AE7010162FA /* Another USB Notification Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Another USB Notification Example"; sourceTree = "<group>"; };
 		F5395F94016D5A6B01573190 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = AppleUSBMergeNub/Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F5395F9D016D5BB001573190 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = IOUSBHIDDriver/Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F5395FA0016D5C0A01573190 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = IOUSBUserClient/Strings/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -929,15 +967,6 @@
 		F5BCFC9B04583E9E01000109 /* AppleUSBEHCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI.cpp; sourceTree = "<group>"; };
 		F5BCFC9C04583E9E01000109 /* AppleUSBEHCIHubInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCIHubInfo.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCIHubInfo.cpp; sourceTree = "<group>"; };
 		F5C2AE73032E5BA501000164 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		F5E6DE0001206E6801000001 /* Contents (Kernel).rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "Contents (Kernel).rtf"; sourceTree = "<group>"; };
-		F5E6DE0101206E6801000001 /* Contents (User Space).rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "Contents (User Space).rtf"; sourceTree = "<group>"; };
-		F5E6DE2501206FCF01000001 /* AnchorUSB Driver */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "AnchorUSB Driver"; sourceTree = "<group>"; };
-		F5E6DE2601206FCF01000001 /* ClassicNotSeize Driver */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "ClassicNotSeize Driver"; sourceTree = "<group>"; };
-		F5E6DE2701206FCF01000001 /* VendorSpecific Driver */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "VendorSpecific Driver"; sourceTree = "<group>"; };
-		F5E6DE2801206FCF01000001 /* USBNotification Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "USBNotification Example"; sourceTree = "<group>"; };
-		F5E6DE2901206FCF01000001 /* USBSimple Example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "USBSimple Example"; sourceTree = "<group>"; };
-		F5F1995001209AE401000001 /* IOUSBLib */ = {isa = PBXFileReference; lastKnownFileType = text.html.documentation; name = IOUSBLib; path = Documentation/IOUSBLib; sourceTree = "<group>"; };
-		F5F640C801491E5C01016235 /* Classic USB Device Arbitration.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = "Classic USB Device Arbitration.rtf"; path = "Examples/Classic USB Device Arbitration.rtf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1066,6 +1095,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3EBFD1641601264400B85B43 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -1107,9 +1143,9 @@
 		01840EB5FFB9FB147F000001 /* IOUSBFamily */ = {
 			isa = PBXGroup;
 			children = (
-				01840EB8FFB9FB147F000001 /* Classes */,
-				01840EB7FFB9FB147F000001 /* Public Headers */,
 				3E2D4C82145EFA8700FA8FEF /* Private Headers */,
+				01840EB7FFB9FB147F000001 /* Public Headers */,
+				01840EB8FFB9FB147F000001 /* Classes */,
 				F5D0F2AF016D294801573190 /* Strings */,
 			);
 			name = IOUSBFamily;
@@ -1216,6 +1252,7 @@
 				015935ABFFB89EA67F000001 /* IOUSBUserClientInit.cpp */,
 				029D485FFFC987587F000001 /* IOUSBDeviceUserClient.cpp */,
 				3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */,
+				3EC36A3515F1570D002A6780 /* IOUSBInterfaceUserClientV3.cpp */,
 			);
 			name = Classes;
 			sourceTree = "<group>";
@@ -1226,6 +1263,7 @@
 				01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */,
 				029D485DFFC9866C7F000001 /* IOUSBDeviceUserClient.h */,
 				3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */,
+				3EC36A3315F155A9002A6780 /* IOUSBInterfaceUserClientV3.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -1264,25 +1302,24 @@
 		089C166AFE841209C02AAC07 /* IOUSBFamily */ = {
 			isa = PBXGroup;
 			children = (
-				01CBCF84007BC6867F000001 /* AppleUSBHub */,
-				19580DDCFFBCAF317F000001 /* AppleUSBMergeNub */,
+				01840EB5FFB9FB147F000001 /* IOUSBFamily */,
+				3ED3853816012985008B5CB3 /* AppleUSBXHCI */,
 				F581406C04575F6D01000109 /* AppleUSBEHCI */,
 				0179BA73FFBA2D8A7F000001 /* AppleUSBOHCI */,
 				3E09D3D705F7EC440034E661 /* AppleUSBUHCI */,
-				3E32CCDD0DBE5E4D001DF6AF /* AppleUSBiPod */,
-				F5430C660210912501573190 /* AppleUSBOpticalMouse */,
-				01840EB5FFB9FB147F000001 /* IOUSBFamily */,
+				01CBCF84007BC6867F000001 /* AppleUSBHub */,
 				3E1BE2A5064C0A9B0051240E /* IOUSBCompositeDriver */,
 				19580DBBFFBCA3ED7F000001 /* IOUSBHIDDriver */,
-				0319826DFFB38CF77F000001 /* IOUSBLib */,
 				01E71ED9FFB873957F000001 /* IOUSBUserClient */,
+				0319826DFFB38CF77F000001 /* IOUSBLib */,
+				F5430C660210912501573190 /* AppleUSBOpticalMouse */,
+				19580DDCFFBCAF317F000001 /* AppleUSBMergeNub */,
+				3E32CCDD0DBE5E4D001DF6AF /* AppleUSBiPod */,
 				3EC65AF404F3C9B8003F7360 /* USB Prober */,
 				3E033F6804F5D8C200AA223D /* KLog */,
 				3E61A7DC0B5D97AB0001A217 /* Plists */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				3E9D8265033AC7C000000164 /* Frameworks */,
-				F5E6DDDD01206E6801000001 /* Examples */,
-				F5F1994F01209AE401000001 /* Documentation */,
 			);
 			name = IOUSBFamily;
 			sourceTree = "<group>";
@@ -1377,6 +1414,7 @@
 				3EB33C211330EAF700688D55 /* reenumerate */,
 				3E99F076152B66F900F97A0C /* IOUSBLib.bundle */,
 				3E99F0D6152B6A1D00F97A0C /* USB Prober.app */,
+				3EBFD16A1601264400B85B43 /* AppleUSBXHCI.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1519,10 +1557,11 @@
 				3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */,
 				3EAF8A010B5D42860029974F /* IOUSBFamily.plist */,
 				3EAF8A900B5D42860029974F /* AppleUSBHub.plist */,
-				3EAF8AAA0B5D42860029974F /* AppleUSBMergeNub.plist */,
+				3ED38569160129DD008B5CB3 /* AppleUSBXHCI.plist */,
 				3EAF8A620B5D42860029974F /* AppleUSBEHCI.plist */,
 				3EAF8A400B5D42860029974F /* AppleUSBOHCI.plist */,
 				3EAF8A7E0B5D42860029974F /* AppleUSBUHCI.plist */,
+				3EAF8AAA0B5D42860029974F /* AppleUSBMergeNub.plist */,
 				3EAF8AB90B5D42870029974F /* AppleUSBOpticalMouse.plist */,
 				3EAF8AC70B5D42870029974F /* IOUSBCompositeDriver.plist */,
 				3EAF8A9C0B5D42860029974F /* IOUSBHIDDriverSafeBoot.plist */,
@@ -1730,6 +1769,50 @@
 			name = "Other Frameworks";
 			sourceTree = "<group>";
 		};
+		3ED3853816012985008B5CB3 /* AppleUSBXHCI */ = {
+			isa = PBXGroup;
+			children = (
+				3ED3854316012986008B5CB3 /* Headers */,
+				3ED3853C16012985008B5CB3 /* Classes */,
+				3ED3854C16012986008B5CB3 /* Strings */,
+			);
+			path = AppleUSBXHCI;
+			sourceTree = "<group>";
+		};
+		3ED3853C16012985008B5CB3 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				3ED3853D16012985008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp */,
+				3ED3853E16012985008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp */,
+				3ED3853F16012985008B5CB3 /* AppleUSBXHCI_IsocQueues.cpp */,
+				3ED3854016012986008B5CB3 /* AppleUSBXHCI_PwrMgmt.cpp */,
+				3ED3854116012986008B5CB3 /* AppleUSBXHCI_RootHub.cpp */,
+				3ED3854216012986008B5CB3 /* AppleUSBXHCIUIM.cpp */,
+			);
+			path = Classes;
+			sourceTree = "<group>";
+		};
+		3ED3854316012986008B5CB3 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				3ED3854416012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.h */,
+				3ED3854516012986008B5CB3 /* AppleUSBXHCI_Bandwidth.h */,
+				3ED3854616012986008B5CB3 /* AppleUSBXHCI_IsocQueues.h */,
+				3ED3854716012986008B5CB3 /* AppleUSBXHCI_RootHub.h */,
+				3ED3854816012986008B5CB3 /* AppleUSBXHCIUIM.h */,
+				3ED3854916012986008B5CB3 /* XHCI.h */,
+			);
+			path = Headers;
+			sourceTree = "<group>";
+		};
+		3ED3854C16012986008B5CB3 /* Strings */ = {
+			isa = PBXGroup;
+			children = (
+				3ED3854D16012986008B5CB3 /* InfoPlist.strings */,
+			);
+			path = Strings;
+			sourceTree = "<group>";
+		};
 		84AED1CB127788C700751A4A /* Port Status */ = {
 			isa = PBXGroup;
 			children = (
@@ -1853,32 +1936,6 @@
 				F5395FA6016D5C9E01573190 /* InfoPlist.strings */,
 			);
 			name = Strings;
-			sourceTree = "<group>";
-		};
-		F5E6DDDD01206E6801000001 /* Examples */ = {
-			isa = PBXGroup;
-			children = (
-				F5E6DE0001206E6801000001 /* Contents (Kernel).rtf */,
-				F5E6DE0101206E6801000001 /* Contents (User Space).rtf */,
-				F5E6DE2501206FCF01000001 /* AnchorUSB Driver */,
-				F5E6DE2601206FCF01000001 /* ClassicNotSeize Driver */,
-				F5E6DE2701206FCF01000001 /* VendorSpecific Driver */,
-				F5E6DE2801206FCF01000001 /* USBNotification Example */,
-				F5E6DE2901206FCF01000001 /* USBSimple Example */,
-				F517150D022D3AE7010162FA /* Another USB Notification Example */,
-				F5008DF602A6832401000164 /* Deva Example */,
-				F5008E1002A6833601000164 /* Ezloader Example */,
-			);
-			path = Examples;
-			sourceTree = "<group>";
-		};
-		F5F1994F01209AE401000001 /* Documentation */ = {
-			isa = PBXGroup;
-			children = (
-				F5F1995001209AE401000001 /* IOUSBLib */,
-				F5F640C801491E5C01016235 /* Classic USB Device Arbitration.rtf */,
-			);
-			name = Documentation;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2072,6 +2129,7 @@
 				3E3DBCAC0BC20CCB00880659 /* IOUSBUserClient.h in Headers */,
 				3E59D45B0BC21125005E86B1 /* IOUSBDeviceUserClient.h in Headers */,
 				3E59D45C0BC2112B005E86B1 /* IOUSBInterfaceUserClient.h in Headers */,
+				3EC36A3915F15843002A6780 /* IOUSBInterfaceUserClientV3.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2091,6 +2149,19 @@
 			files = (
 				3EAF8B0A0B5D42870029974F /* KLog.h in Headers */,
 				3EAF8B0B0B5D42870029974F /* KLogClient.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EBFD14B1601264400B85B43 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3ED3855816012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.h in Headers */,
+				3ED3855916012986008B5CB3 /* AppleUSBXHCI_Bandwidth.h in Headers */,
+				3ED3855A16012986008B5CB3 /* AppleUSBXHCI_IsocQueues.h in Headers */,
+				3ED3855B16012986008B5CB3 /* AppleUSBXHCI_RootHub.h in Headers */,
+				3ED3855C16012986008B5CB3 /* AppleUSBXHCIUIM.h in Headers */,
+				3ED3855D16012986008B5CB3 /* XHCI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2167,10 +2238,11 @@
 			buildRules = (
 			);
 			dependencies = (
-				3EAF8B870B5D42870029974F /* PBXTargetDependency */,
+				3ED3853716012951008B5CB3 /* PBXTargetDependency */,
 				3EAF8B7F0B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B810B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B830B5D42870029974F /* PBXTargetDependency */,
+				3EAF8B870B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B7D0B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B8B0B5D42870029974F /* PBXTargetDependency */,
 				3EAF8B770B5D42870029974F /* PBXTargetDependency */,
@@ -2448,13 +2520,33 @@
 			productReference = 3EB33C211330EAF700688D55 /* reenumerate */;
 			productType = "com.apple.product-type.tool";
 		};
+		3EBFD14A1601264400B85B43 /* AppleUSBXHCI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3EBFD1661601264400B85B43 /* Build configuration list for PBXNativeTarget "AppleUSBXHCI" */;
+			buildPhases = (
+				3EBFD14B1601264400B85B43 /* Headers */,
+				3EBFD1551601264400B85B43 /* Resources */,
+				3EBFD1571601264400B85B43 /* Sources */,
+				3EBFD1641601264400B85B43 /* Frameworks */,
+				3EBFD1651601264400B85B43 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleUSBXHCI;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleUSBEHCI;
+			productReference = 3EBFD16A1601264400B85B43 /* AppleUSBXHCI.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0450;
 			};
 			buildConfigurationList = DDDEF9CB08886330003A7655 /* Build configuration list for PBXProject "IOUSBFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -2482,16 +2574,17 @@
 				301DB0920EF8920B009BF777 /* usbtracer_standalone */,
 				3EB33C171330EAF700688D55 /* reenumerate_standalone */,
 				3E99F0E4152B6C5800F97A0C /* --- convenience --- */,
-				3EAF8A2A0B5D42860029974F /* AppleUSBOHCI */,
+				3EBFD14A1601264400B85B43 /* AppleUSBXHCI */,
 				3EAF8A420B5D42860029974F /* AppleUSBEHCI */,
+				3EAF8A2A0B5D42860029974F /* AppleUSBOHCI */,
 				3EAF8A640B5D42860029974F /* AppleUSBUHCI */,
 				3EAF8A800B5D42860029974F /* AppleUSBHub */,
-				3EAF8A920B5D42860029974F /* IOUSBHIDDriverSafeBoot */,
+				3EAF8AC90B5D42870029974F /* IOUSBHIDDriver */,
+				3EAF8ABB0B5D42870029974F /* IOUSBCompositeDriver */,
+				3EAF8AD70B5D42870029974F /* IOUSBUserClient */,
 				3EAF8A9E0B5D42860029974F /* AppleUSBMergeNub */,
 				3EAF8AAC0B5D42860029974F /* AppleUSBOpticalMouse */,
-				3EAF8ABB0B5D42870029974F /* IOUSBCompositeDriver */,
-				3EAF8AC90B5D42870029974F /* IOUSBHIDDriver */,
-				3EAF8AD70B5D42870029974F /* IOUSBUserClient */,
+				3EAF8A920B5D42860029974F /* IOUSBHIDDriverSafeBoot */,
 				3EAF8B070B5D42870029974F /* KLog */,
 				3E99F0EA152B6EA600F97A0C /* USB Prober App */,
 				3E99F106152B6FE700F97A0C /* IOUSBLib */,
@@ -2629,6 +2722,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3EBFD1551601264400B85B43 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3ED3855F16012986008B5CB3 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
@@ -2661,6 +2762,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3EAF8AF60B5D42870029974F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EBFD1651601264400B85B43 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -2830,6 +2938,7 @@
 				3E3AC40F0BC2131B008EECB7 /* IOUSBDeviceUserClient.cpp in Sources */,
 				4C16586A103B1CF50066E9B0 /* AppleUSBEHCIDiagnostics.cpp in Sources */,
 				3E9369FA13D09197000D10CF /* IOUSBPipeV2.cpp in Sources */,
+				3EC36A3715F1570E002A6780 /* IOUSBInterfaceUserClientV3.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2967,6 +3076,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3EBFD1571601264400B85B43 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3ED3855216012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp in Sources */,
+				3ED3855316012986008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp in Sources */,
+				3ED3855416012986008B5CB3 /* AppleUSBXHCI_IsocQueues.cpp in Sources */,
+				3ED3855516012986008B5CB3 /* AppleUSBXHCI_PwrMgmt.cpp in Sources */,
+				3ED3855616012986008B5CB3 /* AppleUSBXHCI_RootHub.cpp in Sources */,
+				3ED3855716012986008B5CB3 /* AppleUSBXHCIUIM.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -3085,6 +3207,11 @@
 			target = 3EAF8ABB0B5D42870029974F /* IOUSBCompositeDriver */;
 			targetProxy = 3EAF8B8A0B5D42870029974F /* PBXContainerItemProxy */;
 		};
+		3ED3853716012951008B5CB3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3EBFD14A1601264400B85B43 /* AppleUSBXHCI */;
+			targetProxy = 3ED3853616012951008B5CB3 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -3150,6 +3277,14 @@
 				3EC6B5FC0D9221310096A601 /* English */,
 			);
 			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		3ED3854D16012986008B5CB3 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3ED3854E16012986008B5CB3 /* English */,
+			);
+			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 		3ED3F24404F3CC01001BF1E8 /* InfoPlist.strings */ = {
@@ -5198,6 +5333,120 @@
 			};
 			name = kprintf;
 		};
+		3EBFD1671601264400B85B43 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = AppleUSBXHCI/AppleUSBXHCI.plist;
+				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBXHCI;
+				MODULE_VERSION = 0.0.0;
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-unused",
+				);
+				PRODUCT_NAME = AppleUSBXHCI;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3EBFD1681601264400B85B43 /* Logging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = AppleUSBXHCI/AppleUSBXHCI.plist;
+				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBXHCI;
+				MODULE_VERSION = 0.0.0;
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-unused",
+				);
+				PRODUCT_NAME = AppleUSBXHCI;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Logging;
+		};
+		3EBFD1691601264400B85B43 /* kprintf */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"XHCI_USE_KPRINTF=6",
+					"APPLEXHCIROOTHUB_USE_KPRINTF=6",
+					"DEBUG_LEVEL=3",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = AppleUSBXHCI/AppleUSBXHCI.plist;
+				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBXHCI;
+				MODULE_VERSION = 0.0.0;
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-unused",
+				);
+				PRODUCT_NAME = AppleUSBXHCI;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = kprintf;
+		};
 		DDDEF9CC08886330003A7655 /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -5464,6 +5713,16 @@
 				3EB33C1E1330EAF700688D55 /* Deployment */,
 				3EB33C1F1330EAF700688D55 /* Logging */,
 				3EB33C201330EAF700688D55 /* kprintf */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		3EBFD1661601264400B85B43 /* Build configuration list for PBXNativeTarget "AppleUSBXHCI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EBFD1671601264400B85B43 /* Deployment */,
+				3EBFD1681601264400B85B43 /* Logging */,
+				3EBFD1691601264400B85B43 /* kprintf */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

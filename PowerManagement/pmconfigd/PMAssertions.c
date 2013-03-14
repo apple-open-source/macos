@@ -151,6 +151,7 @@ static void                         processInfoCreate(pid_t p, dispatch_source_t
 static bool                         processInfoRetain(pid_t p);
 static void                         processInfoRelease(pid_t p);
 static void                         sendActivityTickle ();
+static void                         setClamshellSleepState(int clamshellSleepState);
 
 
 // globals
@@ -389,6 +390,29 @@ kern_return_t _io_pm_assertion_copy_details
     return KERN_SUCCESS;
 }
 
+// Changes clamshell sleep state
+// 1 - disabled, 0 - enabled
+static void setClamshellSleepState(int clamshellSleepState)
+{
+    io_connect_t        connect = IO_OBJECT_NULL;
+    const uint64_t      in = (uint64_t)clamshellSleepState;
+    static int          prevState = -1;
+
+    if ( prevState == clamshellSleepState) return;
+    prevState = clamshellSleepState;
+
+    if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL)
+       return;
+
+
+    IOConnectCallMethod(connect, kPMSetClamshellSleepState, 
+                    &in, 1, 
+                    NULL, 0, NULL, 
+                    NULL, NULL, NULL);
+    return;
+}
+
+
 static void sendActivityTickle ()
 {
     io_service_t                rootDomainService = IO_OBJECT_NULL;
@@ -410,7 +434,7 @@ static void sendActivityTickle ()
     if (KERN_SUCCESS != kr) {
         goto exit;    
     }
-    
+
     ret = IOConnectCallMethod(gRootDomainConnect, kPMActivityTickle, 
                     NULL, 0, 
                     NULL, 0, NULL, 
@@ -1517,8 +1541,11 @@ void delayDisplayTurnOff( )
    static IOPMAssertionID    id = kIOPMNullAssertionID; 
    CFMutableDictionaryRef    dict = NULL;
 
-   delay = gDisplaySleepTimer > kPMMaxDisplayTurnOffDelay ?
-        kPMMaxDisplayTurnOffDelay : gDisplaySleepTimer;
+   if (gDisplaySleepTimer)
+      delay = gDisplaySleepTimer > kPMMaxDisplayTurnOffDelay ?
+           kPMMaxDisplayTurnOffDelay : gDisplaySleepTimer;
+   else 
+      delay = kPMMaxDisplayTurnOffDelay;
 
    delay *= 60;
 
@@ -1638,7 +1665,7 @@ static void processInfoRelease(pid_t p)
         proc = (ProcessInfoStruct *)CFDataGetBytePtr(tmpData);
 
         dispatch_release(proc->disp_src);
-        CFRelease(proc->name);
+        if (proc->name) CFRelease(proc->name);
         CFDictionaryRemoveValue(gProcessDict, (const void *)p);
     }
     else {
@@ -1795,6 +1822,8 @@ void insertActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
             (assertion->state & kAssertionStateValidOnBatt) )
             assertType->validOnBattCount++;
 
+    if (assertion->state & kAssertionLidStateModifier)
+       assertType->lidSleepCount++;
 }
 
 void removeActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
@@ -1803,6 +1832,9 @@ void removeActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
 
     if ( (assertion->state & kAssertionStateValidOnBatt) && assertType->validOnBattCount)
             assertType->validOnBattCount--;
+
+    if ( (assertion->state & kAssertionLidStateModifier) && assertType->lidSleepCount)
+       assertType->lidSleepCount--;
 }
 
 
@@ -1879,6 +1911,8 @@ void handleAssertionTimeout(assertionType_t *assertType)
         if ( (assertion->state & kAssertionStateValidOnBatt) && assertType->validOnBattCount)
                 assertType->validOnBattCount--;
 
+        if ( (assertion->state & kAssertionLidStateModifier) && assertType->lidSleepCount)
+                assertType->lidSleepCount--;
 
         if ((dateNow = CFDateCreate(0, CFAbsoluteTimeGetCurrent()))) {
             CFDictionarySetValue(assertion->props, kIOPMAssertionTimedOutDateKey, dateNow);            
@@ -1939,6 +1973,9 @@ void removeTimedAssertion(assertion_t *assertion, assertionType_t *assertType)
 
     if ( (assertion->state & kAssertionStateValidOnBatt) && assertType->validOnBattCount)
             assertType->validOnBattCount--;
+
+    if ( (assertion->state & kAssertionLidStateModifier) && assertType->lidSleepCount)
+            assertType->lidSleepCount--;
 
     if (adjustTimer) resetAssertionTimer(assertType);
 
@@ -2010,7 +2047,10 @@ void insertTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
     if ( (assertType->flags & kAssertionTypeNotValidOnBatt) &&
             (assertion->state & kAssertionStateValidOnBatt) )
             assertType->validOnBattCount++;
-    /* 
+
+    if (assertion->state & kAssertionLidStateModifier)
+            assertType->lidSleepCount++;
+    /*  
      * If this assertion is not the one with earliest timeout,
      * there is nothing to do.
      */
@@ -2211,6 +2251,20 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
         }
 
     }
+    else if ( (assertion->kassert == kDeclareUserActivity) && CFEqual(key, kIOPMAssertionAppliesOnLidClose)) {
+        if (!isA_CFBoolean(value)) return;
+        assertType = &gAssertionTypes[kDeclareUserActivity];
+        if ((value == kCFBooleanTrue) && !(assertion->state & kAssertionLidStateModifier)) {
+            assertType->lidSleepCount++;
+            assertion->state |= kAssertionLidStateModifier;
+            assertion->mods |= kAssertionModLidState;
+        }
+        else if((value == kCFBooleanFalse) && (assertion->state & kAssertionLidStateModifier)) {
+            if (assertType->lidSleepCount) assertType->lidSleepCount--;
+            assertion->state &= ~kAssertionLidStateModifier;
+            assertion->mods |= kAssertionModLidState;
+        }
+    }
     else if (CFEqual(key, kIOPMAssertionTypeKey)) {
         idx = getAssertionTypeIndex(value);
         if ( (idx < 0) || (idx == assertion->kassert) )return;
@@ -2318,6 +2372,16 @@ static IOReturn doSetProperties(pid_t pid,
             (assertType->handler) )
     {
         if (assertion->state & kAssertionStateValidOnBatt)
+            (*assertType->handler)(assertType, kAssertionOpRaise);
+        else
+            (*assertType->handler)(assertType, kAssertionOpRelease);
+
+    }
+
+    if ( (assertion->mods & kAssertionModLidState) &&
+            (assertType->handler) )
+    {
+        if (assertion->state & kAssertionLidStateModifier)
             (*assertType->handler)(assertType, kAssertionOpRaise);
         else
             (*assertType->handler)(assertType, kAssertionOpRelease);
@@ -2604,8 +2668,11 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
     updateAggregates(assertType, activesForTheType);
 
     if (op == kAssertionOpRaise)  {
-        if ((assertType->kassert == kDeclareUserActivity) && activesForTheType)
+
+        if ((assertType->kassert == kDeclareUserActivity) && activesForTheType) {
+           if (assertType->lidSleepCount) setClamshellSleepState(1);
             sendActivityTickle();
+        }
 
         /*
          * If server-mode power assertion is being raised anew, then we need
@@ -2624,6 +2691,8 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
 
     }
     else if (op == kAssertionOpRelease)  {
+        if ((assertType->kassert == kDeclareUserActivity) && (assertType->lidSleepCount == 0)) 
+           setClamshellSleepState(0);
 
         /*
          * If this assertionType is not raised with kernel
@@ -2846,6 +2915,14 @@ static IOReturn raiseAssertion(assertion_t *assertion)
         val = CFDictionaryGetValue(assertion->props, kIOPMAssertionAppliesToLimitedPowerKey);
         if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
             assertion->state |= kAssertionStateValidOnBatt;
+        }
+    }
+
+    if (assertion->kassert == kDeclareUserActivity) {
+        CFBooleanRef    val = NULL;
+        val = CFDictionaryGetValue(assertion->props, kIOPMAssertionAppliesOnLidClose);
+        if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
+            assertion->state |= kAssertionLidStateModifier;
         }
     }
 

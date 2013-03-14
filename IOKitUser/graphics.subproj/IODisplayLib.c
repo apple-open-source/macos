@@ -2500,18 +2500,45 @@ InstallCEA861EXTColor( IOFBConnectRef connectRef, EDID * edid __unused, CEA861EX
                 // HDMI Vendor Specific Data Block (HDMI 1.3a, p.119)
                 case 0x60:
                 {
-                    DEBG( connectRef, "Found HDMI VSDB: offset=%d\n", (int) (index + 4) );
+					if (length < 4) break;
+
+					if (connectRef->displayAttributes)
+					{
+						CFMutableDataRef data;
+						CFStringRef key;
+						char name[strlen("IODisplayVSDB") + 10];
+						sprintf(name, "IODisplayVSDB%02X%02X%02X", 
+								ext->data[index+1], ext->data[index+2], ext->data[index+3]);
+						key = CFStringCreateWithCString(kCFAllocatorDefault, name,
+														kCFStringEncodingMacRoman);
+						if (key)
+						{
+							data = (CFMutableDataRef) CFDictionaryGetValue(connectRef->displayAttributes, key);
+							if (!data)
+							{
+								data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+								if (data)
+								{
+									CFDictionarySetValue(connectRef->displayAttributes, key, data);
+									CFRelease(data);
+								}
+							}
+							if (data) CFDataAppendBytes(data, &ext->data[index + 4], length - 4);
+							CFRelease(key);
+						}
+					}
+                    DEBG( connectRef, "Found 24-bit IEEE Registration Identifier (0x%02x%02x%02x)\n", 
+                            ext->data[index+3], ext->data[index+2], ext->data[index+1] );
+
                     if ((ext->data[index+1] != 0x03) 
                       || (ext->data[index+2] != 0x0C)
                       || (ext->data[index+3] != 0x00))
                         break;
 
-                    DEBG( connectRef, "Found 24-bit IEEE Registration Identifier (0x%02x%02x%02x)\n", 
-                            ext->data[index+3], ext->data[index+2], ext->data[index+1] );
+                    DEBG( connectRef, "Found HDMI VSDB: offset=%d\n", (int) (index + 4) );
                     connectRef->hasHDMI = true;
 
-                    if (length < 7)
-                        break;
+                    if (length < 7) break;
 
                     uint32_t depths;
                     uint8_t byte;
@@ -2684,6 +2711,11 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     connectRef->hasShortVideoDescriptors = false;
     connectRef->numGTFCurves         = 1;
     bcopy(&defaultGTFCurves, &connectRef->gtfCurves, sizeof(connectRef->gtfCurves));
+
+	if (connectRef->displayAttributes) CFRelease(connectRef->displayAttributes);
+	connectRef->displayAttributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+													&kCFTypeDictionaryKeyCallBacks,
+													&kCFTypeDictionaryValueCallBacks);
 
     // defaults for no DIEXT
     if (CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
@@ -3027,6 +3059,14 @@ enum {
     kDisplayGestaltViewAngleAffectsGammaMask    = (1 << 1)
 };
 
+static void 
+IODisplayDictAddValues(const void *key, const void *value, void *context)
+{
+    CFMutableDictionaryRef dict = context;
+	// add if not exists
+    CFDictionaryAddValue(dict, key, value);
+}
+
 CFDictionaryRef
 _IODisplayCreateInfoDictionary(
     IOFBConnectRef      connectRef __unused,
@@ -3184,6 +3224,11 @@ _IODisplayCreateInfoDictionary(
 			obj = CFDictionaryGetValue( regDict, CFSTR(kIODisplayPrefKeyKey) );
 			if( obj)
 				CFDictionarySetValue( dict, CFSTR(kIODisplayPrefKeyKey), obj );
+
+			CFDictionaryRef attrDict;
+			attrDict = CFDictionaryGetValue(regDict, CFSTR(kIODisplayAttributesKey));
+            if (attrDict && (CFDictionaryGetTypeID() == CFGetTypeID(attrDict)))
+				CFDictionaryApplyFunction(attrDict, &IODisplayDictAddValues, dict);
 		}
 
         if( IOObjectConformsTo( service, "IOBacklightDisplay"))

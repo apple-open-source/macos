@@ -123,6 +123,10 @@ int msdosfs_vnop_open(struct vnop_open_args *ap);
 int msdosfs_vnop_close(struct vnop_close_args *);
 int msdosfs_vnop_getattr(struct vnop_getattr_args *);
 int msdosfs_vnop_setattr(struct vnop_setattr_args *);
+int msdosfs_vnop_getxattr(struct vnop_getxattr_args *ap);
+int msdosfs_vnop_setxattr(struct vnop_setxattr_args *ap);
+int msdosfs_vnop_removexattr(struct vnop_removexattr_args *ap);
+int msdosfs_vnop_listxattr(struct vnop_listxattr_args *ap);
 int msdosfs_vnop_read(struct vnop_read_args *);
 int msdosfs_vnop_write(struct vnop_write_args *);
 int msdosfs_vnop_pagein(struct vnop_pagein_args *);
@@ -608,6 +612,137 @@ exit:
 	lck_mtx_unlock(dep->de_lock);
 	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_SETATTR|DBG_FUNC_END, error, vap->va_supported, 0, 0, 0);
 	return error;
+}
+
+static char MSDOSFS_XATTR_VOLUME_ID_NAME[] = "com.apple.filesystems.msdosfs.volume_id";
+
+int msdosfs_vnop_getxattr(struct vnop_getxattr_args *ap)
+/* {
+ struct vnodeop_desc *a_desc;
+ vnode_t a_vp;
+ const char * a_name;
+ uio_t a_uio;
+ size_t *a_size;
+ int a_options;
+ vfs_context_t a_context;
+ } */
+{
+	if (vnode_isvroot(ap->a_vp) &&
+		!bcmp(ap->a_name, MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME)))
+	{
+		struct denode *dep = VTODE(ap->a_vp);
+		struct msdosfsmount *pmp = dep->de_pmp;
+		uio_t uio = ap->a_uio;
+		
+		/* Make sure the volume actually has a serial number. */
+		if (!(pmp->pm_flags & MSDOSFS_HAS_EXT_BOOT))
+			return ENOATTR;
+		
+		/* Return the volume serial number */
+		if (uio == NULL)
+		{
+			*ap->a_size = sizeof(pmp->pm_volume_serial_num);
+			return 0;
+		}
+		else if ((user_size_t)uio_resid(uio) < sizeof(pmp->pm_volume_serial_num))
+		{
+			return ERANGE;
+		}
+		else
+		{
+			return uiomove(pmp->pm_volume_serial_num, sizeof(pmp->pm_volume_serial_num), ap->a_uio);
+		}
+	}
+
+	/* Let VFS handle all other extended attributes. */
+	return ENOTSUP;
+}
+
+
+int msdosfs_vnop_setxattr(struct vnop_setxattr_args *ap)
+/* {
+ struct vnodeop_desc *a_desc;
+ vnode_t a_vp;
+ const char * a_name;
+ uio_t a_uio;
+ int a_options;
+ vfs_context_t a_context;
+ } */
+{
+	if (vnode_isvroot(ap->a_vp) &&
+		!bcmp(ap->a_name, MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME)))
+	{
+		return EPERM;
+	}
+	
+	/* Let VFS handle all other extended attributes. */
+	return ENOTSUP;
+}
+
+
+int msdosfs_vnop_removexattr(struct vnop_removexattr_args *ap)
+/* {
+ struct vnodeop_desc *a_desc;
+ vnode_t a_vp;
+ const char * a_name;
+ int a_options;
+ vfs_context_t a_context;
+ } */
+{
+	if (vnode_isvroot(ap->a_vp) &&
+		!bcmp(ap->a_name, MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME)))
+	{
+		return EPERM;
+	}
+	
+	/* Let VFS handle all other extended attributes. */
+	return ENOTSUP;
+}
+
+
+int msdosfs_vnop_listxattr(struct vnop_listxattr_args *ap)
+/* {
+ struct vnodeop_desc *a_desc;
+ vnode_t a_vp;
+ uio_t a_uio;
+ size_t *a_size;
+ int a_options;
+ vfs_context_t a_context;
+ } */
+{
+	/* Return our xattrs, then return ENOTSUP to let VFS add the rest from AppleDouble files. */
+	if (vnode_isvroot(ap->a_vp))
+	{
+		struct denode *dep = VTODE(ap->a_vp);
+		struct msdosfsmount *pmp = dep->de_pmp;
+
+		if (pmp->pm_flags & MSDOSFS_HAS_EXT_BOOT)
+		{
+			/*
+			 * The volume has a serial number, so return its name.
+			 */
+			
+			uio_t uio = ap->a_uio;
+
+			if (uio == NULL)
+			{
+				/* Just update the size */
+				*ap->a_size += sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME);
+			}
+			else if (uio_resid(uio) < (user_ssize_t)sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME))
+			{
+				return ERANGE;
+			}
+			else
+			{
+				int error = uiomove(MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME), uio);
+				if (error)
+					return ERANGE;
+			}
+		}
+	}
+
+	return ENOTSUP;
 }
 
 
@@ -2832,6 +2967,10 @@ static struct vnodeopv_entry_desc msdosfs_vnodeop_entries[] = {
 	{ &vnop_close_desc,			(vnop_t *) msdosfs_vnop_close },
 	{ &vnop_getattr_desc,		(vnop_t *) msdosfs_vnop_getattr },
 	{ &vnop_setattr_desc,		(vnop_t *) msdosfs_vnop_setattr },
+	{ &vnop_getxattr_desc,		(vnop_t *) msdosfs_vnop_getxattr },
+	{ &vnop_setxattr_desc,		(vnop_t *) msdosfs_vnop_setxattr },
+	{ &vnop_removexattr_desc,	(vnop_t *) msdosfs_vnop_removexattr },
+	{ &vnop_listxattr_desc,		(vnop_t *) msdosfs_vnop_listxattr },
 	{ &vnop_read_desc,			(vnop_t *) msdosfs_vnop_read },
 	{ &vnop_write_desc,			(vnop_t *) msdosfs_vnop_write },
 	{ &vnop_fsync_desc,			(vnop_t *) msdosfs_vnop_fsync },

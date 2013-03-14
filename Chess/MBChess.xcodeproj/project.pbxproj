@@ -228,6 +228,13 @@
 			remoteGlobalIDString = 95844C6B0A670C1E0068CA82;
 			remoteInfo = "sjeng (Upgraded)";
 		};
+		95B64AD7163488A800D1DA56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95844C6B0A670C1E0068CA82;
+			remoteInfo = sjeng;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -264,6 +271,7 @@
 		950BD1700A1E582B00395116 /* Chess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chess.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		950EE08807769701004ED524 /* Chess.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Chess.plist; path = Resources/Chess.plist; sourceTree = "<group>"; };
 		950EE08907769701004ED524 /* Chess.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Chess.txt; path = Resources/Chess.txt; sourceTree = "<group>"; };
+		951539B81634A15000BE0652 /* MBChess copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "MBChess copy-Info.plist"; path = "/Volumes/Nardis/Shared/Work/Chess/MBChess copy-Info.plist"; sourceTree = "<absolute>"; };
 		95261CDC1478580E004EF501 /* background.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; name = background.pdf; path = Resources/background.pdf; sourceTree = "<group>"; };
 		9534EBC3046627320000E7BB /* MBCBoardAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardAnimation.h; path = Sources/MBCBoardAnimation.h; sourceTree = "<group>"; };
 		9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardAnimation.mm; path = Sources/MBCBoardAnimation.mm; sourceTree = "<group>"; };
@@ -468,6 +476,7 @@
 				29B97317FDCFA39411CA2CEA /* Resources */,
 				29B97323FDCFA39411CA2CEA /* Frameworks */,
 				19C28FACFE9D520D11CA2CBB /* Products */,
+				951539B81634A15000BE0652 /* MBChess copy-Info.plist */,
 			);
 			name = MBChess;
 			sourceTree = "<group>";
@@ -784,6 +793,7 @@
 			buildToolPath = /usr/bin/make;
 			buildWorkingDirectory = "$(SRCROOT)/sjeng/books";
 			dependencies = (
+				95B64AD8163488A800D1DA56 /* PBXTargetDependency */,
 			);
 			name = "Opening Books";
 			passBuildSettingsInEnvironment = 1;
@@ -1083,6 +1093,11 @@
 			isa = PBXTargetDependency;
 			target = 95844C6B0A670C1E0068CA82 /* sjeng */;
 			targetProxy = 95844CF60A670C530068CA82 /* PBXContainerItemProxy */;
+		};
+		95B64AD8163488A800D1DA56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95844C6B0A670C1E0068CA82 /* sjeng */;
+			targetProxy = 95B64AD7163488A800D1DA56 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

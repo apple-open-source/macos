@@ -121,6 +121,7 @@ public:
     void updateCompositedBounds();
     
     void updateAfterWidgetResize();
+    void positionOverflowControlsLayers(const IntSize& offsetFromRoot);
 
     // GraphicsLayerClient interface
     virtual bool shouldUseTileCache(const GraphicsLayer*) const;
@@ -218,7 +219,7 @@ private:
     bool hasTileCacheFlatteningLayer() const { return (m_containmentLayer && m_usingTiledCacheLayer); }
     GraphicsLayer* tileCacheFlatteningLayer() const { return m_usingTiledCacheLayer ? m_containmentLayer.get() : 0; }
 
-    void paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect, PaintBehavior, GraphicsLayerPaintingPhase, RenderObject* paintingRoot);
+    void paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect, PaintBehavior, GraphicsLayerPaintingPhase);
 
     static CSSPropertyID graphicsLayerToCSSProperty(AnimatedPropertyID);
     static AnimatedPropertyID cssToGraphicsLayerProperty(CSSPropertyID);

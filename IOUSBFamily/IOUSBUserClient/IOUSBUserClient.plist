@@ -71,7 +71,7 @@
 					<string>IOUSBLIB_PATH</string>
 				</dict>
 				<key>IOUserClientClass</key>
-				<string>IOUSBInterfaceUserClientV2</string>
+				<string>IOUSBInterfaceUserClientV3</string>
 			</dict>
 			<key>bConfigurationValue</key>
 			<string>*</string>

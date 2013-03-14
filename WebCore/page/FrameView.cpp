@@ -1122,15 +1122,15 @@ void FrameView::layout(bool allowSubtree)
 
     // Now update the positions of all layers.
     beginDeferredRepaints();
-    bool hasLayerOffset;
-    LayoutPoint offsetFromRoot = layer->computeOffsetFromRoot(hasLayerOffset);
     if (m_doFullRepaint)
         root->view()->repaint(); // FIXME: This isn't really right, since the RenderView doesn't fully encompass the visibleContentRect(). It just happens
                                  // to work out most of the time, since first layouts and printing don't have you scrolled anywhere.
-    layer->updateLayerPositions(hasLayerOffset ? &offsetFromRoot : 0,
+
+    layer->updateLayerPositionsAfterLayout(rootRenderer(this)->layer(),
                                 (m_doFullRepaint ? 0 : RenderLayer::CheckForRepaint)
                                 | RenderLayer::IsCompositingUpdateRoot
                                 | RenderLayer::UpdateCompositingLayers);
+
     endDeferredRepaints();
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -1464,7 +1464,7 @@ IntPoint FrameView::currentMousePosition() const
 
 bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
-    RenderBlock::PositionedObjectsListHashSet* positionedObjects = 0;
+    TrackedRendererListHashSet* positionedObjects = 0;
     if (RenderView* root = rootRenderer(this))
         positionedObjects = root->positionedObjects();
 
@@ -1477,8 +1477,8 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
 
     // Get the rects of the fixed objects visible in the rectToScroll
     Region regionToUpdate;
-    RenderBlock::PositionedObjectsListHashSet::const_iterator end = positionedObjects->end();
-    for (RenderBlock::PositionedObjectsListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
+    TrackedRendererListHashSet::const_iterator end = positionedObjects->end();
+    for (TrackedRendererListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
         RenderBox* renderBox = *it;
         if (renderBox->style()->position() != FixedPosition)
             continue;
@@ -1493,10 +1493,6 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
         if (!updateRect.isEmpty())
             regionToUpdate.unite(updateRect);
     }
-
-    // The area to be painted by fixed objects exceeds 50% of the area of the view, we cannot use the fast path.
-    if (regionToUpdate.totalArea() > (clipRect.width() * clipRect.height() * 0.5))
-        return false;
 
     // 1) scroll
     hostWindow()->scroll(scrollDelta, rectToScroll, clipRect);
@@ -1765,7 +1761,7 @@ void FrameView::repaintFixedElementsAfterScrolling()
     if (!m_nestedLayoutCount && hasFixedObjects()) {
         if (RenderView* root = rootRenderer(this)) {
             root->updateWidgetPositions();
-            root->layer()->updateLayerPositionsAfterScroll();
+            root->layer()->updateLayerPositionsAfterDocumentScroll();
         }
     }
 }
@@ -2380,14 +2376,21 @@ void FrameView::performPostLayoutTasks()
             break;
     }
 
-    if (Page* page = m_frame->page()) {
+    Page* page = m_frame->page();
+    if (page) {
         if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator())
             scrollingCoordinator->frameViewLayoutUpdated(this);
     }
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (TiledBacking* tiledBacking = this->tiledBacking())
-        tiledBacking->setCanHaveScrollbars(canHaveScrollbars());
+    if (TiledBacking* tiledBacking = this->tiledBacking()) {
+        if (page) {
+            if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator()) {
+                bool shouldLimitTileCoverage = !canHaveScrollbars() || scrollingCoordinator->shouldUpdateScrollLayerPositionOnMainThread();
+                tiledBacking->setTileCoverage(shouldLimitTileCoverage ? TiledBacking::CoverageForVisibleArea : TiledBacking::CoverageForScrolling);
+            }
+        }
+    }
 #endif
 
     scrollToAnchor();
@@ -3133,6 +3136,36 @@ bool FrameView::isPainting() const
 void FrameView::setNodeToDraw(Node* node)
 {
     m_nodeToDraw = node;
+}
+
+void FrameView::paintContentsForSnapshot(GraphicsContext* context, const IntRect& imageRect, SelectionInSnaphot shouldPaintSelection)
+{
+    updateLayoutAndStyleIfNeededRecursive();
+
+    // Cache paint behavior and set a new behavior appropriate for snapshots.
+    PaintBehavior oldBehavior = paintBehavior();
+    setPaintBehavior(oldBehavior | PaintBehaviorFlattenCompositingLayers);
+
+    // If the snapshot should exclude selection, then we'll clear the current selection
+    // in the render tree only. This will allow us to restore the selection from the DOM
+    // after we paint the snapshot.
+    if (shouldPaintSelection == ExcludeSelection) {
+        for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
+            if (RenderView* root = frame->contentRenderer())
+                root->clearSelection();
+        }
+    }
+
+    paintContents(context, imageRect);
+
+    // Restore selection.
+    if (shouldPaintSelection == ExcludeSelection) {
+        for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get()))
+            frame->selection()->updateAppearance();
+    }
+
+    // Restore cached paint behavior.
+    setPaintBehavior(oldBehavior);
 }
 
 void FrameView::paintOverhangAreas(GraphicsContext* context, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect)

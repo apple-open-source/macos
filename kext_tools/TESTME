@@ -238,6 +238,21 @@ diskutil unmount "$fdehelper"
             kextcache-embedded-host
             kextsymboltool-embedded-host
             setsegname
+-- To TEST --
+# mountebuild.sh
+sudo ditto -v ~rc/Software/$IOSTRAIN/Updates/Current$IOSTRAIN/Roots/MacOSXSDKInternal10_7/ /
+if [ "$kxld_changed" ]; then
+    sudo ~rc/bin/buildit xnu -release "$IOSTRAIN" -project libkxld_host -arch i386 -arch x86_64 -noinstallsrc -noverify -merge /
+fi
+if [ "$kxldAPI_changed" -o "$IOKit_Kext_changed" ]; then
+    sudo ~rc/bin/buildit IOKitUser -release "$IOSTRAIN" -project IOKitUser_host -arch i386 -arch x86_64 -target libkext -noinstallsrc -noverify -merge /
+fi
+# libkxld_host and IOKitUser_host both build static libs that end up in /Developer/SDKs/iPhoneHostSideTools.sparse.sdk/
+sudo ~rc/bin/buildit kext_tools -release "$IOSTRAIN" -project kext_tools_host -arch i386 -arch x86_64 -target embedded-host -noinstallsrc -noverify # -merge /
+# kext_tools_host builds the tools used during development (e.g. kcgen)
+-- end TEST --
+
+
 
         KextUserAgent           - inactive?
 

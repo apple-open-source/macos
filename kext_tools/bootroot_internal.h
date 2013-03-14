@@ -35,20 +35,12 @@
 
 // in update_boot.c
 
-typedef uint32_t updateOpts_t;
-#define kForceUpdateHelpers 0x1     // helper partitions MUST be updated
-#define kCachesOnly         0x2     // do NOT update helper partitions
-#define kHelpersOptional    0x4     // ignore helper update failures
-#define kExpectUpToDate     0x8     // successful updates -> EX_OSFILE
-
 /*
  * Update all caches and any helper partitions (kextcache -u).
  * Except when kForceUpdateHelpers is specified, unrecognized
  * bootcaches.plist causes immediate success.
  */
-int checkUpdateCachesAndBoots(
-    CFURLRef volumeURL,
-    updateOpts_t flags);
+int checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t flags);
 
 // "put" and "take" let routines decide if a lock is needed (e.g. if no kextd)
 // only used by volume lockers (kextcache, libBootRoot clients, !kextd)

@@ -51,7 +51,7 @@
 //
 //================================================================================================
 //
-#define super IOUSBPipeV2
+#define super IOUSBPipe
 
 //  These are from our superclass, but we need to reference them here
 #define	_DEVICE							_expansionData->_device
@@ -60,18 +60,21 @@
 #define	_INTERFACE						_expansionData->_interface
 #define	_CROSSENDIANCOMPATIBLE			_expansionData->_crossEndianCompatible
 #define	_LOCATIONID						_expansionData->_locationID
+#define	_UASUSAGEID						_expansionData->_uasUsageID
+#define	_USAGETYPE						_expansionData->_usageType
+#define	_SYNCTYPE						_expansionData->_syncType
 #define	_OUTOFSPECMPSOK					_status				// if non-zero, then we should ignore an out of spec MPS
 
 
-#ifndef IOUSBPipe_USE_KPRINTF
-	#define IOUSBPIPE_USE_KPRINTF 0
+#ifndef IOUSBPIPEV2_USE_KPRINTF
+	#define IOUSBPIPEV2_USE_KPRINTF 0
 #endif
 
-#if IOUSBPipe_USE_KPRINTF
+#if IOUSBPIPEV2_USE_KPRINTF
 	#undef USBLog
 	#undef USBError
 	void kprintf(const char *format, ...) __attribute__((format(printf, 1, 2)));
-	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= IOUSBPipe_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= IOUSBPIPEV2_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 	#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
@@ -94,8 +97,9 @@ OSDefineMetaClassAndStructors(IOUSBPipeV2, IOUSBPipe)
 bool 
 IOUSBPipeV2::InitToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEndpointCompanionDescriptor *sscd, UInt8 speed, USBDeviceAddress address, IOUSBController * controller, IOUSBDevice * device, IOUSBInterface * interface)
 {
-    IOReturn	err;
-    IOUSBControllerV3  *controllerV3;
+    IOReturn				err;
+    IOUSBControllerV3		*controllerV3;
+	UInt16					maxStreamID = 0;
     
 	USBTrace_Start( kUSBTPipe, kTPPipeInitToEndpoint, (uintptr_t)this, (uintptr_t)ed, speed, address);
 	
@@ -117,7 +121,7 @@ IOUSBPipeV2::InitToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEn
     {
 		if(sscd != NULL)
 		{
-			USBError(1,"IOUSBPipeV2[%p]:InitToEndpoint -- Requested a pipe with stream ID, but this IOUSBController does not support it", this);
+			USBError(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- Requested a pipe with stream ID, but this IOUSBController does not support it", this, device->getName(), (uint32_t)ed->bEndpointAddress);
 			return false;
 		}
     }
@@ -125,14 +129,54 @@ IOUSBPipeV2::InitToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEn
     _descriptor = ed;
 	_sscd = sscd;
     _endpoint.number = ed->bEndpointAddress & kUSBPipeIDMask;
-    _endpoint.transferType = ed->bmAttributes & 0x03;
+    
+	// some of the stuff done below could just leverage off of GetEndpointPropertiesV3. However, not doing that yet as it will not work for Pipe 0 since Pipe0 does not have an interface
+    _endpoint.transferType = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_TranType_Mask) >> kUSB_EPDesc_bmAttributes_TranType_Shift;
+    
     if (_endpoint.transferType == kUSBControl)
         _endpoint.direction = kUSBAnyDirn;
     else
 		_endpoint.direction = (ed->bEndpointAddress & 0x80) ? kUSBIn : kUSBOut;
-    _endpoint.maxPacketSize = mungeMaxPacketSize(USBToHostWord(ed->wMaxPacketSize));
+
 	
-    _endpoint.interval = ed->bInterval;
+	// a note about _endpoint.maxPacketSize. HS Isoc endpoints can have a multiplier for up to three MPS packets per interval
+	// SS Isoc can have both a burst of up to 16 packets and a multiplier for up to 48 packets per interval
+	// we will keep the _endpoint.maxPacketSize as the full interval MPS for these types of endpoints, but we will calculate that further down
+	// For other types of endpoints, we will not multiply by the burst (and they don't have a multiplier)
+	
+	_endpoint.maxPacketSize = (ed->wMaxPacketSize & kUSB_EPDesc_wMaxPacketSize_MPS_Mask) >> kUSB_EPDesc_wMaxPacketSize_MPS_Shift;
+	
+	// This mult will only be >0 for HSHB endpoints, and not for SS, because the mult bits for SS moved
+	if ((sscd == NULL) && ((_endpoint.transferType == kUSBIsoc) || (_endpoint.transferType == kUSBInterrupt)))
+	{
+		_mult    = (ed->wMaxPacketSize & kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Mask) >> kUSB_HSFSEPDesc_wMaxPacketSize_Mult_Shift;
+		if (_mult > 2)
+		{
+			_mult = 2;
+			USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- HS mult for wMaxPacketSize is illegal (3), setting to 2", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress);
+		}
+	}
+
+	_endpoint.interval = ed->bInterval;
+
+ 	if ( _endpoint.transferType == kUSBInterrupt)
+	{
+		_USAGETYPE = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_UsageType_Mask) >> kUSB_EPDesc_bmAttributes_UsageType_Shift;
+		_SYNCTYPE = 0;
+	}
+	else if ( _endpoint.transferType == kUSBIsoc)
+	{
+		_USAGETYPE = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_UsageType_Mask) >> kUSB_EPDesc_bmAttributes_UsageType_Shift;
+		_SYNCTYPE = (ed->bmAttributes & kUSB_EPDesc_bmAttributes_SyncType_Mask) >> kUSB_EPDesc_bmAttributes_SyncType_Shift;
+	}
+	else
+	{
+		_USAGETYPE = 0;
+		_SYNCTYPE = 0;
+	}
+
+	_maxBurst = 0;							// init to 0
+	
 	if (_sscd != NULL)
 	{
         _maxBurst = _sscd->bMaxBurst;
@@ -140,51 +184,122 @@ IOUSBPipeV2::InitToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEn
 		
 		if (_endpoint.transferType == kUSBBulk)
 		{
-			int max;
-			max = (_sscd->bmAttributes & 0x1f);
+			_maxStream = (_sscd->bmAttributes & kUSB_SSCompDesc_Bulk_MaxStreams_Mask) >> kUSB_SSCompDesc_Bulk_MaxStreams_Shift;
             _configuredStreams = 0;
-			if(max > 0)
+			if(_maxStream > 0)
 			{
-				UInt32 maxSupported;
-				_maxStream = (1 << max)-1;	// Note -1, valid stream IDs run to max streams -1, zero is invalid
-				if(_maxStream > kUSBMaxStream)
+				UInt32		maxSupported;
+				
+				maxStreamID = (1 << _maxStream) - 1;						// Note -1, valid stream IDs run to max streams -1, zero is invalid
+				
+				if(maxStreamID > kUSBMaxStream)
 				{
-					_maxStream = kUSBMaxStream;
+					maxStreamID = kUSBMaxStream;
 				}
+				
 				maxSupported = controllerV3->UIMMaxSupportedStream();
-				if( (_maxStream > 0) && (maxSupported == 0) )
+				
+				if( (maxStreamID > 0) && (maxSupported == 0) )
 				{
-					USBLog(2,"IOUSBPipeV2[%p]:InitToEndpoint -- Requested a pipe with %d streams, but this IOUSBController does not support streams", this, (uint32_t)_maxStream);
+					USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- Requested a pipe with maxStreamID %d, but this IOUSBController does not support streams", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress, (uint32_t)maxStreamID);
 					_maxStream = 0;
 					return false;
 				}
-				if(_maxStream > maxSupported)
+				if(maxStreamID > maxSupported)
 				{
-					USBLog(2,"IOUSBPipeV2[%p]:InitToEndpoint -- Requested a pipe with %d streams, but this IOUSBController only supports %d streams", this, (uint32_t)_maxStream, (uint32_t)maxSupported);
-					_maxStream = maxSupported;
+					USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- Requested a pipe with max stream of %d, but this IOUSBController only supports %d streams", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress, (uint32_t)maxStreamID, (uint32_t)maxSupported);
+					maxStreamID = maxSupported;
 				}
 			}
 			
-			USBLog(3, "IOUSBPipeV2[%p]::InitToEndpoint: SuperSpeed Bulk pipe maxStreams: %d", this, (uint32_t)_maxStream);
+			if (_endpoint.maxPacketSize != kUSB_EPDesc_MaxMPS)
+			{
+				USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- SuperSpeed Bulk EP with illegal wMaxPacketSize of %d, setting to kUSB_EPDesc_MaxMPS", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress, (uint32_t)_endpoint.maxPacketSize);
+				_endpoint.maxPacketSize = kUSB_EPDesc_MaxMPS;
+			}
+			
+			USBLog(3, "IOUSBPipeV2[%p]::InitToEndpoint: SuperSpeed Bulk pipe maxStreams: %d", this, (uint32_t)maxStreamID);
 		}
 		
 		if (_endpoint.transferType == kUSBControl)
         {
+			if (_endpoint.maxPacketSize != 512)
+			{
+				USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- SuperSpeed Control EP with illegal wMaxPacketSize of %d, setting to 512", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress, (uint32_t)_endpoint.maxPacketSize);
+				_endpoint.maxPacketSize = 512;
+			}
             _maxBurst = 0;
         }
 
 		if (_endpoint.transferType == kUSBIsoc)
 		{
-			_mult = (_sscd->bmAttributes & 0x3);
+			_mult = (sscd->bmAttributes & kUSB_SSCompDesc_Isoc_Mult_Mask) >> kUSB_SSCompDesc_Isoc_Mult_Shift;           // this is zero based
+			if (_mult > 2)
+			{
+				_mult = 2;
+				USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- SS mult for wMaxPacketSize is illegal (3), setting to 2", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress);
+			}
+			if ( (_maxBurst > 0) || (_mult > 0))
+			{
+				if (_endpoint.maxPacketSize != kUSB_EPDesc_MaxMPS)
+				{
+					USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- SuperSpeed Isoch EP (bMaxBurst: %d mult: %d) with illegal wMaxPacketSize of %d, setting to kUSB_EPDesc_MaxMPS", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress, (uint32_t)_maxBurst, (uint32_t)_mult, (uint32_t)_endpoint.maxPacketSize);
+					_endpoint.maxPacketSize = kUSB_EPDesc_MaxMPS;
+				}
+			}
+			USBLog(6, "IOUSBPipeV2[%p]::InitToEndpoint: SuperSpeed Isoch pipe  bytesPerInterval: %d, maxPacketSize: %d, maxBurst: %d, mult: %d", this, (uint32_t)_bytesPerInterval, (uint32_t)_endpoint.maxPacketSize,(uint32_t)_maxBurst,(uint32_t)_mult);
+		}
+
+		if (_endpoint.transferType == kUSBInterrupt)
+		{
+			if ( _maxBurst > 0)
+			{
+				if (_endpoint.maxPacketSize != kUSB_EPDesc_MaxMPS)
+				{
+					USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- SuperSpeed Interrupt EP (bMaxBurst: %d) with illegal wMaxPacketSize of %d, setting to kUSB_EPDesc_MaxMPS", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress, (uint32_t)_maxBurst, (uint32_t)_endpoint.maxPacketSize);
+					_endpoint.maxPacketSize = kUSB_EPDesc_MaxMPS;
+				}
+			}
+			else
+			{
+				if ( _endpoint.maxPacketSize == 0)
+				{
+					USBLog(1,"IOUSBPipeV2[%p]::InitToEndpoint (%s, EP: 0x%x) -- SuperSpeed Interrupt EP (bMaxBurst of 0) with illegal wMaxPacketSize of 0, setting to 1", this, device ? device->getName() : "Unnamed Device", (uint32_t)ed->bEndpointAddress);
+					_endpoint.maxPacketSize = 1;
+				}
+			}
 		}
 	}
-	
+    
+	if ((_endpoint.transferType == kUSBIsoc) || (_endpoint.transferType == kUSBInterrupt))
+	{
+		// this will be the case for all Isoc and Interrupt endpoints. Now that we have verified all of the fields, we will change maxPacketSize to include the _mult and the _burst
+		// we do this so that the _endpoint.maxPacketSize remains consistent for our classic UIMs and for the XHCI UIM
+		_endpoint.maxPacketSize = _endpoint.maxPacketSize * (_mult + 1) * (_maxBurst + 1);
+	}
     
 	_address = address;
     _SPEED = speed;
 	_DEVICE = device;
 	_INTERFACE = interface;
 	
+	if (_INTERFACE && _INTERFACE->GetInterfaceClass() == kUSBMassStorageInterfaceClass && _INTERFACE->GetInterfaceSubClass() == kUSBMassStorageSCSISubClass && _INTERFACE->GetInterfaceProtocol() == kMSCProtocolUSBAttachedSCSI)
+	{
+   	 	const UASPipeDescriptor		*desc = NULL;						// start with the interface descriptor
+		if (_sscd != NULL)
+		{
+			desc = (UASPipeDescriptor *)_INTERFACE->FindNextAssociatedDescriptor(sscd, kUSBAnyDesc);
+		}
+		else
+		{
+			desc = (UASPipeDescriptor *)_INTERFACE->FindNextAssociatedDescriptor(ed, kUSBAnyDesc);
+		}
+		
+		if (desc && (desc->bDescriptorType == kUSBClassSpecificDescriptor))
+		{
+			_UASUSAGEID = desc->bPipeID;
+		}
+	}
 	
 	if ( _DEVICE )
 	{
@@ -212,13 +327,13 @@ IOUSBPipeV2::InitToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEn
 		}
     }
 	
-    if( (_maxStream == 0) && (_maxBurst == 0) )
+    if( (maxStreamID == 0) && (_maxBurst == 0) )
     {
 		err = _controller->OpenPipe(_address, speed, &_endpoint);
 	}
 	else
 	{
-		err = controllerV3->OpenPipe(_address, speed, &_endpoint, _maxStream, _maxBurst);
+		err = controllerV3->OpenPipe(_address, speed, &_endpoint, maxStreamID, _maxBurst | (_mult << 8));
 	}
 
     
@@ -241,6 +356,7 @@ IOUSBPipeV2::InitToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEn
     
     return true;
 }
+
 
 
 //================================================================================================
@@ -318,7 +434,9 @@ IOUSBPipeV2::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBSuperSpeedEndpoi
 IOReturn 
 IOUSBPipeV2::Abort(UInt32 streamID)
 {
-    IOUSBControllerV3  *    controllerV3;
+    IOUSBControllerV3		*controllerV3;
+	UInt32					maxStreamID = SupportsStreams();
+	
 	USBLog(5,"IOUSBPipeV2[%p]::AbortPipe(0x%x)",this, (uint32_t)streamID);
     if (_CORRECTSTATUS != 0)
 	{
@@ -347,9 +465,9 @@ IOUSBPipeV2::Abort(UInt32 streamID)
 			USBLog(5, "IOUSBPipeV2[%p]::Abort(streamID) - bad argument:  abort stream (%d) on non bulk pipe", this, (uint32_t)streamID);
 			return kIOReturnBadArgument;
 		}
-		if(streamID > _maxStream)
+		if(streamID > maxStreamID)
 		{
-			USBLog(5, "IOUSBPipeV2[%p]::Abort(streamID) - bad argument:  stream ID greater than max (%d > %d)", this, (uint32_t)streamID, (uint32_t)_maxStream);
+			USBLog(5, "IOUSBPipeV2[%p]::Abort(streamID) - bad argument:  stream ID greater than max (%d > %d)", this, (uint32_t)streamID, (uint32_t)maxStreamID);
 			return kIOReturnBadArgument;
 		}
 		
@@ -377,8 +495,9 @@ IOUSBPipeV2::Abort(UInt32 streamID)
 IOReturn 
 IOUSBPipeV2::Read(UInt32 streamID, IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletion *completion, IOByteCount *bytesRead)
 {
-    IOReturn	err = kIOReturnSuccess;
-	IOUSBControllerV3  *    controllerV3;
+    IOReturn				err = kIOReturnSuccess;
+	IOUSBControllerV3		*controllerV3;
+	UInt32					maxStreamID = SupportsStreams();
     
     controllerV3 = OSDynamicCast(IOUSBControllerV3, _controller);
     if ( controllerV3 == NULL )
@@ -397,15 +516,15 @@ IOUSBPipeV2::Read(UInt32 streamID, IOMemoryDescriptor *buffer, UInt32 noDataTime
 			USBLog(5, "IOUSBPipeV2[%p]::Read - bad arguments:  stream (%d) read on non bulk pipe", this, (uint32_t)streamID);
 			return kIOReturnBadArgument;
 		}
-		if(streamID > _maxStream)
+		if(streamID > maxStreamID)
 		{
-			USBLog(5, "IOUSBPipeV2[%p]::Read - bad arguments:  stream ID greater than max (%d > %d)", this, (uint32_t)streamID, (uint32_t)_maxStream);
+			USBLog(5, "IOUSBPipeV2[%p]::Read - bad arguments:  stream ID greater than max (%d > %d)", this, (uint32_t)streamID, (uint32_t)maxStreamID);
 			return kIOReturnBadArgument;
 		}
 		
 	}
 	
-    USBLog(7, "IOUSBPipeV2[%p]::Read (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+    USBLog(7, "IOUSBPipeV2[%p]::Read (addr %d:%d type %d) - streamID = %d, reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, streamID, (uint64_t)reqCount);
 	USBTrace_Start( kUSBTPipe, kTPBulkPipeRead, _address, _endpoint.number , _endpoint.transferType, reqCount );
 	
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
@@ -501,8 +620,9 @@ IOUSBPipeV2::Read(UInt32 streamID, IOMemoryDescriptor *buffer, UInt32 noDataTime
 IOReturn 
 IOUSBPipeV2::Write(UInt32 streamID, IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount, IOUSBCompletion *completion)
 {
-    IOReturn	err = kIOReturnSuccess;
-    IOUSBControllerV3  *    controllerV3;
+    IOReturn				err = kIOReturnSuccess;
+    IOUSBControllerV3		*controllerV3;
+	UInt32					maxStreamID = SupportsStreams();
     
     controllerV3 = OSDynamicCast(IOUSBControllerV3, _controller);
     if ( controllerV3 == NULL )
@@ -521,14 +641,15 @@ IOUSBPipeV2::Write(UInt32 streamID, IOMemoryDescriptor *buffer, UInt32 noDataTim
 			USBLog(5, "IOUSBPipeV2[%p]::Write - bad arguments:  stream (%d) read on non bulk pipe", this, (uint32_t)streamID);
 			return kIOReturnBadArgument;
 		}
-		if(streamID > _maxStream)
+		if(streamID > maxStreamID)
 		{
-			USBLog(5, "IOUSBPipeV2[%p]::Write - bad arguments:  stream ID greater than max (%d > %d)", this, (uint32_t)streamID, (uint32_t)_maxStream);
+			USBLog(5, "IOUSBPipeV2[%p]::Write - bad arguments:  stream ID greater than max (%d > %d)", this, (uint32_t)streamID, (uint32_t)maxStreamID);
 			return kIOReturnBadArgument;
 		}
 		
 	}
-    USBLog(7, "IOUSBPipeV2[%p]::Write (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+    
+	USBLog(7, "IOUSBPipeV2[%p]::Write (addr %d:%d type %d) - streamID: %d, reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, streamID, (uint64_t)reqCount);
 	USBTrace_Start( kUSBTPipe, kTPBulkPipeWrite, _address, _endpoint.number , _endpoint.transferType, reqCount );
 	
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
@@ -561,7 +682,15 @@ IOUSBPipeV2::Write(UInt32 streamID, IOMemoryDescriptor *buffer, UInt32 noDataTim
         tap.action = &IOUSBSyncCompletion;
         tap.parameter = NULL;
 		
-        err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
+ 		if(streamID != 0)
+		{
+			err = controllerV3->Write(streamID, buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
+		}
+		else
+		{
+			err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
+		}
+        
         if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
@@ -636,7 +765,8 @@ IOUSBPipeV2::CreateStreams(UInt32 maxStreams)
 UInt32
 IOUSBPipeV2::SupportsStreams(void)
 {
-	return(_maxStream);
+	// _maxStream is stored in the "raw" format so we need to convert to the expanded format	
+	return ((1 << _maxStream) - 1);
 }
 
 UInt32
@@ -672,6 +802,71 @@ IOUSBPipeV2::GetSuperSpeedEndpointCompanionDescriptor()
 {
 	return _sscd;
 }
+
+
+
+#pragma mark IOUSBPipe overrides
+//================================================================================================
+//
+//   SetPipePolicy
+//
+//================================================================================================
+//
+IOReturn
+IOUSBPipeV2::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
+{
+	UInt16					oldsize = _endpoint.maxPacketSize;
+    IOReturn				err = kIOReturnSuccess;
+	IOUSBControllerV3		*controllerV3 = OSDynamicCast(IOUSBControllerV3, _controller);
+   
+	USBLog(6, "IOUSBPipeV2[%p]::SetPipePolicy (addr %d:%d dir: %d, type: %d) - maxPacketSize: %d, maxInterval: %d", this, _address, _endpoint.number, _endpoint.direction, _endpoint.transferType, maxPacketSize, maxInterval);
+	
+	if ((_SPEED == kUSBDeviceSpeedSuper) && (maxPacketSize != 0) && _sscd && _INTERFACE)
+	{
+		UInt32			calculatedMax = _INTERFACE->CalculateFullMaxPacketSize((IOUSBEndpointDescriptor*)&_endpoint, _sscd);
+		
+		if (maxPacketSize != calculatedMax)
+		{
+			USBLog(1, "IOUSBPipeV2[%p]::SetPipePolicy - cannot change the MPS of a SS Int/Isoc pipe to anything other than 0 (%d vs %d)", this, maxPacketSize, _INTERFACE->CalculateFullMaxPacketSize((IOUSBEndpointDescriptor*)&_endpoint, _sscd));
+			return kIOReturnBadArgument;
+		}
+	}
+	
+	
+	if (_endpoint.transferType != kUSBIsoc)
+	{
+		return super::SetPipePolicy(maxPacketSize, maxInterval);
+	}
+	
+	// Isoc only at this point
+	if (maxPacketSize <= _INTERFACE->CalculateFullMaxPacketSize((IOUSBEndpointDescriptor*)_descriptor, _sscd))
+	{
+		USBLog(6, "IOUSBPipeV2[%p]::SetPipePolicy - trying to change isoch pipe from %d to %d bytes", this, oldsize, maxPacketSize);
+		_endpoint.maxPacketSize = maxPacketSize;											// this is a full MPS (baseMPS * burst * mult)
+		
+		// OpenPipe with Isoch pipes which already exist will try to change the maxpacketSize in the pipe.
+		// the speed param below is actually unused for Isoc pipes
+		
+		if (controllerV3 && _maxBurst)
+			err = controllerV3->OpenPipe(_address, _SPEED, &_endpoint, 0, _maxBurst | (_mult << 8));
+		else
+			err = _controller->OpenPipe(_address, _SPEED, &_endpoint);
+		
+		if (err)
+		{
+			USBLog(2, "IOUSBPipeV2[%p]::SetPipePolicy - new OpenPipe failed with 0x%x (%s) - returning old settings", this, err, USBStringFromReturn(err));
+			_endpoint.maxPacketSize = oldsize;
+		}
+	}
+	else
+	{
+		USBLog(2, "IOUSBPipeV2[%p]::SetPipePolicy - requested size (%d) larger than maxPacketSize in descriptor (%d)", this, maxPacketSize, _endpoint.maxPacketSize);
+		err = kIOReturnBadArgument;
+	}
+	
+    return err;
+}
+
 
 #pragma mark Padding Slots
 

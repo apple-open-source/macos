@@ -120,7 +120,7 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
 #endif
 	
 	DEBUGPRINT("IOUSBInterfaceClass[%p]::IOUSBInterfaceClass\n", this);
-    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV500;
+    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV550;
     fUSBInterface.obj = this;
 }
 
@@ -195,6 +195,7 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID300)
              || CFEqual(uuid, kIOUSBInterfaceInterfaceID)
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID500)
+			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID550)
 			 )
     {
         *ppv = &fUSBInterface;
@@ -258,6 +259,7 @@ IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService
     uint32_t			len = 1;
 	UInt32				type = 0;
 
+	DEBUGPRINT("+IOUSBInterfaceClass::start  io_service_t = 0x%x\n", inService);
 
     fNextCookie = 0;
     fConfigDescCacheValid = false;
@@ -267,10 +269,16 @@ IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService
 	
     res = IOServiceOpen(inService, mach_task_self(), type, &fConnection);
     if (res != kIOReturnSuccess)
-        return res;
+	{
+ 		DEBUGPRINT("-IOUSBInterfaceClass::start  IOServiceOpen returned 0x%x\n", res);
+       return res;
+	}
 
     if ( fConnection == MACH_PORT_NULL )
-		return kIOReturnNoDevice;    
+	{
+ 		DEBUGPRINT("-IOUSBInterfaceClass::start  IOServiceOpen returned NULL fConnection\n");
+		return kIOReturnNoDevice;
+	}
 
 	fInterfaceIsAttached = true;
 	
@@ -1154,6 +1162,53 @@ IOUSBInterfaceClass::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpoin
 }
 
 
+IOReturn
+IOUSBInterfaceClass::GetEndpointPropertiesV3(IOUSBEndpointProperties *properties)
+{
+    uint64_t			input[4];
+    IOReturn			ret = kIOReturnSuccess;
+	size_t				propSize = sizeof(IOUSBEndpointProperties);
+	
+	DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetEndpointPropertiesV3 (bVersion: %d, bAlternateSetting: %d, bEndpointNumber: %d, bDirection: %d)\n", this, properties->bVersion, properties->bAlternateSetting, properties->bEndpointNumber, properties->bDirection);
+	
+	ATTACHEDCHECK();
+	
+	if ( properties->bVersion != kUSBEndpointPropertiesVersion3)
+	{
+		DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetEndpointPropertiesV3  We only support kUSBEndpointPropertiesVersion3 but structure has %d\n", properties->bVersion);
+		return kIOReturnBadArgument;
+	}
+	
+    input[0] = (uint64_t) properties->bAlternateSetting;
+    input[1] = (uint64_t) properties->bEndpointNumber;
+    input[2] = (uint64_t) properties->bDirection;
+	input[3] = (uint64_t) properties->bVersion;
+		
+	ret = IOConnectCallMethod(fConnection, kUSBInterfaceUserClientGetEndpointPropertiesV3, input, 4, 0, 0, 0, 0, (void *) properties, &propSize);
+
+    if (ret == kIOReturnSuccess)
+    {
+		DEBUGPRINT("-IOUSBInterfaceClass[%p]::GetEndpointPropertiesV3 returned 0x%x for altSetting: %d, endpointNumber: %d, direction %d, transferType: %d, mps: 0x%x, interval %d, \
+				   maxBurst %d, maxStreams %d, mult %d, bytesPerInterval %d, sscd %d\n",
+				   this, ret, properties->bAlternateSetting, properties->bEndpointNumber, properties->bDirection, properties->bTransferType, properties->wMaxPacketSize, properties->bInterval, properties->bMaxBurst, properties->bMaxStreams, properties->bMult, properties->wBytesPerInterval, properties->bSuperSpeedCompanionExists);
+    }
+	
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	
+	if ( ret != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBInterfaceClass[%p]::GetEndpointPropertiesV3 returning 0x%x\n", this, ret);
+	}
+	
+    return ret;
+}
+
+
 #pragma mark Control Request
 IOReturn
 IOUSBInterfaceClass::ControlRequest(UInt8 pipeRef, IOUSBDevRequestTO *req)
@@ -1502,7 +1557,7 @@ IOUSBInterfaceClass::GetPipeProperties(UInt8 pipeRef, UInt8 *direction, UInt8 *n
 }
 
 
-IOReturn 
+IOReturn
 IOUSBInterfaceClass::GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 *number, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval)
 {
     uint64_t			output[8];
@@ -1548,6 +1603,53 @@ IOUSBInterfaceClass::GetPipePropertiesV2(UInt8 pipeRef, UInt8 *direction, UInt8 
 		*mult				= 0;
 		*bytesPerInterval	= 0;
 	}
+	
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	if ( ret != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBInterfaceClass[%p]::GetPipePropertiesV2 returning 0x%x\n", this, ret);
+	}
+	
+    DEBUGPRINT("-IOUSBInterfaceClass[%p]::GetPipePropertiesV2 err = 0x%x, pipeRef: %d, direction %d, number: %d, transferType: %d, mps: 0x%x, interval: %d, maxBurst: %d, mult: %d, bytesPerInterval: %d\n",
+			   this, ret, pipeRef, *direction, *number, *transferType, *maxPacketSize, *interval, *maxBurst, *mult, *bytesPerInterval);
+    return ret;
+}
+
+IOReturn
+IOUSBInterfaceClass::GetPipePropertiesV3(UInt8 pipeRef, IOUSBEndpointProperties *properties)
+{
+    uint64_t			input[2];
+    IOReturn			ret = kIOReturnSuccess;
+	size_t				propSize = sizeof(IOUSBEndpointProperties);
+	
+	DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetPipePropertiesV3 (bVersion: %d)\n", this, properties->bVersion);
+	
+	ATTACHEDCHECK();
+	
+	if ( properties->bVersion != kUSBEndpointPropertiesVersion3)
+	{
+		DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetPipePropertiesV3  We only support kUSBEndpointPropertiesVersion3 but structure has %d\n", properties->bVersion);
+		return kIOReturnBadArgument;
+	}
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) properties->bVersion;
+	
+	
+	ret = IOConnectCallMethod(fConnection, kUSBInterfaceUserClientGetPipePropertiesV3, input, 2, 0, 0, 0, 0, (void *) properties, &propSize);
+
+    
+    if (ret == kIOReturnSuccess)
+    {
+		DEBUGPRINT("-IOUSBInterfaceClass[%p]::GetPipePropertiesV3 returned 0x%x  altSetting: %d, endpointNumber: %d, direction %d, transferType: %d, mps: 0x%x, interval %d, \
+				   maxBurst %d, maxStreams %d, mult %d, bytesPerInterval %d, sscd %d\n",
+				   this, ret, properties->bAlternateSettings, properties->bEndpointNumber, properties->bDirection, properties->bTransferType, properties->wMaxPacketSize, properties->bInterval, properties->bMaxBurst, properties->bMaxStreams, properties->bMult, properties->wBytesPerInterval, properties->bSuperSpeedCompanionExists);
+    }
 	
     if (ret == MACH_SEND_INVALID_DEST)
     {
@@ -1701,6 +1803,285 @@ IOUSBInterfaceClass::SetPipePolicy(UInt8 pipeRef, UInt16 maxPacketSize, UInt8 ma
     
 	return kr;
 }
+
+
+#pragma mark Streams Support
+
+IOReturn
+IOUSBInterfaceClass::SupportsStreams(UInt8 pipeRef, UInt32 *supportsStreams)
+{
+ 	uint64_t			input[1];
+	uint64_t			output[1];
+    uint32_t			len = 1;
+    IOReturn			ret = kIOReturnSuccess;
+	
+	DEBUGPRINT("+IOUSBInterfaceClass[%p]::SupportsStreams (%d)\n", this, pipeRef);
+	
+	ATTACHEDCHECK();
+	
+	input[0] = (uint64_t) pipeRef;
+ 	output[0] = 0;
+    ret = IOConnectCallScalarMethod(fConnection, kUSBInterfaceUserClientSupportsStreams, input, 1, output, &len);
+ 	if (ret == kIOReturnSuccess)
+	{
+		*supportsStreams = (UInt32) output[0];
+	}
+	
+	if (ret == MACH_SEND_INVALID_DEST)
+    {
+        fIsOpen = false;
+        fInterfaceIsAttached = false;
+        ret = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("+IOUSBInterfaceClass[%p]::SupportsStreams  error: 0x%x, supportStreams: %d\n", this, ret, *supportsStreams);
+	
+    return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::CreateStreams(UInt8 pipeRef, UInt32 streamID)
+{
+	uint64_t			input[2];
+    IOReturn			kr = kIOReturnSuccess;
+    
+	DEBUGPRINT("IOUSBInterfaceClass::CreateStreams (%d, %d)\n", pipeRef, streamID);
+	
+	ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) streamID;
+	
+	kr = IOConnectCallScalarMethod(fConnection, kUSBInterfaceUserClientCreateStreams, input, 2, 0, 0);
+    if (kr == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		kr = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("IOUSBInterfaceClass::CreateStreams returning 0x%x\n", kr);
+    
+	return kr;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::GetConfiguredStreams(UInt8 pipeRef, UInt32 *configuredStreams)
+{
+ 	uint64_t			input[1];
+	uint64_t			output[1];
+    uint32_t			len = 1;
+    IOReturn			ret = kIOReturnSuccess;
+	
+	DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetConfiguredStreams (%d)\n", this, pipeRef);
+	
+	ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+ 	output[0] = 0;
+    ret = IOConnectCallScalarMethod(fConnection, kUSBInterfaceUserClientGetConfiguredStreams, input, 1, output, &len);
+ 	if (ret == kIOReturnSuccess)
+	{
+		*configuredStreams = (UInt32) output[0];
+	}
+	
+	if (ret == MACH_SEND_INVALID_DEST)
+    {
+        fIsOpen = false;
+        fInterfaceIsAttached = false;
+        ret = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("+IOUSBInterfaceClass[%p]::GetConfiguredStreams  error: 0x%x, supportStreams: %d\n", this, ret, *configuredStreams);
+	
+    return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::ReadStreamsPipeTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout)
+{
+    IOReturn 		ret = kIOReturnSuccess;
+    uint64_t		input[6];
+    size_t			len;
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::ReadStreamsPipeTO to pipe %d, stream: %d, length %" PRIu32 ", buf: %p, noDataTimeout: %" PRIu32 ", completionTimeout %" PRIu32 "\n",  this, pipeRef, streamID, (uint32_t) *size, buf, (uint32_t) noDataTimeout, (uint32_t) completionTimeout);
+	
+    ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) streamID;
+	input[2] = (uint64_t) noDataTimeout;
+	input[3] = (uint64_t) completionTimeout;
+	input[4] = 0;
+	input[5] = 0;
+	
+	len = *size;
+	
+	ret = IOConnectCallMethod( fConnection, kUSBInterfaceUserClientReadStreamsPipe, input, 6, 0, 0, 0, 0, buf, &len);
+	
+    if (ret == kIOReturnSuccess)
+	{
+		*size = (UInt32) len;
+	}
+	
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::ReadStreamsPipeTO  returning error 0x%x,  size: 0x%" PRIu32 "\n", this, ret, (uint32_t) *size);
+	
+	return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::WriteStreamsPipeTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout)
+{
+    IOReturn 		ret = kIOReturnSuccess;
+    uint64_t		input[6];
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::WriteStreamsPipeTO to pipe %d, stream: %d, length %" PRIu32 ", buf: %p, noDataTimeout: %" PRIu32 ", completionTimeout %" PRIu32 "\n",  this, pipeRef, streamID, (uint32_t) size, buf, (uint32_t) noDataTimeout, (uint32_t) completionTimeout);
+	
+    ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) streamID;
+	input[2] = (uint64_t) noDataTimeout;
+	input[3] = (uint64_t) completionTimeout;
+	input[4] = 0;
+	input[5] = 0;
+	
+	ret = IOConnectCallMethod( fConnection, kUSBInterfaceUserClientWriteStreamsPipe, input, 6, buf, size, 0, 0, 0, 0);
+	
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::WriteStreamsPipeTO  returning error 0x%x\n", this, ret);
+	
+	return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::ReadStreamsPipeAsyncTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refCon)
+{
+	io_async_ref64_t    asyncRef;
+	size_t				len;
+    IOReturn			ret;
+    uint64_t			input[6];
+	
+    if (!fAsyncPort)
+	{
+		DEBUGPRINT("IOUSBInterfaceClass[%p]::ReadStreamsPipeAsyncTO  NO async port\n", this);
+        return kIOUSBNoAsyncPortErr;
+	}
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::ReadStreamsPipeAsyncTO to pipe %d, streamID: %d, length %" PRIu32 ", buf: %p, noDataTimeout: %" PRIu32 ", completionTimeout %" PRIu32 ", refCon: %p\n", this, pipeRef, streamID, (uint32_t) size, buf, (uint32_t) noDataTimeout, (uint32_t) completionTimeout, refCon);
+	
+    ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) streamID;
+	input[2] = (uint64_t) noDataTimeout;
+	input[3] = (uint64_t) completionTimeout;
+	input[4] = (uint64_t) buf;
+	input[5] = (uint64_t) size;
+	
+    asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t) callback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t) refCon;
+	
+	ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientReadStreamsPipe, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, input, 6, 0, 0);
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::ReadStreamsPipeAsyncTO returning 0x%x\n", this, ret);
+	
+	return ret;
+	
+}
+
+
+IOReturn
+IOUSBInterfaceClass::WriteStreamsPipeAsyncTO(UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refCon)
+{
+	io_async_ref64_t    asyncRef;
+    IOReturn			ret;
+    uint64_t			input[6];
+	
+    if (!fAsyncPort)
+	{
+		DEBUGPRINT("IOUSBInterfaceClass[%p]::WriteStreamsPipeAsyncTO  NO async port\n", this);
+        return kIOUSBNoAsyncPortErr;
+	}
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::WriteStreamsPipeAsyncTO to pipe %d, streamID: %d, length %" PRIu32 ", buf: %p, noDataTimeout: %" PRIu32 ", completionTimeout %" PRIu32 ", refCon: %p\n", this, pipeRef, streamID, (uint32_t) size, buf, (uint32_t) noDataTimeout, (uint32_t) completionTimeout, refCon);
+	
+    ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) streamID;
+	input[2] = (uint64_t) noDataTimeout;
+	input[3] = (uint64_t) completionTimeout;
+	input[4] = (uint64_t) buf;
+	input[5] = (uint64_t) size;
+	
+    asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t) callback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t) refCon;
+	
+	ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientWriteStreamsPipe, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, input, 6, 0, 0);
+    if (ret == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		ret = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("IOUSBInterfaceClass[%p]::WriteStreamsPipeAsyncTO returning 0x%x\n", this, ret);
+	
+	return ret;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::AbortStreamsPipe(UInt8 pipeRef, UInt32 streamID)
+{
+    uint64_t			input[2];
+    IOReturn			kr = kIOReturnSuccess;
+    
+	DEBUGPRINT("IOUSBInterfaceClass::AbortStreamsPipe, pipe: %d, streamID: %d\n", pipeRef, streamID);
+	
+	ALLCHECKS();
+	
+	input[0] = (uint64_t) pipeRef;
+	input[1] = (uint64_t) streamID;
+	
+	kr = IOConnectCallScalarMethod(fConnection, kUSBInterfaceUserClientAbortStreamsPipe, input, 2, 0, 0);
+    if (kr == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fInterfaceIsAttached = false;
+		kr = kIOReturnNoDevice;
+    }
+	
+	DEBUGPRINT("IOUSBInterfaceClass::AbortStreamsPipe returning 0x%x\n", kr);
+    
+	return kr;
+}
+
 
 
 #pragma mark Isoch
@@ -2026,7 +2407,7 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     
 	if ( bufferSize == 0 )
 	{
-        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Requested size was 0!  Returning kIOReturnBadArgument\n",sizeof(LowLatencyUserBufferInfoV3));
+        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Requested size was 0!  Returning kIOReturnBadArgument\n");
         result = kIOReturnBadArgument;
         goto ErrorExit;
 	}
@@ -2685,8 +3066,8 @@ IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBInterfaceStruct500 
-IOUSBInterfaceClass::sUSBInterfaceInterfaceV500 = {
+IOUSBInterfaceStruct550
+IOUSBInterfaceClass::sUSBInterfaceInterfaceV550 = {
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -2754,7 +3135,18 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV500 = {
     // ---------- new with 3.0.0
     &IOUSBInterfaceClass::interfaceGetBusFrameNumberWithTime,
     // ---------- new with 5.0.0
-    &IOUSBInterfaceClass::interfaceGetPipePropertiesV2
+    &IOUSBInterfaceClass::interfaceGetPipePropertiesV2,
+    // ---------- new with 5.5.0
+    &IOUSBInterfaceClass::interfaceGetPipePropertiesV3,
+    &IOUSBInterfaceClass::interfaceGetEndpointPropertiesV3,
+    &IOUSBInterfaceClass::interfaceSupportsStreams,
+    &IOUSBInterfaceClass::interfaceCreateStreams,
+    &IOUSBInterfaceClass::interfaceGetConfiguredStreams,
+    &IOUSBInterfaceClass::interfaceReadStreamsPipeTO,
+    &IOUSBInterfaceClass::interfaceWriteStreamsPipeTO,
+    &IOUSBInterfaceClass::interfaceReadStreamsPipeAsyncTO,
+    &IOUSBInterfaceClass::interfaceWriteStreamsPipeAsyncTO,
+    &IOUSBInterfaceClass::interfaceAbortStreamsPipe,
 };
 
 
@@ -2768,7 +3160,7 @@ IOReturn
 IOUSBInterfaceClass::interfaceStart(void *self, CFDictionaryRef propertyTable, io_service_t inService)
     { return getThis(self)->start(propertyTable, inService); }
     
-IOReturn 
+IOReturn
 IOUSBInterfaceClass::interfaceStop(void *self)
 	{ return getThis(self)->stop(); }
 
@@ -3033,5 +3425,50 @@ IOUSBInterfaceClass::interfaceGetPipePropertiesV2(void *self, UInt8 pipeRef, UIn
 												UInt16 *maxpacketSize, UInt8 *interval, UInt8 *maxBurst, UInt8 *mult, UInt16 *bytesPerInterval)
 { return getThis(self)->GetPipePropertiesV2(pipeRef, direction, address, attributes, maxpacketSize, interval, maxBurst, mult, bytesPerInterval); }
 
+//--------------- added in 5.5.0
+IOReturn
+IOUSBInterfaceClass::interfaceGetPipePropertiesV3(void *self, UInt8 pipeRef, IOUSBEndpointProperties *properties)
+{ return getThis(self)->GetPipePropertiesV3(pipeRef, properties); }
+
+IOReturn
+IOUSBInterfaceClass::interfaceGetEndpointPropertiesV3(void *self, IOUSBEndpointProperties *properties)
+{ return getThis(self)->GetEndpointPropertiesV3(properties); }
+
+IOReturn
+IOUSBInterfaceClass::interfaceSupportsStreams(void *self, UInt8 pipeRef, UInt32 *supportsStreams)
+{ return getThis(self)->SupportsStreams(pipeRef, supportsStreams); }
+
+IOReturn
+IOUSBInterfaceClass::interfaceCreateStreams(void *self, UInt8 pipeRef, UInt32 streamID)
+{ return getThis(self)->CreateStreams(pipeRef, streamID);}
+
+IOReturn
+IOUSBInterfaceClass::interfaceGetConfiguredStreams(void *self, UInt8 pipeRef, UInt32 *configuredStreams)
+{ return getThis(self)->GetConfiguredStreams(pipeRef, configuredStreams); }
+
+
+IOReturn
+IOUSBInterfaceClass::interfaceReadStreamsPipeTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout)
+{ return getThis(self)->ReadStreamsPipeTO(pipeRef, streamID, buf, size, noDataTimeout, completionTimeout); }
+
+
+IOReturn
+IOUSBInterfaceClass::interfaceWriteStreamsPipeTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout)
+{ return getThis(self)->WriteStreamsPipeTO(pipeRef, streamID, buf, size, noDataTimeout, completionTimeout); }
+
+
+IOReturn
+IOUSBInterfaceClass::interfaceReadStreamsPipeAsyncTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refCon)
+{ return getThis(self)->ReadStreamsPipeAsyncTO(pipeRef, streamID, buf, size, noDataTimeout, completionTimeout, callback, refCon); }
+
+
+IOReturn
+IOUSBInterfaceClass::interfaceWriteStreamsPipeAsyncTO(void *self, UInt8 pipeRef, UInt32 streamID, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refCon)
+{ return getThis(self)->WriteStreamsPipeAsyncTO(pipeRef, streamID, buf, size, noDataTimeout, completionTimeout, callback, refCon); }
+
+
+IOReturn
+IOUSBInterfaceClass::interfaceAbortStreamsPipe(void *self, UInt8 pipeRef, UInt32 streamID)
+{ return getThis(self)->AbortStreamsPipe(pipeRef, streamID); }
 
 

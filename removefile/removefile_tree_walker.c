@@ -132,6 +132,18 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	while ((current_file = fts_read(stream)) != NULL) {
 		int res = REMOVEFILE_PROCEED;
 
+		/*
+		 * fts_number is set to REMOVEFILE_SKIP for directories where
+		 * the confirmation callback has asked to skip it.  We check
+		 * this on post-order, so we don't remove an empty directory that
+		 * the caller wanted preserved.
+		 */
+		if (current_file->fts_info == FTS_DP &&
+		    current_file->fts_number == REMOVEFILE_SKIP) {
+			current_file->fts_number = 0;
+			continue;
+		}
+
 		// don't process the file if a cancel has been requested
 		if (__removefile_state_test_cancel(state)) break;
 
@@ -182,6 +194,10 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 				res = cb_status(state, current_file->fts_path,
 					state->status_context);
 			}
+		}
+
+		if (current_file->fts_info == FTS_D && res == REMOVEFILE_SKIP) {
+			current_file->fts_number = REMOVEFILE_SKIP;
 		}
 
 		if (res == REMOVEFILE_SKIP ||

@@ -33,6 +33,9 @@ void (*wkCALayerEnumerateRectsBeingDrawnWithBlock)(CALayer *, CGContextRef conte
 #endif
 BOOL (*wkCGContextGetShouldSmoothFonts)(CGContextRef);
 void (*wkCGContextResetClip)(CGContextRef);
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
+bool (*wkCGContextDrawsWithCorrectShadowOffsets)(CGContextRef);
+#endif
 CGPatternRef (*wkCGPatternCreateWithImageAndTransform)(CGImageRef, CGAffineTransform, int);
 CFStringRef (*wkCopyCFLocalizationPreferredName)(CFStringRef);
 NSString* (*wkCopyNSURLResponseStatusLine)(NSURLResponse*);
@@ -82,7 +85,7 @@ NSArray *(*wkQTGetSitesInMediaDownloadCache)();
 void (*wkQTClearMediaDownloadCacheForSite)(NSString *site);
 void (*wkQTClearMediaDownloadCache)();
 
-void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
+void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*, BOOL);
 void (*wkSetCookieStoragePrivateBrowsingEnabled)(BOOL);
 void (*wkSetDragImage)(NSImage*, NSPoint offset);
 void (*wkSetBaseCTM)(CGContextRef, CGAffineTransform);

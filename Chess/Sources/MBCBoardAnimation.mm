@@ -57,7 +57,7 @@
 	a->fDelta		= 180.0f;
     [a runWithTime:2.0 view:view];
     
-    return self;
+    return a;
 }
             
 - (void) step: (float)pctDone

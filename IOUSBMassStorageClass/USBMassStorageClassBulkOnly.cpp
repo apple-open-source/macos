@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -310,8 +310,10 @@ IOUSBMassStorageClass::BulkOnlyTransferData (
 	// Start a bulk in or out transaction
 	if ( GetDataTransferDirection ( boRequestBlock->request ) == kSCSIDataTransfer_FromTargetToInitiator )
 	{
+#ifndef EMBEDDED
 		requireMaxBusStall ( 10000 );
 		fRequiredMaxBusStall = 10000;
+#endif // EMBEDDED
 		status = GetBulkInPipe()->Read(
 					GetDataBuffer( boRequestBlock->request ), 
 					GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
@@ -322,8 +324,10 @@ IOUSBMassStorageClass::BulkOnlyTransferData (
 	}
 	else if ( GetDataTransferDirection(boRequestBlock->request) == kSCSIDataTransfer_FromInitiatorToTarget )
 	{
+#ifndef EMBEDDED
 		requireMaxBusStall ( 10000 );
 		fRequiredMaxBusStall = 10000;
+#endif // EMBEDDED
 		status = GetBulkOutPipe()->Write(
 					GetDataBuffer ( boRequestBlock->request ), 
 					GetTimeoutDuration ( boRequestBlock->request ),  // Use the client's timeout for both
@@ -405,11 +409,13 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 	
 	}
     
+#ifndef EMBEDDED
 	if ( fRequiredMaxBusStall != 0 )
 	{
 		requireMaxBusStall ( 0 );
 		fRequiredMaxBusStall = 0;
 	}
+#endif // EMBEDDED
 	
 	if ( ( boRequestBlock->request == NULL ) || ( fBulkOnlyCommandStructInUse == false ) )
 	{ 

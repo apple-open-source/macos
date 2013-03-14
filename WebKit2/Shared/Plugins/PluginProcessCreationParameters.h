@@ -49,6 +49,8 @@ struct PluginProcessCreationParameters {
 
     String pluginPath;
 
+    double terminationTimeout;
+
 #if PLATFORM(MAC)
     String parentProcessName;
     CoreIPC::MachPort acceleratedCompositingPort;

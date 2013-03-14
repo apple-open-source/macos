@@ -46,6 +46,7 @@
 #include "RenderCounter.h"
 #include "RenderDeprecatedFlexibleBox.h"
 #include "RenderFlexibleBox.h"
+#include "RenderGeometryMap.h"
 #include "RenderImage.h"
 #include "RenderImageResourceStyleImage.h"
 #include "RenderInline.h"
@@ -320,6 +321,10 @@ void RenderObject::addChild(RenderObject* newChild, RenderObject* beforeChild)
     // and stop creating layers at all for these cases - they're not used anyways.
     if (newChild->hasLayer() && !layerCreationAllowedForSubtree())
         toRenderBoxModelObject(newChild)->layer()->removeOnlyThisLayer();
+
+#if ENABLE(SVG)
+    SVGRenderSupport::childAdded(this, newChild);
+#endif
 }
 
 void RenderObject::removeChild(RenderObject* oldChild)
@@ -585,6 +590,15 @@ RenderFlowThread* RenderObject::enclosingRenderFlowThread() const
         curr = curr->parent();
     }
     return 0;
+}
+
+RenderNamedFlowThread* RenderObject::enclosingRenderNamedFlowThread() const
+{
+    RenderObject* object = const_cast<RenderObject*>(this);
+    while (object && object->isAnonymousBlock() && !object->isRenderNamedFlowThread())
+        object = object->parent();
+
+    return object && object->isRenderNamedFlowThread() ? toRenderNamedFlowThread(object) : 0;
 }
 
 RenderBlock* RenderObject::firstLineBlock() const
@@ -1942,6 +1956,10 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     if (s_affectsParentBlock)
         handleDynamicFloatPositionChange();
 
+#if ENABLE(SVG)
+    SVGRenderSupport::styleChanged(this);
+#endif
+
     if (!m_parent)
         return;
     
@@ -2082,6 +2100,24 @@ void RenderObject::mapLocalToContainer(RenderBoxModelObject* repaintContainer, b
     o->mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState, DoNotApplyContainerFlip, wasFixed);
 }
 
+const RenderObject* RenderObject::pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
+{
+    ASSERT_UNUSED(ancestorToStopAt, ancestorToStopAt != this);
+
+    RenderObject* container = parent();
+    if (!container)
+        return 0;
+
+    // FIXME: this should call offsetFromContainer to share code, but I'm not sure it's ever called.
+    LayoutSize offset;
+    if (container->hasOverflowClip())
+        offset = -toRenderBox(container)->scrolledContentOffset();
+
+    geometryMap.push(this, offset, hasColumns());
+    
+    return container;
+}
+
 void RenderObject::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState& transformState) const
 {
     RenderObject* o = parent();
@@ -2150,7 +2186,7 @@ FloatPoint RenderObject::localToContainerPoint(const FloatPoint& localPoint, Ren
     return transformState.lastPlanarPoint();
 }
 
-LayoutSize RenderObject::offsetFromContainer(RenderObject* o, const LayoutPoint& point) const
+LayoutSize RenderObject::offsetFromContainer(RenderObject* o, const LayoutPoint& point, bool* offsetDependsOnPoint) const
 {
     ASSERT(o == container());
 
@@ -2160,6 +2196,9 @@ LayoutSize RenderObject::offsetFromContainer(RenderObject* o, const LayoutPoint&
 
     if (o->hasOverflowClip())
         offset -= toRenderBox(o)->scrolledContentOffset();
+
+    if (offsetDependsOnPoint)
+        *offsetDependsOnPoint = hasColumns();
 
     return offset;
 }
@@ -2236,7 +2275,7 @@ bool RenderObject::hasOutlineAnnotation() const
     return node() && node()->isLink() && document()->printing();
 }
 
-RenderObject* RenderObject::container(RenderBoxModelObject* repaintContainer, bool* repaintContainerSkipped) const
+RenderObject* RenderObject::container(const RenderBoxModelObject* repaintContainer, bool* repaintContainerSkipped) const
 {
     if (repaintContainerSkipped)
         *repaintContainerSkipped = false;
@@ -2368,6 +2407,70 @@ void RenderObject::willBeDestroyed()
     setAncestorLineBoxDirty(false);
 
     clearLayoutRootIfNeeded();
+}
+
+void RenderObject::insertedIntoTree()
+{
+    // FIXME: We should ASSERT(isRooted()) here but generated content makes some out-of-order insertion.
+
+    // Keep our layer hierarchy updated. Optimize for the common case where we don't have any children
+    // and don't have a layer attached to ourselves.
+    RenderLayer* layer = 0;
+    if (firstChild() || hasLayer()) {
+        layer = parent()->enclosingLayer();
+        addLayers(layer);
+    }
+
+    // If |this| is visible but this object was not, tell the layer it has some visible content
+    // that needs to be drawn and layer visibility optimization can't be used
+    if (parent()->style()->visibility() != VISIBLE && style()->visibility() == VISIBLE && !hasLayer()) {
+        if (!layer)
+            layer = parent()->enclosingLayer();
+        if (layer)
+            layer->setHasVisibleContent(true);
+    }
+
+    if (!isFloating() && parent()->childrenInline())
+        parent()->dirtyLinesFromChangedChild(this);
+
+    if (RenderNamedFlowThread* containerFlowThread = parent()->enclosingRenderNamedFlowThread())
+        containerFlowThread->addFlowChild(this);
+}
+
+void RenderObject::willBeRemovedFromTree()
+{
+    // FIXME: We should ASSERT(isRooted()) but we have some out-of-order removals which would need to be fixed first.
+
+    // If we remove a visible child from an invisible parent, we don't know the layer visibility any more.
+    RenderLayer* layer = 0;
+    if (parent()->style()->visibility() != VISIBLE && style()->visibility() == VISIBLE && !hasLayer()) {
+        if ((layer = parent()->enclosingLayer()))
+            layer->dirtyVisibleContentStatus();
+    }
+
+    // Keep our layer hierarchy updated.
+    if (firstChild() || hasLayer()) {
+        if (!layer)
+            layer = parent()->enclosingLayer();
+        removeLayers(layer);
+    }
+
+    if (isPositioned() && parent()->childrenInline())
+        parent()->dirtyLinesFromChangedChild(this);
+
+    if (inRenderFlowThread() && isBox()) {
+        enclosingRenderFlowThread()->removeRenderBoxRegionInfo(toRenderBox(this));
+        if (canHaveRegionStyle())
+            enclosingRenderFlowThread()->clearRenderBoxCustomStyle(toRenderBox(this));
+    }
+
+    if (RenderNamedFlowThread* containerFlowThread = parent()->enclosingRenderNamedFlowThread())
+        containerFlowThread->removeFlowChild(this);
+
+#if ENABLE(SVG)
+    // Update cached boundaries in SVG renderers, if a child is removed.
+    parent()->setNeedsBoundariesUpdate();
+#endif
 }
 
 void RenderObject::destroyAndCleanupAnonymousWrappers()
@@ -2900,6 +3003,11 @@ bool RenderObject::canUpdateSelectionOnRootLineBoxes()
 
     RenderBlock* containingBlock = this->containingBlock();
     return containingBlock ? !containingBlock->needsLayout() : true;
+}
+
+bool RenderObject::canBeReplacedWithInlineRunIn() const
+{
+    return true;
 }
 
 #if ENABLE(SVG)

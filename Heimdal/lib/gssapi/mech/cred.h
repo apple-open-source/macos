@@ -27,6 +27,8 @@
  *	$Id$
  */
 
+
+
 struct _gss_mechanism_cred {
 	HEIM_SLIST_ENTRY(_gss_mechanism_cred) gmc_link;
 	gssapi_mech_interface	gmc_mech;	/* mechanism ops for MC */

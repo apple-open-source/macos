@@ -29,7 +29,6 @@ messages -> WebProcessProxy {
 
 #if ENABLE(PLUGIN_PROCESS)
     GetPluginProcessConnection(WTF::String pluginPath) -> (CoreIPC::Attachment connectionHandle) Delayed
-    PluginSyncMessageSendTimedOut(WTF::String pluginPath)
 #endif
 
 #if PLATFORM(MAC)

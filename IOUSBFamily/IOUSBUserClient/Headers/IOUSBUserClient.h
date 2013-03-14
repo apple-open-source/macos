@@ -80,8 +80,17 @@ enum {
     kUSBInterfaceUserClientLowLatencyWriteIsochPipe,
 	kUSBInterfaceUserClientGetConfigDescriptor,
 	kUSBInterfaceUserClientGetPipePropertiesV2,
-    kIOUSBLibInterfaceUserClientNumCommands
-    };
+	kUSBInterfaceUserClientGetPipePropertiesV3,
+	kUSBInterfaceUserClientGetEndpointPropertiesV3,
+    kIOUSBLibInterfaceUserClientNumCommands,
+	kUSBInterfaceUserClientSupportsStreams = kIOUSBLibInterfaceUserClientNumCommands,
+	kUSBInterfaceUserClientCreateStreams,
+	kUSBInterfaceUserClientGetConfiguredStreams,
+	kUSBInterfaceUserClientReadStreamsPipe,
+	kUSBInterfaceUserClientWriteStreamsPipe,
+	kUSBInterfaceUserClientAbortStreamsPipe,
+	kIOUSBLibInterfaceUserClientV3NumCommands
+   };
 
 
 #if KERNEL
