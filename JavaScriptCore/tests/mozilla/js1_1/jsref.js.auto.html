@@ -1,0 +1,195 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>jsref.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">jsref.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-keyword">var</span> completed = <span class="enscript-keyword">false</span>;
+<span class="enscript-keyword">var</span> testcases;
+
+<span class="enscript-keyword">var</span> BUGNUMBER=<span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> EXCLUDE = <span class="enscript-string">&quot;&quot;</span>;
+
+<span class="enscript-keyword">var</span> TT = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> TT_ = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> BR = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> NBSP = <span class="enscript-string">&quot; &quot;</span>;
+<span class="enscript-keyword">var</span> CR = <span class="enscript-string">&quot;\n&quot;</span>;
+<span class="enscript-keyword">var</span> FONT = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> FONT_ = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> FONT_RED = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> FONT_GREEN = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> B = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> B_ = <span class="enscript-string">&quot;&quot;</span>
+<span class="enscript-keyword">var</span> H2 = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> H2_ = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> HR = <span class="enscript-string">&quot;&quot;</span>;
+
+<span class="enscript-keyword">var</span> PASSED = <span class="enscript-string">&quot; PASSED!&quot;</span>
+<span class="enscript-keyword">var</span> FAILED = <span class="enscript-string">&quot; FAILED! expected: &quot;</span>;
+
+version( 110 );
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                            testcases[tc].actual );
+
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TestCase</span>( n, d, e, a ) {
+    <span class="enscript-keyword">this</span>.name        = n;
+    <span class="enscript-keyword">this</span>.description = d;
+    <span class="enscript-keyword">this</span>.expect      = e;
+    <span class="enscript-keyword">this</span>.actual      = a;
+    <span class="enscript-keyword">this</span>.passed      = <span class="enscript-keyword">true</span>;
+    <span class="enscript-keyword">this</span>.reason      = <span class="enscript-string">&quot;&quot;</span>;
+    <span class="enscript-keyword">this</span>.bugnumber   = BUGNUMBER;
+
+    <span class="enscript-keyword">this</span>.passed = getTestCaseResult( <span class="enscript-keyword">this</span>.expect, <span class="enscript-keyword">this</span>.actual );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">startTest</span>() {
+<span class="enscript-comment">/*
+    //  JavaScript 1.3 is supposed to be compliant ecma version 1.0
+    if ( VERSION == &quot;ECMA_1&quot; ) {
+        version ( &quot;130&quot; );
+    }
+    if ( VERSION == &quot;JS_1.3&quot; ) {
+        version ( &quot;130&quot; );
+    }
+    if ( VERSION == &quot;JS_1.2&quot; ) {
+        version ( &quot;120&quot; );
+    }
+    if ( VERSION  == &quot;JS_1.1&quot; ) {
+        version ( &quot;110&quot; );
+    }
+    // for ecma version 2.0, we will leave the javascript version to
+    // the default ( for now ).
+*/</span>
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getTestCaseResult</span>( expect, actual ) {
+    <span class="enscript-comment">//  because ( NaN == NaN ) always returns false, need to do
+</span>    <span class="enscript-comment">//  a special compare to see if we got the right result.
+</span>        <span class="enscript-keyword">if</span> ( actual != actual ) {
+            <span class="enscript-keyword">if</span> ( typeof actual == <span class="enscript-string">&quot;object&quot;</span> ) {
+                actual = <span class="enscript-string">&quot;NaN object&quot;</span>;
+            } <span class="enscript-keyword">else</span> {
+                actual = <span class="enscript-string">&quot;NaN number&quot;</span>;
+            }
+        }
+        <span class="enscript-keyword">if</span> ( expect != expect ) {
+            <span class="enscript-keyword">if</span> ( typeof expect == <span class="enscript-string">&quot;object&quot;</span> ) {
+                expect = <span class="enscript-string">&quot;NaN object&quot;</span>;
+            } <span class="enscript-keyword">else</span> {
+                expect = <span class="enscript-string">&quot;NaN number&quot;</span>;
+            }
+        }
+
+        <span class="enscript-keyword">var</span> passed = ( expect == actual ) ? <span class="enscript-keyword">true</span> : <span class="enscript-keyword">false</span>;
+
+    <span class="enscript-comment">//  if both objects are numbers, give a little leeway for rounding.
+</span>        <span class="enscript-keyword">if</span> (    !passed
+                &amp;&amp; typeof(actual) == <span class="enscript-string">&quot;number&quot;</span>
+                &amp;&amp; typeof(expect) == <span class="enscript-string">&quot;number&quot;</span>
+            ) {
+                <span class="enscript-keyword">if</span> ( <span class="enscript-builtin">Math</span>.abs(actual-expect) &lt; 0.0000001 ) {
+                    passed = <span class="enscript-keyword">true</span>;
+                }
+        }
+
+    <span class="enscript-comment">//  verify type is the same
+</span>        <span class="enscript-keyword">if</span> ( typeof(expect) != typeof(actual) ) {
+            passed = <span class="enscript-keyword">false</span>;
+        }
+
+        <span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeTestCaseResult</span>( expect, actual, string ) {
+        <span class="enscript-keyword">var</span> passed = getTestCaseResult( expect, actual );
+        writeFormattedResult( expect, actual, string, passed );
+        <span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeFormattedResult</span>( expect, actual, string, passed ) {
+        <span class="enscript-keyword">var</span> s = TT + string ;
+
+        <span class="enscript-keyword">for</span> ( k = 0;
+              k &lt;  (60 - string.length &gt;= 0 ? 60 - string.length : 5) ;
+              k++ ) {
+<span class="enscript-comment">//              s += NBSP;
+</span>        }
+
+        s += B ;
+        s += ( passed ) ? FONT_GREEN + NBSP + PASSED : FONT_RED + NBSP + FAILED + expect + TT_ ;
+
+        writeLineToLog( s + FONT_ + B_ + TT_ );
+
+        <span class="enscript-keyword">return</span> passed;
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeLineToLog</span>( string ) {
+    print( string + BR + CR );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeHeaderToLog</span>( string ) {
+    print( H2 + string + H2_ );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">stopTest</span>() {
+    <span class="enscript-keyword">var</span> sizeTag  = <span class="enscript-string">&quot;&lt;#TEST CASES SIZE&gt;&quot;</span>;
+    <span class="enscript-keyword">var</span> doneTag  = <span class="enscript-string">&quot;&lt;#TEST CASES DONE&gt;&quot;</span>;
+    <span class="enscript-keyword">var</span> beginTag = <span class="enscript-string">&quot;&lt;#TEST CASE &quot;</span>;
+    <span class="enscript-keyword">var</span> endTag   = <span class="enscript-string">&quot;&gt;&quot;</span>;
+
+    print(sizeTag);
+    print(testcases.length);
+    <span class="enscript-keyword">for</span> (tc = 0; tc &lt; testcases.length; tc++)
+    {
+        print(beginTag + <span class="enscript-string">'PASSED'</span>      + endTag);
+        print(testcases[tc].passed);
+        print(beginTag + <span class="enscript-string">'NAME'</span>        + endTag);
+        print(testcases[tc].name);
+        print(beginTag + <span class="enscript-string">'EXPECTED'</span>    + endTag);
+        print(testcases[tc].expect);
+        print(beginTag + <span class="enscript-string">'ACTUAL'</span>      + endTag);
+        print(testcases[tc].actual);
+        print(beginTag + <span class="enscript-string">'DESCRIPTION'</span> + endTag);
+        print(testcases[tc].description);
+        print(beginTag + <span class="enscript-string">'REASON'</span>      + endTag);
+        print(( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>);
+        print(beginTag + <span class="enscript-string">'BUGNUMBER'</span>   + endTag);
+        print( BUGNUMBER );
+    }
+    print(doneTag);
+    gc();
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getFailedCases</span>() {
+  <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> i = 0; i &lt; testcases.length; i++ ) {
+     <span class="enscript-keyword">if</span> ( ! testcases[i].passed ) {
+        print( testcases[i].description +<span class="enscript-string">&quot; = &quot;</span> +testcases[i].actual +<span class="enscript-string">&quot; expected: &quot;</span>+ testcases[i].expect );
+     }
+  }
+}
+</pre>
+<hr />
+</body></html>

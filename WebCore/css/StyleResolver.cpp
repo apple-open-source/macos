@@ -4868,7 +4868,7 @@ void StyleResolver::checkForGenericFamilyChange(RenderStyle* style, RenderStyle*
         size = fontSizeForKeyword(m_checker.document(), CSSValueXxSmall + childFont.keywordSize() - 1, childFont.useFixedDefaultSize());
     else {
         Settings* settings = m_checker.document()->settings();
-        float fixedScaleFactor = settings
+        float fixedScaleFactor = (settings && settings->defaultFixedFontSize() && settings->defaultFontSize())
             ? static_cast<float>(settings->defaultFixedFontSize()) / settings->defaultFontSize()
             : 1;
         size = parentFont.useFixedDefaultSize() ?
@@ -4939,7 +4939,7 @@ float StyleResolver::getComputedSizeFromSpecifiedSize(Document* document, float 
 
     // Also clamp to a reasonable maximum to prevent insane font sizes from causing crashes on various
     // platforms (I'm looking at you, Windows.)
-    return min(1000000.0f, zoomedSize);
+    return min(maximumAllowedFontSize, zoomedSize);
 }
 
 const int fontSizeTableMax = 16;

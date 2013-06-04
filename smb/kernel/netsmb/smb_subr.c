@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -242,14 +242,6 @@ void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inl
     printf("\" \n");
 }
 #endif // SMB_DEBUG
-
-int
-smb_sigintr(vfs_context_t context)
-{
-	if (context && vfs_context_issignal(context, SMB_SIGMASK))
-		return (EINTR);
-	return (0);
-}
 
 char * 
 smb_strndup(const char * string, size_t maxlen)

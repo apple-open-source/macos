@@ -1,0 +1,1720 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Lexer.cpp</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Lexer.cpp&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ *  Copyright (C) 1999-2000 Harri Porten (<a href="mailto:porten@kde.org">porten@kde.org</a>)
+ *  Copyright (C) 2006, 2007, 2008, 2009, 2011, 2012 Apple Inc. All Rights Reserved.
+ *  Copyright (C) 2007 Cameron Zwarich (<a href="mailto:cwzwarich@uwaterloo.ca">cwzwarich@uwaterloo.ca</a>)
+ *  Copyright (C) 2010 Zoltan Herczeg (<a href="mailto:zherczeg@inf.u-szeged.hu">zherczeg@inf.u-szeged.hu</a>)
+ *  Copyright (C) 2012 Mathias Bynens (<a href="mailto:mathias@qiwi.be">mathias@qiwi.be</a>)
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Library General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public License
+ *  along with this library; see the file COPYING.LIB.  If not, write to
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
+ *
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Lexer.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSFunction.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSGlobalObjectFunctions.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Identifier.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;NodeInfo.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Nodes.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/dtoa.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;ctype.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;limits.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/Assertions.h&gt;</span>
+
+using namespace WTF;
+using namespace Unicode;
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;KeywordLookup.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Lexer.lut.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Parser.h&quot;</span>
+
+namespace JSC {
+
+<span class="enscript-function-name">Keywords::Keywords</span>(JSGlobalData* globalData)
+    : m_globalData(globalData)
+    , m_keywordTable(JSC::mainTable)
+{
+}
+
+<span class="enscript-type">enum</span> CharacterType {
+    <span class="enscript-comment">// Types for the main switch
+</span>
+    <span class="enscript-comment">// The first three types are fixed, and also used for identifying
+</span>    <span class="enscript-comment">// ASCII alpha and alphanumeric characters (see isIdentStart and isIdentPart).
+</span>    CharacterIdentifierStart,
+    CharacterZero,
+    CharacterNumber,
+
+    CharacterInvalid,
+    CharacterLineTerminator,
+    CharacterExclamationMark,
+    CharacterOpenParen,
+    CharacterCloseParen,
+    CharacterOpenBracket,
+    CharacterCloseBracket,
+    CharacterComma,
+    CharacterColon,
+    CharacterQuestion,
+    CharacterTilde,
+    CharacterQuote,
+    CharacterDot,
+    CharacterSlash,
+    CharacterBackSlash,
+    CharacterSemicolon,
+    CharacterOpenBrace,
+    CharacterCloseBrace,
+
+    CharacterAdd,
+    CharacterSub,
+    CharacterMultiply,
+    CharacterModulo,
+    CharacterAnd,
+    CharacterXor,
+    CharacterOr,
+    CharacterLess,
+    CharacterGreater,
+    CharacterEqual,
+
+    <span class="enscript-comment">// Other types (only one so far)
+</span>    CharacterWhiteSpace,
+};
+
+<span class="enscript-comment">// 256 Latin-1 codes
+</span><span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> typesOfLatin1Characters[256] = {
+<span class="enscript-comment">/*   0 - Null               */</span> CharacterInvalid,
+<span class="enscript-comment">/*   1 - Start of Heading   */</span> CharacterInvalid,
+<span class="enscript-comment">/*   2 - Start of Text      */</span> CharacterInvalid,
+<span class="enscript-comment">/*   3 - End of Text        */</span> CharacterInvalid,
+<span class="enscript-comment">/*   4 - End of Transm.     */</span> CharacterInvalid,
+<span class="enscript-comment">/*   5 - Enquiry            */</span> CharacterInvalid,
+<span class="enscript-comment">/*   6 - Acknowledgment     */</span> CharacterInvalid,
+<span class="enscript-comment">/*   7 - Bell               */</span> CharacterInvalid,
+<span class="enscript-comment">/*   8 - Back Space         */</span> CharacterInvalid,
+<span class="enscript-comment">/*   9 - Horizontal Tab     */</span> CharacterWhiteSpace,
+<span class="enscript-comment">/*  10 - Line Feed          */</span> CharacterLineTerminator,
+<span class="enscript-comment">/*  11 - Vertical Tab       */</span> CharacterWhiteSpace,
+<span class="enscript-comment">/*  12 - Form Feed          */</span> CharacterWhiteSpace,
+<span class="enscript-comment">/*  13 - Carriage Return    */</span> CharacterLineTerminator,
+<span class="enscript-comment">/*  14 - Shift Out          */</span> CharacterInvalid,
+<span class="enscript-comment">/*  15 - Shift In           */</span> CharacterInvalid,
+<span class="enscript-comment">/*  16 - Data Line Escape   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  17 - Device Control 1   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  18 - Device Control 2   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  19 - Device Control 3   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  20 - Device Control 4   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  21 - Negative Ack.      */</span> CharacterInvalid,
+<span class="enscript-comment">/*  22 - Synchronous Idle   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  23 - End of Transmit    */</span> CharacterInvalid,
+<span class="enscript-comment">/*  24 - Cancel             */</span> CharacterInvalid,
+<span class="enscript-comment">/*  25 - End of Medium      */</span> CharacterInvalid,
+<span class="enscript-comment">/*  26 - Substitute         */</span> CharacterInvalid,
+<span class="enscript-comment">/*  27 - Escape             */</span> CharacterInvalid,
+<span class="enscript-comment">/*  28 - File Separator     */</span> CharacterInvalid,
+<span class="enscript-comment">/*  29 - Group Separator    */</span> CharacterInvalid,
+<span class="enscript-comment">/*  30 - Record Separator   */</span> CharacterInvalid,
+<span class="enscript-comment">/*  31 - Unit Separator     */</span> CharacterInvalid,
+<span class="enscript-comment">/*  32 - Space              */</span> CharacterWhiteSpace,
+<span class="enscript-comment">/*  33 - !                  */</span> CharacterExclamationMark,
+<span class="enscript-comment">/*  34 - &quot;                  */</span> CharacterQuote,
+<span class="enscript-comment">/*  35 - #                  */</span> CharacterInvalid,
+<span class="enscript-comment">/*  36 - $                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  37 - %                  */</span> CharacterModulo,
+<span class="enscript-comment">/*  38 - &amp;                  */</span> CharacterAnd,
+<span class="enscript-comment">/*  39 - '                  */</span> CharacterQuote,
+<span class="enscript-comment">/*  40 - (                  */</span> CharacterOpenParen,
+<span class="enscript-comment">/*  41 - )                  */</span> CharacterCloseParen,
+<span class="enscript-comment">/*  42 - *                  */</span> CharacterMultiply,
+<span class="enscript-comment">/*  43 - +                  */</span> CharacterAdd,
+<span class="enscript-comment">/*  44 - ,                  */</span> CharacterComma,
+<span class="enscript-comment">/*  45 - -                  */</span> CharacterSub,
+<span class="enscript-comment">/*  46 - .                  */</span> CharacterDot,
+<span class="enscript-comment">/*  47 - /                  */</span> CharacterSlash,
+<span class="enscript-comment">/*  48 - 0                  */</span> CharacterZero,
+<span class="enscript-comment">/*  49 - 1                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  50 - 2                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  51 - 3                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  52 - 4                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  53 - 5                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  54 - 6                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  55 - 7                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  56 - 8                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  57 - 9                  */</span> CharacterNumber,
+<span class="enscript-comment">/*  58 - :                  */</span> CharacterColon,
+<span class="enscript-comment">/*  59 - ;                  */</span> CharacterSemicolon,
+<span class="enscript-comment">/*  60 - &lt;                  */</span> CharacterLess,
+<span class="enscript-comment">/*  61 - =                  */</span> CharacterEqual,
+<span class="enscript-comment">/*  62 - &gt;                  */</span> CharacterGreater,
+<span class="enscript-comment">/*  63 - ?                  */</span> CharacterQuestion,
+<span class="enscript-comment">/*  64 - @                  */</span> CharacterInvalid,
+<span class="enscript-comment">/*  65 - A                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  66 - B                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  67 - C                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  68 - D                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  69 - E                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  70 - F                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  71 - G                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  72 - H                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  73 - I                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  74 - J                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  75 - K                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  76 - L                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  77 - M                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  78 - N                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  79 - O                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  80 - P                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  81 - Q                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  82 - R                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  83 - S                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  84 - T                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  85 - U                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  86 - V                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  87 - W                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  88 - X                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  89 - Y                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  90 - Z                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  91 - [                  */</span> CharacterOpenBracket,
+<span class="enscript-comment">/*  92 - \                  */</span> CharacterBackSlash,
+<span class="enscript-comment">/*  93 - ]                  */</span> CharacterCloseBracket,
+<span class="enscript-comment">/*  94 - ^                  */</span> CharacterXor,
+<span class="enscript-comment">/*  95 - _                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  96 - `                  */</span> CharacterInvalid,
+<span class="enscript-comment">/*  97 - a                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  98 - b                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/*  99 - c                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 100 - d                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 101 - e                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 102 - f                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 103 - g                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 104 - h                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 105 - i                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 106 - j                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 107 - k                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 108 - l                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 109 - m                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 110 - n                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 111 - o                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 112 - p                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 113 - q                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 114 - r                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 115 - s                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 116 - t                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 117 - u                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 118 - v                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 119 - w                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 120 - x                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 121 - y                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 122 - z                  */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 123 - {                  */</span> CharacterOpenBrace,
+<span class="enscript-comment">/* 124 - |                  */</span> CharacterOr,
+<span class="enscript-comment">/* 125 - }                  */</span> CharacterCloseBrace,
+<span class="enscript-comment">/* 126 - ~                  */</span> CharacterTilde,
+<span class="enscript-comment">/* 127 - Delete             */</span> CharacterInvalid,
+<span class="enscript-comment">/* 128 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 129 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 130 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 131 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 132 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 133 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 134 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 135 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 136 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 137 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 138 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 139 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 140 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 141 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 142 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 143 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 144 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 145 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 146 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 147 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 148 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 149 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 150 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 151 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 152 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 153 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 154 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 155 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 156 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 157 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 158 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 159 - Cc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 160 - Zs category (nbsp) */</span> CharacterWhiteSpace,
+<span class="enscript-comment">/* 161 - Po category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 162 - Sc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 163 - Sc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 164 - Sc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 165 - Sc category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 166 - So category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 167 - So category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 168 - Sk category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 169 - So category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 170 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 171 - Pi category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 172 - Sm category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 173 - Cf category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 174 - So category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 175 - Sk category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 176 - So category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 177 - Sm category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 178 - No category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 179 - No category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 180 - Sk category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 181 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 182 - So category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 183 - Po category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 184 - Sk category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 185 - No category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 186 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 187 - Pf category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 188 - No category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 189 - No category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 190 - No category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 191 - Po category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 192 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 193 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 194 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 195 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 196 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 197 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 198 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 199 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 200 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 201 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 202 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 203 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 204 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 205 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 206 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 207 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 208 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 209 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 210 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 211 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 212 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 213 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 214 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 215 - Sm category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 216 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 217 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 218 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 219 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 220 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 221 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 222 - Lu category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 223 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 224 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 225 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 226 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 227 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 228 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 229 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 230 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 231 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 232 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 233 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 234 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 235 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 236 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 237 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 238 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 239 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 240 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 241 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 242 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 243 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 244 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 245 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 246 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 247 - Sm category        */</span> CharacterInvalid,
+<span class="enscript-comment">/* 248 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 249 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 250 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 251 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 252 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 253 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 254 - Ll category        */</span> CharacterIdentifierStart,
+<span class="enscript-comment">/* 255 - Ll category        */</span> CharacterIdentifierStart
+};
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+Lexer&lt;T&gt;::Lexer(JSGlobalData* globalData)
+    : m_isReparsing(false)
+    , m_globalData(globalData)
+{
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+Lexer&lt;T&gt;::~Lexer()
+{
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+UString Lexer&lt;T&gt;::invalidCharacterMessage() <span class="enscript-type">const</span>
+{
+    <span class="enscript-keyword">switch</span> (m_current) {
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">0</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '\\0'&quot;</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">10</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '\\n'&quot;</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">11</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '\\v'&quot;</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">13</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '\\r'&quot;</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">35</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '#'&quot;</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">64</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '@'&quot;</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">96</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;Invalid character: '`'&quot;</span>;
+    <span class="enscript-reference">default</span>:
+        <span class="enscript-keyword">return</span> String::format(<span class="enscript-string">&quot;Invalid character '\\u%04u'&quot;</span>, static_cast&lt;<span class="enscript-type">unsigned</span>&gt;(m_current)).impl();
+    }
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">const</span> T* Lexer&lt;T&gt;::currentCharacter() <span class="enscript-type">const</span>
+{
+    ASSERT(m_code &lt;= m_codeEnd);
+    <span class="enscript-keyword">return</span> m_code;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">void</span> Lexer&lt;T&gt;::setCode(<span class="enscript-type">const</span> SourceCode&amp; source, ParserArena* arena)
+{
+    m_arena = &amp;arena-&gt;identifierArena();
+    
+    m_lineNumber = source.firstLine();
+    m_lastToken = -1;
+    
+    <span class="enscript-type">const</span> StringImpl* sourceString = source.provider()-&gt;data();
+
+    <span class="enscript-keyword">if</span> (sourceString)
+        setCodeStart(sourceString);
+    <span class="enscript-keyword">else</span>
+        m_codeStart = 0;
+
+    m_source = &amp;source;
+    m_code = m_codeStart + source.startOffset();
+    m_codeEnd = m_codeStart + source.endOffset();
+    m_error = false;
+    m_atLineStart = true;
+    m_lexErrorMessage = UString();
+    
+    m_buffer8.reserveInitialCapacity(initialReadBufferCapacity);
+    m_buffer16.reserveInitialCapacity((m_codeEnd - m_code) / 2);
+    
+    <span class="enscript-keyword">if</span> (LIKELY(m_code &lt; m_codeEnd))
+        m_current = *m_code;
+    <span class="enscript-keyword">else</span>
+        m_current = 0;
+    ASSERT(currentOffset() == source.startOffset());
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">template</span> &lt;<span class="enscript-type">int</span> shiftAmount&gt; ALWAYS_INLINE <span class="enscript-type">void</span> Lexer&lt;T&gt;::internalShift()
+{
+    m_code += shiftAmount;
+    m_current = *m_code;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">void</span> Lexer&lt;T&gt;::shift()
+{
+    <span class="enscript-comment">// At one point timing showed that setting m_current to 0 unconditionally was faster than an if-else sequence.
+</span>    m_current = 0;
+    ++m_code;
+    <span class="enscript-keyword">if</span> (LIKELY(m_code &lt; m_codeEnd))
+        m_current = *m_code;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::atEnd() <span class="enscript-type">const</span>
+{
+    ASSERT(!m_current || m_code &lt; m_codeEnd);
+    <span class="enscript-keyword">return</span> UNLIKELY(UNLIKELY(!m_current) &amp;&amp; m_code == m_codeEnd);
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE T Lexer&lt;T&gt;::peek(<span class="enscript-type">int</span> offset) <span class="enscript-type">const</span>
+{
+    ASSERT(offset &gt; 0 &amp;&amp; offset &lt; 5);
+    <span class="enscript-type">const</span> T* code = m_code + offset;
+    <span class="enscript-keyword">return</span> (code &lt; m_codeEnd) ? *code : 0;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">int</span> Lexer&lt;T&gt;::parseFourDigitUnicodeHex()
+{
+    T char1 = peek(1);
+    T char2 = peek(2);
+    T char3 = peek(3);
+
+    <span class="enscript-keyword">if</span> (UNLIKELY(!isASCIIHexDigit(m_current) || !isASCIIHexDigit(char1) || !isASCIIHexDigit(char2) || !isASCIIHexDigit(char3)))
+        <span class="enscript-keyword">return</span> -1;
+
+    <span class="enscript-type">int</span> result = convertUnicode(m_current, char1, char2, char3);
+    shift();
+    shift();
+    shift();
+    shift();
+    <span class="enscript-keyword">return</span> result;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">void</span> Lexer&lt;T&gt;::shiftLineTerminator()
+{
+    ASSERT(isLineTerminator(m_current));
+
+    T prev = m_current;
+    shift();
+
+    <span class="enscript-comment">// Allow both CRLF and LFCR.
+</span>    <span class="enscript-keyword">if</span> (prev + m_current == <span class="enscript-string">'\n'</span> + <span class="enscript-string">'\r'</span>)
+        shift();
+
+    ++m_lineNumber;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::lastTokenWasRestrKeyword() <span class="enscript-type">const</span>
+{
+    <span class="enscript-keyword">return</span> m_lastToken == CONTINUE || m_lastToken == BREAK || m_lastToken == RETURN || m_lastToken == THROW;
+}
+
+<span class="enscript-type">static</span> NEVER_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">isNonLatin1IdentStart</span>(<span class="enscript-type">int</span> c)
+{
+    <span class="enscript-keyword">return</span> category(c) &amp; (Letter_Uppercase | Letter_Lowercase | Letter_Titlecase | Letter_Modifier | Letter_Other);
+}
+
+<span class="enscript-type">static</span> ALWAYS_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">isLatin1</span>(LChar)
+{
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">static</span> ALWAYS_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">isLatin1</span>(UChar c)
+{
+    <span class="enscript-keyword">return</span> c &lt; 256;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">inline</span> <span class="enscript-type">bool</span> <span class="enscript-function-name">isIdentStart</span>(LChar c)
+{
+    <span class="enscript-keyword">return</span> typesOfLatin1Characters[c] == CharacterIdentifierStart;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">inline</span> <span class="enscript-type">bool</span> <span class="enscript-function-name">isIdentStart</span>(UChar c)
+{
+    <span class="enscript-keyword">return</span> isLatin1(c) ? isIdentStart(static_cast&lt;LChar&gt;(c)) : isNonLatin1IdentStart(c);
+}
+
+<span class="enscript-type">static</span> NEVER_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">isNonLatin1IdentPart</span>(<span class="enscript-type">int</span> c)
+{
+    <span class="enscript-keyword">return</span> (category(c) &amp; (Letter_Uppercase | Letter_Lowercase | Letter_Titlecase | Letter_Modifier | Letter_Other
+        | Mark_NonSpacing | Mark_SpacingCombining | Number_DecimalDigit | Punctuation_Connector)) || c == 0x200C || c == 0x200D;
+}
+
+<span class="enscript-type">static</span> ALWAYS_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">isIdentPart</span>(LChar c)
+{
+    <span class="enscript-comment">// Character types are divided into two groups depending on whether they can be part of an
+</span>    <span class="enscript-comment">// identifier or not. Those whose type value is less or equal than CharacterNumber can be
+</span>    <span class="enscript-comment">// part of an identifier. (See the CharacterType definition for more details.)
+</span>    <span class="enscript-keyword">return</span> typesOfLatin1Characters[c] &lt;= CharacterNumber;
+}
+
+<span class="enscript-type">static</span> ALWAYS_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">isIdentPart</span>(UChar c)
+{
+    <span class="enscript-keyword">return</span> isLatin1(c) ? isIdentPart(static_cast&lt;LChar&gt;(c)) : isNonLatin1IdentPart(c);
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">inline</span> <span class="enscript-type">int</span> <span class="enscript-function-name">singleEscape</span>(<span class="enscript-type">int</span> c)
+{
+    <span class="enscript-keyword">switch</span> (c) {
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'b'</span>:
+        <span class="enscript-keyword">return</span> 0x08;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'t'</span>:
+        <span class="enscript-keyword">return</span> 0x09;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'n'</span>:
+        <span class="enscript-keyword">return</span> 0x0A;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'v'</span>:
+        <span class="enscript-keyword">return</span> 0x0B;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'f'</span>:
+        <span class="enscript-keyword">return</span> 0x0C;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'r'</span>:
+        <span class="enscript-keyword">return</span> 0x0D;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'\\'</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">'\\'</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'\''</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">'\''</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-string">'&quot;'</span>:
+        <span class="enscript-keyword">return</span> <span class="enscript-string">'&quot;'</span>;
+    <span class="enscript-reference">default</span>:
+        <span class="enscript-keyword">return</span> 0;
+    }
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> Lexer&lt;T&gt;::record8(<span class="enscript-type">int</span> c)
+{
+    ASSERT(c &gt;= 0);
+    ASSERT(c &lt;= 0xFF);
+    m_buffer8.append(static_cast&lt;LChar&gt;(c));
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> <span class="enscript-function-name">assertCharIsIn8BitRange</span>(T c)
+{
+    UNUSED_PARAM(c);
+    ASSERT(c &gt;= 0);
+    ASSERT(c &lt;= 0xFF);
+}
+
+<span class="enscript-type">template</span> &lt;&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> <span class="enscript-function-name">assertCharIsIn8BitRange</span>(UChar c)
+{
+    UNUSED_PARAM(c);
+    ASSERT(c &lt;= 0xFF);
+}
+
+<span class="enscript-type">template</span> &lt;&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> <span class="enscript-function-name">assertCharIsIn8BitRange</span>(LChar)
+{
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> Lexer&lt;T&gt;::append8(<span class="enscript-type">const</span> T* p, size_t length)
+{
+    size_t currentSize = m_buffer8.size();
+    m_buffer8.grow(currentSize + length);
+    LChar* rawBuffer = m_buffer8.data() + currentSize;
+
+    <span class="enscript-keyword">for</span> (size_t i = 0; i &lt; length; i++) {
+        T c = p[i];
+        assertCharIsIn8BitRange(c);
+        rawBuffer[i] = c;
+    }
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> Lexer&lt;T&gt;::append16(<span class="enscript-type">const</span> LChar* p, size_t length)
+{
+    size_t currentSize = m_buffer16.size();
+    m_buffer16.grow(currentSize + length);
+    UChar* rawBuffer = m_buffer16.data() + currentSize;
+
+    <span class="enscript-keyword">for</span> (size_t i = 0; i &lt; length; i++)
+        rawBuffer[i] = p[i];
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> Lexer&lt;T&gt;::record16(T c)
+{
+    m_buffer16.append(c);
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> Lexer&lt;T&gt;::record16(<span class="enscript-type">int</span> c)
+{
+    ASSERT(c &gt;= 0);
+    ASSERT(c &lt;= static_cast&lt;<span class="enscript-type">int</span>&gt;(USHRT_MAX));
+    m_buffer16.append(static_cast&lt;UChar&gt;(c));
+}
+
+<span class="enscript-type">template</span> &lt;&gt;
+<span class="enscript-type">template</span> &lt;<span class="enscript-type">bool</span> shouldCreateIdentifier&gt; ALWAYS_INLINE JSTokenType Lexer&lt;LChar&gt;::parseIdentifier(JSTokenData* tokenData, <span class="enscript-type">unsigned</span> lexerFlags, <span class="enscript-type">bool</span> strictMode)
+{
+    <span class="enscript-type">const</span> ptrdiff_t remaining = m_codeEnd - m_code;
+    <span class="enscript-keyword">if</span> ((remaining &gt;= maxTokenLength) &amp;&amp; !(lexerFlags &amp; LexerFlagsIgnoreReservedWords)) {
+        JSTokenType keyword = parseKeyword&lt;shouldCreateIdentifier&gt;(tokenData);
+        <span class="enscript-keyword">if</span> (keyword != IDENT) {
+            ASSERT((!shouldCreateIdentifier) || tokenData-&gt;ident);
+            <span class="enscript-keyword">return</span> keyword == RESERVED_IF_STRICT &amp;&amp; !strictMode ? IDENT : keyword;
+        }
+    }
+
+    <span class="enscript-type">const</span> LChar* identifierStart = currentCharacter();
+    
+    <span class="enscript-keyword">while</span> (isIdentPart(m_current))
+        shift();
+    
+    <span class="enscript-keyword">if</span> (UNLIKELY(m_current == <span class="enscript-string">'\\'</span>)) {
+        setOffsetFromCharOffset(identifierStart);
+        <span class="enscript-keyword">return</span> parseIdentifierSlowCase&lt;shouldCreateIdentifier&gt;(tokenData, lexerFlags, strictMode);
+    }
+
+    <span class="enscript-type">const</span> Identifier* ident = 0;
+    
+    <span class="enscript-keyword">if</span> (shouldCreateIdentifier) {
+        <span class="enscript-type">int</span> identifierLength = currentCharacter() - identifierStart;
+        ident = makeIdentifier(identifierStart, identifierLength);
+
+        tokenData-&gt;ident = ident;
+    } <span class="enscript-keyword">else</span>
+        tokenData-&gt;ident = 0;
+
+    <span class="enscript-keyword">if</span> (UNLIKELY((remaining &lt; maxTokenLength) &amp;&amp; !(lexerFlags &amp; LexerFlagsIgnoreReservedWords))) {
+        ASSERT(shouldCreateIdentifier);
+        <span class="enscript-keyword">if</span> (remaining &lt; maxTokenLength) {
+            <span class="enscript-type">const</span> HashEntry* entry = m_globalData-&gt;keywords-&gt;getKeyword(*ident);
+            ASSERT((remaining &lt; maxTokenLength) || !entry);
+            <span class="enscript-keyword">if</span> (!entry)
+                <span class="enscript-keyword">return</span> IDENT;
+            JSTokenType token = static_cast&lt;JSTokenType&gt;(entry-&gt;lexerValue());
+            <span class="enscript-keyword">return</span> (token != RESERVED_IF_STRICT) || strictMode ? token : IDENT;
+        }
+        <span class="enscript-keyword">return</span> IDENT;
+    }
+
+    <span class="enscript-keyword">return</span> IDENT;
+}
+
+<span class="enscript-type">template</span> &lt;&gt;
+<span class="enscript-type">template</span> &lt;<span class="enscript-type">bool</span> shouldCreateIdentifier&gt; ALWAYS_INLINE JSTokenType Lexer&lt;UChar&gt;::parseIdentifier(JSTokenData* tokenData, <span class="enscript-type">unsigned</span> lexerFlags, <span class="enscript-type">bool</span> strictMode)
+{
+    <span class="enscript-type">const</span> ptrdiff_t remaining = m_codeEnd - m_code;
+    <span class="enscript-keyword">if</span> ((remaining &gt;= maxTokenLength) &amp;&amp; !(lexerFlags &amp; LexerFlagsIgnoreReservedWords)) {
+        JSTokenType keyword = parseKeyword&lt;shouldCreateIdentifier&gt;(tokenData);
+        <span class="enscript-keyword">if</span> (keyword != IDENT) {
+            ASSERT((!shouldCreateIdentifier) || tokenData-&gt;ident);
+            <span class="enscript-keyword">return</span> keyword == RESERVED_IF_STRICT &amp;&amp; !strictMode ? IDENT : keyword;
+        }
+    }
+
+    <span class="enscript-type">const</span> UChar* identifierStart = currentCharacter();
+
+    UChar orAllChars = 0;
+    
+    <span class="enscript-keyword">while</span> (isIdentPart(m_current)) {
+        orAllChars |= m_current;
+        shift();
+    }
+    
+    <span class="enscript-keyword">if</span> (UNLIKELY(m_current == <span class="enscript-string">'\\'</span>)) {
+        setOffsetFromCharOffset(identifierStart);
+        <span class="enscript-keyword">return</span> parseIdentifierSlowCase&lt;shouldCreateIdentifier&gt;(tokenData, lexerFlags, strictMode);
+    }
+
+    <span class="enscript-type">bool</span> isAll8Bit = false;
+
+    <span class="enscript-keyword">if</span> (!(orAllChars &amp; ~0xff))
+        isAll8Bit = true;
+
+    <span class="enscript-type">const</span> Identifier* ident = 0;
+    
+    <span class="enscript-keyword">if</span> (shouldCreateIdentifier) {
+        <span class="enscript-type">int</span> identifierLength = currentCharacter() - identifierStart;
+        <span class="enscript-keyword">if</span> (isAll8Bit)
+            ident = makeIdentifierLCharFromUChar(identifierStart, identifierLength);
+        <span class="enscript-keyword">else</span>
+            ident = makeIdentifier(identifierStart, identifierLength);
+        
+        tokenData-&gt;ident = ident;
+    } <span class="enscript-keyword">else</span>
+        tokenData-&gt;ident = 0;
+    
+    <span class="enscript-keyword">if</span> (UNLIKELY((remaining &lt; maxTokenLength) &amp;&amp; !(lexerFlags &amp; LexerFlagsIgnoreReservedWords))) {
+        ASSERT(shouldCreateIdentifier);
+        <span class="enscript-keyword">if</span> (remaining &lt; maxTokenLength) {
+            <span class="enscript-type">const</span> HashEntry* entry = m_globalData-&gt;keywords-&gt;getKeyword(*ident);
+            ASSERT((remaining &lt; maxTokenLength) || !entry);
+            <span class="enscript-keyword">if</span> (!entry)
+                <span class="enscript-keyword">return</span> IDENT;
+            JSTokenType token = static_cast&lt;JSTokenType&gt;(entry-&gt;lexerValue());
+            <span class="enscript-keyword">return</span> (token != RESERVED_IF_STRICT) || strictMode ? token : IDENT;
+        }
+        <span class="enscript-keyword">return</span> IDENT;
+    }
+
+    <span class="enscript-keyword">return</span> IDENT;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">template</span> &lt;<span class="enscript-type">bool</span> shouldCreateIdentifier&gt; JSTokenType Lexer&lt;T&gt;::parseIdentifierSlowCase(JSTokenData* tokenData, <span class="enscript-type">unsigned</span> lexerFlags, <span class="enscript-type">bool</span> strictMode)
+{
+    <span class="enscript-type">const</span> ptrdiff_t remaining = m_codeEnd - m_code;
+    <span class="enscript-type">const</span> T* identifierStart = currentCharacter();
+    <span class="enscript-type">bool</span> bufferRequired = false;
+
+    <span class="enscript-keyword">while</span> (true) {
+        <span class="enscript-keyword">if</span> (LIKELY(isIdentPart(m_current))) {
+            shift();
+            <span class="enscript-keyword">continue</span>;
+        }
+        <span class="enscript-keyword">if</span> (LIKELY(m_current != <span class="enscript-string">'\\'</span>))
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-comment">// \uXXXX unicode characters.
+</span>        bufferRequired = true;
+        <span class="enscript-keyword">if</span> (identifierStart != currentCharacter())
+            m_buffer16.append(identifierStart, currentCharacter() - identifierStart);
+        shift();
+        <span class="enscript-keyword">if</span> (UNLIKELY(m_current != <span class="enscript-string">'u'</span>))
+            <span class="enscript-keyword">return</span> ERRORTOK;
+        shift();
+        <span class="enscript-type">int</span> character = parseFourDigitUnicodeHex();
+        <span class="enscript-keyword">if</span> (UNLIKELY(character == -1))
+            <span class="enscript-keyword">return</span> ERRORTOK;
+        UChar ucharacter = static_cast&lt;UChar&gt;(character);
+        <span class="enscript-keyword">if</span> (UNLIKELY(m_buffer16.size() ? !isIdentPart(ucharacter) : !isIdentStart(ucharacter)))
+            <span class="enscript-keyword">return</span> ERRORTOK;
+        <span class="enscript-keyword">if</span> (shouldCreateIdentifier)
+            record16(ucharacter);
+        identifierStart = currentCharacter();
+    }
+
+    <span class="enscript-type">int</span> identifierLength;
+    <span class="enscript-type">const</span> Identifier* ident = 0;
+    <span class="enscript-keyword">if</span> (shouldCreateIdentifier) {
+        <span class="enscript-keyword">if</span> (!bufferRequired) {
+            identifierLength = currentCharacter() - identifierStart;
+            ident = makeIdentifier(identifierStart, identifierLength);
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">if</span> (identifierStart != currentCharacter())
+                m_buffer16.append(identifierStart, currentCharacter() - identifierStart);
+            ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+        }
+
+        tokenData-&gt;ident = ident;
+    } <span class="enscript-keyword">else</span>
+        tokenData-&gt;ident = 0;
+
+    <span class="enscript-keyword">if</span> (LIKELY(!bufferRequired &amp;&amp; !(lexerFlags &amp; LexerFlagsIgnoreReservedWords))) {
+        ASSERT(shouldCreateIdentifier);
+        <span class="enscript-comment">// Keywords must not be recognized if there was an \uXXXX in the identifier.
+</span>        <span class="enscript-keyword">if</span> (remaining &lt; maxTokenLength) {
+            <span class="enscript-type">const</span> HashEntry* entry = m_globalData-&gt;keywords-&gt;getKeyword(*ident);
+            ASSERT((remaining &lt; maxTokenLength) || !entry);
+            <span class="enscript-keyword">if</span> (!entry)
+                <span class="enscript-keyword">return</span> IDENT;
+            JSTokenType token = static_cast&lt;JSTokenType&gt;(entry-&gt;lexerValue());
+            <span class="enscript-keyword">return</span> (token != RESERVED_IF_STRICT) || strictMode ? token : IDENT;
+        }
+        <span class="enscript-keyword">return</span> IDENT;
+    }
+
+    m_buffer16.resize(0);
+    <span class="enscript-keyword">return</span> IDENT;
+}
+
+<span class="enscript-type">static</span> ALWAYS_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">characterRequiresParseStringSlowCase</span>(LChar character)
+{
+    <span class="enscript-keyword">return</span> character &lt; 0xE;
+}
+
+<span class="enscript-type">static</span> ALWAYS_INLINE <span class="enscript-type">bool</span> <span class="enscript-function-name">characterRequiresParseStringSlowCase</span>(UChar character)
+{
+    <span class="enscript-keyword">return</span> character &lt; 0xE || character &gt; 0xFF;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">template</span> &lt;<span class="enscript-type">bool</span> shouldBuildStrings&gt; ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::parseString(JSTokenData* tokenData, <span class="enscript-type">bool</span> strictMode)
+{
+    <span class="enscript-type">int</span> startingOffset = currentOffset();
+    <span class="enscript-type">int</span> startingLineNumber = lineNumber();
+    T stringQuoteCharacter = m_current;
+    shift();
+
+    <span class="enscript-type">const</span> T* stringStart = currentCharacter();
+
+    <span class="enscript-keyword">while</span> (m_current != stringQuoteCharacter) {
+        <span class="enscript-keyword">if</span> (UNLIKELY(m_current == <span class="enscript-string">'\\'</span>)) {
+            <span class="enscript-keyword">if</span> (stringStart != currentCharacter() &amp;&amp; shouldBuildStrings)
+                append8(stringStart, currentCharacter() - stringStart);
+            shift();
+
+            <span class="enscript-type">int</span> escape = singleEscape(m_current);
+
+            <span class="enscript-comment">// Most common escape sequences first
+</span>            <span class="enscript-keyword">if</span> (escape) {
+                <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                    record8(escape);
+                shift();
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (UNLIKELY(isLineTerminator(m_current)))
+                shiftLineTerminator();
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'x'</span>) {
+                shift();
+                <span class="enscript-keyword">if</span> (!isASCIIHexDigit(m_current) || !isASCIIHexDigit(peek(1))) {
+                    m_lexErrorMessage = <span class="enscript-string">&quot;\\x can only be followed by a hex character sequence&quot;</span>;
+                    <span class="enscript-keyword">return</span> false;
+                }
+                T prev = m_current;
+                shift();
+                <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                    record8(convertHex(prev, m_current));
+                shift();
+            } <span class="enscript-keyword">else</span> {
+                setOffset(startingOffset);
+                setLineNumber(startingLineNumber);
+                m_buffer8.resize(0);
+                <span class="enscript-keyword">return</span> parseStringSlowCase&lt;shouldBuildStrings&gt;(tokenData, strictMode);
+            }
+            stringStart = currentCharacter();
+            <span class="enscript-keyword">continue</span>;
+        }
+
+        <span class="enscript-keyword">if</span> (UNLIKELY(characterRequiresParseStringSlowCase(m_current))) {
+            setOffset(startingOffset);
+            setLineNumber(startingLineNumber);
+            m_buffer8.resize(0);
+            <span class="enscript-keyword">return</span> parseStringSlowCase&lt;shouldBuildStrings&gt;(tokenData, strictMode);
+        }
+
+        shift();
+    }
+
+    <span class="enscript-keyword">if</span> (currentCharacter() != stringStart &amp;&amp; shouldBuildStrings)
+        append8(stringStart, currentCharacter() - stringStart);
+    <span class="enscript-keyword">if</span> (shouldBuildStrings) {
+        tokenData-&gt;ident = makeIdentifier(m_buffer8.data(), m_buffer8.size());
+        m_buffer8.resize(0);
+    } <span class="enscript-keyword">else</span>
+        tokenData-&gt;ident = 0;
+
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">template</span> &lt;<span class="enscript-type">bool</span> shouldBuildStrings&gt; <span class="enscript-type">bool</span> Lexer&lt;T&gt;::parseStringSlowCase(JSTokenData* tokenData, <span class="enscript-type">bool</span> strictMode)
+{
+    T stringQuoteCharacter = m_current;
+    shift();
+
+    <span class="enscript-type">const</span> T* stringStart = currentCharacter();
+
+    <span class="enscript-keyword">while</span> (m_current != stringQuoteCharacter) {
+        <span class="enscript-keyword">if</span> (UNLIKELY(m_current == <span class="enscript-string">'\\'</span>)) {
+            <span class="enscript-keyword">if</span> (stringStart != currentCharacter() &amp;&amp; shouldBuildStrings)
+                append16(stringStart, currentCharacter() - stringStart);
+            shift();
+
+            <span class="enscript-type">int</span> escape = singleEscape(m_current);
+
+            <span class="enscript-comment">// Most common escape sequences first
+</span>            <span class="enscript-keyword">if</span> (escape) {
+                <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                    record16(escape);
+                shift();
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (UNLIKELY(isLineTerminator(m_current)))
+                shiftLineTerminator();
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'x'</span>) {
+                shift();
+                <span class="enscript-keyword">if</span> (!isASCIIHexDigit(m_current) || !isASCIIHexDigit(peek(1))) {
+                    m_lexErrorMessage = <span class="enscript-string">&quot;\\x can only be followed by a hex character sequence&quot;</span>;
+                    <span class="enscript-keyword">return</span> false;
+                }
+                T prev = m_current;
+                shift();
+                <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                    record16(convertHex(prev, m_current));
+                shift();
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'u'</span>) {
+                shift();
+                <span class="enscript-type">int</span> character = parseFourDigitUnicodeHex();
+                <span class="enscript-keyword">if</span> (character != -1) {
+                    <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                        record16(character);
+                } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (m_current == stringQuoteCharacter) {
+                    <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                        record16(<span class="enscript-string">'u'</span>);
+                } <span class="enscript-keyword">else</span> {
+                    m_lexErrorMessage = <span class="enscript-string">&quot;\\u can only be followed by a Unicode character sequence&quot;</span>;
+                    <span class="enscript-keyword">return</span> false;
+                }
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (strictMode &amp;&amp; isASCIIDigit(m_current)) {
+                <span class="enscript-comment">// The only valid numeric escape in strict mode is '\0', and this must not be followed by a decimal digit.
+</span>                <span class="enscript-type">int</span> character1 = m_current;
+                shift();
+                <span class="enscript-keyword">if</span> (character1 != <span class="enscript-string">'0'</span> || isASCIIDigit(m_current)) {
+                    m_lexErrorMessage = <span class="enscript-string">&quot;The only valid numeric escape in strict mode is '\\0'&quot;</span>;
+                    <span class="enscript-keyword">return</span> false;
+                }
+                <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                    record16(0);
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (!strictMode &amp;&amp; isASCIIOctalDigit(m_current)) {
+                <span class="enscript-comment">// Octal character sequences
+</span>                T character1 = m_current;
+                shift();
+                <span class="enscript-keyword">if</span> (isASCIIOctalDigit(m_current)) {
+                    <span class="enscript-comment">// Two octal characters
+</span>                    T character2 = m_current;
+                    shift();
+                    <span class="enscript-keyword">if</span> (character1 &gt;= <span class="enscript-string">'0'</span> &amp;&amp; character1 &lt;= <span class="enscript-string">'3'</span> &amp;&amp; isASCIIOctalDigit(m_current)) {
+                        <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                            record16((character1 - <span class="enscript-string">'0'</span>) * 64 + (character2 - <span class="enscript-string">'0'</span>) * 8 + m_current - <span class="enscript-string">'0'</span>);
+                        shift();
+                    } <span class="enscript-keyword">else</span> {
+                        <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                            record16((character1 - <span class="enscript-string">'0'</span>) * 8 + character2 - <span class="enscript-string">'0'</span>);
+                    }
+                } <span class="enscript-keyword">else</span> {
+                    <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                        record16(character1 - <span class="enscript-string">'0'</span>);
+                }
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (!atEnd()) {
+                <span class="enscript-keyword">if</span> (shouldBuildStrings)
+                    record16(m_current);
+                shift();
+            } <span class="enscript-keyword">else</span> {
+                m_lexErrorMessage = <span class="enscript-string">&quot;Unterminated string constant&quot;</span>;
+                <span class="enscript-keyword">return</span> false;
+            }
+
+            stringStart = currentCharacter();
+            <span class="enscript-keyword">continue</span>;
+        }
+        <span class="enscript-comment">// Fast check for characters that require special handling.
+</span>        <span class="enscript-comment">// Catches 0, \n, \r, 0x2028, and 0x2029 as efficiently
+</span>        <span class="enscript-comment">// as possible, and lets through all common ASCII characters.
+</span>        <span class="enscript-keyword">if</span> (UNLIKELY(((static_cast&lt;<span class="enscript-type">unsigned</span>&gt;(m_current) - 0xE) &amp; 0x2000))) {
+            <span class="enscript-comment">// New-line or end of input is not allowed
+</span>            <span class="enscript-keyword">if</span> (atEnd() || isLineTerminator(m_current)) {
+                m_lexErrorMessage = <span class="enscript-string">&quot;Unexpected EOF&quot;</span>;
+                <span class="enscript-keyword">return</span> false;
+            }
+            <span class="enscript-comment">// Anything else is just a normal character
+</span>        }
+        shift();
+    }
+
+    <span class="enscript-keyword">if</span> (currentCharacter() != stringStart &amp;&amp; shouldBuildStrings)
+        append16(stringStart, currentCharacter() - stringStart);
+    <span class="enscript-keyword">if</span> (shouldBuildStrings)
+        tokenData-&gt;ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+    <span class="enscript-keyword">else</span>
+        tokenData-&gt;ident = 0;
+
+    m_buffer16.resize(0);
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">void</span> Lexer&lt;T&gt;::parseHex(<span class="enscript-type">double</span>&amp; returnValue)
+{
+    <span class="enscript-comment">// Optimization: most hexadecimal values fit into 4 bytes.
+</span>    uint32_t hexValue = 0;
+    <span class="enscript-type">int</span> maximumDigits = 7;
+
+    <span class="enscript-comment">// Shift out the 'x' prefix.
+</span>    shift();
+
+    <span class="enscript-keyword">do</span> {
+        hexValue = (hexValue &lt;&lt; 4) + toASCIIHexValue(m_current);
+        shift();
+        --maximumDigits;
+    } <span class="enscript-keyword">while</span> (isASCIIHexDigit(m_current) &amp;&amp; maximumDigits &gt;= 0);
+
+    <span class="enscript-keyword">if</span> (maximumDigits &gt;= 0) {
+        returnValue = hexValue;
+        <span class="enscript-keyword">return</span>;
+    }
+
+    <span class="enscript-comment">// No more place in the hexValue buffer.
+</span>    <span class="enscript-comment">// The values are shifted out and placed into the m_buffer8 vector.
+</span>    <span class="enscript-keyword">for</span> (<span class="enscript-type">int</span> i = 0; i &lt; 8; ++i) {
+         <span class="enscript-type">int</span> digit = hexValue &gt;&gt; 28;
+         <span class="enscript-keyword">if</span> (digit &lt; 10)
+             record8(digit + <span class="enscript-string">'0'</span>);
+         <span class="enscript-keyword">else</span>
+             record8(digit - 10 + <span class="enscript-string">'a'</span>);
+         hexValue &lt;&lt;= 4;
+    }
+
+    <span class="enscript-keyword">while</span> (isASCIIHexDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+
+    returnValue = parseIntOverflow(m_buffer8.data(), m_buffer8.size(), 16);
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::parseOctal(<span class="enscript-type">double</span>&amp; returnValue)
+{
+    <span class="enscript-comment">// Optimization: most octal values fit into 4 bytes.
+</span>    uint32_t octalValue = 0;
+    <span class="enscript-type">int</span> maximumDigits = 9;
+    <span class="enscript-comment">// Temporary buffer for the digits. Makes easier
+</span>    <span class="enscript-comment">// to reconstruct the input characters when needed.
+</span>    LChar digits[10];
+
+    <span class="enscript-keyword">do</span> {
+        octalValue = octalValue * 8 + (m_current - <span class="enscript-string">'0'</span>);
+        digits[maximumDigits] = m_current;
+        shift();
+        --maximumDigits;
+    } <span class="enscript-keyword">while</span> (isASCIIOctalDigit(m_current) &amp;&amp; maximumDigits &gt;= 0);
+
+    <span class="enscript-keyword">if</span> (!isASCIIDigit(m_current) &amp;&amp; maximumDigits &gt;= 0) {
+        returnValue = octalValue;
+        <span class="enscript-keyword">return</span> true;
+    }
+
+    <span class="enscript-keyword">for</span> (<span class="enscript-type">int</span> i = 9; i &gt; maximumDigits; --i)
+         record8(digits[i]);
+
+    <span class="enscript-keyword">while</span> (isASCIIOctalDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+
+    <span class="enscript-keyword">if</span> (isASCIIDigit(m_current))
+        <span class="enscript-keyword">return</span> false;
+
+    returnValue = parseIntOverflow(m_buffer8.data(), m_buffer8.size(), 8);
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::parseDecimal(<span class="enscript-type">double</span>&amp; returnValue)
+{
+    <span class="enscript-comment">// Optimization: most decimal values fit into 4 bytes.
+</span>    uint32_t decimalValue = 0;
+
+    <span class="enscript-comment">// Since parseOctal may be executed before parseDecimal,
+</span>    <span class="enscript-comment">// the m_buffer8 may hold ascii digits.
+</span>    <span class="enscript-keyword">if</span> (!m_buffer8.size()) {
+        <span class="enscript-type">int</span> maximumDigits = 9;
+        <span class="enscript-comment">// Temporary buffer for the digits. Makes easier
+</span>        <span class="enscript-comment">// to reconstruct the input characters when needed.
+</span>        LChar digits[10];
+
+        <span class="enscript-keyword">do</span> {
+            decimalValue = decimalValue * 10 + (m_current - <span class="enscript-string">'0'</span>);
+            digits[maximumDigits] = m_current;
+            shift();
+            --maximumDigits;
+        } <span class="enscript-keyword">while</span> (isASCIIDigit(m_current) &amp;&amp; maximumDigits &gt;= 0);
+
+        <span class="enscript-keyword">if</span> (maximumDigits &gt;= 0 &amp;&amp; m_current != <span class="enscript-string">'.'</span> &amp;&amp; (m_current | 0x20) != <span class="enscript-string">'e'</span>) {
+            returnValue = decimalValue;
+            <span class="enscript-keyword">return</span> true;
+        }
+
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">int</span> i = 9; i &gt; maximumDigits; --i)
+            record8(digits[i]);
+    }
+
+    <span class="enscript-keyword">while</span> (isASCIIDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+
+    <span class="enscript-keyword">return</span> false;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">void</span> Lexer&lt;T&gt;::parseNumberAfterDecimalPoint()
+{
+    record8(<span class="enscript-string">'.'</span>);
+    <span class="enscript-keyword">while</span> (isASCIIDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::parseNumberAfterExponentIndicator()
+{
+    record8(<span class="enscript-string">'e'</span>);
+    shift();
+    <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'+'</span> || m_current == <span class="enscript-string">'-'</span>) {
+        record8(m_current);
+        shift();
+    }
+
+    <span class="enscript-keyword">if</span> (!isASCIIDigit(m_current))
+        <span class="enscript-keyword">return</span> false;
+
+    <span class="enscript-keyword">do</span> {
+        record8(m_current);
+        shift();
+    } <span class="enscript-keyword">while</span> (isASCIIDigit(m_current));
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">bool</span> Lexer&lt;T&gt;::parseMultilineComment()
+{
+    <span class="enscript-keyword">while</span> (true) {
+        <span class="enscript-keyword">while</span> (UNLIKELY(m_current == <span class="enscript-string">'*'</span>)) {
+            shift();
+            <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'/'</span>) {
+                shift();
+                <span class="enscript-keyword">return</span> true;
+            }
+        }
+
+        <span class="enscript-keyword">if</span> (atEnd())
+            <span class="enscript-keyword">return</span> false;
+
+        <span class="enscript-keyword">if</span> (isLineTerminator(m_current)) {
+            shiftLineTerminator();
+            m_terminator = true;
+        } <span class="enscript-keyword">else</span>
+            shift();
+    }
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">bool</span> Lexer&lt;T&gt;::nextTokenIsColon()
+{
+    <span class="enscript-type">const</span> T* code = m_code;
+    <span class="enscript-keyword">while</span> (code &lt; m_codeEnd &amp;&amp; (isWhiteSpace(*code) || isLineTerminator(*code)))
+        code++;
+    
+    <span class="enscript-keyword">return</span> code &lt; m_codeEnd &amp;&amp; *code == <span class="enscript-string">':'</span>;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+JSTokenType Lexer&lt;T&gt;::lex(JSTokenData* tokenData, JSTokenInfo* tokenInfo, <span class="enscript-type">unsigned</span> lexerFlags, <span class="enscript-type">bool</span> strictMode)
+{
+    ASSERT(!m_error);
+    ASSERT(m_buffer8.isEmpty());
+    ASSERT(m_buffer16.isEmpty());
+
+    JSTokenType token = ERRORTOK;
+    m_terminator = false;
+
+<span class="enscript-reference">start</span>:
+    <span class="enscript-keyword">while</span> (isWhiteSpace(m_current))
+        shift();
+
+    <span class="enscript-keyword">if</span> (atEnd())
+        <span class="enscript-keyword">return</span> EOFTOK;
+    
+    tokenInfo-&gt;startOffset = currentOffset();
+
+    CharacterType type;
+    <span class="enscript-keyword">if</span> (LIKELY(isLatin1(m_current)))
+        type = static_cast&lt;CharacterType&gt;(typesOfLatin1Characters[m_current]);
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (isNonLatin1IdentStart(m_current))
+        type = CharacterIdentifierStart;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (isLineTerminator(m_current))
+        type = CharacterLineTerminator;
+    <span class="enscript-keyword">else</span>
+        type = CharacterInvalid;
+
+    <span class="enscript-keyword">switch</span> (type) {
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterGreater</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'&gt;'</span>) {
+            shift();
+            <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'&gt;'</span>) {
+                shift();
+                <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+                    shift();
+                    token = URSHIFTEQUAL;
+                    <span class="enscript-keyword">break</span>;
+                }
+                token = URSHIFT;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+                shift();
+                token = RSHIFTEQUAL;
+                <span class="enscript-keyword">break</span>;
+            }
+            token = RSHIFT;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = GE;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = GT;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterEqual</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+                shift();
+                token = STREQ;
+                <span class="enscript-keyword">break</span>;
+            }
+            token = EQEQ;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = EQUAL;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterLess</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'!'</span> &amp;&amp; peek(1) == <span class="enscript-string">'-'</span> &amp;&amp; peek(2) == <span class="enscript-string">'-'</span>) {
+            <span class="enscript-comment">// &lt;!-- marks the beginning of a line comment (for www usage)
+</span>            <span class="enscript-keyword">goto</span> <span class="enscript-reference">inSingleLineComment</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'&lt;'</span>) {
+            shift();
+            <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+                shift();
+                token = LSHIFTEQUAL;
+                <span class="enscript-keyword">break</span>;
+            }
+            token = LSHIFT;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = LE;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = LT;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterExclamationMark</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+                shift();
+                token = STRNEQ;
+                <span class="enscript-keyword">break</span>;
+            }
+            token = NE;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = EXCLAMATION;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterAdd</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'+'</span>) {
+            shift();
+            token = (!m_terminator) ? PLUSPLUS : AUTOPLUSPLUS;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = PLUSEQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = PLUS;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterSub</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'-'</span>) {
+            shift();
+            <span class="enscript-keyword">if</span> (m_atLineStart &amp;&amp; m_current == <span class="enscript-string">'&gt;'</span>) {
+                shift();
+                <span class="enscript-keyword">goto</span> <span class="enscript-reference">inSingleLineComment</span>;
+            }
+            token = (!m_terminator) ? MINUSMINUS : AUTOMINUSMINUS;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = MINUSEQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = MINUS;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterMultiply</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = MULTEQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = TIMES;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterSlash</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'/'</span>) {
+            shift();
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">inSingleLineComment</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'*'</span>) {
+            shift();
+            <span class="enscript-keyword">if</span> (parseMultilineComment())
+                <span class="enscript-keyword">goto</span> <span class="enscript-reference">start</span>;
+            m_lexErrorMessage = <span class="enscript-string">&quot;Multiline comment was not closed properly&quot;</span>;
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = DIVEQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = DIVIDE;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterAnd</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'&amp;'</span>) {
+            shift();
+            token = AND;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = ANDEQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = BITAND;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterXor</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = XOREQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = BITXOR;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterModulo</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = MODEQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = MOD;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterOr</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'='</span>) {
+            shift();
+            token = OREQUAL;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'|'</span>) {
+            shift();
+            token = OR;
+            <span class="enscript-keyword">break</span>;
+        }
+        token = BITOR;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterOpenParen</span>:
+        token = OPENPAREN;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterCloseParen</span>:
+        token = CLOSEPAREN;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterOpenBracket</span>:
+        token = OPENBRACKET;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterCloseBracket</span>:
+        token = CLOSEBRACKET;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterComma</span>:
+        token = COMMA;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterColon</span>:
+        token = COLON;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterQuestion</span>:
+        token = QUESTION;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterTilde</span>:
+        token = TILDE;
+        shift();
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterSemicolon</span>:
+        shift();
+        token = SEMICOLON;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterOpenBrace</span>:
+        tokenData-&gt;intValue = currentOffset();
+        shift();
+        token = OPENBRACE;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterCloseBrace</span>:
+        tokenData-&gt;intValue = currentOffset();
+        shift();
+        token = CLOSEBRACE;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterDot</span>:
+        shift();
+        <span class="enscript-keyword">if</span> (!isASCIIDigit(m_current)) {
+            token = DOT;
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">inNumberAfterDecimalPoint</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterZero</span>:
+        shift();
+        <span class="enscript-keyword">if</span> ((m_current | 0x20) == <span class="enscript-string">'x'</span> &amp;&amp; isASCIIHexDigit(peek(1))) {
+            parseHex(tokenData-&gt;doubleValue);
+            token = NUMBER;
+        } <span class="enscript-keyword">else</span> {
+            record8(<span class="enscript-string">'0'</span>);
+            <span class="enscript-keyword">if</span> (isASCIIOctalDigit(m_current)) {
+                <span class="enscript-keyword">if</span> (parseOctal(tokenData-&gt;doubleValue)) {
+                    <span class="enscript-keyword">if</span> (strictMode) {
+                        m_lexErrorMessage = <span class="enscript-string">&quot;Octal escapes are forbidden in strict mode&quot;</span>;
+                        <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+                    }
+                    token = NUMBER;
+                }
+            }
+        }
+        <span class="enscript-comment">// Fall through into CharacterNumber
+</span>    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterNumber</span>:
+        <span class="enscript-keyword">if</span> (LIKELY(token != NUMBER)) {
+            <span class="enscript-keyword">if</span> (!parseDecimal(tokenData-&gt;doubleValue)) {
+                <span class="enscript-keyword">if</span> (m_current == <span class="enscript-string">'.'</span>) {
+                    shift();
+<span class="enscript-reference">inNumberAfterDecimalPoint</span>:
+                    parseNumberAfterDecimalPoint();
+                }
+                <span class="enscript-keyword">if</span> ((m_current | 0x20) == <span class="enscript-string">'e'</span>) {
+                    <span class="enscript-keyword">if</span> (!parseNumberAfterExponentIndicator()) {
+                        m_lexErrorMessage = <span class="enscript-string">&quot;Non-number found after exponent indicator&quot;</span>;
+                        <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+                    }
+                }
+                size_t parsedLength;
+                tokenData-&gt;doubleValue = parseDouble(m_buffer8.data(), m_buffer8.size(), parsedLength);
+            }
+            token = NUMBER;
+        }
+
+        <span class="enscript-comment">// No identifiers allowed directly after numeric literal, e.g. &quot;3in&quot; is bad.
+</span>        <span class="enscript-keyword">if</span> (UNLIKELY(isIdentStart(m_current))) {
+            m_lexErrorMessage = <span class="enscript-string">&quot;At least one digit must occur after a decimal point&quot;</span>;
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+        }
+        m_buffer8.resize(0);
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterQuote</span>:
+        <span class="enscript-keyword">if</span> (lexerFlags &amp; LexerFlagsDontBuildStrings) {
+            <span class="enscript-keyword">if</span> (UNLIKELY(!parseString&lt;false&gt;(tokenData, strictMode)))
+                <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">if</span> (UNLIKELY(!parseString&lt;true&gt;(tokenData, strictMode)))
+                <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+        }
+        shift();
+        token = STRING;
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterIdentifierStart</span>:
+        ASSERT(isIdentStart(m_current));
+        <span class="enscript-comment">// Fall through into CharacterBackSlash.
+</span>    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterBackSlash</span>:
+        <span class="enscript-keyword">if</span> (lexerFlags &amp; LexexFlagsDontBuildKeywords)
+            token = parseIdentifier&lt;false&gt;(tokenData, lexerFlags, strictMode);
+        <span class="enscript-keyword">else</span>
+            token = parseIdentifier&lt;true&gt;(tokenData, lexerFlags, strictMode);
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterLineTerminator</span>:
+        ASSERT(isLineTerminator(m_current));
+        shiftLineTerminator();
+        m_atLineStart = true;
+        m_terminator = true;
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">start</span>;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CharacterInvalid</span>:
+        m_lexErrorMessage = invalidCharacterMessage();
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+    <span class="enscript-reference">default</span>:
+        ASSERT_NOT_REACHED();
+        m_lexErrorMessage = <span class="enscript-string">&quot;Internal Error&quot;</span>;
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnError</span>;
+    }
+
+    m_atLineStart = false;
+    <span class="enscript-keyword">goto</span> <span class="enscript-reference">returnToken</span>;
+
+<span class="enscript-reference">inSingleLineComment</span>:
+    <span class="enscript-keyword">while</span> (!isLineTerminator(m_current)) {
+        <span class="enscript-keyword">if</span> (atEnd())
+            <span class="enscript-keyword">return</span> EOFTOK;
+        shift();
+    }
+    shiftLineTerminator();
+    m_atLineStart = true;
+    m_terminator = true;
+    <span class="enscript-keyword">if</span> (!lastTokenWasRestrKeyword())
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">start</span>;
+
+    token = SEMICOLON;
+    <span class="enscript-comment">// Fall through into returnToken.
+</span>
+<span class="enscript-reference">returnToken</span>:
+    tokenInfo-&gt;line = m_lineNumber;
+    tokenInfo-&gt;endOffset = currentOffset();
+    m_lastToken = token;
+    <span class="enscript-keyword">return</span> token;
+
+<span class="enscript-reference">returnError</span>:
+    m_error = true;
+    tokenInfo-&gt;line = m_lineNumber;
+    tokenInfo-&gt;endOffset = currentOffset();
+    <span class="enscript-keyword">return</span> ERRORTOK;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">bool</span> Lexer&lt;T&gt;::scanRegExp(<span class="enscript-type">const</span> Identifier*&amp; pattern, <span class="enscript-type">const</span> Identifier*&amp; flags, UChar patternPrefix)
+{
+    ASSERT(m_buffer16.isEmpty());
+
+    <span class="enscript-type">bool</span> lastWasEscape = false;
+    <span class="enscript-type">bool</span> inBrackets = false;
+
+    <span class="enscript-keyword">if</span> (patternPrefix) {
+        ASSERT(!isLineTerminator(patternPrefix));
+        ASSERT(patternPrefix != <span class="enscript-string">'/'</span>);
+        ASSERT(patternPrefix != <span class="enscript-string">'['</span>);
+        record16(patternPrefix);
+    }
+
+    <span class="enscript-keyword">while</span> (true) {
+        <span class="enscript-keyword">if</span> (isLineTerminator(m_current) || atEnd()) {
+            m_buffer16.resize(0);
+            <span class="enscript-keyword">return</span> false;
+        }
+
+        T prev = m_current;
+        
+        shift();
+
+        <span class="enscript-keyword">if</span> (prev == <span class="enscript-string">'/'</span> &amp;&amp; !lastWasEscape &amp;&amp; !inBrackets)
+            <span class="enscript-keyword">break</span>;
+
+        record16(prev);
+
+        <span class="enscript-keyword">if</span> (lastWasEscape) {
+            lastWasEscape = false;
+            <span class="enscript-keyword">continue</span>;
+        }
+
+        <span class="enscript-keyword">switch</span> (prev) {
+        <span class="enscript-keyword">case</span> <span class="enscript-string">'['</span>:
+            inBrackets = true;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-string">']'</span>:
+            inBrackets = false;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-string">'\\'</span>:
+            lastWasEscape = true;
+            <span class="enscript-keyword">break</span>;
+        }
+    }
+
+    pattern = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+    m_buffer16.resize(0);
+
+    <span class="enscript-keyword">while</span> (isIdentPart(m_current)) {
+        record16(m_current);
+        shift();
+    }
+
+    flags = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+    m_buffer16.resize(0);
+
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">bool</span> Lexer&lt;T&gt;::skipRegExp()
+{
+    <span class="enscript-type">bool</span> lastWasEscape = false;
+    <span class="enscript-type">bool</span> inBrackets = false;
+
+    <span class="enscript-keyword">while</span> (true) {
+        <span class="enscript-keyword">if</span> (isLineTerminator(m_current) || atEnd())
+            <span class="enscript-keyword">return</span> false;
+
+        T prev = m_current;
+        
+        shift();
+
+        <span class="enscript-keyword">if</span> (prev == <span class="enscript-string">'/'</span> &amp;&amp; !lastWasEscape &amp;&amp; !inBrackets)
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">if</span> (lastWasEscape) {
+            lastWasEscape = false;
+            <span class="enscript-keyword">continue</span>;
+        }
+
+        <span class="enscript-keyword">switch</span> (prev) {
+        <span class="enscript-keyword">case</span> <span class="enscript-string">'['</span>:
+            inBrackets = true;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-string">']'</span>:
+            inBrackets = false;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-string">'\\'</span>:
+            lastWasEscape = true;
+            <span class="enscript-keyword">break</span>;
+        }
+    }
+
+    <span class="enscript-keyword">while</span> (isIdentPart(m_current))
+        shift();
+
+    <span class="enscript-keyword">return</span> true;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+<span class="enscript-type">void</span> Lexer&lt;T&gt;::clear()
+{
+    m_arena = 0;
+
+    Vector&lt;LChar&gt; newBuffer8;
+    m_buffer8.swap(newBuffer8);
+
+    Vector&lt;UChar&gt; newBuffer16;
+    m_buffer16.swap(newBuffer16);
+
+    m_isReparsing = false;
+}
+
+<span class="enscript-type">template</span> &lt;typename T&gt;
+SourceCode Lexer&lt;T&gt;::sourceCode(<span class="enscript-type">int</span> openBrace, <span class="enscript-type">int</span> closeBrace, <span class="enscript-type">int</span> firstLine)
+{
+    ASSERT((*m_source-&gt;provider()-&gt;data())[openBrace] == <span class="enscript-string">'{'</span>);
+    ASSERT((*m_source-&gt;provider()-&gt;data())[closeBrace] == <span class="enscript-string">'}'</span>);
+    <span class="enscript-keyword">return</span> SourceCode(m_source-&gt;provider(), openBrace, closeBrace + 1, firstLine);
+}
+
+<span class="enscript-comment">// Instantiate the two flavors of Lexer we need instead of putting most of this file in Lexer.h
+</span><span class="enscript-type">template</span> <span class="enscript-type">class</span> Lexer&lt;LChar&gt;;
+<span class="enscript-type">template</span> <span class="enscript-type">class</span> Lexer&lt;UChar&gt;;
+
+} <span class="enscript-comment">// namespace JSC
+</span></pre>
+<hr />
+</body></html>

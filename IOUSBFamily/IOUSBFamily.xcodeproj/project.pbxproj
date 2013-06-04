@@ -2546,7 +2546,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0460;
 			};
 			buildConfigurationList = DDDEF9CB08886330003A7655 /* Build configuration list for PBXProject "IOUSBFamily" */;
 			compatibilityVersion = "Xcode 3.2";

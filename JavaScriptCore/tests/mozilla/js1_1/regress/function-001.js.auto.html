@@ -1,0 +1,101 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>function-001.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">function-001.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* The contents of this file are subject to the Netscape Public
+ * License Version 1.1 (the &quot;License&quot;); you may not use this file
+ * except in compliance with the License. You may obtain a copy of
+ * the License at <a href="http://www.mozilla.org/NPL/">http://www.mozilla.org/NPL/</a>
+ *
+ * Software distributed under the License is distributed on an &quot;AS
+ * IS&quot; basis, WITHOUT WARRANTY OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * rights and limitations under the License.
+ *
+ * The Original Code is Mozilla Communicator client code, released March
+ * 31, 1998.
+ *
+ * The Initial Developer of the Original Code is Netscape Communications
+ * Corporation. Portions created by Netscape are
+ * Copyright (C) 1998 Netscape Communications Corporation. All
+ * Rights Reserved.
+ *
+ * Contributor(s): 
+ * 
+ */</span>
+<span class="enscript-comment">/**
+ *  File Name:          boolean-001.js
+ *  Description:
+ *
+ *  <a href="http://scopus.mcom.com/bugsplat/show_bug.cgi?id=99232">http://scopus.mcom.com/bugsplat/show_bug.cgi?id=99232</a>
+ *
+ *  eval(&quot;function f(){}function g(){}&quot;) at top level is an error for JS1.2
+      and above (missing ; between named function expressions), but declares f
+      and g as functions below 1.2.
+ *
+ * Fails to produce error regardless of version:
+ * js&gt; version(100)
+120
+js&gt; eval(&quot;function f(){}function g(){}&quot;)
+js&gt; version(120);
+100
+js&gt; eval(&quot;function f(){}function g(){}&quot;)
+js&gt;
+ *  Author:             <a href="mailto:christine@netscape.com">christine@netscape.com</a>
+ *  Date:               11 August 1998
+ */</span>
+    <span class="enscript-keyword">var</span> SECTION = <span class="enscript-string">&quot;boolean-001.js&quot;</span>;
+    <span class="enscript-keyword">var</span> VERSION = <span class="enscript-string">&quot;JS1_1&quot;</span>;
+    <span class="enscript-keyword">var</span> TITLE   = <span class="enscript-string">&quot;functions not separated by semicolons are not errors in version 110 &quot;</span>;
+    <span class="enscript-keyword">var</span> BUGNUMBER=<span class="enscript-string">&quot;99232&quot;</span>;
+
+    startTest();
+    writeHeaderToLog( SECTION + <span class="enscript-string">&quot; &quot;</span>+ TITLE);
+
+    <span class="enscript-keyword">var</span> testcases = <span class="enscript-keyword">new</span> Array();
+
+    result = <span class="enscript-string">&quot;passed&quot;</span>;
+
+    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase(
+        SECTION,
+        <span class="enscript-string">&quot;eval(\&quot;function f(){}function g(){}\&quot;)&quot;</span>,
+        <span class="enscript-keyword">void</span> 0,
+        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;function f(){}function g(){}&quot;</span>) );
+
+    test();
+
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                            testcases[tc].actual );
+
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+</pre>
+<hr />
+</body></html>

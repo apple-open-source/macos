@@ -336,7 +336,7 @@ void HTMLConstructionSite::insertFormattingElement(AtomicHTMLToken& token)
 void HTMLConstructionSite::insertScriptElement(AtomicHTMLToken& token)
 {
     RefPtr<HTMLScriptElement> element = HTMLScriptElement::create(scriptTag, currentNode()->document(), true);
-    if (m_fragmentScriptingPermission == FragmentScriptingAllowed)
+    if (scriptingContentIsAllowed(m_fragmentScriptingPermission))
         element->parserSetAttributes(token.attributes(), m_fragmentScriptingPermission);
     attachLater(currentNode(), element);
     m_openElements.push(element.release());
@@ -392,6 +392,10 @@ void HTMLConstructionSite::insertTextNode(const String& characters, WhitespaceMo
         currentPosition += textNode->length();
         ASSERT(currentPosition <= characters.length());
         task.child = textNode.release();
+
+        if (task.parent->document() != task.child->document())
+            task.parent->document()->adoptNode(task.child, ASSERT_NO_EXCEPTION);
+
         executeTask(task);
     }
 }
@@ -516,6 +520,10 @@ void HTMLConstructionSite::fosterParent(PassRefPtr<Node> node)
     findFosterSite(task);
     task.child = node;
     ASSERT(task.parent);
+
+    if (task.parent->document() != task.child->document())
+        task.parent->document()->adoptNode(task.child, ASSERT_NO_EXCEPTION);
+
     m_attachmentQueue.append(task);
 }
 

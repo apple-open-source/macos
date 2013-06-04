@@ -48,6 +48,13 @@ enum {
 };
 typedef uint32_t WKFocusDirection;
 
+enum {
+    kWKPluginLoadPolicyLoadNormally = 0,
+    kWKPluginLoadPolicyBlocked,
+    kWKPluginLoadPolicyInactive,
+};
+typedef uint32_t WKPluginLoadPolicy;
+
 typedef void (*WKPageCallback)(WKPageRef page, const void* clientInfo);
 
 // FrameLoad Client
@@ -72,10 +79,13 @@ typedef void (*WKPageDidChangeBackForwardListCallback)(WKPageRef page, WKBackFor
 typedef bool (*WKPageShouldGoToBackForwardListItemCallback)(WKPageRef page, WKBackForwardListItemRef item, const void *clientInfo);
 typedef void (*WKPageDidNewFirstVisuallyNonEmptyLayoutCallback)(WKPageRef page, WKTypeRef userData, const void *clientInfo);
 typedef void (*WKPageWillGoToBackForwardListItemCallback)(WKPageRef page, WKBackForwardListItemRef item, WKTypeRef userData, const void *clientInfo);
-typedef void (*WKPagePluginDidFailCallback)(WKPageRef page, WKErrorCode errorCode, WKStringRef mimeType, WKStringRef pluginIdentifier, WKStringRef pluginVersion, const void* clientInfo);
+typedef void (*WKPagePluginDidFailCallback)(WKPageRef page, WKErrorCode errorCode, WKDictionaryRef pluginInfoDictionary, const void* clientInfo);
+
+typedef WKPluginLoadPolicy (*WKPagePluginLoadPolicyCallback)(WKPageRef page, WKPluginLoadPolicy currentPluginLoadPolicy, WKDictionaryRef pluginInfoDictionary, const void* clientInfo);
 
 // Deprecated
 typedef void (*WKPageDidFailToInitializePluginCallback_deprecatedForUseWithV0)(WKPageRef page, WKStringRef mimeType, const void* clientInfo);
+typedef void (*WKPagePluginDidFailCallback_deprecatedForUseWithV1)(WKPageRef page, WKErrorCode errorCode, WKStringRef mimeType, WKStringRef pluginIdentifier, WKStringRef pluginVersion, const void* clientInfo);
 
 struct WKPageLoaderClient {
     int                                                                 version;
@@ -112,18 +122,23 @@ struct WKPageLoaderClient {
 
     // Version 1
     WKPageDidDetectXSSForFrameCallback                                  didDetectXSSForFrame;
-
-    // FIXME: didFirstVisuallyNonEmptyLayoutForFrame and didNewFirstVisuallyNonEmptyLayout should be merged.
+    // FIXME: didNewFirstVisuallyNonEmptyLayout should be removed. We should consider removing didFirstVisuallyNonEmptyLayoutForFrame
+    // as well. Their functionality is replaced by didLayout.
     WKPageDidNewFirstVisuallyNonEmptyLayoutCallback                     didNewFirstVisuallyNonEmptyLayout;
-
     WKPageWillGoToBackForwardListItemCallback                           willGoToBackForwardListItem;
-
     WKPageCallback                                                      interactionOccurredWhileProcessUnresponsive;
+    WKPagePluginDidFailCallback_deprecatedForUseWithV1                  pluginDidFail_deprecatedForUseWithV1;
+
+    // Version 2
+    void                                                                (*didReceiveIntentForFrame_unavailable)(void);
+    void                                                                (*registerIntentServiceForFrame_unavailable)(void);
+    void                                                                (*unused1)(void); // didLayout in trunk.
+    WKPagePluginLoadPolicyCallback                                      pluginLoadPolicy;
     WKPagePluginDidFailCallback                                         pluginDidFail;
 };
 typedef struct WKPageLoaderClient WKPageLoaderClient;
 
-enum { kWKPageLoaderClientCurrentVersion = 1 };
+enum { kWKPageLoaderClientCurrentVersion = 2 };
 
 // Policy Client.
 typedef void (*WKPageDecidePolicyForNavigationActionCallback)(WKPageRef page, WKFrameRef frame, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo);
@@ -218,12 +233,13 @@ typedef void (*WKPagePrintFrameCallback)(WKPageRef page, WKFrameRef frame, const
 typedef void (*WKPageSaveDataToFileInDownloadsFolderCallback)(WKPageRef page, WKStringRef suggestedFilename, WKStringRef mimeType, WKURLRef originatingURL, WKDataRef data, const void* clientInfo);
 typedef bool (*WKPageShouldInterruptJavaScriptCallback)(WKPageRef page, const void *clientInfo);
 typedef void (*WKPageDecidePolicyForNotificationPermissionRequestCallback)(WKPageRef page, WKSecurityOriginRef origin, WKNotificationPermissionRequestRef permissionRequest, const void *clientInfo);
-typedef void (*WKPageUnavailablePluginButtonClickedCallback)(WKPageRef page, WKPluginUnavailabilityReason pluginUnavailabilityReason, WKStringRef mimeType, WKStringRef url, WKStringRef pluginsPageURL, const void* clientInfo);
+typedef void (*WKPageUnavailablePluginButtonClickedCallback)(WKPageRef page, WKPluginUnavailabilityReason pluginUnavailabilityReason, WKDictionaryRef pluginInfoDictionary, const void* clientInfo);
 
 // Deprecated    
 typedef WKPageRef (*WKPageCreateNewPageCallback_deprecatedForUseWithV0)(WKPageRef page, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton mouseButton, const void *clientInfo);
 typedef void      (*WKPageMouseDidMoveOverElementCallback_deprecatedForUseWithV0)(WKPageRef page, WKEventModifiers modifiers, WKTypeRef userData, const void *clientInfo);
 typedef void (*WKPageMissingPluginButtonClickedCallback_deprecatedForUseWithV0)(WKPageRef page, WKStringRef mimeType, WKStringRef url, WKStringRef pluginsPageURL, const void* clientInfo);
+typedef void (*WKPageUnavailablePluginButtonClickedCallback_deprecatedForUseWithV1)(WKPageRef page, WKPluginUnavailabilityReason pluginUnavailabilityReason, WKStringRef mimeType, WKStringRef url, WKStringRef pluginsPageURL, const void* clientInfo);
 
 struct WKPageUIClient {
     int                                                                 version;
@@ -274,11 +290,16 @@ struct WKPageUIClient {
     WKPageCreateNewPageCallback                                         createNewPage;
     WKPageMouseDidMoveOverElementCallback                               mouseDidMoveOverElement;
     WKPageDecidePolicyForNotificationPermissionRequestCallback          decidePolicyForNotificationPermissionRequest;
+    WKPageUnavailablePluginButtonClickedCallback_deprecatedForUseWithV1 unavailablePluginButtonClicked_deprecatedForUseWithV1;
+
+    // Version 2
+    void                                                                (*unused2)(void); // showColorPicker in trunk
+    void                                                                (*unused3)(void); // hideColorPicker in trunk
     WKPageUnavailablePluginButtonClickedCallback                        unavailablePluginButtonClicked;
 };
 typedef struct WKPageUIClient WKPageUIClient;
 
-enum { kWKPageUIClientCurrentVersion = 1 };
+enum { kWKPageUIClientCurrentVersion = 2 };
 
 // Find client.
 typedef void (*WKPageDidFindStringCallback)(WKPageRef page, WKStringRef string, unsigned matchCount, const void* clientInfo);
@@ -477,6 +498,31 @@ WK_EXPORT void WKPageForceRepaint(WKPageRef page, void* context, WKPageForceRepa
 typedef void (*WKPageValidateCommandCallback)(WKStringRef command, bool isEnabled, int32_t state, WKErrorRef, void* context);
 WK_EXPORT void WKPageValidateCommand(WKPageRef page, WKStringRef command, void* context, WKPageValidateCommandCallback callback);
 WK_EXPORT void WKPageExecuteCommand(WKPageRef page, WKStringRef command);
+
+/* Value type: WKStringRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationBundleIdentifierKey();
+
+/* Value type: WKStringRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationBundleVersionKey();
+
+/* Value type: WKStringRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationDisplayNameKey();
+
+/* Value type: WKURLRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationFrameURLKey();
+
+/* Value type: WKStringRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationMIMETypeKey();
+
+/* Value type: WKURLRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationPageURLKey();
+
+/* Value type: WKURLRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationPluginspageAttributeURLKey();
+
+/* Value type: WKURLRef */
+WK_EXPORT WKStringRef WKPageGetPluginInformationPluginURLKey();
+
 
 #ifdef __cplusplus
 }

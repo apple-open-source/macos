@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>12.10-1.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">12.10-1.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* The contents of this file are subject to the Netscape Public
+ * License Version 1.1 (the &quot;License&quot;); you may not use this file
+ * except in compliance with the License. You may obtain a copy of
+ * the License at <a href="http://www.mozilla.org/NPL/">http://www.mozilla.org/NPL/</a>
+ *
+ * Software distributed under the License is distributed on an &quot;AS
+ * IS&quot; basis, WITHOUT WARRANTY OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * rights and limitations under the License.
+ *
+ * The Original Code is Mozilla Communicator client code, released March
+ * 31, 1998.
+ *
+ * The Initial Developer of the Original Code is Netscape Communications
+ * Corporation. Portions created by Netscape are
+ * Copyright (C) 1998 Netscape Communications Corporation. All
+ * Rights Reserved.
+ *
+ * Contributor(s): 
+ * 
+ */</span>
+<span class="enscript-comment">/**
+    File Name:          12.10-1.js
+    ECMA Section:       12.10 The with statement
+    Description:
+    WithStatement :
+    with ( Expression ) Statement
+
+    The with statement adds a computed object to the front of the scope chain
+    of the current execution context, then executes a statement with this
+    augmented scope chain, then restores the scope chain.
+
+    Semantics
+
+    The production WithStatement : with ( Expression ) Statement is evaluated
+    as follows:
+    1.  Evaluate Expression.
+    2.  Call GetValue(Result(1)).
+    3.  Call ToObject(Result(2)).
+    4.  Add Result(3) to the front of the scope chain.
+    5.  Evaluate Statement using the augmented scope chain from step 4.
+    6.  Remove Result(3) from the front of the scope chain.
+    7.  Return Result(5).
+
+    Discussion
+    Note that no matter how control leaves the embedded Statement, whether
+    normally or by some form of abrupt completion, the scope chain is always
+    restored to its former state.
+
+    Author:             <a href="mailto:christine@netscape.com">christine@netscape.com</a>
+    Date:               12 november 1997
+*/</span>
+
+    <span class="enscript-keyword">var</span> SECTION = <span class="enscript-string">&quot;12.10-1&quot;</span>;
+    <span class="enscript-keyword">var</span> VERSION = <span class="enscript-string">&quot;ECMA_1&quot;</span>;
+    startTest();
+    <span class="enscript-keyword">var</span> TITLE   = <span class="enscript-string">&quot;The with statment&quot;</span>;
+
+    writeHeaderToLog( SECTION + <span class="enscript-string">&quot; &quot;</span>+ TITLE);
+
+    <span class="enscript-keyword">var</span> testcases = getTestCases();
+
+    test();
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                            testcases[tc].actual );
+
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getTestCases</span>() {
+    <span class="enscript-keyword">var</span> array = <span class="enscript-keyword">new</span> Array();
+    <span class="enscript-keyword">var</span> item = 0;
+
+    <span class="enscript-comment">// although the scope chain changes, the this value is immutable for a given
+</span>    <span class="enscript-comment">// execution context.
+</span>
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                <span class="enscript-string">&quot;with( new Number() ) { this +'' }&quot;</span>,
+                                <span class="enscript-string">&quot;[object global]&quot;</span>,
+                                <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;with( new Number() ) { this +'' }&quot;</span>) );
+
+    <span class="enscript-comment">// the object's functions and properties should override those of the
+</span>    <span class="enscript-comment">// global object.
+</span>
+    array[item++] = <span class="enscript-keyword">new</span> TestCase(
+                        SECTION,
+                        <span class="enscript-string">&quot;var MYOB = new WithObject(true); with (MYOB) { parseInt() }&quot;</span>,
+                        <span class="enscript-keyword">true</span>,
+                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = new WithObject(true); with (MYOB) { parseInt() }&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase(
+                        SECTION,
+                        <span class="enscript-string">&quot;var MYOB = new WithObject(false); with (MYOB) { NaN }&quot;</span>,
+                        <span class="enscript-keyword">false</span>,
+                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = new WithObject(false); with (MYOB) { NaN }&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase(
+                        SECTION,
+                        <span class="enscript-string">&quot;var MYOB = new WithObject(NaN); with (MYOB) { Infinity }&quot;</span>,
+                        Number.NaN,
+                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = new WithObject(NaN); with (MYOB) { Infinity }&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase(
+                        SECTION,
+                        <span class="enscript-string">&quot;var MYOB = new WithObject(false); with (MYOB) { }; Infinity&quot;</span>,
+                        Number.POSITIVE_INFINITY,
+                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = new WithObject(false); with (MYOB) { }; Infinity&quot;</span>) );
+
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase(
+                        SECTION,
+                        <span class="enscript-string">&quot;var MYOB = new WithObject(0); with (MYOB) { delete Infinity; Infinity }&quot;</span>,
+                        Number.POSITIVE_INFINITY,
+                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = new WithObject(0); with (MYOB) { delete Infinity; Infinity }&quot;</span>) );
+
+    <span class="enscript-comment">// let us leave the with block via a break.
+</span>
+    array[item++] = <span class="enscript-keyword">new</span> TestCase(
+                        SECTION,
+                        <span class="enscript-string">&quot;var MYOB = new WithObject(0); while (true) { with (MYOB) { Infinity; break; } } Infinity&quot;</span>,
+                        Number.POSITIVE_INFINITY,
+                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = new WithObject(0); while (true) { with (MYOB) { Infinity; break; } } Infinity&quot;</span>) );
+
+    <span class="enscript-keyword">return</span> ( array );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">WithObject</span>( value ) {
+    <span class="enscript-keyword">this</span>.prop1 = 1;
+    <span class="enscript-keyword">this</span>.prop2 = <span class="enscript-keyword">new</span> Boolean(<span class="enscript-keyword">true</span>);
+    <span class="enscript-keyword">this</span>.prop3 = <span class="enscript-string">&quot;a string&quot;</span>;
+    <span class="enscript-keyword">this</span>.value = value;
+
+    <span class="enscript-comment">// now we will override global functions
+</span>
+    <span class="enscript-keyword">this</span>.<span class="enscript-builtin">parseInt</span> = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+    <span class="enscript-keyword">this</span>.NaN = value;
+    <span class="enscript-keyword">this</span>.Infinity = value;
+    <span class="enscript-keyword">this</span>.unescape = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+    <span class="enscript-keyword">this</span>.escape   = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+    <span class="enscript-keyword">this</span>.<span class="enscript-builtin">eval</span>     = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+    <span class="enscript-keyword">this</span>.<span class="enscript-builtin">parseFloat</span> = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+    <span class="enscript-keyword">this</span>.isNaN      = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+    <span class="enscript-keyword">this</span>.isFinite   = <span class="enscript-keyword">new</span> Function( <span class="enscript-string">&quot;return this.value&quot;</span> );
+}
+</pre>
+<hr />
+</body></html>

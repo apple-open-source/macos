@@ -1,0 +1,1016 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>ASTBuilder.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">ASTBuilder.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">ASTBuilder_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ASTBuilder_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;NodeConstructors.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;SyntaxChecker.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;utility&gt;</span>
+
+namespace JSC {
+
+class ASTBuilder {
+    <span class="enscript-type">struct</span> BinaryOpInfo {
+        BinaryOpInfo() {}
+        BinaryOpInfo(<span class="enscript-type">int</span> s, <span class="enscript-type">int</span> d, <span class="enscript-type">int</span> e, bool r)
+            : start(s)
+            , divot(d)
+            , end(e)
+            , hasAssignment(r)
+        {
+        }
+        BinaryOpInfo(<span class="enscript-type">const</span> BinaryOpInfo&amp; lhs, <span class="enscript-type">const</span> BinaryOpInfo&amp; rhs)
+            : start(lhs.start)
+            , divot(rhs.start)
+            , end(rhs.end)
+            , hasAssignment(lhs.hasAssignment || rhs.hasAssignment)
+        {
+        }
+        <span class="enscript-type">int</span> start;
+        <span class="enscript-type">int</span> divot;
+        <span class="enscript-type">int</span> end;
+        bool hasAssignment;
+    };
+    
+    
+    <span class="enscript-type">struct</span> AssignmentInfo {
+        AssignmentInfo() {}
+        AssignmentInfo(ExpressionNode* node, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> initAssignments, Operator op)
+            : m_node(node)
+            , m_start(start)
+            , m_divot(divot)
+            , m_initAssignments(initAssignments)
+            , m_op(op)
+        {
+        }
+        ExpressionNode* m_node;
+        <span class="enscript-type">int</span> m_start;
+        <span class="enscript-type">int</span> m_divot;
+        <span class="enscript-type">int</span> m_initAssignments;
+        Operator m_op;
+    };
+<span class="enscript-reference">public</span>:
+    ASTBuilder(JSGlobalData* globalData, SourceCode* sourceCode)
+        : m_globalData(globalData)
+        , m_sourceCode(sourceCode)
+        , m_scope(globalData)
+        , m_evalCount(0)
+    {
+    }
+    
+    <span class="enscript-type">struct</span> BinaryExprContext {
+        BinaryExprContext(ASTBuilder&amp;) {}
+    };
+    <span class="enscript-type">struct</span> UnaryExprContext {
+        UnaryExprContext(ASTBuilder&amp;) {}
+    };
+
+    <span class="enscript-type">typedef</span> SyntaxChecker FunctionBodyBuilder;
+
+    <span class="enscript-type">typedef</span> ExpressionNode* Expression;
+    <span class="enscript-type">typedef</span> JSC::SourceElements* SourceElements;
+    <span class="enscript-type">typedef</span> ArgumentsNode* Arguments;
+    <span class="enscript-type">typedef</span> CommaNode* Comma;
+    <span class="enscript-type">typedef</span> PropertyNode* Property;
+    <span class="enscript-type">typedef</span> PropertyListNode* PropertyList;
+    <span class="enscript-type">typedef</span> ElementNode* ElementList;
+    <span class="enscript-type">typedef</span> ArgumentListNode* ArgumentsList;
+    <span class="enscript-type">typedef</span> ParameterNode* FormalParameterList;
+    <span class="enscript-type">typedef</span> FunctionBodyNode* FunctionBody;
+    <span class="enscript-type">typedef</span> StatementNode* Statement;
+    <span class="enscript-type">typedef</span> ClauseListNode* ClauseList;
+    <span class="enscript-type">typedef</span> CaseClauseNode* Clause;
+    <span class="enscript-type">typedef</span> ConstDeclNode* ConstDeclList;
+    <span class="enscript-type">typedef</span> std::pair&lt;ExpressionNode*, BinaryOpInfo&gt; BinaryOperand;
+    
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> bool CreatesAST = true;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> bool NeedsFreeVariableInfo = true;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> bool CanUseFunctionCache = true;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">int</span>  DontBuildKeywords = 0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">int</span>  DontBuildStrings = 0;
+
+    ExpressionNode* makeBinaryNode(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> token, std::pair&lt;ExpressionNode*, BinaryOpInfo&gt;, std::pair&lt;ExpressionNode*, BinaryOpInfo&gt;);
+    ExpressionNode* makeFunctionCallNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* func, ArgumentsNode* args, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end);
+
+    <span class="enscript-reference">JSC</span>::SourceElements* createSourceElements() { <span class="enscript-keyword">return</span> new (m_globalData) JSC::SourceElements(); }
+
+    ParserArenaData&lt;DeclarationStacks::VarStack&gt;* varDeclarations() { <span class="enscript-keyword">return</span> m_scope.m_varDeclarations; }
+    ParserArenaData&lt;DeclarationStacks::FunctionStack&gt;* funcDeclarations() { <span class="enscript-keyword">return</span> m_scope.m_funcDeclarations; }
+    <span class="enscript-type">int</span> features() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_scope.m_features; }
+    <span class="enscript-type">int</span> numConstants() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_scope.m_numConstants; }
+
+    <span class="enscript-type">void</span> appendToComma(CommaNode* commaNode, ExpressionNode* expr) { commaNode-&gt;append(expr); }
+
+    CommaNode* createCommaExpr(<span class="enscript-type">int</span> lineNumber, ExpressionNode* lhs, ExpressionNode* rhs) { <span class="enscript-keyword">return</span> new (m_globalData) CommaNode(lineNumber, lhs, rhs); }
+
+    ExpressionNode* makeAssignNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, Operator, ExpressionNode* right, bool leftHasAssignments, bool rightHasAssignments, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end);
+    ExpressionNode* makePrefixNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode*, Operator, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end);
+    ExpressionNode* makePostfixNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode*, Operator, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end);
+    ExpressionNode* makeTypeOfNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode*);
+    ExpressionNode* makeDeleteNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode*, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end);
+    ExpressionNode* makeNegateNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode*);
+    ExpressionNode* makeBitwiseNotNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode*);
+    ExpressionNode* makeMultNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeDivNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeModNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeAddNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeSubNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeBitXOrNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeBitAndNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeBitOrNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeLeftShiftNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeRightShiftNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+    ExpressionNode* makeURightShiftNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* left, ExpressionNode* right, bool rightHasAssignments);
+
+    ExpressionNode* createLogicalNot(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr) { <span class="enscript-keyword">return</span> new (m_globalData) LogicalNotNode(lineNumber, expr); }
+    ExpressionNode* createUnaryPlus(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr) { <span class="enscript-keyword">return</span> new (m_globalData) UnaryPlusNode(lineNumber, expr); }
+    ExpressionNode* createVoid(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr)
+    {
+        incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) VoidNode(lineNumber, expr);
+    }
+    ExpressionNode* thisExpr(<span class="enscript-type">int</span> lineNumber)
+    {
+        usesThis();
+        <span class="enscript-keyword">return</span> new (m_globalData) ThisNode(lineNumber);
+    }
+    ExpressionNode* createResolve(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* ident, <span class="enscript-type">int</span> start)
+    {
+        <span class="enscript-keyword">if</span> (m_globalData-&gt;propertyNames-&gt;arguments == *ident)
+            usesArguments();
+        <span class="enscript-keyword">return</span> new (m_globalData) ResolveNode(lineNumber, *ident, start);
+    }
+    ExpressionNode* createObjectLiteral(<span class="enscript-type">int</span> lineNumber) { <span class="enscript-keyword">return</span> new (m_globalData) ObjectLiteralNode(lineNumber); }
+    ExpressionNode* createObjectLiteral(<span class="enscript-type">int</span> lineNumber, PropertyListNode* properties) { <span class="enscript-keyword">return</span> new (m_globalData) ObjectLiteralNode(lineNumber, properties); }
+
+    ExpressionNode* createArray(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> elisions)
+    {
+        <span class="enscript-keyword">if</span> (elisions)
+            incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) ArrayNode(lineNumber, elisions);
+    }
+
+    ExpressionNode* createArray(<span class="enscript-type">int</span> lineNumber, ElementNode* elems) { <span class="enscript-keyword">return</span> new (m_globalData) ArrayNode(lineNumber, elems); }
+    ExpressionNode* createArray(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> elisions, ElementNode* elems)
+    {
+        <span class="enscript-keyword">if</span> (elisions)
+            incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) ArrayNode(lineNumber, elisions, elems);
+    }
+    ExpressionNode* createNumberExpr(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">double</span> d)
+    {
+        incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) NumberNode(lineNumber, d);
+    }
+
+    ExpressionNode* createString(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* string)
+    {
+        incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) StringNode(lineNumber, *string);
+    }
+
+    ExpressionNode* createBoolean(<span class="enscript-type">int</span> lineNumber, bool b)
+    {
+        incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) BooleanNode(lineNumber, b);
+    }
+
+    ExpressionNode* createNull(<span class="enscript-type">int</span> lineNumber)
+    {
+        incConstants();
+        <span class="enscript-keyword">return</span> new (m_globalData) NullNode(lineNumber);
+    }
+
+    ExpressionNode* createBracketAccess(<span class="enscript-type">int</span> lineNumber, ExpressionNode* base, ExpressionNode* property, bool propertyHasAssignments, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+    {
+        BracketAccessorNode* node = new (m_globalData) BracketAccessorNode(lineNumber, base, property, propertyHasAssignments);
+        setExceptionLocation(node, start, divot, end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    ExpressionNode* createDotAccess(<span class="enscript-type">int</span> lineNumber, ExpressionNode* base, <span class="enscript-type">const</span> Identifier* property, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+    {
+        DotAccessorNode* node = new (m_globalData) DotAccessorNode(lineNumber, base, *property);
+        setExceptionLocation(node, start, divot, end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    ExpressionNode* createRegExp(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier&amp; pattern, <span class="enscript-type">const</span> Identifier&amp; flags, <span class="enscript-type">int</span> start)
+    {
+        <span class="enscript-keyword">if</span> (Yarr::checkSyntax(pattern.ustring()))
+            <span class="enscript-keyword">return</span> 0;
+        RegExpNode* node = new (m_globalData) RegExpNode(lineNumber, pattern, flags);
+        <span class="enscript-type">int</span> size = pattern.length() + 2; <span class="enscript-comment">// + 2 for the two /'s
+</span>        setExceptionLocation(node, start, start + size, start + size);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    ExpressionNode* createNewExpr(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, ArgumentsNode* arguments, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+    {
+        NewExprNode* node = new (m_globalData) NewExprNode(lineNumber, expr, arguments);
+        setExceptionLocation(node, start, divot, end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    ExpressionNode* createNewExpr(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        NewExprNode* node = new (m_globalData) NewExprNode(lineNumber, expr);
+        setExceptionLocation(node, start, end, end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    ExpressionNode* createConditionalExpr(<span class="enscript-type">int</span> lineNumber, ExpressionNode* condition, ExpressionNode* lhs, ExpressionNode* rhs)
+    {
+        <span class="enscript-keyword">return</span> new (m_globalData) ConditionalNode(lineNumber, condition, lhs, rhs);
+    }
+
+    ExpressionNode* createAssignResolve(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier&amp; ident, ExpressionNode* rhs, bool rhsHasAssignment, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+    {
+        <span class="enscript-keyword">if</span> (rhs-&gt;isFuncExprNode())
+            static_cast&lt;FuncExprNode*&gt;(rhs)-&gt;body()-&gt;setInferredName(ident);
+        AssignResolveNode* node = new (m_globalData) AssignResolveNode(lineNumber, ident, rhs, rhsHasAssignment);
+        setExceptionLocation(node, start, divot, end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    ExpressionNode* createFunctionExpr(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* name, FunctionBodyNode* body, ParameterNode* parameters, <span class="enscript-type">int</span> openBracePos, <span class="enscript-type">int</span> closeBracePos, <span class="enscript-type">int</span> bodyStartLine, <span class="enscript-type">int</span> bodyEndLine)
+    {
+        FuncExprNode* result = new (m_globalData) FuncExprNode(lineNumber, *name, body, m_sourceCode-&gt;subExpression(openBracePos, closeBracePos, bodyStartLine), parameters);
+        body-&gt;setLoc(bodyStartLine, bodyEndLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    FunctionBodyNode* createFunctionBody(<span class="enscript-type">int</span> lineNumber, bool inStrictContext)
+    {
+        <span class="enscript-keyword">return</span> FunctionBodyNode::create(m_globalData, lineNumber, inStrictContext);
+    }
+    
+    template &lt;bool&gt; PropertyNode* createGetterOrSetterProperty(<span class="enscript-type">int</span> lineNumber, PropertyNode::Type type, <span class="enscript-type">const</span> Identifier* name, ParameterNode* params, FunctionBodyNode* body, <span class="enscript-type">int</span> openBracePos, <span class="enscript-type">int</span> closeBracePos, <span class="enscript-type">int</span> bodyStartLine, <span class="enscript-type">int</span> bodyEndLine)
+    {
+        ASSERT(name);
+        body-&gt;setLoc(bodyStartLine, bodyEndLine);
+        body-&gt;setInferredName(*name);
+        <span class="enscript-keyword">return</span> new (m_globalData) PropertyNode(m_globalData, *name, new (m_globalData) FuncExprNode(lineNumber, m_globalData-&gt;propertyNames-&gt;nullIdentifier, body, m_sourceCode-&gt;subExpression(openBracePos, closeBracePos, bodyStartLine), params), type);
+    }
+    
+    template &lt;bool&gt; PropertyNode* createGetterOrSetterProperty(JSGlobalData*, <span class="enscript-type">int</span> lineNumber, PropertyNode::Type type, <span class="enscript-type">double</span> name, ParameterNode* params, FunctionBodyNode* body, <span class="enscript-type">int</span> openBracePos, <span class="enscript-type">int</span> closeBracePos, <span class="enscript-type">int</span> bodyStartLine, <span class="enscript-type">int</span> bodyEndLine)
+    {
+        body-&gt;setLoc(bodyStartLine, bodyEndLine);
+        <span class="enscript-keyword">return</span> new (m_globalData) PropertyNode(m_globalData, name, new (m_globalData) FuncExprNode(lineNumber, m_globalData-&gt;propertyNames-&gt;nullIdentifier, body, m_sourceCode-&gt;subExpression(openBracePos, closeBracePos, bodyStartLine), params), type);
+    }
+
+    ArgumentsNode* createArguments() { <span class="enscript-keyword">return</span> new (m_globalData) ArgumentsNode(); }
+    ArgumentsNode* createArguments(ArgumentListNode* args) { <span class="enscript-keyword">return</span> new (m_globalData) ArgumentsNode(args); }
+    ArgumentListNode* createArgumentsList(<span class="enscript-type">int</span> lineNumber, ExpressionNode* arg) { <span class="enscript-keyword">return</span> new (m_globalData) ArgumentListNode(lineNumber, arg); }
+    ArgumentListNode* createArgumentsList(<span class="enscript-type">int</span> lineNumber, ArgumentListNode* args, ExpressionNode* arg) { <span class="enscript-keyword">return</span> new (m_globalData) ArgumentListNode(lineNumber, args, arg); }
+
+    template &lt;bool&gt; PropertyNode* createProperty(<span class="enscript-type">const</span> Identifier* propertyName, ExpressionNode* node, PropertyNode::Type type)
+    {
+        <span class="enscript-keyword">if</span> (node-&gt;isFuncExprNode())
+            static_cast&lt;FuncExprNode*&gt;(node)-&gt;body()-&gt;setInferredName(*propertyName);
+        <span class="enscript-keyword">return</span> new (m_globalData) PropertyNode(m_globalData, *propertyName, node, type);
+    }
+    template &lt;bool&gt; PropertyNode* createProperty(JSGlobalData*, <span class="enscript-type">double</span> propertyName, ExpressionNode* node, PropertyNode::Type type) { <span class="enscript-keyword">return</span> new (m_globalData) PropertyNode(m_globalData, propertyName, node, type); }
+    PropertyListNode* createPropertyList(<span class="enscript-type">int</span> lineNumber, PropertyNode* property) { <span class="enscript-keyword">return</span> new (m_globalData) PropertyListNode(lineNumber, property); }
+    PropertyListNode* createPropertyList(<span class="enscript-type">int</span> lineNumber, PropertyNode* property, PropertyListNode* tail) { <span class="enscript-keyword">return</span> new (m_globalData) PropertyListNode(lineNumber, property, tail); }
+
+    ElementNode* createElementList(<span class="enscript-type">int</span> elisions, ExpressionNode* expr) { <span class="enscript-keyword">return</span> new (m_globalData) ElementNode(elisions, expr); }
+    ElementNode* createElementList(ElementNode* elems, <span class="enscript-type">int</span> elisions, ExpressionNode* expr) { <span class="enscript-keyword">return</span> new (m_globalData) ElementNode(elems, elisions, expr); }
+
+    ParameterNode* createFormalParameterList(<span class="enscript-type">const</span> Identifier&amp; ident) { <span class="enscript-keyword">return</span> new (m_globalData) ParameterNode(ident); }
+    ParameterNode* createFormalParameterList(ParameterNode* list, <span class="enscript-type">const</span> Identifier&amp; ident) { <span class="enscript-keyword">return</span> new (m_globalData) ParameterNode(list, ident); }
+
+    CaseClauseNode* createClause(ExpressionNode* expr, JSC::SourceElements* statements) { <span class="enscript-keyword">return</span> new (m_globalData) CaseClauseNode(expr, statements); }
+    ClauseListNode* createClauseList(CaseClauseNode* clause) { <span class="enscript-keyword">return</span> new (m_globalData) ClauseListNode(clause); }
+    ClauseListNode* createClauseList(ClauseListNode* tail, CaseClauseNode* clause) { <span class="enscript-keyword">return</span> new (m_globalData) ClauseListNode(tail, clause); }
+
+    <span class="enscript-type">void</span> setUsesArguments(FunctionBodyNode* node) { node-&gt;setUsesArguments(); }
+
+    StatementNode* createFuncDeclStatement(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* name, FunctionBodyNode* body, ParameterNode* parameters, <span class="enscript-type">int</span> openBracePos, <span class="enscript-type">int</span> closeBracePos, <span class="enscript-type">int</span> bodyStartLine, <span class="enscript-type">int</span> bodyEndLine)
+    {
+        FuncDeclNode* decl = new (m_globalData) FuncDeclNode(lineNumber, *name, body, m_sourceCode-&gt;subExpression(openBracePos, closeBracePos, bodyStartLine), parameters);
+        <span class="enscript-keyword">if</span> (*name == m_globalData-&gt;propertyNames-&gt;arguments)
+            usesArguments();
+        m_scope.m_funcDeclarations-&gt;data.append(decl-&gt;body());
+        body-&gt;setLoc(bodyStartLine, bodyEndLine);
+        <span class="enscript-keyword">return</span> decl;
+    }
+
+    StatementNode* createBlockStatement(<span class="enscript-type">int</span> lineNumber, JSC::SourceElements* elements, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        BlockNode* block = new (m_globalData) BlockNode(lineNumber, elements);
+        block-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> block;
+    }
+
+    StatementNode* createExprStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        ExprStatementNode* result = new (m_globalData) ExprStatementNode(lineNumber, expr);
+        result-&gt;setLoc(start, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createIfStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* condition, StatementNode* trueBlock, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        IfNode* result = new (m_globalData) IfNode(lineNumber, condition, trueBlock);
+        result-&gt;setLoc(start, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createIfStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* condition, StatementNode* trueBlock, StatementNode* falseBlock, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        IfNode* result = new (m_globalData) IfElseNode(lineNumber, condition, trueBlock, falseBlock);
+        result-&gt;setLoc(start, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createForLoop(<span class="enscript-type">int</span> lineNumber, ExpressionNode* initializer, ExpressionNode* condition, ExpressionNode* iter, StatementNode* statements, bool b, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        ForNode* result = new (m_globalData) ForNode(lineNumber, initializer, condition, iter, statements, b);
+        result-&gt;setLoc(start, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createForInLoop(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* ident, ExpressionNode* initializer, ExpressionNode* iter, StatementNode* statements, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end, <span class="enscript-type">int</span> initStart, <span class="enscript-type">int</span> initEnd, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        ForInNode* result = new (m_globalData) ForInNode(m_globalData, lineNumber, *ident, initializer, iter, statements, initStart, initStart - start, initEnd - initStart);
+        result-&gt;setLoc(startLine, endLine);
+        setExceptionLocation(result, start, divot + 1, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createForInLoop(<span class="enscript-type">int</span> lineNumber, ExpressionNode* lhs, ExpressionNode* iter, StatementNode* statements, <span class="enscript-type">int</span> eStart, <span class="enscript-type">int</span> eDivot, <span class="enscript-type">int</span> eEnd, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        ForInNode* result = new (m_globalData) ForInNode(m_globalData, lineNumber, lhs, iter, statements);
+        result-&gt;setLoc(start, end);
+        setExceptionLocation(result, eStart, eDivot, eEnd);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createEmptyStatement(<span class="enscript-type">int</span> lineNumber) { <span class="enscript-keyword">return</span> new (m_globalData) EmptyStatementNode(lineNumber); }
+
+    StatementNode* createVarStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        StatementNode* result;
+        <span class="enscript-keyword">if</span> (!expr)
+            result = new (m_globalData) EmptyStatementNode(lineNumber);
+        <span class="enscript-keyword">else</span>
+            result = new (m_globalData) VarStatementNode(lineNumber, expr);
+        result-&gt;setLoc(start, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createReturnStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expression, <span class="enscript-type">int</span> eStart, <span class="enscript-type">int</span> eEnd, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        ReturnNode* result = new (m_globalData) ReturnNode(lineNumber, expression);
+        setExceptionLocation(result, eStart, eEnd, eEnd);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createBreakStatement(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> eStart, <span class="enscript-type">int</span> eEnd, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        BreakNode* result = new (m_globalData) BreakNode(m_globalData, lineNumber);
+        setExceptionLocation(result, eStart, eEnd, eEnd);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createBreakStatement(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* ident, <span class="enscript-type">int</span> eStart, <span class="enscript-type">int</span> eEnd, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        BreakNode* result = new (m_globalData) BreakNode(lineNumber, *ident);
+        setExceptionLocation(result, eStart, eEnd, eEnd);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createContinueStatement(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> eStart, <span class="enscript-type">int</span> eEnd, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        ContinueNode* result = new (m_globalData) ContinueNode(m_globalData, lineNumber);
+        setExceptionLocation(result, eStart, eEnd, eEnd);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createContinueStatement(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* ident, <span class="enscript-type">int</span> eStart, <span class="enscript-type">int</span> eEnd, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        ContinueNode* result = new (m_globalData) ContinueNode(lineNumber, *ident);
+        setExceptionLocation(result, eStart, eEnd, eEnd);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createTryStatement(<span class="enscript-type">int</span> lineNumber, StatementNode* tryBlock, <span class="enscript-type">const</span> Identifier* ident, StatementNode* catchBlock, StatementNode* finallyBlock, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        TryNode* result = new (m_globalData) TryNode(lineNumber, tryBlock, *ident, catchBlock, finallyBlock);
+        <span class="enscript-keyword">if</span> (catchBlock)
+            usesCatch();
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createSwitchStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, ClauseListNode* firstClauses, CaseClauseNode* defaultClause, ClauseListNode* secondClauses, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        CaseBlockNode* cases = new (m_globalData) CaseBlockNode(firstClauses, defaultClause, secondClauses);
+        SwitchNode* result = new (m_globalData) SwitchNode(lineNumber, expr, cases);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createWhileStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, StatementNode* statement, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        WhileNode* result = new (m_globalData) WhileNode(lineNumber, expr, statement);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createDoWhileStatement(<span class="enscript-type">int</span> lineNumber, StatementNode* statement, ExpressionNode* expr, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        DoWhileNode* result = new (m_globalData) DoWhileNode(lineNumber, statement, expr);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createLabelStatement(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">const</span> Identifier* ident, StatementNode* statement, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end)
+    {
+        LabelNode* result = new (m_globalData) LabelNode(lineNumber, *ident, statement);
+        setExceptionLocation(result, start, end, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    StatementNode* createWithStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, StatementNode* statement, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        usesWith();
+        WithNode* result = new (m_globalData) WithNode(lineNumber, expr, statement, end, end - start);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }    
+    
+    StatementNode* createThrowStatement(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> end, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        ThrowNode* result = new (m_globalData) ThrowNode(lineNumber, expr);
+        result-&gt;setLoc(startLine, endLine);
+        setExceptionLocation(result, start, end, end);
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    StatementNode* createDebugger(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        DebuggerStatementNode* result = new (m_globalData) DebuggerStatementNode(lineNumber);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    StatementNode* createConstStatement(<span class="enscript-type">int</span> lineNumber, ConstDeclNode* decls, <span class="enscript-type">int</span> startLine, <span class="enscript-type">int</span> endLine)
+    {
+        ConstStatementNode* result = new (m_globalData) ConstStatementNode(lineNumber, decls);
+        result-&gt;setLoc(startLine, endLine);
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    ConstDeclNode* appendConstDecl(<span class="enscript-type">int</span> lineNumber, ConstDeclNode* tail, <span class="enscript-type">const</span> Identifier* name, ExpressionNode* initializer)
+    {
+        ConstDeclNode* result = new (m_globalData) ConstDeclNode(lineNumber, *name, initializer);
+        <span class="enscript-keyword">if</span> (tail)
+            tail-&gt;m_next = result;
+        <span class="enscript-keyword">return</span> result;
+    }
+
+    <span class="enscript-type">void</span> appendStatement(JSC::SourceElements* elements, JSC::StatementNode* statement)
+    {
+        elements-&gt;append(statement);
+    }
+
+    <span class="enscript-type">void</span> addVar(<span class="enscript-type">const</span> Identifier* ident, <span class="enscript-type">int</span> attrs)
+    {
+        <span class="enscript-keyword">if</span> (m_globalData-&gt;propertyNames-&gt;arguments == *ident)
+            usesArguments();
+        m_scope.m_varDeclarations-&gt;data.append(std::make_pair(ident, attrs));
+    }
+
+    ExpressionNode* combineCommaNodes(<span class="enscript-type">int</span> lineNumber, ExpressionNode* list, ExpressionNode* init)
+    {
+        <span class="enscript-keyword">if</span> (!list)
+            <span class="enscript-keyword">return</span> init;
+        <span class="enscript-keyword">if</span> (list-&gt;isCommaNode()) {
+            static_cast&lt;CommaNode*&gt;(list)-&gt;append(init);
+            <span class="enscript-keyword">return</span> list;
+        }
+        <span class="enscript-keyword">return</span> new (m_globalData) CommaNode(lineNumber, list, init);
+    }
+
+    <span class="enscript-type">int</span> evalCount() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_evalCount; }
+
+    <span class="enscript-type">void</span> appendBinaryExpressionInfo(<span class="enscript-type">int</span>&amp; operandStackDepth, ExpressionNode* current, <span class="enscript-type">int</span> exprStart, <span class="enscript-type">int</span> lhs, <span class="enscript-type">int</span> rhs, bool hasAssignments)
+    {
+        operandStackDepth++;
+        m_binaryOperandStack.append(std::make_pair(current, BinaryOpInfo(exprStart, lhs, rhs, hasAssignments)));
+    }
+
+    <span class="enscript-comment">// Logic to handle datastructures used during parsing of binary expressions
+</span>    <span class="enscript-type">void</span> operatorStackPop(<span class="enscript-type">int</span>&amp; operatorStackDepth)
+    {
+        operatorStackDepth--;
+        m_binaryOperatorStack.removeLast();
+    }
+    bool operatorStackHasHigherPrecedence(<span class="enscript-type">int</span>&amp;, <span class="enscript-type">int</span> precedence)
+    {
+        <span class="enscript-keyword">return</span> precedence &lt;= m_binaryOperatorStack.last().second;
+    }
+    <span class="enscript-type">const</span> BinaryOperand&amp; getFromOperandStack(<span class="enscript-type">int</span> i) { <span class="enscript-keyword">return</span> m_binaryOperandStack[m_binaryOperandStack.size() + i]; }
+    <span class="enscript-type">void</span> shrinkOperandStackBy(<span class="enscript-type">int</span>&amp; operandStackDepth, <span class="enscript-type">int</span> amount)
+    {
+        operandStackDepth -= amount;
+        ASSERT(operandStackDepth &gt;= 0);
+        m_binaryOperandStack.resize(m_binaryOperandStack.size() - amount);
+    }
+    <span class="enscript-type">void</span> appendBinaryOperation(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span>&amp; operandStackDepth, <span class="enscript-type">int</span>&amp;, <span class="enscript-type">const</span> BinaryOperand&amp; lhs, <span class="enscript-type">const</span> BinaryOperand&amp; rhs)
+    {
+        operandStackDepth++;
+        m_binaryOperandStack.append(std::make_pair(makeBinaryNode(lineNumber, m_binaryOperatorStack.last().first, lhs, rhs), BinaryOpInfo(lhs.second, rhs.second)));
+    }
+    <span class="enscript-type">void</span> operatorStackAppend(<span class="enscript-type">int</span>&amp; operatorStackDepth, <span class="enscript-type">int</span> op, <span class="enscript-type">int</span> precedence)
+    {
+        operatorStackDepth++;
+        m_binaryOperatorStack.append(std::make_pair(op, precedence));
+    }
+    ExpressionNode* popOperandStack(<span class="enscript-type">int</span>&amp;)
+    {
+        ExpressionNode* result = m_binaryOperandStack.last().first;
+        m_binaryOperandStack.removeLast();
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    <span class="enscript-type">void</span> appendUnaryToken(<span class="enscript-type">int</span>&amp; tokenStackDepth, <span class="enscript-type">int</span> type, <span class="enscript-type">int</span> start)
+    {
+        tokenStackDepth++;
+        m_unaryTokenStack.append(std::make_pair(type, start));
+    }
+
+    <span class="enscript-type">int</span> unaryTokenStackLastType(<span class="enscript-type">int</span>&amp;)
+    {
+        <span class="enscript-keyword">return</span> m_unaryTokenStack.last().first;
+    }
+    
+    <span class="enscript-type">int</span> unaryTokenStackLastStart(<span class="enscript-type">int</span>&amp;)
+    {
+        <span class="enscript-keyword">return</span> m_unaryTokenStack.last().second;
+    }
+    
+    <span class="enscript-type">void</span> unaryTokenStackRemoveLast(<span class="enscript-type">int</span>&amp; tokenStackDepth)
+    {
+        tokenStackDepth--;
+        m_unaryTokenStack.removeLast();
+    }
+    
+    <span class="enscript-type">void</span> assignmentStackAppend(<span class="enscript-type">int</span>&amp; assignmentStackDepth, ExpressionNode* node, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> assignmentCount, Operator op)
+    {
+        assignmentStackDepth++;
+        m_assignmentInfoStack.append(AssignmentInfo(node, start, divot, assignmentCount, op));
+    }
+
+    ExpressionNode* createAssignment(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span>&amp; assignmentStackDepth, ExpressionNode* rhs, <span class="enscript-type">int</span> initialAssignmentCount, <span class="enscript-type">int</span> currentAssignmentCount, <span class="enscript-type">int</span> lastTokenEnd)
+    {
+        ExpressionNode* result = makeAssignNode(lineNumber, m_assignmentInfoStack.last().m_node, m_assignmentInfoStack.last().m_op, rhs, m_assignmentInfoStack.last().m_initAssignments != initialAssignmentCount, m_assignmentInfoStack.last().m_initAssignments != currentAssignmentCount, m_assignmentInfoStack.last().m_start, m_assignmentInfoStack.last().m_divot + 1, lastTokenEnd);
+        m_assignmentInfoStack.removeLast();
+        assignmentStackDepth--;
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    <span class="enscript-type">const</span> Identifier&amp; getName(Property property) <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> property-&gt;name(); }
+    <span class="enscript-reference">PropertyNode</span>::Type getType(Property property) <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> property-&gt;type(); }
+
+    bool isResolve(ExpressionNode* expr) <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> expr-&gt;isResolveNode(); }
+
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">struct</span> Scope {
+        Scope(JSGlobalData* globalData)
+            : m_varDeclarations(new (globalData) ParserArenaData&lt;DeclarationStacks::VarStack&gt;)
+            , m_funcDeclarations(new (globalData) ParserArenaData&lt;DeclarationStacks::FunctionStack&gt;)
+            , m_features(0)
+            , m_numConstants(0)
+        {
+        }
+        ParserArenaData&lt;DeclarationStacks::VarStack&gt;* m_varDeclarations;
+        ParserArenaData&lt;DeclarationStacks::FunctionStack&gt;* m_funcDeclarations;
+        <span class="enscript-type">int</span> m_features;
+        <span class="enscript-type">int</span> m_numConstants;
+    };
+
+    <span class="enscript-type">static</span> <span class="enscript-type">void</span> setExceptionLocation(ThrowableExpressionData* node, <span class="enscript-type">unsigned</span> start, <span class="enscript-type">unsigned</span> divot, <span class="enscript-type">unsigned</span> end)
+    {
+        node-&gt;setExceptionSourceCode(divot, divot - start, end - divot);
+    }
+
+    <span class="enscript-type">void</span> incConstants() { m_scope.m_numConstants++; }
+    <span class="enscript-type">void</span> usesThis() { m_scope.m_features |= ThisFeature; }
+    <span class="enscript-type">void</span> usesCatch() { m_scope.m_features |= CatchFeature; }
+    <span class="enscript-type">void</span> usesArguments() { m_scope.m_features |= ArgumentsFeature; }
+    <span class="enscript-type">void</span> usesWith() { m_scope.m_features |= WithFeature; }
+    <span class="enscript-type">void</span> usesEval() 
+    {
+        m_evalCount++;
+        m_scope.m_features |= EvalFeature;
+    }
+    ExpressionNode* createNumber(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">double</span> d)
+    {
+        <span class="enscript-keyword">return</span> new (m_globalData) NumberNode(lineNumber, d);
+    }
+    
+    JSGlobalData* m_globalData;
+    SourceCode* m_sourceCode;
+    Scope m_scope;
+    Vector&lt;BinaryOperand, 10&gt; m_binaryOperandStack;
+    Vector&lt;AssignmentInfo, 10&gt; m_assignmentInfoStack;
+    Vector&lt;pair&lt;<span class="enscript-type">int</span>, <span class="enscript-type">int</span>&gt;, 10&gt; m_binaryOperatorStack;
+    Vector&lt;pair&lt;<span class="enscript-type">int</span>, <span class="enscript-type">int</span>&gt;, 10&gt; m_unaryTokenStack;
+    <span class="enscript-type">int</span> m_evalCount;
+};
+
+ExpressionNode* ASTBuilder::makeTypeOfNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr)
+{
+    <span class="enscript-keyword">if</span> (expr-&gt;isResolveNode()) {
+        ResolveNode* resolve = static_cast&lt;ResolveNode*&gt;(expr);
+        <span class="enscript-keyword">return</span> new (m_globalData) TypeOfResolveNode(lineNumber, resolve-&gt;identifier());
+    }
+    <span class="enscript-keyword">return</span> new (m_globalData) TypeOfValueNode(lineNumber, expr);
+}
+
+ExpressionNode* ASTBuilder::makeDeleteNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+{
+    <span class="enscript-keyword">if</span> (!expr-&gt;isLocation())
+        <span class="enscript-keyword">return</span> new (m_globalData) DeleteValueNode(lineNumber, expr);
+    <span class="enscript-keyword">if</span> (expr-&gt;isResolveNode()) {
+        ResolveNode* resolve = static_cast&lt;ResolveNode*&gt;(expr);
+        <span class="enscript-keyword">return</span> new (m_globalData) DeleteResolveNode(lineNumber, resolve-&gt;identifier(), divot, divot - start, end - divot);
+    }
+    <span class="enscript-keyword">if</span> (expr-&gt;isBracketAccessorNode()) {
+        BracketAccessorNode* bracket = static_cast&lt;BracketAccessorNode*&gt;(expr);
+        <span class="enscript-keyword">return</span> new (m_globalData) DeleteBracketNode(lineNumber, bracket-&gt;base(), bracket-&gt;subscript(), divot, divot - start, end - divot);
+    }
+    ASSERT(expr-&gt;isDotAccessorNode());
+    DotAccessorNode* dot = static_cast&lt;DotAccessorNode*&gt;(expr);
+    <span class="enscript-keyword">return</span> new (m_globalData) DeleteDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), divot, divot - start, end - divot);
+}
+
+ExpressionNode* ASTBuilder::makeNegateNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* n)
+{
+    <span class="enscript-keyword">if</span> (n-&gt;isNumber()) {
+        NumberNode* numberNode = static_cast&lt;NumberNode*&gt;(n);
+        numberNode-&gt;setValue(-numberNode-&gt;value());
+        <span class="enscript-keyword">return</span> numberNode;
+    }
+
+    <span class="enscript-keyword">return</span> new (m_globalData) NegateNode(lineNumber, n);
+}
+
+ExpressionNode* ASTBuilder::makeBitwiseNotNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr)
+{
+    <span class="enscript-keyword">if</span> (expr-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, ~toInt32(static_cast&lt;NumberNode*&gt;(expr)-&gt;value()));
+    <span class="enscript-keyword">return</span> new (m_globalData) BitwiseNotNode(lineNumber, expr);
+}
+
+ExpressionNode* ASTBuilder::makeMultNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    expr1 = expr1-&gt;stripUnaryPlus();
+    expr2 = expr2-&gt;stripUnaryPlus();
+
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, static_cast&lt;NumberNode*&gt;(expr1)-&gt;value() * static_cast&lt;NumberNode*&gt;(expr2)-&gt;value());
+
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; static_cast&lt;NumberNode*&gt;(expr1)-&gt;value() == 1)
+        <span class="enscript-keyword">return</span> new (m_globalData) UnaryPlusNode(lineNumber, expr2);
+
+    <span class="enscript-keyword">if</span> (expr2-&gt;isNumber() &amp;&amp; static_cast&lt;NumberNode*&gt;(expr2)-&gt;value() == 1)
+        <span class="enscript-keyword">return</span> new (m_globalData) UnaryPlusNode(lineNumber, expr1);
+
+    <span class="enscript-keyword">return</span> new (m_globalData) MultNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeDivNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    expr1 = expr1-&gt;stripUnaryPlus();
+    expr2 = expr2-&gt;stripUnaryPlus();
+
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, static_cast&lt;NumberNode*&gt;(expr1)-&gt;value() / static_cast&lt;NumberNode*&gt;(expr2)-&gt;value());
+    <span class="enscript-keyword">return</span> new (m_globalData) DivNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeModNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    expr1 = expr1-&gt;stripUnaryPlus();
+    expr2 = expr2-&gt;stripUnaryPlus();
+    
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, fmod(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value(), static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()));
+    <span class="enscript-keyword">return</span> new (m_globalData) ModNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeAddNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, static_cast&lt;NumberNode*&gt;(expr1)-&gt;value() + static_cast&lt;NumberNode*&gt;(expr2)-&gt;value());
+    <span class="enscript-keyword">return</span> new (m_globalData) AddNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeSubNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    expr1 = expr1-&gt;stripUnaryPlus();
+    expr2 = expr2-&gt;stripUnaryPlus();
+
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, static_cast&lt;NumberNode*&gt;(expr1)-&gt;value() - static_cast&lt;NumberNode*&gt;(expr2)-&gt;value());
+    <span class="enscript-keyword">return</span> new (m_globalData) SubNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeLeftShiftNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, toInt32(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value()) &lt;&lt; (toUInt32(static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()) &amp; 0x1f));
+    <span class="enscript-keyword">return</span> new (m_globalData) LeftShiftNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeRightShiftNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, toInt32(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value()) &gt;&gt; (toUInt32(static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()) &amp; 0x1f));
+    <span class="enscript-keyword">return</span> new (m_globalData) RightShiftNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeURightShiftNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, toUInt32(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value()) &gt;&gt; (toUInt32(static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()) &amp; 0x1f));
+    <span class="enscript-keyword">return</span> new (m_globalData) UnsignedRightShiftNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeBitOrNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, toInt32(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value()) | toInt32(static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()));
+    <span class="enscript-keyword">return</span> new (m_globalData) BitOrNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeBitAndNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, toInt32(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value()) &amp; toInt32(static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()));
+    <span class="enscript-keyword">return</span> new (m_globalData) BitAndNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeBitXOrNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
+{
+    <span class="enscript-keyword">if</span> (expr1-&gt;isNumber() &amp;&amp; expr2-&gt;isNumber())
+        <span class="enscript-keyword">return</span> createNumber(lineNumber, toInt32(static_cast&lt;NumberNode*&gt;(expr1)-&gt;value()) ^ toInt32(static_cast&lt;NumberNode*&gt;(expr2)-&gt;value()));
+    <span class="enscript-keyword">return</span> new (m_globalData) BitXOrNode(lineNumber, expr1, expr2, rightHasAssignments);
+}
+
+ExpressionNode* ASTBuilder::makeFunctionCallNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* func, ArgumentsNode* args, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+{
+    <span class="enscript-keyword">if</span> (!func-&gt;isLocation())
+        <span class="enscript-keyword">return</span> new (m_globalData) FunctionCallValueNode(lineNumber, func, args, divot, divot - start, end - divot);
+    <span class="enscript-keyword">if</span> (func-&gt;isResolveNode()) {
+        ResolveNode* resolve = static_cast&lt;ResolveNode*&gt;(func);
+        <span class="enscript-type">const</span> Identifier&amp; identifier = resolve-&gt;identifier();
+        <span class="enscript-keyword">if</span> (identifier == m_globalData-&gt;propertyNames-&gt;eval) {
+            usesEval();
+            <span class="enscript-keyword">return</span> new (m_globalData) EvalFunctionCallNode(lineNumber, args, divot, divot - start, end - divot);
+        }
+        <span class="enscript-keyword">return</span> new (m_globalData) FunctionCallResolveNode(lineNumber, identifier, args, divot, divot - start, end - divot);
+    }
+    <span class="enscript-keyword">if</span> (func-&gt;isBracketAccessorNode()) {
+        BracketAccessorNode* bracket = static_cast&lt;BracketAccessorNode*&gt;(func);
+        FunctionCallBracketNode* node = new (m_globalData) FunctionCallBracketNode(lineNumber, bracket-&gt;base(), bracket-&gt;subscript(), args, divot, divot - start, end - divot);
+        node-&gt;setSubexpressionInfo(bracket-&gt;divot(), bracket-&gt;endOffset());
+        <span class="enscript-keyword">return</span> node;
+    }
+    ASSERT(func-&gt;isDotAccessorNode());
+    DotAccessorNode* dot = static_cast&lt;DotAccessorNode*&gt;(func);
+    FunctionCallDotNode* node;
+    <span class="enscript-keyword">if</span> (dot-&gt;identifier() == m_globalData-&gt;propertyNames-&gt;call)
+        node = new (m_globalData) CallFunctionCallDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), args, divot, divot - start, end - divot);
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (dot-&gt;identifier() == m_globalData-&gt;propertyNames-&gt;apply)
+        node = new (m_globalData) ApplyFunctionCallDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), args, divot, divot - start, end - divot);
+    <span class="enscript-keyword">else</span>
+        node = new (m_globalData) FunctionCallDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), args, divot, divot - start, end - divot);
+    node-&gt;setSubexpressionInfo(dot-&gt;divot(), dot-&gt;endOffset());
+    <span class="enscript-keyword">return</span> node;
+}
+
+ExpressionNode* ASTBuilder::makeBinaryNode(<span class="enscript-type">int</span> lineNumber, <span class="enscript-type">int</span> token, pair&lt;ExpressionNode*, BinaryOpInfo&gt; lhs, pair&lt;ExpressionNode*, BinaryOpInfo&gt; rhs)
+{
+    <span class="enscript-keyword">switch</span> (token) {
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">OR</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) LogicalOpNode(lineNumber, lhs.first, rhs.first, OpLogicalOr);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">AND</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) LogicalOpNode(lineNumber, lhs.first, rhs.first, OpLogicalAnd);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">BITOR</span>:
+        <span class="enscript-keyword">return</span> makeBitOrNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">BITXOR</span>:
+        <span class="enscript-keyword">return</span> makeBitXOrNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">BITAND</span>:
+        <span class="enscript-keyword">return</span> makeBitAndNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">EQEQ</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) EqualNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">NE</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) NotEqualNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STREQ</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) StrictEqualNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STRNEQ</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) NotStrictEqualNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">LT</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) LessNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">GT</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) GreaterNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">LE</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) LessEqNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">GE</span>:
+        <span class="enscript-keyword">return</span> new (m_globalData) GreaterEqNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">INSTANCEOF</span>: {
+        InstanceOfNode* node = new (m_globalData) InstanceOfNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+        setExceptionLocation(node, lhs.second.start, rhs.second.start, rhs.second.end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">INTOKEN</span>: {
+        InNode* node = new (m_globalData) InNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+        setExceptionLocation(node, lhs.second.start, rhs.second.start, rhs.second.end);
+        <span class="enscript-keyword">return</span> node;
+    }
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">LSHIFT</span>:
+        <span class="enscript-keyword">return</span> makeLeftShiftNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">RSHIFT</span>:
+        <span class="enscript-keyword">return</span> makeRightShiftNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">URSHIFT</span>:
+        <span class="enscript-keyword">return</span> makeURightShiftNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">PLUS</span>:
+        <span class="enscript-keyword">return</span> makeAddNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">MINUS</span>:
+        <span class="enscript-keyword">return</span> makeSubNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">TIMES</span>:
+        <span class="enscript-keyword">return</span> makeMultNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">DIVIDE</span>:
+        <span class="enscript-keyword">return</span> makeDivNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">MOD</span>:
+        <span class="enscript-keyword">return</span> makeModNode(lineNumber, lhs.first, rhs.first, rhs.second.hasAssignment);
+    }
+    CRASH();
+    <span class="enscript-keyword">return</span> 0;
+}
+
+ExpressionNode* ASTBuilder::makeAssignNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* loc, Operator op, ExpressionNode* expr, bool locHasAssignments, bool exprHasAssignments, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+{
+    <span class="enscript-keyword">if</span> (!loc-&gt;isLocation())
+        <span class="enscript-keyword">return</span> new (m_globalData) AssignErrorNode(lineNumber, loc, op, expr, divot, divot - start, end - divot);
+
+    <span class="enscript-keyword">if</span> (loc-&gt;isResolveNode()) {
+        ResolveNode* resolve = static_cast&lt;ResolveNode*&gt;(loc);
+        <span class="enscript-keyword">if</span> (op == OpEqual) {
+            <span class="enscript-keyword">if</span> (expr-&gt;isFuncExprNode())
+                static_cast&lt;FuncExprNode*&gt;(expr)-&gt;body()-&gt;setInferredName(resolve-&gt;identifier());
+            AssignResolveNode* node = new (m_globalData) AssignResolveNode(lineNumber, resolve-&gt;identifier(), expr, exprHasAssignments);
+            setExceptionLocation(node, start, divot, end);
+            <span class="enscript-keyword">return</span> node;
+        }
+        <span class="enscript-keyword">return</span> new (m_globalData) ReadModifyResolveNode(lineNumber, resolve-&gt;identifier(), op, expr, exprHasAssignments, divot, divot - start, end - divot);
+    }
+    <span class="enscript-keyword">if</span> (loc-&gt;isBracketAccessorNode()) {
+        BracketAccessorNode* bracket = static_cast&lt;BracketAccessorNode*&gt;(loc);
+        <span class="enscript-keyword">if</span> (op == OpEqual)
+            <span class="enscript-keyword">return</span> new (m_globalData) AssignBracketNode(lineNumber, bracket-&gt;base(), bracket-&gt;subscript(), expr, locHasAssignments, exprHasAssignments, bracket-&gt;divot(), bracket-&gt;divot() - start, end - bracket-&gt;divot());
+        ReadModifyBracketNode* node = new (m_globalData) ReadModifyBracketNode(lineNumber, bracket-&gt;base(), bracket-&gt;subscript(), op, expr, locHasAssignments, exprHasAssignments, divot, divot - start, end - divot);
+        node-&gt;setSubexpressionInfo(bracket-&gt;divot(), bracket-&gt;endOffset());
+        <span class="enscript-keyword">return</span> node;
+    }
+    ASSERT(loc-&gt;isDotAccessorNode());
+    DotAccessorNode* dot = static_cast&lt;DotAccessorNode*&gt;(loc);
+    <span class="enscript-keyword">if</span> (op == OpEqual) {
+        <span class="enscript-keyword">if</span> (expr-&gt;isFuncExprNode())
+            static_cast&lt;FuncExprNode*&gt;(expr)-&gt;body()-&gt;setInferredName(dot-&gt;identifier());
+        <span class="enscript-keyword">return</span> new (m_globalData) AssignDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), expr, exprHasAssignments, dot-&gt;divot(), dot-&gt;divot() - start, end - dot-&gt;divot());
+    }
+
+    ReadModifyDotNode* node = new (m_globalData) ReadModifyDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), op, expr, exprHasAssignments, divot, divot - start, end - divot);
+    node-&gt;setSubexpressionInfo(dot-&gt;divot(), dot-&gt;endOffset());
+    <span class="enscript-keyword">return</span> node;
+}
+
+ExpressionNode* ASTBuilder::makePrefixNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, Operator op, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+{
+    <span class="enscript-keyword">if</span> (!expr-&gt;isLocation())
+        <span class="enscript-keyword">return</span> new (m_globalData) PrefixErrorNode(lineNumber, expr, op, divot, divot - start, end - divot);
+
+    <span class="enscript-keyword">if</span> (expr-&gt;isResolveNode()) {
+        ResolveNode* resolve = static_cast&lt;ResolveNode*&gt;(expr);
+        <span class="enscript-keyword">return</span> new (m_globalData) PrefixResolveNode(lineNumber, resolve-&gt;identifier(), op, divot, divot - start, end - divot);
+    }
+    <span class="enscript-keyword">if</span> (expr-&gt;isBracketAccessorNode()) {
+        BracketAccessorNode* bracket = static_cast&lt;BracketAccessorNode*&gt;(expr);
+        PrefixBracketNode* node = new (m_globalData) PrefixBracketNode(lineNumber, bracket-&gt;base(), bracket-&gt;subscript(), op, divot, divot - start, end - divot);
+        node-&gt;setSubexpressionInfo(bracket-&gt;divot(), bracket-&gt;startOffset());
+        <span class="enscript-keyword">return</span> node;
+    }
+    ASSERT(expr-&gt;isDotAccessorNode());
+    DotAccessorNode* dot = static_cast&lt;DotAccessorNode*&gt;(expr);
+    PrefixDotNode* node = new (m_globalData) PrefixDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), op, divot, divot - start, end - divot);
+    node-&gt;setSubexpressionInfo(dot-&gt;divot(), dot-&gt;startOffset());
+    <span class="enscript-keyword">return</span> node;
+}
+
+ExpressionNode* ASTBuilder::makePostfixNode(<span class="enscript-type">int</span> lineNumber, ExpressionNode* expr, Operator op, <span class="enscript-type">int</span> start, <span class="enscript-type">int</span> divot, <span class="enscript-type">int</span> end)
+{
+    <span class="enscript-keyword">if</span> (!expr-&gt;isLocation())
+        <span class="enscript-keyword">return</span> new (m_globalData) PostfixErrorNode(lineNumber, expr, op, divot, divot - start, end - divot);
+
+    <span class="enscript-keyword">if</span> (expr-&gt;isResolveNode()) {
+        ResolveNode* resolve = static_cast&lt;ResolveNode*&gt;(expr);
+        <span class="enscript-keyword">return</span> new (m_globalData) PostfixResolveNode(lineNumber, resolve-&gt;identifier(), op, divot, divot - start, end - divot);
+    }
+    <span class="enscript-keyword">if</span> (expr-&gt;isBracketAccessorNode()) {
+        BracketAccessorNode* bracket = static_cast&lt;BracketAccessorNode*&gt;(expr);
+        PostfixBracketNode* node = new (m_globalData) PostfixBracketNode(lineNumber, bracket-&gt;base(), bracket-&gt;subscript(), op, divot, divot - start, end - divot);
+        node-&gt;setSubexpressionInfo(bracket-&gt;divot(), bracket-&gt;endOffset());
+        <span class="enscript-keyword">return</span> node;
+
+    }
+    ASSERT(expr-&gt;isDotAccessorNode());
+    DotAccessorNode* dot = static_cast&lt;DotAccessorNode*&gt;(expr);
+    PostfixDotNode* node = new (m_globalData) PostfixDotNode(lineNumber, dot-&gt;base(), dot-&gt;identifier(), op, divot, divot - start, end - divot);
+    node-&gt;setSubexpressionInfo(dot-&gt;divot(), dot-&gt;endOffset());
+    <span class="enscript-keyword">return</span> node;
+}
+
+}
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

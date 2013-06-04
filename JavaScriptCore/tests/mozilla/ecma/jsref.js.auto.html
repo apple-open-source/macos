@@ -1,0 +1,694 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>jsref.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">jsref.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-keyword">var</span> completed = <span class="enscript-keyword">false</span>;
+<span class="enscript-keyword">var</span> testcases;
+<span class="enscript-keyword">var</span> tc = 0;
+
+SECTION	= <span class="enscript-string">&quot;&quot;</span>;
+VERSION	= <span class="enscript-string">&quot;&quot;</span>;
+BUGNUMBER =	<span class="enscript-string">&quot;&quot;</span>;
+TITLE  = <span class="enscript-string">&quot;&quot;</span>;
+
+<span class="enscript-comment">/*
+ * constant strings
+ */</span>
+<span class="enscript-keyword">var</span>	GLOBAL = <span class="enscript-string">&quot;[object global]&quot;</span>;
+<span class="enscript-keyword">var</span> PASSED = <span class="enscript-string">&quot; PASSED!&quot;</span>
+<span class="enscript-keyword">var</span> FAILED = <span class="enscript-string">&quot; FAILED! expected: &quot;</span>;
+<span class="enscript-keyword">var</span>	DEBUG =	<span class="enscript-keyword">false</span>;
+
+TZ_DIFF = -8;
+
+<span class="enscript-keyword">var</span> TT = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> TT_ = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> BR = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> NBSP = <span class="enscript-string">&quot; &quot;</span>;
+<span class="enscript-keyword">var</span> CR = <span class="enscript-string">&quot;\n&quot;</span>;
+<span class="enscript-keyword">var</span> FONT = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> FONT_ = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> FONT_RED = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> FONT_GREEN = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> B = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> B_ = <span class="enscript-string">&quot;&quot;</span>
+<span class="enscript-keyword">var</span> H2 = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> H2_ = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> HR = <span class="enscript-string">&quot;&quot;</span>;
+<span class="enscript-keyword">var</span> DEBUG = <span class="enscript-keyword">false</span>;
+
+<span class="enscript-keyword">var</span> PASSED = <span class="enscript-string">&quot; PASSED!&quot;</span>
+<span class="enscript-keyword">var</span> FAILED = <span class="enscript-string">&quot; FAILED! expected: &quot;</span>;
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                            testcases[tc].actual );
+
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+<span class="enscript-comment">/* wrapper for test cas constructor that doesn't require the SECTION
+ * argument.
+ */</span>
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">AddTestCase</span>( description, expect, actual ) {
+    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION, description, expect, actual );
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TestCase</span>( n, d, e, a ) {
+    <span class="enscript-keyword">this</span>.name        = n;
+    <span class="enscript-keyword">this</span>.description = d;
+    <span class="enscript-keyword">this</span>.expect      = e;
+    <span class="enscript-keyword">this</span>.actual      = a;
+    <span class="enscript-keyword">this</span>.passed      = <span class="enscript-keyword">true</span>;
+    <span class="enscript-keyword">this</span>.reason      = <span class="enscript-string">&quot;&quot;</span>;
+    <span class="enscript-keyword">this</span>.bugnumber   = BUGNUMBER;
+
+    <span class="enscript-keyword">this</span>.passed = getTestCaseResult( <span class="enscript-keyword">this</span>.expect, <span class="enscript-keyword">this</span>.actual );
+    <span class="enscript-keyword">if</span> ( DEBUG ) {
+        writeLineToLog( <span class="enscript-string">&quot;added &quot;</span> + <span class="enscript-keyword">this</span>.description );
+    }
+}
+
+<span class="enscript-comment">/*
+ * Set up test environment.
+ *
+ */</span>
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">startTest</span>() {
+    <span class="enscript-keyword">if</span> ( version ) {
+    	<span class="enscript-comment">//	JavaScript 1.3 is supposed to be compliant ecma	version	1.0
+</span>	    <span class="enscript-keyword">if</span> ( VERSION ==	<span class="enscript-string">&quot;ECMA_1&quot;</span> ) {
+		    version	( <span class="enscript-string">&quot;130&quot;</span>	);
+    	}
+	    <span class="enscript-keyword">if</span> ( VERSION ==	<span class="enscript-string">&quot;JS_1.3&quot;</span> ) {
+		    version	( <span class="enscript-string">&quot;130&quot;</span>	);
+    	}
+	    <span class="enscript-keyword">if</span> ( VERSION ==	<span class="enscript-string">&quot;JS_1.2&quot;</span> ) {
+		    version	( <span class="enscript-string">&quot;120&quot;</span>	);
+    	}
+	    <span class="enscript-keyword">if</span> ( VERSION  == <span class="enscript-string">&quot;JS_1.1&quot;</span> )	{
+		    version	( <span class="enscript-string">&quot;110&quot;</span>	);
+    	}
+	    <span class="enscript-comment">// for ecma	version	2.0, we	will leave the javascript version to
+</span>    	<span class="enscript-comment">// the default ( for now ).
+</span>    }
+
+    <span class="enscript-comment">// print out bugnumber
+</span>
+    <span class="enscript-keyword">if</span> ( BUGNUMBER ) {
+            writeLineToLog (<span class="enscript-string">&quot;BUGNUMBER: &quot;</span> + BUGNUMBER );
+    }
+
+    testcases = <span class="enscript-keyword">new</span> Array();
+    tc = 0;
+}
+
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+ testcases[tc].actual );
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getTestCaseResult</span>( expect, actual ) {
+    <span class="enscript-comment">//  because ( NaN == NaN ) always returns false, need to do
+</span>    <span class="enscript-comment">//  a special compare to see if we got the right result.
+</span>        <span class="enscript-keyword">if</span> ( actual != actual ) {
+            <span class="enscript-keyword">if</span> ( typeof actual == <span class="enscript-string">&quot;object&quot;</span> ) {
+                actual = <span class="enscript-string">&quot;NaN object&quot;</span>;
+            } <span class="enscript-keyword">else</span> {
+                actual = <span class="enscript-string">&quot;NaN number&quot;</span>;
+            }
+        }
+        <span class="enscript-keyword">if</span> ( expect != expect ) {
+            <span class="enscript-keyword">if</span> ( typeof expect == <span class="enscript-string">&quot;object&quot;</span> ) {
+                expect = <span class="enscript-string">&quot;NaN object&quot;</span>;
+            } <span class="enscript-keyword">else</span> {
+                expect = <span class="enscript-string">&quot;NaN number&quot;</span>;
+            }
+        }
+
+        <span class="enscript-keyword">var</span> passed = ( expect == actual ) ? <span class="enscript-keyword">true</span> : <span class="enscript-keyword">false</span>;
+
+    <span class="enscript-comment">//  if both objects are numbers
+</span>    <span class="enscript-comment">// need to replace w/ IEEE standard for rounding
+</span>        <span class="enscript-keyword">if</span> (    !passed
+                &amp;&amp; typeof(actual) == <span class="enscript-string">&quot;number&quot;</span>
+                &amp;&amp; typeof(expect) == <span class="enscript-string">&quot;number&quot;</span>
+            ) {
+                <span class="enscript-keyword">if</span> ( <span class="enscript-builtin">Math</span>.abs(actual-expect) &lt; 0.0000001 ) {
+                    passed = <span class="enscript-keyword">true</span>;
+                }
+        }
+
+    <span class="enscript-comment">//  verify type is the same
+</span>        <span class="enscript-keyword">if</span> ( typeof(expect) != typeof(actual) ) {
+            passed = <span class="enscript-keyword">false</span>;
+        }
+
+        <span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeTestCaseResult</span>( expect, actual, string ) {
+        <span class="enscript-keyword">var</span> passed = getTestCaseResult( expect, actual );
+        writeFormattedResult( expect, actual, string, passed );
+        <span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeFormattedResult</span>( expect, actual, string, passed ) {
+        <span class="enscript-keyword">var</span> s = TT + string ;
+
+        <span class="enscript-keyword">for</span> ( k = 0;
+              k &lt;  (60 - string.length &gt;= 0 ? 60 - string.length : 5) ;
+              k++ ) {
+        }
+
+        s += B ;
+        s += ( passed ) ? FONT_GREEN + NBSP + PASSED : FONT_RED + NBSP + FAILED + expect + TT_ ;
+
+        writeLineToLog( s + FONT_ + B_ + TT_ );
+
+        <span class="enscript-keyword">return</span> passed;
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeLineToLog</span>( string ) {
+    print( string + BR + CR );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeHeaderToLog</span>( string ) {
+    print( H2 + string + H2_ );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">stopTest</span>()
+{
+    <span class="enscript-keyword">var</span> sizeTag  = <span class="enscript-string">&quot;&lt;#TEST CASES SIZE&gt;&quot;</span>;
+    <span class="enscript-keyword">var</span> doneTag  = <span class="enscript-string">&quot;&lt;#TEST CASES DONE&gt;&quot;</span>;
+    <span class="enscript-keyword">var</span> beginTag = <span class="enscript-string">&quot;&lt;#TEST CASE &quot;</span>;
+    <span class="enscript-keyword">var</span> endTag   = <span class="enscript-string">&quot;&gt;&quot;</span>;
+
+    print(sizeTag);
+    print(testcases.length);
+    <span class="enscript-keyword">for</span> (tc = 0; tc &lt; testcases.length; tc++)
+    {
+        print(beginTag + <span class="enscript-string">'PASSED'</span>      + endTag);
+        print(testcases[tc].passed);
+        print(beginTag + <span class="enscript-string">'NAME'</span>        + endTag);
+        print(testcases[tc].name);
+        print(beginTag + <span class="enscript-string">'EXPECTED'</span>    + endTag);
+        print(testcases[tc].expect);
+        print(beginTag + <span class="enscript-string">'ACTUAL'</span>      + endTag);
+        print(testcases[tc].actual);
+        print(beginTag + <span class="enscript-string">'DESCRIPTION'</span> + endTag);
+        print(testcases[tc].description);
+        print(beginTag + <span class="enscript-string">'REASON'</span>      + endTag);
+        print(( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>);
+        print(beginTag + <span class="enscript-string">'BUGNUMBER'</span>   + endTag);
+        print( BUGNUMBER );
+    }
+    print(doneTag);
+    print( HR );
+    gc();
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getFailedCases</span>() {
+  <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> i = 0; i &lt; testcases.length; i++ ) {
+     <span class="enscript-keyword">if</span> ( ! testcases[i].passed ) {
+        print( testcases[i].description +<span class="enscript-string">&quot; = &quot;</span> +testcases[i].actual +<span class="enscript-string">&quot; expected: &quot;</span>+ testcases[i].expect );
+     }
+  }
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">err</span>( msg, page, line ) {
+    testcases[tc].actual = <span class="enscript-string">&quot;error&quot;</span>;
+    testcases[tc].reason = msg;
+    writeTestCaseResult( testcases[tc].expect,
+                         testcases[tc].actual,
+                         testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+ testcases[tc].actual +
+                         <span class="enscript-string">&quot;: &quot;</span> + testcases[tc].reason );
+    stopTest();
+    <span class="enscript-keyword">return</span> <span class="enscript-keyword">true</span>;
+}
+
+<span class="enscript-comment">/**
+ *  Type Conversion functions used by Type Conversion
+ *
+ */</span>
+
+
+
+ <span class="enscript-comment">/*
+  * Date functions used by tests in Date suite
+  *
+  */</span>
+<span class="enscript-keyword">var</span> msPerDay =          86400000;
+<span class="enscript-keyword">var</span> HoursPerDay =       24;
+<span class="enscript-keyword">var</span> MinutesPerHour =    60;
+<span class="enscript-keyword">var</span> SecondsPerMinute =  60;
+<span class="enscript-keyword">var</span> msPerSecond =       1000;
+<span class="enscript-keyword">var</span> msPerMinute =       60000;      <span class="enscript-comment">//  msPerSecond * SecondsPerMinute
+</span><span class="enscript-keyword">var</span> msPerHour =         3600000;    <span class="enscript-comment">//  msPerMinute * MinutesPerHour
+</span>
+<span class="enscript-keyword">var</span> TIME_1970    = 0;
+<span class="enscript-keyword">var</span> TIME_2000    = 946684800000;
+<span class="enscript-keyword">var</span> TIME_1900    = -2208988800000;
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">Day</span>( t ) {
+    <span class="enscript-keyword">return</span> ( <span class="enscript-builtin">Math</span>.floor(t/msPerDay ) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">DaysInYear</span>( y ) {
+    <span class="enscript-keyword">if</span> ( y % 4 != 0 ) {
+        <span class="enscript-keyword">return</span> 365;
+    }
+    <span class="enscript-keyword">if</span> ( (y % 4 == 0) &amp;&amp; (y % 100 != 0) ) {
+        <span class="enscript-keyword">return</span> 366;
+    }
+    <span class="enscript-keyword">if</span> ( (y % 100 == 0) &amp;&amp;  (y % 400 != 0) ) {
+        <span class="enscript-keyword">return</span> 365;
+    }
+    <span class="enscript-keyword">if</span> ( (y % 400 == 0) ){
+        <span class="enscript-keyword">return</span> 366;
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;ERROR: DaysInYear(&quot;</span> + y + <span class="enscript-string">&quot;) case not covered&quot;</span>;
+    }
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TimeInYear</span>( y ) {
+    <span class="enscript-keyword">return</span> ( DaysInYear(y) * msPerDay );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">DayNumber</span>( t ) {
+    <span class="enscript-keyword">return</span> ( <span class="enscript-builtin">Math</span>.floor( t / msPerDay ) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TimeWithinDay</span>( t ) {
+    <span class="enscript-keyword">if</span> ( t &lt; 0 ) {
+        <span class="enscript-keyword">return</span> ( (t % msPerDay) + msPerDay );
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">return</span> ( t % msPerDay );
+    }
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">YearNumber</span>( t ) {
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TimeFromYear</span>( y ) {
+    <span class="enscript-keyword">return</span> ( msPerDay * DayFromYear(y) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">DayFromYear</span>( y ) {
+    <span class="enscript-keyword">return</span> (    365*(y-1970) +
+                <span class="enscript-builtin">Math</span>.floor((y-1969)/4) -
+                <span class="enscript-builtin">Math</span>.floor((y-1901)/100) +
+                <span class="enscript-builtin">Math</span>.floor((y-1601)/400) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">InLeapYear</span>( t ) {
+    <span class="enscript-keyword">if</span> ( DaysInYear(YearFromTime(t)) == 365 ) {
+        <span class="enscript-keyword">return</span> 0;
+    }
+    <span class="enscript-keyword">if</span> ( DaysInYear(YearFromTime(t)) == 366 ) {
+        <span class="enscript-keyword">return</span> 1;
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;ERROR:  InLeapYear(&quot;</span>+t+<span class="enscript-string">&quot;) case not covered&quot;</span>;
+    }
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">YearFromTime</span>( t ) {
+    t = Number( t );
+    <span class="enscript-keyword">var</span> sign = ( t &lt; 0 ) ? -1 : 1;
+    <span class="enscript-keyword">var</span> year = ( sign &lt; 0 ) ? 1969 : 1970;
+    <span class="enscript-keyword">for</span> (   <span class="enscript-keyword">var</span> timeToTimeZero = t; ;  ) {
+    <span class="enscript-comment">//  subtract the current year's time from the time that's left.
+</span>        timeToTimeZero -= sign * TimeInYear(year)
+
+    <span class="enscript-comment">//  if there's less than the current year's worth of time left, then break.
+</span>        <span class="enscript-keyword">if</span> ( sign &lt; 0 ) {
+            <span class="enscript-keyword">if</span> ( sign * timeToTimeZero &lt;= 0 ) {
+                <span class="enscript-keyword">break</span>;
+            } <span class="enscript-keyword">else</span> {
+                year += sign;
+            }
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">if</span> ( sign * timeToTimeZero &lt; 0 ) {
+                <span class="enscript-keyword">break</span>;
+            } <span class="enscript-keyword">else</span> {
+                year += sign;
+            }
+        }
+    }
+    <span class="enscript-keyword">return</span> ( year );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">MonthFromTime</span>( t ) {
+    <span class="enscript-comment">//  i know i could use switch but i'd rather not until it's part of ECMA
+</span>    <span class="enscript-keyword">var</span> day = DayWithinYear( t );
+    <span class="enscript-keyword">var</span> leap = InLeapYear(t);
+
+    <span class="enscript-keyword">if</span> ( (0 &lt;= day) &amp;&amp; (day &lt; 31) ) {
+        <span class="enscript-keyword">return</span> 0;
+    }
+    <span class="enscript-keyword">if</span> ( (31 &lt;= day) &amp;&amp; (day &lt; (59+leap)) ) {
+        <span class="enscript-keyword">return</span> 1;
+    }
+    <span class="enscript-keyword">if</span> ( ((59+leap) &lt;= day) &amp;&amp; (day &lt; (90+leap)) ) {
+        <span class="enscript-keyword">return</span> 2;
+    }
+    <span class="enscript-keyword">if</span> ( ((90+leap) &lt;= day) &amp;&amp; (day &lt; (120+leap)) ) {
+        <span class="enscript-keyword">return</span> 3;
+    }
+    <span class="enscript-keyword">if</span> ( ((120+leap) &lt;= day) &amp;&amp; (day &lt; (151+leap)) ) {
+        <span class="enscript-keyword">return</span> 4;
+    }
+    <span class="enscript-keyword">if</span> ( ((151+leap) &lt;= day) &amp;&amp; (day &lt; (181+leap)) ) {
+        <span class="enscript-keyword">return</span> 5;
+    }
+    <span class="enscript-keyword">if</span> ( ((181+leap) &lt;= day) &amp;&amp; (day &lt; (212+leap)) ) {
+        <span class="enscript-keyword">return</span> 6;
+    }
+    <span class="enscript-keyword">if</span> ( ((212+leap) &lt;= day) &amp;&amp; (day &lt; (243+leap)) ) {
+        <span class="enscript-keyword">return</span> 7;
+    }
+    <span class="enscript-keyword">if</span> ( ((243+leap) &lt;= day) &amp;&amp; (day &lt; (273+leap)) ) {
+        <span class="enscript-keyword">return</span> 8;
+    }
+    <span class="enscript-keyword">if</span> ( ((273+leap) &lt;= day) &amp;&amp; (day &lt; (304+leap)) ) {
+        <span class="enscript-keyword">return</span> 9;
+    }
+    <span class="enscript-keyword">if</span> ( ((304+leap) &lt;= day) &amp;&amp; (day &lt; (334+leap)) ) {
+        <span class="enscript-keyword">return</span> 10;
+    }
+    <span class="enscript-keyword">if</span> ( ((334+leap) &lt;= day) &amp;&amp; (day &lt; (365+leap)) ) {
+        <span class="enscript-keyword">return</span> 11;
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;ERROR:  MonthFromTime(&quot;</span>+t+<span class="enscript-string">&quot;) not known&quot;</span>;
+    }
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">DayWithinYear</span>( t ) {
+        <span class="enscript-keyword">return</span>( Day(t) - DayFromYear(YearFromTime(t)));
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">DateFromTime</span>( t ) {
+    <span class="enscript-keyword">var</span> day = DayWithinYear(t);
+    <span class="enscript-keyword">var</span> month = MonthFromTime(t);
+
+    <span class="enscript-keyword">if</span> ( month == 0 ) {
+        <span class="enscript-keyword">return</span> ( day + 1 );
+    }
+    <span class="enscript-keyword">if</span> ( month == 1 ) {
+        <span class="enscript-keyword">return</span> ( day - 30 );
+    }
+    <span class="enscript-keyword">if</span> ( month == 2 ) {
+        <span class="enscript-keyword">return</span> ( day - 58 - InLeapYear(t) );
+    }
+    <span class="enscript-keyword">if</span> ( month == 3 ) {
+        <span class="enscript-keyword">return</span> ( day - 89 - InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 4 ) {
+        <span class="enscript-keyword">return</span> ( day - 119 - InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 5 ) {
+        <span class="enscript-keyword">return</span> ( day - 150- InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 6 ) {
+        <span class="enscript-keyword">return</span> ( day - 180- InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 7 ) {
+        <span class="enscript-keyword">return</span> ( day - 211- InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 8 ) {
+        <span class="enscript-keyword">return</span> ( day - 242- InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 9 ) {
+        <span class="enscript-keyword">return</span> ( day - 272- InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 10 ) {
+        <span class="enscript-keyword">return</span> ( day - 303- InLeapYear(t));
+    }
+    <span class="enscript-keyword">if</span> ( month == 11 ) {
+        <span class="enscript-keyword">return</span> ( day - 333- InLeapYear(t));
+    }
+
+    <span class="enscript-keyword">return</span> (<span class="enscript-string">&quot;ERROR:  DateFromTime(&quot;</span>+t+<span class="enscript-string">&quot;) not known&quot;</span> );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">WeekDay</span>( t ) {
+    <span class="enscript-keyword">var</span> weekday = (Day(t)+4) % 7;
+    <span class="enscript-keyword">return</span>( weekday &lt; 0 ? 7 + weekday : weekday );
+}
+
+<span class="enscript-comment">// missing daylight savins time adjustment
+</span>
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">HourFromTime</span>( t ) {
+    <span class="enscript-keyword">var</span> h = <span class="enscript-builtin">Math</span>.floor( t / msPerHour ) % HoursPerDay;
+    <span class="enscript-keyword">return</span> ( (h&lt;0) ? HoursPerDay + h : h  );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">MinFromTime</span>( t ) {
+    <span class="enscript-keyword">var</span> min = <span class="enscript-builtin">Math</span>.floor( t / msPerMinute ) % MinutesPerHour;
+    <span class="enscript-keyword">return</span>( ( min &lt; 0 ) ? MinutesPerHour + min : min  );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">SecFromTime</span>( t ) {
+    <span class="enscript-keyword">var</span> sec = <span class="enscript-builtin">Math</span>.floor( t / msPerSecond ) % SecondsPerMinute;
+    <span class="enscript-keyword">return</span> ( (sec &lt; 0 ) ? SecondsPerMinute + sec : sec );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">msFromTime</span>( t ) {
+    <span class="enscript-keyword">var</span> ms = t % msPerSecond;
+    <span class="enscript-keyword">return</span> ( (ms &lt; 0 ) ? msPerSecond + ms : ms );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">LocalTZA</span>() {
+    <span class="enscript-keyword">return</span> ( TZ_DIFF * msPerHour );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">UTC</span>( t ) {
+    <span class="enscript-keyword">return</span> ( t - LocalTZA() - DaylightSavingTA(t - LocalTZA()) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">DaylightSavingTA</span>( t ) {
+    t = t - LocalTZA();
+
+    <span class="enscript-keyword">var</span> dst_start = GetSecondSundayInMarch(t) + 2*msPerHour;
+    <span class="enscript-keyword">var</span> dst_end   = GetFirstSundayInNovember(t)+ 2*msPerHour;
+
+    <span class="enscript-keyword">if</span> ( t &gt;= dst_start &amp;&amp; t &lt; dst_end ) {
+        <span class="enscript-keyword">return</span> msPerHour;
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">return</span> 0;
+    }
+
+    <span class="enscript-comment">// Daylight Savings Time starts on the first Sunday in April at 2:00AM in
+</span>    <span class="enscript-comment">// PST.  Other time zones will need to override this function.
+</span>
+    print( <span class="enscript-keyword">new</span> <span class="enscript-builtin">Date</span>( UTC(dst_start + LocalTZA())) );
+
+    <span class="enscript-keyword">return</span> UTC(dst_start  + LocalTZA());
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">GetFirstSundayInApril</span>( t ) {
+    <span class="enscript-keyword">var</span> year = YearFromTime(t);
+    <span class="enscript-keyword">var</span> leap = InLeapYear(t);
+
+    <span class="enscript-keyword">var</span> april = TimeFromYear(year) + TimeInMonth(0, leap) + TimeInMonth(1,leap) +
+    TimeInMonth(2,leap);
+
+    <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> first_sunday = april; WeekDay(first_sunday) &gt; 0;
+        first_sunday += msPerDay )
+    {
+        ;
+    }
+
+    <span class="enscript-keyword">return</span> first_sunday;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">GetLastSundayInOctober</span>( t ) {
+    <span class="enscript-keyword">var</span> year = YearFromTime(t);
+    <span class="enscript-keyword">var</span> leap = InLeapYear(t);
+
+    <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> oct = TimeFromYear(year), m = 0; m &lt; 9; m++ ) {
+        oct += TimeInMonth(m, leap);
+    }
+    <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> last_sunday = oct + 30*msPerDay; WeekDay(last_sunday) &gt; 0;
+        last_sunday -= msPerDay )
+    {
+        ;
+    }
+    <span class="enscript-keyword">return</span> last_sunday;
+}
+
+<span class="enscript-comment">// Added these two functions because DST rules changed for the US.
+</span><span class="enscript-keyword">function</span> <span class="enscript-function-name">GetSecondSundayInMarch</span>( t ) {
+	<span class="enscript-keyword">var</span>	year = YearFromTime(t);
+	<span class="enscript-keyword">var</span>	leap = InLeapYear(t);
+
+	<span class="enscript-keyword">var</span>	march =	TimeFromYear(year) + TimeInMonth(0, leap) + TimeInMonth(1,leap);
+
+	<span class="enscript-keyword">var</span> sundayCount = 0;
+	<span class="enscript-keyword">var</span> flag = <span class="enscript-keyword">true</span>;
+	<span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> second_sunday = march; flag; second_sunday += msPerDay )
+	{
+		<span class="enscript-keyword">if</span> (WeekDay(second_sunday) == 0) {
+			<span class="enscript-keyword">if</span>(++sundayCount == 2)
+				flag = <span class="enscript-keyword">false</span>;
+		}
+	}
+
+	<span class="enscript-keyword">return</span> second_sunday;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">GetFirstSundayInNovember</span>( t ) {
+	<span class="enscript-keyword">var</span> year = YearFromTime(t);
+	<span class="enscript-keyword">var</span> leap = InLeapYear(t);
+
+	<span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> nov = TimeFromYear(year), m =	0; m &lt; 10; m++ ) {
+		nov += TimeInMonth(m, leap);
+	}
+	<span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> first_sunday = nov; WeekDay(first_sunday) &gt; 0;
+		first_sunday += msPerDay	)
+	{
+		;
+	}
+	<span class="enscript-keyword">return</span> first_sunday;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">LocalTime</span>( t ) {
+    <span class="enscript-keyword">return</span> ( t + LocalTZA() + DaylightSavingTA(t) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">MakeTime</span>( hour, min, sec, ms ) {
+    <span class="enscript-keyword">if</span> ( isNaN( hour ) || isNaN( min ) || isNaN( sec ) || isNaN( ms ) ) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+
+    hour = ToInteger(hour);
+    min  = ToInteger( min);
+    sec  = ToInteger( sec);
+    ms   = ToInteger( ms );
+
+    <span class="enscript-keyword">return</span>( (hour*msPerHour) + (min*msPerMinute) +
+            (sec*msPerSecond) + ms );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">MakeDay</span>( year, month, date ) {
+    <span class="enscript-keyword">if</span> ( isNaN(year) || isNaN(month) || isNaN(date) ) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+    year = ToInteger(year);
+    month = ToInteger(month);
+    date = ToInteger(date );
+
+    <span class="enscript-keyword">var</span> sign = ( year &lt; 1970 ) ? -1 : 1;
+    <span class="enscript-keyword">var</span> t =    ( year &lt; 1970 ) ? 1 :  0;
+    <span class="enscript-keyword">var</span> y =    ( year &lt; 1970 ) ? 1969 : 1970;
+
+    <span class="enscript-keyword">var</span> result5 = year + <span class="enscript-builtin">Math</span>.floor( month/12 );
+    <span class="enscript-keyword">var</span> result6 = month % 12;
+
+    <span class="enscript-keyword">if</span> ( year &lt; 1970 ) {
+       <span class="enscript-keyword">for</span> ( y = 1969; y &gt;= year; y += sign ) {
+         t += sign * TimeInYear(y);
+       }
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">for</span> ( y = 1970 ; y &lt; year; y += sign ) {
+            t += sign * TimeInYear(y);
+        }
+    }
+
+    <span class="enscript-keyword">var</span> leap = InLeapYear( t );
+
+    <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> m = 0; m &lt; month; m++ ) {
+        t += TimeInMonth( m, leap );
+    }
+
+    <span class="enscript-keyword">if</span> ( YearFromTime(t) != result5 ) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+    <span class="enscript-keyword">if</span> ( MonthFromTime(t) != result6 ) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+    <span class="enscript-keyword">if</span> ( DateFromTime(t) != 1 ) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+
+    <span class="enscript-keyword">return</span> ( (Day(t)) + date - 1 );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TimeInMonth</span>( month, leap ) {
+    <span class="enscript-comment">// september april june november
+</span>    <span class="enscript-comment">// jan 0  feb 1  mar 2  apr 3   may 4  june 5  jul 6
+</span>    <span class="enscript-comment">// aug 7  sep 8  oct 9  nov 10  dec 11
+</span>
+    <span class="enscript-keyword">if</span> ( month == 3 || month == 5 || month == 8 || month == 10 ) {
+        <span class="enscript-keyword">return</span> ( 30*msPerDay );
+    }
+
+    <span class="enscript-comment">// all the rest
+</span>    <span class="enscript-keyword">if</span> ( month == 0 || month == 2 || month == 4 || month == 6 ||
+         month == 7 || month == 9 || month == 11 ) {
+        <span class="enscript-keyword">return</span> ( 31*msPerDay );
+     }
+
+    <span class="enscript-comment">// save february
+</span>    <span class="enscript-keyword">return</span> ( (leap == 0) ? 28*msPerDay : 29*msPerDay );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">MakeDate</span>( day, time ) {
+    <span class="enscript-keyword">if</span> (    day == Number.POSITIVE_INFINITY ||
+            day == Number.NEGATIVE_INFINITY ||
+            day == Number.NaN ) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+    <span class="enscript-keyword">if</span> (    time == Number.POSITIVE_INFINITY ||
+            time == Number.POSITIVE_INFINITY ||
+            day == Number.NaN) {
+        <span class="enscript-keyword">return</span> Number.NaN;
+    }
+    <span class="enscript-keyword">return</span> ( day * msPerDay ) + time;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TimeClip</span>( t ) {
+    <span class="enscript-keyword">if</span> ( isNaN( t ) ) {
+        <span class="enscript-keyword">return</span> ( Number.NaN );
+    }
+    <span class="enscript-keyword">if</span> ( <span class="enscript-builtin">Math</span>.abs( t ) &gt; 8.64e15 ) {
+        <span class="enscript-keyword">return</span> ( Number.NaN );
+    }
+
+    <span class="enscript-keyword">return</span> ( ToInteger( t ) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">ToInteger</span>( t ) {
+    t = Number( t );
+
+    <span class="enscript-keyword">if</span> ( isNaN( t ) ){
+        <span class="enscript-keyword">return</span> ( Number.NaN );
+    }
+    <span class="enscript-keyword">if</span> ( t == 0 || t == -0 ||
+         t == Number.POSITIVE_INFINITY || t == Number.NEGATIVE_INFINITY ) {
+         <span class="enscript-keyword">return</span> 0;
+    }
+
+    <span class="enscript-keyword">var</span> sign = ( t &lt; 0 ) ? -1 : 1;
+
+    <span class="enscript-keyword">return</span> ( sign * <span class="enscript-builtin">Math</span>.floor( <span class="enscript-builtin">Math</span>.abs( t ) ) );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">Enumerate</span> ( o ) {
+    <span class="enscript-keyword">var</span> properties = <span class="enscript-keyword">new</span> Array();
+    <span class="enscript-keyword">for</span> ( p <span class="enscript-keyword">in</span> o ) {
+       properties[ properties.length ] = <span class="enscript-keyword">new</span> Array( p, o[p] );
+    }
+    <span class="enscript-keyword">return</span> properties;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">AddTestCase</span>( description, expect, actual ) {
+    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION, description, expect, actual );
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getFailedCases</span>() {
+  <span class="enscript-keyword">for</span> ( <span class="enscript-keyword">var</span> i = 0; i &lt; testcases.length; i++ ) {
+     <span class="enscript-keyword">if</span> ( ! testcases[i].passed ) {
+        print( testcases[i].description +<span class="enscript-string">&quot; = &quot;</span> +testcases[i].actual +<span class="enscript-string">&quot; expected: &quot;</span>+ testcases[i].expect );
+     }
+  }
+}
+</pre>
+<hr />
+</body></html>

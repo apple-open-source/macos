@@ -1,5 +1,5 @@
 /*
- * "$Id: ippserver.c 3970 2012-10-24 11:44:57Z msweet $"
+ * "$Id: ippserver.c 4188 2013-02-20 02:30:47Z msweet $"
  *
  *   Sample IPP/2.0 server for CUPS.
  *
@@ -80,6 +80,7 @@
 #ifdef HAVE_DNSSD
 #  include <dns_sd.h>
 #endif /* HAVE_DNSSD */
+#include <limits.h>
 #include <sys/stat.h>
 #include <poll.h>
 #ifdef HAVE_SYS_MOUNT_H
@@ -5251,5 +5252,5 @@ valid_job_attributes(
 
 
 /*
- * End of "$Id: ippserver.c 3970 2012-10-24 11:44:57Z msweet $".
+ * End of "$Id: ippserver.c 4188 2013-02-20 02:30:47Z msweet $".
  */

@@ -1,0 +1,170 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Debugger.cpp</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Debugger.cpp&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ *  Copyright (C) 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 1999-2001 Harri Porten (<a href="mailto:porten@kde.org">porten@kde.org</a>)
+ *  Copyright (C) 2001 Peter Kelly (<a href="mailto:pmk@post.com">pmk@post.com</a>)
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Debugger.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Error.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Interpreter.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSFunction.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSGlobalObject.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Parser.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Protect.h&quot;</span>
+
+namespace {
+
+using namespace JSC;
+
+<span class="enscript-type">class</span> Recompiler : <span class="enscript-type">public</span> MarkedBlock::VoidFunctor {
+<span class="enscript-type">public</span>:
+    Recompiler(Debugger*);
+    ~Recompiler();
+    <span class="enscript-type">void</span> <span class="enscript-keyword">operator</span>()(JSCell*);
+
+<span class="enscript-type">private</span>:
+    <span class="enscript-type">typedef</span> HashSet&lt;FunctionExecutable*&gt; FunctionExecutableSet;
+    <span class="enscript-type">typedef</span> HashMap&lt;SourceProvider*, ExecState*&gt; SourceProviderMap;
+    
+    Debugger* m_debugger;
+    FunctionExecutableSet m_functionExecutables;
+    SourceProviderMap m_sourceProviders;
+};
+
+<span class="enscript-type">inline</span> <span class="enscript-function-name">Recompiler::Recompiler</span>(Debugger* debugger)
+    : m_debugger(debugger)
+{
+}
+
+<span class="enscript-type">inline</span> <span class="enscript-function-name">Recompiler::~Recompiler</span>()
+{
+    <span class="enscript-comment">// Call sourceParsed() after reparsing all functions because it will execute
+</span>    <span class="enscript-comment">// JavaScript in the inspector.
+</span>    <span class="enscript-reference">SourceProviderMap</span>::const_iterator end = m_sourceProviders.end();
+    <span class="enscript-keyword">for</span> (SourceProviderMap::const_iterator iter = m_sourceProviders.begin(); iter != end; ++iter)
+        m_debugger-&gt;sourceParsed(iter-&gt;second, iter-&gt;first, -1, UString());
+}
+
+<span class="enscript-type">inline</span> <span class="enscript-type">void</span> <span class="enscript-function-name">Recompiler::operator</span>()(JSCell* cell)
+{
+    <span class="enscript-keyword">if</span> (!cell-&gt;inherits(&amp;JSFunction::s_info))
+        <span class="enscript-keyword">return</span>;
+
+    JSFunction* function = jsCast&lt;JSFunction*&gt;(cell);
+    <span class="enscript-keyword">if</span> (function-&gt;executable()-&gt;isHostFunction())
+        <span class="enscript-keyword">return</span>;
+
+    FunctionExecutable* executable = function-&gt;jsExecutable();
+
+    <span class="enscript-comment">// Check if the function is already in the set - if so,
+</span>    <span class="enscript-comment">// we've already retranslated it, nothing to do here.
+</span>    <span class="enscript-keyword">if</span> (!m_functionExecutables.add(executable).isNewEntry)
+        <span class="enscript-keyword">return</span>;
+
+    ExecState* exec = function-&gt;scope()-&gt;globalObject-&gt;JSGlobalObject::globalExec();
+    executable-&gt;discardCode();
+    <span class="enscript-keyword">if</span> (m_debugger == function-&gt;scope()-&gt;globalObject-&gt;debugger())
+        m_sourceProviders.add(executable-&gt;source().provider(), exec);
+}
+
+} <span class="enscript-comment">// namespace
+</span>
+namespace JSC {
+
+<span class="enscript-function-name">Debugger::~Debugger</span>()
+{
+    HashSet&lt;JSGlobalObject*&gt;::iterator end = m_globalObjects.end();
+    <span class="enscript-keyword">for</span> (HashSet&lt;JSGlobalObject*&gt;::iterator it = m_globalObjects.begin(); it != end; ++it)
+        (*it)-&gt;setDebugger(0);
+}
+
+<span class="enscript-type">void</span> <span class="enscript-function-name">Debugger::attach</span>(JSGlobalObject* globalObject)
+{
+    ASSERT(!globalObject-&gt;debugger());
+    globalObject-&gt;setDebugger(<span class="enscript-keyword">this</span>);
+    m_globalObjects.add(globalObject);
+}
+
+<span class="enscript-type">void</span> <span class="enscript-function-name">Debugger::detach</span>(JSGlobalObject* globalObject)
+{
+    ASSERT(m_globalObjects.contains(globalObject));
+    m_globalObjects.remove(globalObject);
+    globalObject-&gt;setDebugger(0);
+}
+
+<span class="enscript-type">void</span> <span class="enscript-function-name">Debugger::recompileAllJSFunctions</span>(JSGlobalData* globalData)
+{
+    <span class="enscript-comment">// If JavaScript is running, it's not safe to recompile, since we'll end
+</span>    <span class="enscript-comment">// up throwing away code that is live on the stack.
+</span>    ASSERT(!globalData-&gt;dynamicGlobalObject);
+    <span class="enscript-keyword">if</span> (globalData-&gt;dynamicGlobalObject)
+        <span class="enscript-keyword">return</span>;
+
+    Recompiler recompiler(<span class="enscript-keyword">this</span>);
+    globalData-&gt;heap.objectSpace().forEachCell(recompiler);
+}
+
+JSValue <span class="enscript-function-name">evaluateInGlobalCallFrame</span>(<span class="enscript-type">const</span> UString&amp; script, JSValue&amp; exception, JSGlobalObject* globalObject)
+{
+    CallFrame* globalCallFrame = globalObject-&gt;globalExec();
+    JSGlobalData&amp; globalData = globalObject-&gt;globalData();
+
+    EvalExecutable* eval = EvalExecutable::create(globalCallFrame, makeSource(script), false);
+    <span class="enscript-keyword">if</span> (!eval) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+        <span class="enscript-keyword">return</span> exception;
+    }
+
+    JSValue result = globalData.interpreter-&gt;execute(eval, globalCallFrame, globalObject, globalCallFrame-&gt;scopeChain());
+    <span class="enscript-keyword">if</span> (globalData.exception) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+    }
+    ASSERT(result);
+    <span class="enscript-keyword">return</span> result;
+}
+
+} <span class="enscript-comment">// namespace JSC
+</span></pre>
+<hr />
+</body></html>

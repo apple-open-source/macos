@@ -1,0 +1,942 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>uloc.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">uloc.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+**********************************************************************
+*   Copyright (C) 1997-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+**********************************************************************
+*
+* File ULOC.H
+*
+* Modification History:
+*
+*   Date        Name        Description
+*   04/01/97    aliu        Creation.
+*   08/22/98    stephen     JDK 1.2 sync.
+*   12/08/98    rtg         New C API for Locale
+*   03/30/99    damiba      overhaul
+*   03/31/99    helena      Javadoc for uloc functions.
+*   04/15/99    Madhu       Updated Javadoc
+********************************************************************************
+*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">ULOC_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_H</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/utypes.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/uenum.h&quot;</span>
+
+<span class="enscript-comment">/**    
+ * \file
+ * \brief  C API: Locale 
+ *
+ * &lt;h2&gt; ULoc C API for Locale &lt;/h2&gt;
+ * A &lt;code&gt;Locale&lt;/code&gt; represents a specific geographical, political,
+ * or cultural region. An operation that requires a &lt;code&gt;Locale&lt;/code&gt; to perform
+ * its task is called &lt;em&gt;locale-sensitive&lt;/em&gt; and uses the &lt;code&gt;Locale&lt;/code&gt;
+ * to tailor information for the user. For example, displaying a number
+ * is a locale-sensitive operation--the number should be formatted
+ * according to the customs/conventions of the user's native country,
+ * region, or culture.  In the C APIs, a locales is simply a const char string.
+ *
+ * &lt;P&gt;
+ * You create a &lt;code&gt;Locale&lt;/code&gt; with one of the three options listed below.
+ * Each of the component is separated by '_' in the locale string.
+ * \htmlonly&lt;blockquote&gt;\endhtmlonly
+ * &lt;pre&gt;
+ * \code
+ *       newLanguage
+ * 
+ *       newLanguage + newCountry
+ * 
+ *       newLanguage + newCountry + newVariant
+ * \endcode
+ * &lt;/pre&gt;
+ * \htmlonly&lt;/blockquote&gt;\endhtmlonly
+ * The first option is a valid &lt;STRONG&gt;ISO
+ * Language Code.&lt;/STRONG&gt; These codes are the lower-case two-letter
+ * codes as defined by ISO-639.
+ * You can find a full list of these codes at a number of sites, such as:
+ * &lt;BR&gt;&lt;a href =&quot;<a href="http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt">http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt</a>&quot;&gt;
+ * <a href="http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt">http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt</a>&lt;/a&gt;
+ *
+ * &lt;P&gt;
+ * The second option includes an additonal &lt;STRONG&gt;ISO Country
+ * Code.&lt;/STRONG&gt; These codes are the upper-case two-letter codes
+ * as defined by ISO-3166.
+ * You can find a full list of these codes at a number of sites, such as:
+ * &lt;BR&gt;&lt;a href=&quot;<a href="http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html">http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html</a>&quot;&gt;
+ * <a href="http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html">http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html</a>&lt;/a&gt;
+ *
+ * &lt;P&gt;
+ * The third option requires another additonal information--the 
+ * &lt;STRONG&gt;Variant.&lt;/STRONG&gt;
+ * The Variant codes are vendor and browser-specific.
+ * For example, use WIN for Windows, MAC for Macintosh, and POSIX for POSIX.
+ * Where there are two variants, separate them with an underscore, and
+ * put the most important one first. For
+ * example, a Traditional Spanish collation might be referenced, with
+ * &quot;ES&quot;, &quot;ES&quot;, &quot;Traditional_WIN&quot;.
+ *
+ * &lt;P&gt;
+ * Because a &lt;code&gt;Locale&lt;/code&gt; is just an identifier for a region,
+ * no validity check is performed when you specify a &lt;code&gt;Locale&lt;/code&gt;.
+ * If you want to see whether particular resources are available for the
+ * &lt;code&gt;Locale&lt;/code&gt; you asked for, you must query those resources. For
+ * example, ask the &lt;code&gt;UNumberFormat&lt;/code&gt; for the locales it supports
+ * using its &lt;code&gt;getAvailable&lt;/code&gt; method.
+ * &lt;BR&gt;&lt;STRONG&gt;Note:&lt;/STRONG&gt; When you ask for a resource for a particular
+ * locale, you get back the best available match, not necessarily
+ * precisely what you asked for. For more information, look at
+ * &lt;code&gt;UResourceBundle&lt;/code&gt;.
+ *
+ * &lt;P&gt;
+ * The &lt;code&gt;Locale&lt;/code&gt; provides a number of convenient constants
+ * that you can use to specify the commonly used
+ * locales. For example, the following refers to a locale
+ * for the United States:
+ * \htmlonly&lt;blockquote&gt;\endhtmlonly
+ * &lt;pre&gt;
+ * \code
+ *       ULOC_US
+ * \endcode
+ * &lt;/pre&gt;
+ * \htmlonly&lt;/blockquote&gt;\endhtmlonly
+ *
+ * &lt;P&gt;
+ * Once you've specified a locale you can query it for information about
+ * itself. Use &lt;code&gt;uloc_getCountry&lt;/code&gt; to get the ISO Country Code and
+ * &lt;code&gt;uloc_getLanguage&lt;/code&gt; to get the ISO Language Code. You can
+ * use &lt;code&gt;uloc_getDisplayCountry&lt;/code&gt; to get the
+ * name of the country suitable for displaying to the user. Similarly,
+ * you can use &lt;code&gt;uloc_getDisplayLanguage&lt;/code&gt; to get the name of
+ * the language suitable for displaying to the user. Interestingly,
+ * the &lt;code&gt;uloc_getDisplayXXX&lt;/code&gt; methods are themselves locale-sensitive
+ * and have two versions: one that uses the default locale and one
+ * that takes a locale as an argument and displays the name or country in
+ * a language appropriate to that locale.
+ *
+ * &lt;P&gt;
+ * The ICU provides a number of services that perform locale-sensitive
+ * operations. For example, the &lt;code&gt;unum_xxx&lt;/code&gt; functions format
+ * numbers, currency, or percentages in a locale-sensitive manner. 
+ * &lt;/P&gt;
+ * \htmlonly&lt;blockquote&gt;\endhtmlonly
+ * &lt;pre&gt;
+ * \code
+ *     UErrorCode success = U_ZERO_ERROR;
+ *     UNumberFormat *nf;
+ *     const char* myLocale = &quot;fr_FR&quot;;
+ * 
+ *     nf = unum_open( UNUM_DEFAULT, NULL, success );          
+ *     unum_close(nf);
+ *     nf = unum_open( UNUM_CURRENCY, NULL, success );
+ *     unum_close(nf);
+ *     nf = unum_open( UNUM_PERCENT, NULL, success );   
+ *     unum_close(nf);
+ * \endcode
+ * &lt;/pre&gt;
+ * \htmlonly&lt;/blockquote&gt;\endhtmlonly
+ * Each of these methods has two variants; one with an explicit locale
+ * and one without; the latter using the default locale.
+ * \htmlonly&lt;blockquote&gt;\endhtmlonly
+ * &lt;pre&gt;
+ * \code 
+ * 
+ *     nf = unum_open( UNUM_DEFAULT, myLocale, success );          
+ *     unum_close(nf);
+ *     nf = unum_open( UNUM_CURRENCY, myLocale, success );
+ *     unum_close(nf);
+ *     nf = unum_open( UNUM_PERCENT, myLocale, success );   
+ *     unum_close(nf);
+ * \endcode
+ * &lt;/pre&gt;
+ * \htmlonly&lt;/blockquote&gt;\endhtmlonly
+ * A &lt;code&gt;Locale&lt;/code&gt; is the mechanism for identifying the kind of services
+ * (&lt;code&gt;UNumberFormat&lt;/code&gt;) that you would like to get. The locale is
+ * &lt;STRONG&gt;just&lt;/STRONG&gt; a mechanism for identifying these services.
+ *
+ * &lt;P&gt;
+ * Each international serivce that performs locale-sensitive operations 
+ * allows you
+ * to get all the available objects of that type. You can sift
+ * through these objects by language, country, or variant,
+ * and use the display names to present a menu to the user.
+ * For example, you can create a menu of all the collation objects
+ * suitable for a given language. Such classes implement these
+ * three class methods:
+ * \htmlonly&lt;blockquote&gt;\endhtmlonly
+ * &lt;pre&gt;
+ * \code
+ *       const char* uloc_getAvailable(int32_t index);
+ *       int32_t uloc_countAvailable();
+ *       int32_t
+ *       uloc_getDisplayName(const char* localeID,
+ *                 const char* inLocaleID, 
+ *                 UChar* result,
+ *                 int32_t maxResultSize,
+ *                  UErrorCode* err);
+ * 
+ * \endcode
+ * &lt;/pre&gt;
+ * \htmlonly&lt;/blockquote&gt;\endhtmlonly
+ * &lt;P&gt;
+ * Concerning POSIX/RFC1766 Locale IDs, 
+ *  the getLanguage/getCountry/getVariant/getName functions do understand
+ * the POSIX type form of  language_COUNTRY.ENCODING\@VARIANT
+ * and if there is not an ICU-stype variant, uloc_getVariant() for example
+ * will return the one listed after the \@at sign. As well, the hyphen
+ * &quot;-&quot; is recognized as a country/variant separator similarly to RFC1766.
+ * So for example, &quot;en-us&quot; will be interpreted as en_US.  
+ * As a result, uloc_getName() is far from a no-op, and will have the
+ * effect of converting POSIX/RFC1766 IDs into ICU form, although it does
+ * NOT map any of the actual codes (i.e. russian-&gt;ru) in any way.
+ * Applications should call uloc_getName() at the point where a locale ID
+ * is coming from an external source (user entry, OS, web browser)
+ * and pass the resulting string to other ICU functions.  For example,
+ * don't use de-de\@EURO as an argument to resourcebundle.
+ *
+ * @see UResourceBundle
+ */</span>
+
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_CHINESE</span>            <span class="enscript-string">&quot;zh&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_ENGLISH</span>            <span class="enscript-string">&quot;en&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_FRENCH</span>             <span class="enscript-string">&quot;fr&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_GERMAN</span>             <span class="enscript-string">&quot;de&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_ITALIAN</span>            <span class="enscript-string">&quot;it&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_JAPANESE</span>           <span class="enscript-string">&quot;ja&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KOREAN</span>             <span class="enscript-string">&quot;ko&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_SIMPLIFIED_CHINESE</span> <span class="enscript-string">&quot;zh_CN&quot;</span>
+<span class="enscript-comment">/** Useful constant for this language. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_TRADITIONAL_CHINESE</span> <span class="enscript-string">&quot;zh_TW&quot;</span>
+
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_CANADA</span>         <span class="enscript-string">&quot;en_CA&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_CANADA_FRENCH</span>  <span class="enscript-string">&quot;fr_CA&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_CHINA</span>          <span class="enscript-string">&quot;zh_CN&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_PRC</span>            <span class="enscript-string">&quot;zh_CN&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_FRANCE</span>         <span class="enscript-string">&quot;fr_FR&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_GERMANY</span>        <span class="enscript-string">&quot;de_DE&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_ITALY</span>          <span class="enscript-string">&quot;it_IT&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_JAPAN</span>          <span class="enscript-string">&quot;ja_JP&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KOREA</span>          <span class="enscript-string">&quot;ko_KR&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_TAIWAN</span>         <span class="enscript-string">&quot;zh_TW&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_UK</span>             <span class="enscript-string">&quot;en_GB&quot;</span>
+<span class="enscript-comment">/** Useful constant for this country/region. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_US</span>             <span class="enscript-string">&quot;en_US&quot;</span>
+
+<span class="enscript-comment">/**
+ * Useful constant for the maximum size of the language part of a locale ID.
+ * (including the terminating NULL).
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_LANG_CAPACITY</span> 12
+
+<span class="enscript-comment">/**
+ * Useful constant for the maximum size of the country part of a locale ID
+ * (including the terminating NULL).
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_COUNTRY_CAPACITY</span> 4
+<span class="enscript-comment">/**
+ * Useful constant for the maximum size of the whole locale ID
+ * (including the terminating NULL).
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_FULLNAME_CAPACITY</span> 56
+
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HIDE_DRAFT_API</span>
+
+<span class="enscript-comment">/**
+ * Useful constant for the maximum size of the script part of a locale ID
+ * (including the terminating NULL).
+ * @draft ICU 2.8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_SCRIPT_CAPACITY</span> 6
+
+<span class="enscript-comment">/**
+ * Useful constant for the maximum size of keywords in a locale
+ * @draft ICU 2.8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KEYWORDS_CAPACITY</span> 50
+
+<span class="enscript-comment">/**
+ * Useful constant for the maximum size of keywords in a locale
+ * @draft ICU 2.8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KEYWORD_AND_VALUES_CAPACITY</span> 100
+
+<span class="enscript-comment">/**
+ * Character separating keywords from the locale string
+ * different for EBCDIC - TODO
+ * @draft ICU 2.8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KEYWORD_SEPARATOR</span> <span class="enscript-string">'@'</span>
+<span class="enscript-comment">/**
+ * Character for assigning value to a keyword
+ * @draft ICU 2.8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KEYWORD_ASSIGN</span> <span class="enscript-string">'='</span>
+<span class="enscript-comment">/**
+ * Character separating keywords
+ * @draft ICU 2.8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ULOC_KEYWORD_ITEM_SEPARATOR</span> <span class="enscript-string">';'</span>
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/*U_HIDE_DRAFT_API*/</span>
+
+<span class="enscript-comment">/**
+ * Constants for *_getLocale()
+ * Allow user to select whether she wants information on 
+ * requested, valid or actual locale.
+ * For example, a collator for &quot;en_US_CALIFORNIA&quot; was
+ * requested. In the current state of ICU (2.0), 
+ * the requested locale is &quot;en_US_CALIFORNIA&quot;,
+ * the valid locale is &quot;en_US&quot; (most specific locale supported by ICU)
+ * and the actual locale is &quot;root&quot; (the collation data comes unmodified 
+ * from the UCA)
+ * The locale is considered supported by ICU if there is a core ICU bundle 
+ * for that locale (although it may be empty).
+ * @stable ICU 2.1
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> {
+  <span class="enscript-comment">/** This is locale the data actually comes from 
+   * @stable ICU 2.1
+   */</span>
+  ULOC_ACTUAL_LOCALE    = 0,
+  <span class="enscript-comment">/** This is the most specific locale supported by ICU 
+   * @stable ICU 2.1
+   */</span>
+  ULOC_VALID_LOCALE    = 1,
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HIDE_DEPRECATED_API</span>
+  <span class="enscript-comment">/** This is the requested locale
+   *  @deprecated ICU 2.8 
+   */</span>
+  ULOC_REQUESTED_LOCALE = 2,
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* U_HIDE_DEPRECATED_API */</span>
+
+  ULOC_DATA_LOCALE_TYPE_LIMIT
+} ULocDataLocaleType ;
+
+
+<span class="enscript-comment">/**
+ * Gets ICU's default locale.  
+ * The returned string is a snapshot in time, and will remain valid
+ *   and unchanged even when uloc_setDefault() is called.
+ *   The returned storage is owned by ICU, and must not be altered or deleted
+ *   by the caller.
+ *  
+ * @return the ICU default locale
+ * @system
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2
+<span class="enscript-function-name">uloc_getDefault</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/**
+ * Sets ICU's default locale.  
+ *    By default (without calling this function), ICU's default locale will be based
+ *    on information obtained from the underlying system environment.
+ *    &lt;p&gt;
+ *    Changes to ICU's default locale do not propagate back to the
+ *    system environment.
+ *    &lt;p&gt;
+ *    Changes to ICU's default locale to not affect any ICU services that
+ *    may already be open based on the previous default locale value.
+ *
+ * @param localeID the new ICU default locale. A value of NULL will try to get
+ *                 the system's default locale.
+ * @param status the error information if the setting of default locale fails
+ * @system
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uloc_setDefault</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID,
+        UErrorCode*       status);
+
+<span class="enscript-comment">/**
+ * Gets the language code for the specified locale.
+ *
+ * @param localeID the locale to get the ISO language code with
+ * @param language the language code for localeID
+ * @param languageCapacity the size of the language buffer to store the  
+ * language code with
+ * @param err error information if retrieving the language code failed
+ * @return the actual buffer size needed for the language code.  If it's greater 
+ * than languageCapacity, the returned language code will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getLanguage</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+         <span class="enscript-type">char</span>* language,
+         int32_t languageCapacity,
+         UErrorCode* err);
+
+<span class="enscript-comment">/**
+ * Gets the script code for the specified locale.
+ *
+ * @param localeID the locale to get the ISO language code with
+ * @param script the language code for localeID
+ * @param scriptCapacity the size of the language buffer to store the  
+ * language code with
+ * @param err error information if retrieving the language code failed
+ * @return the actual buffer size needed for the language code.  If it's greater 
+ * than scriptCapacity, the returned language code will be truncated.  
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getScript</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+         <span class="enscript-type">char</span>* script,
+         int32_t scriptCapacity,
+         UErrorCode* err);
+
+<span class="enscript-comment">/**
+ * Gets the  country code for the specified locale.
+ *
+ * @param localeID the locale to get the country code with
+ * @param country the country code for localeID
+ * @param countryCapacity the size of the country buffer to store the  
+ * country code with
+ * @param err error information if retrieving the country code failed
+ * @return the actual buffer size needed for the country code.  If it's greater 
+ * than countryCapacity, the returned country code will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getCountry</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+        <span class="enscript-type">char</span>* country,
+        int32_t countryCapacity,
+        UErrorCode* err);
+
+<span class="enscript-comment">/**
+ * Gets the variant code for the specified locale.
+ *
+ * @param localeID the locale to get the variant code with
+ * @param variant the variant code for localeID
+ * @param variantCapacity the size of the variant buffer to store the 
+ * variant code with
+ * @param err error information if retrieving the variant code failed
+ * @return the actual buffer size needed for the variant code.  If it's greater 
+ * than variantCapacity, the returned variant code will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getVariant</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+        <span class="enscript-type">char</span>* variant,
+        int32_t variantCapacity,
+        UErrorCode* err);
+
+
+<span class="enscript-comment">/**
+ * Gets the full name for the specified locale.
+ * Note: This has the effect of 'canonicalizing' the ICU locale ID to
+ * a certain extent. Upper and lower case are set as needed.
+ * It does NOT map aliased names in any way.
+ * See the top of this header file.
+ * This API supports preflighting.
+ *
+ * @param localeID the locale to get the full name with
+ * @param name fill in buffer for the name without keywords.
+ * @param nameCapacity capacity of the fill in buffer.
+ * @param err error information if retrieving the full name failed
+ * @return the actual buffer size needed for the full name.  If it's greater 
+ * than nameCapacity, the returned full name will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getName</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+         <span class="enscript-type">char</span>* name,
+         int32_t nameCapacity,
+         UErrorCode* err);
+
+<span class="enscript-comment">/**
+ * Gets the full name for the specified locale.
+ * Note: This has the effect of 'canonicalizing' the string to
+ * a certain extent. Upper and lower case are set as needed,
+ * and if the components were in 'POSIX' format they are changed to
+ * ICU format.  It does NOT map aliased names in any way.
+ * See the top of this header file.
+ *
+ * @param localeID the locale to get the full name with
+ * @param name the full name for localeID
+ * @param nameCapacity the size of the name buffer to store the 
+ * full name with
+ * @param err error information if retrieving the full name failed
+ * @return the actual buffer size needed for the full name.  If it's greater 
+ * than nameCapacity, the returned full name will be truncated.  
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_canonicalize</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+         <span class="enscript-type">char</span>* name,
+         int32_t nameCapacity,
+         UErrorCode* err);
+
+<span class="enscript-comment">/**
+ * Gets the ISO language code for the specified locale.
+ *
+ * @param localeID the locale to get the ISO language code with
+ * @return language the ISO language code for localeID
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2
+<span class="enscript-function-name">uloc_getISO3Language</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID);
+
+
+<span class="enscript-comment">/**
+ * Gets the ISO country code for the specified locale.
+ *
+ * @param localeID the locale to get the ISO country code with
+ * @return country the ISO country code for localeID
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2
+<span class="enscript-function-name">uloc_getISO3Country</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID);
+
+<span class="enscript-comment">/**
+ * Gets the Win32 LCID value for the specified locale.
+ * If the ICU locale is not recognized by Windows, 0 will be returned.
+ *
+ * @param localeID the locale to get the Win32 LCID value with
+ * @return country the Win32 LCID for localeID
+ * @stable ICU 2.0
+ */</span>
+U_STABLE uint32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getLCID</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID);
+
+<span class="enscript-comment">/**
+ * Gets the language name suitable for display for the specified locale.
+ *
+ * @param locale the locale to get the ISO language code with
+ * @param displayLocale Specifies the locale to be used to display the name.  In other words,
+ *                 if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                 inLocale would result in &quot;Anglais&quot;, while passing Locale::getGerman()
+ *                 for inLocale would result in &quot;Englisch&quot;.
+ * @param language the displayable language code for localeID
+ * @param languageCapacity the size of the language buffer to store the  
+ * displayable language code with
+ * @param status error information if retrieving the displayable language code failed
+ * @return the actual buffer size needed for the displayable language code.  If it's greater 
+ * than languageCapacity, the returned language code will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayLanguage</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* locale,
+            <span class="enscript-type">const</span> <span class="enscript-type">char</span>* displayLocale,
+            UChar* language,
+            int32_t languageCapacity,
+            UErrorCode* status);
+
+<span class="enscript-comment">/**
+ * Gets the script name suitable for display for the specified locale.
+ *
+ * @param locale the locale to get the displayable script code with. NULL may be used to specify the default.
+ * @param displayLocale Specifies the locale to be used to display the name.  In other words,
+ *                 if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                 inLocale would result in &quot;&quot;, while passing Locale::getGerman()
+ *                 for inLocale would result in &quot;&quot;. NULL may be used to specify the default.
+ * @param script the displayable country code for localeID
+ * @param scriptCapacity the size of the script buffer to store the  
+ * displayable script code with
+ * @param status error information if retrieving the displayable script code failed
+ * @return the actual buffer size needed for the displayable script code.  If it's greater 
+ * than scriptCapacity, the returned displayable script code will be truncated.  
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayScript</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* locale,
+            <span class="enscript-type">const</span> <span class="enscript-type">char</span>* displayLocale,
+            UChar* script,
+            int32_t scriptCapacity,
+            UErrorCode* status);
+
+<span class="enscript-comment">/**
+ * Gets the country name suitable for display for the specified locale.
+ *
+ * @param locale the locale to get the displayable country code with. NULL may be used to specify the default.
+ * @param displayLocale Specifies the locale to be used to display the name.  In other words,
+ *                 if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                 inLocale would result in &quot;Anglais&quot;, while passing Locale::getGerman()
+ *                 for inLocale would result in &quot;Englisch&quot;. NULL may be used to specify the default.
+ * @param country the displayable country code for localeID
+ * @param countryCapacity the size of the country buffer to store the  
+ * displayable country code with
+ * @param status error information if retrieving the displayable country code failed
+ * @return the actual buffer size needed for the displayable country code.  If it's greater 
+ * than countryCapacity, the returned displayable country code will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayCountry</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* locale,
+                       <span class="enscript-type">const</span> <span class="enscript-type">char</span>* displayLocale,
+                       UChar* country,
+                       int32_t countryCapacity,
+                       UErrorCode* status);
+
+
+<span class="enscript-comment">/**
+ * Gets the variant name suitable for display for the specified locale.
+ *
+ * @param locale the locale to get the displayable variant code with. NULL may be used to specify the default.
+ * @param displayLocale Specifies the locale to be used to display the name.  In other words,
+ *                 if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                 inLocale would result in &quot;Anglais&quot;, while passing Locale::getGerman()
+ *                 for inLocale would result in &quot;Englisch&quot;. NULL may be used to specify the default.
+ * @param variant the displayable variant code for localeID
+ * @param variantCapacity the size of the variant buffer to store the 
+ * displayable variant code with
+ * @param status error information if retrieving the displayable variant code failed
+ * @return the actual buffer size needed for the displayable variant code.  If it's greater 
+ * than variantCapacity, the returned displayable variant code will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayVariant</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* locale,
+                       <span class="enscript-type">const</span> <span class="enscript-type">char</span>* displayLocale,
+                       UChar* variant,
+                       int32_t variantCapacity,
+                       UErrorCode* status);
+
+<span class="enscript-comment">/**
+ * Gets the keyword name suitable for display for the specified locale.
+ * E.g: for the locale string de_DE\@collation=PHONEBOOK, this API gets the display 
+ * string for the keyword collation. 
+ * Usage:
+ * &lt;code&gt;
+ *    UErrorCode status = U_ZERO_ERROR;
+ *    const char* keyword =NULL;
+ *    int32_t keywordLen = 0;
+ *    int32_t keywordCount = 0;
+ *    UChar displayKeyword[256];
+ *    int32_t displayKeywordLen = 0;
+ *    UEnumeration* keywordEnum = uloc_openKeywords(&quot;de_DE@collation=PHONEBOOK;calendar=TRADITIONAL&quot;, &amp;status);
+ *    for(keywordCount = uenum_count(keywordEnum, &amp;status); keywordCount &gt; 0 ; keywordCount--){
+ *          if(U_FAILURE(status)){
+ *              ...something went wrong so handle the error...
+ *              break;
+ *          }
+ *          // the uenum_next returns NUL terminated string
+ *          keyword = uenum_next(keywordEnum, &amp;keywordLen, &amp;status);
+ *          displayKeywordLen = uloc_getDisplayKeyword(keyword, &quot;en_US&quot;, displayKeyword, 256);
+ *          ... do something interesting .....
+ *    }
+ *    uenum_close(keywordEnum);
+ * &lt;/code&gt;
+ * @param keyword           The keyword whose display string needs to be returned.
+ * @param displayLocale     Specifies the locale to be used to display the name.  In other words,
+ *                          if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                          inLocale would result in &quot;Anglais&quot;, while passing Locale::getGerman()
+ *                          for inLocale would result in &quot;Englisch&quot;. NULL may be used to specify the default.
+ * @param dest              the buffer to which the displayable keyword should be written.
+ * @param destCapacity      The size of the buffer (number of UChars). If it is 0, then
+ *                          dest may be NULL and the function will only return the length of the 
+ *                          result without writing any of the result string (pre-flighting).
+ * @param status            error information if retrieving the displayable string failed. 
+ *                          Should not be NULL and should not indicate failure on entry.
+ * @return the actual buffer size needed for the displayable variant code.  
+ * @see #uloc_openKeywords
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayKeyword</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* keyword,
+                       <span class="enscript-type">const</span> <span class="enscript-type">char</span>* displayLocale,
+                       UChar* dest,
+                       int32_t destCapacity,
+                       UErrorCode* status);
+<span class="enscript-comment">/**
+ * Gets the value of the keyword suitable for display for the specified locale.
+ * E.g: for the locale string de_DE\@collation=PHONEBOOK, this API gets the display 
+ * string for PHONEBOOK, in the display locale, when &quot;collation&quot; is specified as the keyword.
+ *
+ * @param locale            The locale to get the displayable variant code with. NULL may be used to specify the default.
+ * @param keyword           The keyword for whose value should be used.
+ * @param displayLocale     Specifies the locale to be used to display the name.  In other words,
+ *                          if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                          inLocale would result in &quot;Anglais&quot;, while passing Locale::getGerman()
+ *                          for inLocale would result in &quot;Englisch&quot;. NULL may be used to specify the default.
+ * @param dest              the buffer to which the displayable keyword should be written.
+ * @param destCapacity      The size of the buffer (number of UChars). If it is 0, then
+ *                          dest may be NULL and the function will only return the length of the 
+ *                          result without writing any of the result string (pre-flighting).
+ * @param status            error information if retrieving the displayable string failed. 
+ *                          Should not be NULL and must not indicate failure on entry.
+ * @return the actual buffer size needed for the displayable variant code.  
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayKeywordValue</span>(   <span class="enscript-type">const</span> <span class="enscript-type">char</span>* locale,
+                               <span class="enscript-type">const</span> <span class="enscript-type">char</span>* keyword,
+                               <span class="enscript-type">const</span> <span class="enscript-type">char</span>* displayLocale,
+                               UChar* dest,
+                               int32_t destCapacity,
+                               UErrorCode* status);
+<span class="enscript-comment">/**
+ * Gets the full name suitable for display for the specified locale.
+ *
+ * @param localeID the locale to get the displayable name with. NULL may be used to specify the default.
+ * @param inLocaleID Specifies the locale to be used to display the name.  In other words,
+ *                   if the locale's language code is &quot;en&quot;, passing Locale::getFrench() for
+ *                   inLocale would result in &quot;Anglais&quot;, while passing Locale::getGerman()
+ *                   for inLocale would result in &quot;Englisch&quot;. NULL may be used to specify the default.
+ * @param result the displayable name for localeID
+ * @param maxResultSize the size of the name buffer to store the 
+ * displayable full name with
+ * @param err error information if retrieving the displayable name failed
+ * @return the actual buffer size needed for the displayable name.  If it's greater 
+ * than maxResultSize, the returned displayable name will be truncated.  
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getDisplayName</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID,
+            <span class="enscript-type">const</span> <span class="enscript-type">char</span>* inLocaleID,
+            UChar* result,
+            int32_t maxResultSize,
+            UErrorCode* err);
+
+
+<span class="enscript-comment">/**
+ * Gets the specified locale from a list of all available locales.  
+ * The return value is a pointer to an item of 
+ * a locale name array.  Both this array and the pointers
+ * it contains are owned by ICU and should not be deleted or written through
+ * by the caller.  The locale name is terminated by a null pointer.
+ * @param n the specific locale name index of the available locale list
+ * @return a specified locale name of all available locales
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2
+<span class="enscript-function-name">uloc_getAvailable</span>(int32_t n);
+
+<span class="enscript-comment">/**
+ * Gets the size of the all available locale list.
+ *
+ * @return the size of the locale list
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2 <span class="enscript-function-name">uloc_countAvailable</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/**
+ *
+ * Gets a list of all available language codes defined in ISO 639.  This is a pointer
+ * to an array of pointers to arrays of char.  All of these pointers are owned
+ * by ICU-- do not delete them, and do not write through them.  The array is
+ * terminated with a null pointer.
+ * @return a list of all available language codes
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* <span class="enscript-type">const</span>* U_EXPORT2
+<span class="enscript-function-name">uloc_getISOLanguages</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/**
+ *
+ * Gets a list of all available 2-letter country codes defined in ISO 639.  This is a
+ * pointer to an array of pointers to arrays of char.  All of these pointers are
+ * owned by ICU-- do not delete them, and do not write through them.  The array is
+ * terminated with a null pointer.
+ * @return a list of all available country codes
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* <span class="enscript-type">const</span>* U_EXPORT2
+<span class="enscript-function-name">uloc_getISOCountries</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/**
+ * Truncate the locale ID string to get the parent locale ID.
+ * Copies the part of the string before the last underscore.
+ * The parent locale ID will be an empty string if there is no
+ * underscore, or if there is only one underscore at localeID[0].
+ *
+ * @param localeID Input locale ID string.
+ * @param parent   Output string buffer for the parent locale ID.
+ * @param parentCapacity Size of the output buffer.
+ * @param err A UErrorCode value.
+ * @return The length of the parent locale ID.
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getParent</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+                 <span class="enscript-type">char</span>* parent,
+                 int32_t parentCapacity,
+                 UErrorCode* err);
+
+
+
+
+<span class="enscript-comment">/**
+ * Gets the full name for the specified locale.
+ * Note: This has the effect of 'canonicalizing' the string to
+ * a certain extent. Upper and lower case are set as needed,
+ * and if the components were in 'POSIX' format they are changed to
+ * ICU format.  It does NOT map aliased names in any way.
+ * See the top of this header file.
+ * This API strips off the keyword part, so &quot;de_DE\@collation=phonebook&quot; 
+ * will become &quot;de_DE&quot;. 
+ * This API supports preflighting.
+ *
+ * @param localeID the locale to get the full name with
+ * @param name fill in buffer for the name without keywords.
+ * @param nameCapacity capacity of the fill in buffer.
+ * @param err error information if retrieving the full name failed
+ * @return the actual buffer size needed for the full name.  If it's greater 
+ * than nameCapacity, the returned full name will be truncated.  
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getBaseName</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>*    localeID,
+         <span class="enscript-type">char</span>* name,
+         int32_t nameCapacity,
+         UErrorCode* err);
+
+<span class="enscript-comment">/**
+ * Gets an enumeration of keywords for the specified locale. Enumeration
+ * must get disposed of by the client using uenum_close function.
+ *
+ * @param localeID the locale to get the variant code with
+ * @param status error information if retrieving the keywords failed
+ * @return enumeration of keywords or NULL if there are no keywords.
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT UEnumeration* U_EXPORT2
+<span class="enscript-function-name">uloc_openKeywords</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID,
+                        UErrorCode* status);
+
+<span class="enscript-comment">/**
+ * Get the value for a keyword. Locale name does not need to be normalized.
+ * 
+ * @param localeID locale name containing the keyword (&quot;de_DE@currency=EURO;collation=PHONEBOOK&quot;)
+ * @param keywordName name of the keyword for which we want the value. Case insensitive.
+ * @param buffer receiving buffer
+ * @param bufferCapacity capacity of receiving buffer
+ * @param status containing error code - buffer not big enough.
+ * @return the length of keyword value
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_getKeywordValue</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* localeID,
+                     <span class="enscript-type">const</span> <span class="enscript-type">char</span>* keywordName,
+                     <span class="enscript-type">char</span>* buffer, int32_t bufferCapacity,
+                     UErrorCode* status);
+
+
+<span class="enscript-comment">/**
+ * Set the value of the specified keyword.
+ * NOTE: Unlike almost every other ICU function which takes a
+ * buffer, this function will NOT truncate the output text. If a
+ * BUFFER_OVERFLOW_ERROR is received, it means that the original
+ * buffer is untouched. This is done to prevent incorrect or possibly
+ * even malformed locales from being generated and used.
+ * 
+ * @param keywordName name of the keyword to be set. Case insensitive.
+ * @param keywordValue value of the keyword to be set. If 0-length or
+ *  NULL, will result in the keyword being removed. No error is given if 
+ *  that keyword does not exist.
+ * @param buffer input buffer containing locale to be modified.
+ * @param bufferCapacity capacity of receiving buffer
+ * @param status containing error code - buffer not big enough.
+ * @return the length needed for the buffer
+ * @see uloc_getKeywordValue
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_setKeywordValue</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* keywordName,
+                     <span class="enscript-type">const</span> <span class="enscript-type">char</span>* keywordValue,
+                     <span class="enscript-type">char</span>* buffer, int32_t bufferCapacity,
+                     UErrorCode* status);
+
+<span class="enscript-comment">/**
+ * enums for the 'outResult' parameter return value
+ * @see uloc_acceptLanguageFromHTTP
+ * @see uloc_acceptLanguage
+ * @draft ICU 3.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> {
+  ULOC_ACCEPT_FAILED   = 0,  <span class="enscript-comment">/* No exact match was found. */</span>
+  ULOC_ACCEPT_VALID    = 1,  <span class="enscript-comment">/* An exact match was found. */</span>
+  ULOC_ACCEPT_FALLBACK = 2   <span class="enscript-comment">/* A fallback was found, for example, 
+                                Accept list contained 'ja_JP'
+                                which matched available locale 'ja'. */</span>
+} UAcceptResult;
+
+
+<span class="enscript-comment">/**
+ * @param httpAcceptLanguage - &quot;Accept-Language:&quot; header as per HTTP.
+ * @param result - buffer to accept the result locale
+ * @param resultAvailable the size of the result buffer.
+ * @param availableLocales - list of available locales to match
+ * @param status Error status, may be BUFFER_OVERFLOW_ERROR
+ * @return length needed for the locale.
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_acceptLanguageFromHTTP</span>(<span class="enscript-type">char</span> *result, int32_t resultAvailable,
+                            UAcceptResult *outResult,
+                            <span class="enscript-type">const</span> <span class="enscript-type">char</span> *httpAcceptLanguage,
+                            UEnumeration* availableLocales,
+                            UErrorCode *status);
+
+<span class="enscript-comment">/**
+ * @param acceptList -list of acceptable languages
+ * @param acceptListCount - count of acceptList items
+ * @param result - buffer to accept the result locale
+ * @param resultAvailable the size of the result buffer.
+ * @param availableLocales - list of available locales to match
+ * @param status Error status, may be BUFFER_OVERFLOW_ERROR
+ * @return length needed for the locale.
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uloc_acceptLanguage</span>(<span class="enscript-type">char</span> *result, int32_t resultAvailable, 
+                    UAcceptResult *outResult, <span class="enscript-type">const</span> <span class="enscript-type">char</span> **acceptList,
+                    int32_t acceptListCount,
+                    UEnumeration* availableLocales,
+                    UErrorCode *status);
+
+<span class="enscript-comment">/*eof*/</span>
+
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/*_ULOC*/</span>
+
+
+
+</pre>
+<hr />
+</body></html>

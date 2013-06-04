@@ -3,7 +3,7 @@ dnl "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $"
 dnl
 dnl   Common configuration stuff for CUPS.
 dnl
-dnl   Copyright 2007-2012 by Apple Inc.
+dnl   Copyright 2007-2013 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -337,6 +337,7 @@ AC_SUBST(DBUS_NOTIFIERLIBS)
 
 dnl Extra platform-specific libraries...
 CUPS_DEFAULT_PRINTOPERATOR_AUTH="@SYSTEM"
+CUPS_DEFAULT_SYSTEM_AUTHKEY=""
 CUPS_SYSTEM_AUTHKEY=""
 INSTALLXPC=""
 
@@ -384,10 +385,13 @@ case $uname in
 
 			if test "x$default_adminkey" != xdefault; then
 				CUPS_SYSTEM_AUTHKEY="SystemGroupAuthKey $default_adminkey"
+				CUPS_DEFAULT_SYSTEM_AUTHKEY="$default_adminkey"
 			elif grep -q system.print.operator /etc/authorization; then
 				CUPS_SYSTEM_AUTHKEY="SystemGroupAuthKey system.print.admin"
+				CUPS_DEFAULT_SYSTEM_AUTHKEY="system.print.admin"
 			else
 				CUPS_SYSTEM_AUTHKEY="SystemGroupAuthKey system.preferences"
+				CUPS_DEFAULT_SYSTEM_AUTHKEY="system.preferences"
 			fi
 
 			if test "x$default_operkey" != xdefault; then
@@ -403,8 +407,8 @@ case $uname in
 		if test $uversion -ge 100; then
 			AC_CHECK_HEADER(sandbox.h,AC_DEFINE(HAVE_SANDBOX_H))
 		fi
-		if test $uversion -ge 110; then
-			# Broken public headers in 10.7...
+		if test $uversion -ge 110 -a $uversion -lt 120; then
+			# Broken public headers in 10.7.x...
 			AC_MSG_CHECKING(for sandbox/private.h presence)
 			if test -f /usr/local/include/sandbox/private.h; then
 				AC_MSG_RESULT(yes)
@@ -425,6 +429,7 @@ esac
 
 AC_SUBST(CUPS_DEFAULT_PRINTOPERATOR_AUTH)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_PRINTOPERATOR_AUTH, "$CUPS_DEFAULT_PRINTOPERATOR_AUTH")
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_SYSTEM_AUTHKEY, "$CUPS_DEFAULT_SYSTEM_AUTHKEY")
 AC_SUBST(CUPS_SYSTEM_AUTHKEY)
 AC_SUBST(INSTALLXPC)
 

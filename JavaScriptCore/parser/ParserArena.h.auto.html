@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>ParserArena.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">ParserArena.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2009 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">ParserArena_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ParserArena_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Identifier.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/SegmentedVector.h&gt;</span>
+
+namespace JSC {
+
+    class ParserArenaDeletable;
+    class ParserArenaRefCounted;
+
+    class IdentifierArena {
+        WTF_MAKE_FAST_ALLOCATED;
+    <span class="enscript-reference">public</span>:
+        IdentifierArena()
+        {
+            clear();
+        }
+
+        template &lt;typename T&gt;
+        ALWAYS_INLINE <span class="enscript-type">const</span> Identifier&amp; makeIdentifier(JSGlobalData*, <span class="enscript-type">const</span> T* characters, size_t length);
+        ALWAYS_INLINE <span class="enscript-type">const</span> Identifier&amp; makeIdentifierLCharFromUChar(JSGlobalData*, <span class="enscript-type">const</span> UChar* characters, size_t length);
+
+        <span class="enscript-type">const</span> Identifier&amp; makeNumericIdentifier(JSGlobalData*, <span class="enscript-type">double</span> number);
+
+        bool isEmpty() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_identifiers.isEmpty(); }
+
+    <span class="enscript-reference">public</span>:
+        <span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">int</span> MaximumCachableCharacter = 128;
+        <span class="enscript-type">typedef</span> SegmentedVector&lt;Identifier, 64&gt; IdentifierVector;
+        <span class="enscript-type">void</span> clear()
+        {
+            m_identifiers.clear();
+            <span class="enscript-keyword">for</span> (<span class="enscript-type">int</span> i = 0; i &lt; MaximumCachableCharacter; i++)
+                m_shortIdentifiers[i] = 0;
+            <span class="enscript-keyword">for</span> (<span class="enscript-type">int</span> i = 0; i &lt; MaximumCachableCharacter; i++)
+                m_recentIdentifiers[i] = 0;
+        }
+
+    <span class="enscript-reference">private</span>:
+        IdentifierVector m_identifiers;
+        FixedArray&lt;Identifier*, MaximumCachableCharacter&gt; m_shortIdentifiers;
+        FixedArray&lt;Identifier*, MaximumCachableCharacter&gt; m_recentIdentifiers;
+    };
+
+    template &lt;typename T&gt;
+    ALWAYS_INLINE <span class="enscript-type">const</span> Identifier&amp; IdentifierArena::makeIdentifier(JSGlobalData* globalData, <span class="enscript-type">const</span> T* characters, size_t length)
+    {
+        <span class="enscript-keyword">if</span> (characters[0] &gt;= MaximumCachableCharacter) {
+            m_identifiers.append(Identifier(globalData, characters, length));
+            <span class="enscript-keyword">return</span> m_identifiers.last();
+        }
+        <span class="enscript-keyword">if</span> (length == 1) {
+            <span class="enscript-keyword">if</span> (Identifier* ident = m_shortIdentifiers[characters[0]])
+                <span class="enscript-keyword">return</span> *ident;
+            m_identifiers.append(Identifier(globalData, characters, length));
+            m_shortIdentifiers[characters[0]] = &amp;m_identifiers.last();
+            <span class="enscript-keyword">return</span> m_identifiers.last();
+        }
+        Identifier* ident = m_recentIdentifiers[characters[0]];
+        <span class="enscript-keyword">if</span> (ident &amp;&amp; Identifier::equal(ident-&gt;impl(), characters, length))
+            <span class="enscript-keyword">return</span> *ident;
+        m_identifiers.append(Identifier(globalData, characters, length));
+        m_recentIdentifiers[characters[0]] = &amp;m_identifiers.last();
+        <span class="enscript-keyword">return</span> m_identifiers.last();
+    }
+
+    ALWAYS_INLINE <span class="enscript-type">const</span> Identifier&amp; IdentifierArena::makeIdentifierLCharFromUChar(JSGlobalData* globalData, <span class="enscript-type">const</span> UChar* characters, size_t length)
+    {
+        <span class="enscript-keyword">if</span> (characters[0] &gt;= MaximumCachableCharacter) {
+            m_identifiers.append(Identifier::createLCharFromUChar(globalData, characters, length));
+            <span class="enscript-keyword">return</span> m_identifiers.last();
+        }
+        <span class="enscript-keyword">if</span> (length == 1) {
+            <span class="enscript-keyword">if</span> (Identifier* ident = m_shortIdentifiers[characters[0]])
+                <span class="enscript-keyword">return</span> *ident;
+            m_identifiers.append(Identifier(globalData, characters, length));
+            m_shortIdentifiers[characters[0]] = &amp;m_identifiers.last();
+            <span class="enscript-keyword">return</span> m_identifiers.last();
+        }
+        Identifier* ident = m_recentIdentifiers[characters[0]];
+        <span class="enscript-keyword">if</span> (ident &amp;&amp; Identifier::equal(ident-&gt;impl(), characters, length))
+            <span class="enscript-keyword">return</span> *ident;
+        m_identifiers.append(Identifier::createLCharFromUChar(globalData, characters, length));
+        m_recentIdentifiers[characters[0]] = &amp;m_identifiers.last();
+        <span class="enscript-keyword">return</span> m_identifiers.last();
+    }
+    
+    inline <span class="enscript-type">const</span> Identifier&amp; IdentifierArena::makeNumericIdentifier(JSGlobalData* globalData, <span class="enscript-type">double</span> number)
+    {
+        m_identifiers.append(Identifier(globalData, UString::number(number)));
+        <span class="enscript-keyword">return</span> m_identifiers.last();
+    }
+
+    class ParserArena {
+        WTF_MAKE_NONCOPYABLE(ParserArena);
+    <span class="enscript-reference">public</span>:
+        ParserArena();
+        ~ParserArena();
+
+        <span class="enscript-type">void</span> swap(ParserArena&amp; otherArena)
+        {
+            <span class="enscript-reference">std</span>::swap(m_freeableMemory, otherArena.m_freeableMemory);
+            <span class="enscript-reference">std</span>::swap(m_freeablePoolEnd, otherArena.m_freeablePoolEnd);
+            m_identifierArena.swap(otherArena.m_identifierArena);
+            m_freeablePools.swap(otherArena.m_freeablePools);
+            m_deletableObjects.swap(otherArena.m_deletableObjects);
+            m_refCountedObjects.swap(otherArena.m_refCountedObjects);
+        }
+
+        <span class="enscript-type">void</span>* allocateFreeable(size_t size)
+        {
+            ASSERT(size);
+            ASSERT(size &lt;= freeablePoolSize);
+            size_t alignedSize = alignSize(size);
+            ASSERT(alignedSize &lt;= freeablePoolSize);
+            <span class="enscript-keyword">if</span> (UNLIKELY(static_cast&lt;size_t&gt;(m_freeablePoolEnd - m_freeableMemory) &lt; alignedSize))
+                allocateFreeablePool();
+            <span class="enscript-type">void</span>* block = m_freeableMemory;
+            m_freeableMemory += alignedSize;
+            <span class="enscript-keyword">return</span> block;
+        }
+
+        <span class="enscript-type">void</span>* allocateDeletable(size_t size)
+        {
+            ParserArenaDeletable* deletable = static_cast&lt;ParserArenaDeletable*&gt;(allocateFreeable(size));
+            m_deletableObjects.append(deletable);
+            <span class="enscript-keyword">return</span> deletable;
+        }
+
+        <span class="enscript-type">void</span> derefWithArena(PassRefPtr&lt;ParserArenaRefCounted&gt;);
+        bool contains(ParserArenaRefCounted*) <span class="enscript-type">const</span>;
+        ParserArenaRefCounted* last() <span class="enscript-type">const</span>;
+        <span class="enscript-type">void</span> removeLast();
+
+        bool isEmpty() <span class="enscript-type">const</span>;
+        JS_EXPORT_PRIVATE <span class="enscript-type">void</span> reset();
+
+        IdentifierArena&amp; identifierArena()
+        {
+            <span class="enscript-keyword">if</span> (UNLIKELY (!m_identifierArena))
+                m_identifierArena = adoptPtr(new IdentifierArena);
+            <span class="enscript-keyword">return</span> *m_identifierArena;
+        }
+
+    <span class="enscript-reference">private</span>:
+        <span class="enscript-type">static</span> <span class="enscript-type">const</span> size_t freeablePoolSize = 8000;
+
+        <span class="enscript-type">static</span> size_t alignSize(size_t size)
+        {
+            <span class="enscript-keyword">return</span> (size + <span class="enscript-keyword">sizeof</span>(WTF::AllocAlignmentInteger) - 1) &amp; ~(<span class="enscript-keyword">sizeof</span>(WTF::AllocAlignmentInteger) - 1);
+        }
+
+        <span class="enscript-type">void</span>* freeablePool();
+        <span class="enscript-type">void</span> allocateFreeablePool();
+        <span class="enscript-type">void</span> deallocateObjects();
+
+        <span class="enscript-type">char</span>* m_freeableMemory;
+        <span class="enscript-type">char</span>* m_freeablePoolEnd;
+
+        OwnPtr&lt;IdentifierArena&gt; m_identifierArena;
+        Vector&lt;<span class="enscript-type">void</span>*&gt; m_freeablePools;
+        Vector&lt;ParserArenaDeletable*&gt; m_deletableObjects;
+        Vector&lt;RefPtr&lt;ParserArenaRefCounted&gt; &gt; m_refCountedObjects;
+    };
+
+}
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

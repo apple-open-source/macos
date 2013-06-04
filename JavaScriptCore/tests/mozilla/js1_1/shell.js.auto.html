@@ -1,0 +1,168 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>shell.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">shell.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+* The contents of this file are subject to the Netscape Public
+* License Version 1.1 (the &quot;License&quot;); you may not use this file
+* except in compliance with the License. You may obtain a copy of
+* the License at <a href="http://www.mozilla.org/NPL/">http://www.mozilla.org/NPL/</a>
+*
+* Software distributed under the License is distributed on an &quot;AS
+* IS&quot; basis, WITHOUT WARRANTY OF ANY KIND, either express or
+* implied. See the License for the specific language governing
+* rights and limitations under the License.
+*
+* The Original Code is mozilla.org code.
+*
+* The Initial Developer of the Original Code is Netscape
+* Communications Corporation.  Portions created by Netscape are
+* Copyright (C) 1998 Netscape Communications Corporation. All
+* Rights Reserved.
+*
+* Contributor(s): 
+*/</span>
+
+<span class="enscript-keyword">var</span> completed = <span class="enscript-keyword">false</span>;
+<span class="enscript-keyword">var</span>	testcases;
+<span class="enscript-keyword">var</span> tc = 0;
+
+SECTION	= <span class="enscript-string">&quot;&quot;</span>;
+VERSION	= <span class="enscript-string">&quot;&quot;</span>;
+BUGNUMBER =	<span class="enscript-string">&quot;&quot;</span>;
+
+<span class="enscript-keyword">var</span>	GLOBAL = <span class="enscript-string">&quot;[object global]&quot;</span>;
+<span class="enscript-keyword">var</span> PASSED = <span class="enscript-string">&quot; PASSED!&quot;</span>
+<span class="enscript-keyword">var</span> FAILED = <span class="enscript-string">&quot; FAILED! expected: &quot;</span>;
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                            testcases[tc].actual );
+
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+<span class="enscript-comment">/* wrapper for test cas constructor that doesn't require the SECTION
+ * argument.
+ */</span>
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">AddTestCase</span>( description, expect, actual ) {
+    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION, description, expect, actual );
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">TestCase</span>( n, d, e, a ) {
+    <span class="enscript-keyword">this</span>.name        = n;
+    <span class="enscript-keyword">this</span>.description = d;
+    <span class="enscript-keyword">this</span>.expect      = e;
+    <span class="enscript-keyword">this</span>.actual      = a;
+    <span class="enscript-keyword">this</span>.passed      = <span class="enscript-keyword">true</span>;
+    <span class="enscript-keyword">this</span>.reason      = <span class="enscript-string">&quot;&quot;</span>;
+
+    <span class="enscript-keyword">this</span>.passed = getTestCaseResult( <span class="enscript-keyword">this</span>.expect, <span class="enscript-keyword">this</span>.actual );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">startTest</span>() {
+    version(110);
+
+    <span class="enscript-keyword">if</span> ( BUGNUMBER ) {
+            writeLineToLog (<span class="enscript-string">&quot;BUGNUMBER: &quot;</span> + BUGNUMBER );
+    }
+
+    testcases = <span class="enscript-keyword">new</span> Array();
+    tc = 0;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getTestCaseResult</span>( expect, actual ) {
+    <span class="enscript-comment">//  because ( NaN == NaN ) always returns false, need to do
+</span>    <span class="enscript-comment">//  a special compare to see if we got the right result.
+</span>        <span class="enscript-keyword">if</span> ( actual != actual ) {
+            <span class="enscript-keyword">if</span> ( typeof actual == <span class="enscript-string">&quot;object&quot;</span> ) {
+                actual = <span class="enscript-string">&quot;NaN object&quot;</span>;
+            } <span class="enscript-keyword">else</span> {
+                actual = <span class="enscript-string">&quot;NaN number&quot;</span>;
+            }
+        }
+        <span class="enscript-keyword">if</span> ( expect != expect ) {
+            <span class="enscript-keyword">if</span> ( typeof expect == <span class="enscript-string">&quot;object&quot;</span> ) {
+                expect = <span class="enscript-string">&quot;NaN object&quot;</span>;
+            } <span class="enscript-keyword">else</span> {
+                expect = <span class="enscript-string">&quot;NaN number&quot;</span>;
+            }
+        }
+
+        <span class="enscript-keyword">var</span> passed = ( expect == actual ) ? <span class="enscript-keyword">true</span> : <span class="enscript-keyword">false</span>;
+
+    <span class="enscript-comment">//  if both objects are numbers, give a little leeway for rounding.
+</span>        <span class="enscript-keyword">if</span> (    !passed
+                &amp;&amp; typeof(actual) == <span class="enscript-string">&quot;number&quot;</span>
+                &amp;&amp; typeof(expect) == <span class="enscript-string">&quot;number&quot;</span>
+            ) {
+                <span class="enscript-keyword">if</span> ( <span class="enscript-builtin">Math</span>.abs(actual-expect) &lt; 0.0000001 ) {
+                    passed = <span class="enscript-keyword">true</span>;
+                }
+        }
+
+    <span class="enscript-comment">//  verify type is the same
+</span>        <span class="enscript-keyword">if</span> ( typeof(expect) != typeof(actual) ) {
+            passed = <span class="enscript-keyword">false</span>;
+        }
+
+        <span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-comment">/*
+ * Begin printing functions.  These functions use the shell's
+ * print function.  When running tests in the browser, these
+ * functions, override these functions with functions that use
+ * document.write.
+ */</span>
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeTestCaseResult</span>( expect, actual, string ) {
+		<span class="enscript-keyword">var</span>	passed = getTestCaseResult(	expect,	actual );
+		writeFormattedResult( expect, actual, string, passed );
+		<span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeFormattedResult</span>( expect, actual, string, passed ) {
+        <span class="enscript-keyword">var</span> s = string ;
+        s += ( passed ) ? PASSED : FAILED + expect;
+        writeLineToLog( s);
+        <span class="enscript-keyword">return</span> passed;
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeLineToLog</span>( string	) {
+	print( string );
+}
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">writeHeaderToLog</span>( string )	{
+	print( string );
+}
+<span class="enscript-comment">/* end of print functions */</span>
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">stopTest</span>() {
+   <span class="enscript-keyword">var</span> gc;
+   <span class="enscript-keyword">if</span> ( gc != undefined ) {
+        gc();
+   }
+}
+</pre>
+<hr />
+</body></html>

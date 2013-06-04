@@ -1794,7 +1794,8 @@ static void PMConnectionPowerCallBack(
             else if ( cur_time >= ts_nextPowerNap ) {
                wakeType = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeTypeKey));
                if (isA_CFString(wakeType) && (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) || 
-                            CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService)  ) ) {
+                            CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService) || 
+                            CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepTimer) ) ) {
 
                   if ( _DWBT_allowed() ) {
                       gWakeForDWBTInterval = 0;

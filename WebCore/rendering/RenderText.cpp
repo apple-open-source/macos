@@ -1173,6 +1173,9 @@ void RenderText::setSelectionState(SelectionState state)
 
 void RenderText::setTextWithOffset(PassRefPtr<StringImpl> text, unsigned offset, unsigned len, bool force)
 {
+    if (!force && equal(m_text.impl(), text.get()))
+        return;
+
     unsigned oldLen = textLength();
     unsigned newLen = text->length();
     int delta = newLen - oldLen;
@@ -1185,6 +1188,7 @@ void RenderText::setTextWithOffset(PassRefPtr<StringImpl> text, unsigned offset,
 
     // Dirty all text boxes that include characters in between offset and offset+len.
     for (InlineTextBox* curr = firstTextBox(); curr; curr = curr->nextTextBox()) {
+        // FIXME: This shouldn't rely on the end of a dirty line box. See https://bugs.webkit.org/show_bug.cgi?id=97264
         // Text run is entirely before the affected range.
         if (curr->end() < offset)
             continue;
@@ -1244,7 +1248,7 @@ void RenderText::setTextWithOffset(PassRefPtr<StringImpl> text, unsigned offset,
     }
 
     m_linesDirty = dirtiedLines;
-    setText(text, force);
+    setText(text, force || dirtiedLines);
 }
 
 void RenderText::transformText()

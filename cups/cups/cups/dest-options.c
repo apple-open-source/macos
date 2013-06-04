@@ -1,5 +1,5 @@
 /*
- * "$Id: dest-options.c 3972 2012-10-24 11:59:21Z msweet $"
+ * "$Id: dest-options.c 4188 2013-02-20 02:30:47Z msweet $"
  *
  *   Destination option/media support for CUPS.
  *
@@ -485,7 +485,7 @@ cupsCopyDestConflicts(
     active = NULL;
   }
 
-  if (tries >= 0)
+  if (tries >= 100)
   {
     DEBUG_puts("1cupsCopyDestConflicts: Unable to resolve after 100 tries.");
     have_conflicts = -1;
@@ -1759,5 +1759,5 @@ cups_test_constraints(
 
 
 /*
- * End of "$Id: dest-options.c 3972 2012-10-24 11:59:21Z msweet $".
+ * End of "$Id: dest-options.c 4188 2013-02-20 02:30:47Z msweet $".
  */

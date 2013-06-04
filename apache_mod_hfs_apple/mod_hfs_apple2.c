@@ -70,6 +70,7 @@ limitations under the License.
 #define __MACHINEEXCEPTIONS__
 #define __DRIVERSERVICES__
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <CoreFoundation/CFString.h>
 
 #include <unistd.h>
 
@@ -127,14 +128,15 @@ static void add_directory_entry(request_rec *r, char *path) {
 	
 	/* Figure whether the targeted volume is case-sensitive */
 	case_sens = pathconf(path, _PC_CASE_SENSITIVE);
+	//Non-existent paths may be considered case-sensitive
 	
 	/* Add new entry to the table (ignore errors) */
 	elt = apr_array_push(directories);
 	*elt = (dir_rec*) apr_palloc(g_pool, sizeof(dir_rec));
 	if (*elt == NULL) return;
-	/* duplicate the path into apache's main pool (along with the rest
+	/* Duplicate the path into apache's main pool (along with the rest
 	 * of the structure) so everything stays together.  Then free what
-	 * we've malloc'd.
+	 * we've malloc'd. To do: Consider normalizing dir_path here.
 	 */
 	(*elt)->dir_path = apr_pstrdup(g_pool, dir_path); 
 	free(dir_path);
@@ -143,7 +145,7 @@ static void add_directory_entry(request_rec *r, char *path) {
 	ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
 		"mod_hfs_apple: %s is %s",
 		(*elt)->dir_path, (*elt)->case_sens ? "case-sensitive" : "case-insensitive");
-};
+}
 	
 /*
  *	Support routine that updates our table of directory entries,
@@ -162,7 +164,74 @@ static void update_directory_entries(request_rec *r) {
 		if (entry_core == NULL || entry_core->d == NULL) continue;
 		add_directory_entry(r, entry_core->d);
 	}
-};
+}
+
+/*
+ *	Determine whether child path refers to a subdirectory of parent path, with equivalance determined by
+ *	comparing their file system representation. Only called for case-insensitive parents, with non-ascii
+ *	characters in the argument strings, since the other cases are handled by compare_paths.
+ */
+static int compare_non_ascii_paths(const char *parent, const char *child, int *related, int *deny, request_rec* r) {
+	CFStringRef parentRef = CFStringCreateWithCString(NULL, parent, kCFStringEncodingUTF8);
+	if (!parentRef) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+				  "mod_hfs_apple: Cannot encode parent %s. Skipping.", parent);
+		return 0;
+	}
+
+	CFStringRef childRef = CFStringCreateWithCString(NULL, child, kCFStringEncodingUTF8);
+	if (!childRef) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+					  "mod_hfs_apple: Cannot encode child %s. Denying access.", child);
+		*deny = 1;
+		return 0;
+	}
+
+	int parentStrLen = strlen(parent);
+	int parentLength = CFStringGetLength(parentRef);
+	int childLength = CFStringGetLength(childRef);
+	if (CFStringHasSuffix(parentRef, CFSTR("/"))) {
+		CFRelease(parentRef);
+		parentRef = CFStringCreateWithSubstring(NULL, parentRef, CFRangeMake(0, --parentLength));
+		parentStrLen--;
+	}
+	if (CFStringHasSuffix(childRef, CFSTR("/"))) {
+		CFRelease(childRef);
+		childRef = CFStringCreateWithSubstring(NULL, childRef, CFRangeMake(0, --childLength));
+	}
+	char fsrChild[PATH_MAX];
+	if (!CFStringGetFileSystemRepresentation(childRef, fsrChild, sizeof(fsrChild))) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+					  "mod_hfs_apple: Cannot get file system representation for child %s. Denying access.", child);
+		CFRelease(childRef);
+		*deny = 1;
+		return 0;
+	}
+	CFRelease(childRef);
+
+	char fsrParent[PATH_MAX];
+	if (!CFStringGetFileSystemRepresentation(parentRef, fsrParent, sizeof(fsrParent))) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+				  "mod_hfs_apple: Cannot get file system representation for parent %s. Skipping.", parent);
+		CFRelease(parentRef);
+		return 0;
+	}
+	CFRelease(parentRef);
+
+	size_t fsrLen = strlen(fsrParent);
+	if (!strncasecmp(fsrParent, fsrChild, fsrLen)) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+					  "mod_hfs_apple: Comparing FSR: %s == %s, len = %ld", fsrParent, fsrChild, fsrLen);
+		*related = 1;
+		return parentStrLen;
+	} else {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+					  "mod_hfs_apple: Comparing FSR: %s != %s, len = %ld", fsrParent, fsrChild, fsrLen);
+		*related = 0;
+	return 0;
+	}
+}
+
 
 /*
  *	Support routine that does a string compare of two paths (do not
@@ -171,8 +240,8 @@ static void update_directory_entries(request_rec *r) {
  *	'child' is a sub-directory of 'parent'. In that very case also 
  *	returns 'related'=1.
  */
-static int compare_paths(const char *parent, const char *child, 
-	int *related) {
+static int compare_paths(const char *parent, const char *child,
+	int *related, int *deny, request_rec* r) {
 	size_t		pl,cl,i;
 	const char	*p,*c;
 	size_t		n = 0;
@@ -187,38 +256,44 @@ static int compare_paths(const char *parent, const char *child,
 	if (cl == 0) return 0;
 	if (child[cl - 1] == '/') cl--;
 	if (cl < pl) return 0;
-	
 	/* Compare both paths */
 	for (p = parent,c = child,i = pl; i > 0; i--) {
+		if (!isascii(*p) || !isascii(*c))
+			return (compare_non_ascii_paths(parent, child, related, deny, r));
 		if (tolower(*p++) != tolower(*c++)) break;
 		n++;
 	}
 	if (i > 0 || (cl > pl && *c != '/')) return 0;
 	*related = cl >= pl;
 	return n;
-};
+}
 
 /* Return 1 if string contains ignorable Unicode sequence.
  *	From 12830770:
  *	(\xFC[\x80-\x83])|(\xF8[\x80-\x87])|(\xF0[\x80-\x8F])|(\xEF\xBB\xBF)|(\xE2\x81[\xAA-\xAF])|(\xE2\x80[\x8C-\x8F\xAA-\xAE])
  */ 
-static int contains_ignorable_sequence(char* s) {
-	size_t len = strlen(s);
+static int contains_ignorable_sequence(unsigned char* s, __attribute__((unused)) request_rec* r) {
+	size_t len = strlen((char*)s);
 	if (len <= 2) return 0;
-	for (size_t i = 0; i <= len - 2; i++) {
+	size_t i;
+	for (i = 0; i <= len - 2; i++) {
 		// 2-char sequences
-		if (s[i] == '\xFC' && '\x80' <= s[i+1] && s[i+1] <= '\x83') return 1;
-		if (s[i] == '\xF8' && '\x80' <= s[i+1] && s[i+1] <= '\x87') return 1;
-		if (s[i] == '\xF0' && '\x80' <= s[i+1] && s[i+1] <= '\x8F') return 1;
+		if (s[i] == (unsigned char)'\xFC' && (unsigned char)'\x80' <= s[i+1] && s[i+1] <= (unsigned char)'\x83') return 1;
+		if (s[i] == (unsigned char)'\xF8' && (unsigned char)'\x80' <= s[i+1] && s[i+1] <= (unsigned char)'\x87') return 1;
+		if (s[i] == (unsigned char)'\xF0' && (unsigned char)'\x80' <= s[i+1] && s[i+1] <= (unsigned char)'\x8F') return 1;
 		if (i <= len - 3) {
 			// 3-char sequences
-			if (s[i] == '\xEF' && s[i+1] =='\xBB' && s[i+2] =='\xBF') return 1;
-			if (s[i] == '\xE2' && s[i+1] =='\x81' && '\xAA' <= s[i+2] && s[i+2] <= '\xAF') return 1;
-			if (s[i] == '\xE2' && s[i+1] =='\x80' && (('\x8C' <= s[i+2] && s[i+2] <= '\x8F') || ('\xAA' <= s[i+2] && s[i+2] <= '\xAE'))) return 1;
+			//ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+			//		"mod_hfs_apple: 3-char %x %x %x", s[i], s[i+1], s[i+2]);
+
+			if (s[i] == (unsigned char)'\xEF' && s[i+1] == (unsigned char)'\xBB' && s[i+2] == (unsigned char)'\xBF') return 1;
+			if (s[i] == (unsigned char)'\xE2' && s[i+1] == (unsigned char)'\x81' && (unsigned char)'\xAA' <= s[i+2] && s[i+2] <= (unsigned char)'\xAF') return 1;
+			if (s[i] == (unsigned char)'\xE2' && s[i+1] == (unsigned char)'\x80' && (((unsigned char)'\x8C' <= s[i+2] && s[i+2] <= (unsigned char)'\x8F') || ((unsigned char)'\xAA' <= s[i+2] && s[i+2] <= (unsigned char)'\xAE'))) return 1;
 		}
 	}
 	return 0;
 }
+
 
 #pragma mark-
 /*
@@ -232,6 +307,16 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	size_t max_n_matches;
 	char *url_path;
 	size_t len;
+	
+/*
+ * Forbid access to URIs with ignorable Unicode character sequences
+*/
+	if (contains_ignorable_sequence((unsigned char*)r->filename, r)) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r,
+					  "mod_hfs_apple: URI %s has ignorable character sequence. Denying access.",
+					  r->filename);
+		return HTTP_FORBIDDEN;
+	}
 	
 	/* First update table of directory entries if necessary */
 	update_directory_entries(r);
@@ -251,6 +336,7 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	max_n_matches = 0;
 	found = -1;
 	len = strlen(r->filename);
+	int deny = 0;
 	if (r->filename[len - 1] != '/') {
 		url_path = malloc(len + 2);
 		if( url_path == NULL ) return HTTP_FORBIDDEN;
@@ -267,14 +353,24 @@ static int hfs_apple_module_fixups(request_rec *r) {
 		dir_rec *entry = ((dir_rec**) directories->elts)[i];
 		if (entry->case_sens == 1) continue;
 		n_matches = compare_paths(
-			entry->dir_path, url_path, &related);
-	 	if (n_matches > 0 
+			entry->dir_path, url_path, &related, &deny, r);
+		if (deny) {
+			free(url_path);
+			ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r,
+						  "mod_hfs_apple: Cannot encode for comparison, %s vs %s; denying access.", entry->dir_path, url_path);
+			return HTTP_FORBIDDEN;
+		}
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+					  "mod_hfs_apple: compare_paths %s vs %s, related=%d", entry->dir_path, url_path, related);
+	 	if (n_matches > 0
 	 		&& n_matches > max_n_matches && related == 1) {
 	 		max_n_matches = n_matches;
 	 		found = i;
 	 	}
 	}
 	if (found < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+					  "mod_hfs_apple: Allowing access with no matching directory. filename = %s", r->filename);
 		free(url_path);
 		return OK;
 	}
@@ -284,25 +380,22 @@ static int hfs_apple_module_fixups(request_rec *r) {
 	 * the most immediate parent of 'filename'. Do a regular 
 	 * case-sensitive compare on the directory portion of it. If
 	 * not-equal then return an error.
-	 * First, forbid access to URIs with ignorable Unicode character sequences
-	 */
-	if (contains_ignorable_sequence(r->filename)) {
-		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r,
-				  "mod_hfs_apple: URI %s has ignorable character sequence. Denying access.",
-				  r->filename);
-		return HTTP_FORBIDDEN;
-	}
-	
+     */
+	ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+				  "mod_hfs_apple: Final check compares: %s vs %s, length %ld",
+				  r->filename, ((dir_rec**) directories->elts)[found]->dir_path, max_n_matches);
+
 	if (strncmp(((dir_rec**) directories->elts)[found]->dir_path,
 		url_path, max_n_matches) != 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r,
-			"mod_hfs_apple: Mis-cased URI: %s, wants: %s",
+			"mod_hfs_apple: Mis-cased URI or unacceptable Unicode in URI: %s, wants: %s",
 			r->filename,
 			((dir_rec**) directories->elts)[found]->dir_path);
 		free(url_path);
 		return HTTP_FORBIDDEN;
 	}
-	
+	ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r,
+				  "mod_hfs_apple: Allowing access with matching directory. filename = %s", r->filename);
 	free(url_path);
 	return OK;
 }
@@ -314,7 +407,7 @@ static int hfs_apple_module_fixups(request_rec *r) {
 static void hfs_apple_module_init(apr_pool_t *p, __attribute__((unused)) server_rec *s ) {
 	g_pool = p;
 	directories = apr_array_make(g_pool, 4, sizeof(dir_rec*));
-};
+}
 
 
 static void register_hooks(__attribute__((unused)) apr_pool_t *p)

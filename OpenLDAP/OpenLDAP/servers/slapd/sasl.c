@@ -697,6 +697,59 @@ sasl_pws_lookup( Operation *op, SlapReply *rs )
 }
 
 static void
+pws_authdata_lookup(lookup_info *sl )
+{
+	Operation *op = NULL;
+	OperationBuffer opbuf = {0};
+	Connection conn = {0};
+	SlapReply rs = {REP_RESULT};
+	struct berval authdn = {0};
+	slap_callback authdata_lookup_cb = { NULL, sasl_authdata_lookup, NULL, NULL };
+
+	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
+	op = &opbuf.ob_op;
+
+	if(!sl) {
+		Debug(LDAP_DEBUG_TRACE, "%s: no lookup_info provided\n", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
+	}
+
+	authdn.bv_len = asprintf(&authdn.bv_val, "authGUID=%s,cn=users,cn=authdata", sl->uuidstr);
+
+	op->o_dn = op->o_ndn = op->o_req_dn = op->o_req_ndn = authdn;
+	op->o_conn->c_listener->sl_url.bv_val = "ldapi://%2Fvar%2Frun%2Fldapi";
+	op->o_conn->c_listener->sl_url.bv_len = strlen("ldapi://%2Fvar%2Frun%2Fldapi");
+// lookup authdata record
+	op->o_req_ndn.bv_len = strlen(op->o_req_ndn.bv_val);
+
+	op->o_bd = select_backend(&op->o_req_ndn, 1);
+	if(!op->o_bd) {
+		Debug(LDAP_DEBUG_TRACE, "%s: could not find backend for: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+		goto out;
+	}
+
+	op->o_do_not_cache = 1;
+	slap_op_time(&op->o_time, &op->o_tincr);
+	op->o_tag = LDAP_REQ_SEARCH;
+	op->ors_scope = LDAP_SCOPE_BASE;
+	op->ors_deref = LDAP_DEREF_NEVER;
+	op->ors_tlimit = SLAP_NO_LIMIT;
+	op->ors_slimit = 1;
+	op->ors_filter = &generic_filter;
+	op->ors_filterstr = generic_filterstr;
+	op->ors_attrs = NULL;
+	authdata_lookup_cb.sc_private = sl;
+	op->o_callback = &authdata_lookup_cb;
+
+	op->o_bd->be_search(op, &rs);
+	if(rs.sr_err != LDAP_SUCCESS) {
+		Debug(LDAP_DEBUG_TRACE, "%s: Unable to locate %s (%d)\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, rs.sr_err);
+	}
+out:
+	free(authdn.bv_val);
+}
+
+static void
 pws_auxprop_lookup(
 	void *glob_context __attribute__((unused)),
 	sasl_server_params_t *sparams,
@@ -706,7 +759,7 @@ pws_auxprop_lookup(
 {
 	Operation op = {0};
 	Connection *conn = NULL;
-	lookup_info sl;
+	lookup_info sl = {0};
 	int i;
 
 	Debug( LDAP_DEBUG_TRACE, "%s: entered", __PRETTY_FUNCTION__, 0, 0 );
@@ -779,42 +832,8 @@ pws_auxprop_lookup(
 			op.o_bd->be_search( &op, &rs );
 		}
 	}
-
-	slap_callback cb2 = { NULL, sasl_authdata_lookup, NULL, NULL };
-	char *save_ndn_bv_val = op.o_req_ndn.bv_val;
-	ber_len_t save_ndn_bv_len = op.o_req_ndn.bv_len;
-	asprintf(&(op.o_req_ndn.bv_val), "authGUID=%s,cn=users,cn=authdata", sl.uuidstr);
-	op.o_req_ndn.bv_len = strlen(op.o_req_ndn.bv_val);
-	cb2.sc_private = &sl;
-	op.o_callback = &cb2;
-
-	char *save_bv_val = NULL;
-	ber_len_t save_bv_len = 0;
-	if(!op.o_conn) op.o_conn = conn;
-	save_bv_val = op.o_conn->c_listener->sl_url.bv_val;
-	save_bv_len = op.o_conn->c_listener->sl_url.bv_len;
-	op.o_conn->c_listener->sl_url.bv_val = strdup("ldapi://%2Fvar%2Frun%2Fldapi");
-	op.o_conn->c_listener->sl_url.bv_len = strlen("ldapi://%2Fvar%2Frun%2Fldapi");
-	op.o_hdr = conn->c_sasl_bindop->o_hdr;
-	op.o_tag = LDAP_REQ_SEARCH;
-
-	op.o_bd = select_backend( &op.o_req_ndn, 1 );
-	if ( op.o_bd ) {
-		if ( op.o_bd->be_search ) {
-			SlapReply rs = {REP_RESULT};
-			slap_op_time( &op.o_time, &op.o_tincr );
-			op.o_callback->sc_next = NULL;
-			op.o_bd->be_search( &op, &rs );
-		}
-	}
-	free(op.o_req_ndn.bv_val);
-	op.o_req_ndn.bv_val = save_ndn_bv_val;
-	op.o_req_ndn.bv_len = save_ndn_bv_len;
-	if(save_bv_val) {
-		free(op.o_conn->c_listener->sl_url.bv_val);
-		op.o_conn->c_listener->sl_url.bv_val = save_bv_val;
-		op.o_conn->c_listener->sl_url.bv_len = save_bv_len;
-	}
+	
+	pws_authdata_lookup(&sl);
 }
 
 static sasl_auxprop_plug_t pws_auxprop_plugin = {

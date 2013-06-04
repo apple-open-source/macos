@@ -31,6 +31,7 @@
 #include <IOKit/IOTimerEventSource.h>
 #include "IOHIDEventService.h"
 #include "IOHIDEventTypes.h"
+#include "IOHIDEvent.h"
 
 class IOHIDEventSystem: public IOService
 {

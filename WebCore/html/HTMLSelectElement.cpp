@@ -364,9 +364,6 @@ void HTMLSelectElement::childrenChanged(bool changedByParser, Node* beforeChange
     setNeedsValidityCheck();
 
     HTMLFormControlElementWithState::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    
-    if (AXObjectCache::accessibilityEnabled() && renderer())
-        renderer()->document()->axObjectCache()->childrenChanged(renderer());
 }
 
 void HTMLSelectElement::optionElementChildrenChanged()
@@ -704,6 +701,8 @@ void HTMLSelectElement::setRecalcListItems()
     setNeedsStyleRecalc();
     if (!inDocument() && m_optionsCollection)
         m_optionsCollection->invalidateCacheIfNeeded();
+    if (AXObjectCache::accessibilityEnabled() && renderer())
+        renderer()->document()->axObjectCache()->childrenChanged(renderer());
 }
 
 void HTMLSelectElement::recalcListItems(bool updateSelectedStates) const
@@ -1106,9 +1105,9 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event* event)
             if (keyCode == ' ' || keyCode == '\r') {
                 focus();
 
-                // Calling focus() may cause us to lose our renderer, in which case
-                // do not want to handle the event.
-                if (!renderer())
+                // Calling focus() may remove the renderer or change the
+                // renderer type.
+                if (!renderer() || !renderer()->isMenuList())
                     return;
 
                 // Save the selection so it can be compared to the new selection
@@ -1124,9 +1123,9 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event* event)
             if (keyCode == ' ') {
                 focus();
 
-                // Calling focus() may cause us to lose our renderer, in which case
-                // do not want to handle the event.
-                if (!renderer())
+                // Calling focus() may remove the renderer or change the
+                // renderer type.
+                if (!renderer() || !renderer()->isMenuList())
                     return;
 
                 // Save the selection so it can be compared to the new selection
@@ -1452,8 +1451,10 @@ void HTMLSelectElement::typeAheadFind(KeyboardEvent* event)
         return;
 
     int selected = selectedIndex();
-    int index = (optionToListIndex(selected >= 0 ? selected : 0) + searchStartOffset) % itemCount;
-    ASSERT(index >= 0);
+    int index = optionToListIndex(selected >= 0 ? selected : 0);
+    if (index < 0)
+        return;
+    index = (index + searchStartOffset) % itemCount;
 
     // Compute a case-folded copy of the prefix string before beginning the search for
     // a matching element. This code uses foldCase to work around the fact that

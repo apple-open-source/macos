@@ -13,7 +13,8 @@ Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
 
 Patches = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
-          zsh-Doc.patch svn-zsh-complete.patch
+          zsh-Doc.patch svn-zsh-complete.patch \
+          svn-12842468.patch
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

@@ -90,6 +90,18 @@ using namespace HTMLNames;
 
 #ifndef NDEBUG
 static void* baseOfRenderObjectBeingDeleted;
+
+RenderObject::SetLayoutNeededForbiddenScope::SetLayoutNeededForbiddenScope(RenderObject* renderObject)
+    : m_renderObject(renderObject)
+    , m_preexistingForbidden(m_renderObject->isSetNeedsLayoutForbidden())
+{
+    m_renderObject->setNeedsLayoutIsForbidden(true);
+}
+
+RenderObject::SetLayoutNeededForbiddenScope::~SetLayoutNeededForbiddenScope()
+{
+    m_renderObject->setNeedsLayoutIsForbidden(m_preexistingForbidden);
+}
 #endif
 
 struct SameSizeAsRenderObject {
@@ -2369,13 +2381,19 @@ void RenderObject::willBeDestroyed()
     if (frame() && frame()->eventHandler()->autoscrollRenderer() == this)
         frame()->eventHandler()->stopAutoscrollTimer(true);
 
-    if (AXObjectCache::accessibilityEnabled()) {
-        document()->axObjectCache()->childrenChanged(this->parent());
-        document()->axObjectCache()->remove(this);
-    }
     animation()->cancelAnimations(this);
 
+    // For accessibility management, notify the parent of the imminent change to its child set.
+    // We do it now, before remove(), while the parent pointer is still available.
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->childrenChanged(this->parent());
+
     remove();
+
+    // The remove() call above may invoke axObjectCache()->childrenChanged() on the parent, which may require the AX render
+    // object for this renderer. So we remove the AX render object now, after the renderer is removed.
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->remove(this);
 
 #ifndef NDEBUG
     if (!documentBeingDestroyed() && view() && view()->hasRenderNamedFlowThreads()) {

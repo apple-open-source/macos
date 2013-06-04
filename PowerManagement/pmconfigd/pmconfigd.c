@@ -1351,32 +1351,17 @@ exit:
     return;
 }
 
-static void calendarRTCDidResync(
-    CFMachPortRef port, 
-    void *msg,
-    CFIndex size,
-    void *info)
+static void calendarRTCDidResync_getSMCWakeInterval(void)
 {
 #if !TARGET_OS_EMBEDDED
     uint16_t            wakeup_smc_result = 0;
     IOReturn            ret = kIOReturnSuccess;
 #endif
-    mach_msg_header_t   *header = (mach_msg_header_t *)msg;
     CFAbsoluteTime      lastWakeTime;
-
+    
     // Capture this as early as possible
     lastWakeTime = CFAbsoluteTimeGetCurrent();
-
-    if (!header || HOST_CALENDAR_CHANGED_REPLYID != header->msgh_id) {
-        return;
-    }
-    
-    // renew our request for calendar change notification
-    // we should still proceed if it fails
-    (void) host_request_notification(mach_host_self(),
-                            HOST_NOTIFY_CALENDAR_CHANGE,
-                            header->msgh_local_port);
-
+        
     if (!gExpectingWakeFromSleepClockResync) {
         // This is a non-wake-from-sleep clock resync, so we'll ignore it.
         goto exit;
@@ -1385,10 +1370,10 @@ static void calendarRTCDidResync(
     // if needed, init standalone memory for last wake time data
     if (!gLastSMCS3S0WakeInterval) {
         size_t bufSize;
-
+        
         bufSize = sizeof(*gLastWakeTime) + sizeof(*gLastSMCS3S0WakeInterval);
         if (0 != vm_allocate(mach_task_self(), (void*)&gLastWakeTime,
-                     bufSize, VM_FLAGS_ANYWHERE)) {
+                             bufSize, VM_FLAGS_ANYWHERE)) {
             return;
         }
         gLastSMCS3S0WakeInterval = gLastWakeTime + 1;
@@ -1397,26 +1382,26 @@ static void calendarRTCDidResync(
         if (!gLastWakeTime || !gLastSMCS3S0WakeInterval)
             return;
     }
-
+    
     // This is a wake-from-sleep resync, so commit the last wake time
     *gLastWakeTime = lastWakeTime;
     *gLastSMCS3S0WakeInterval = 0;
     gExpectingWakeFromSleepClockResync = false;
-
+    
     // Re-enable battery time remaining calculations
     (void) BatteryTimeRemainingRTCDidResync();
-
+    
 #if !TARGET_OS_EMBEDDED
     if (!gSMCSupportsWakeupTimer) {
         // This system's SMC doesn't support a wakeup time, so we're done
         goto exit;
     }
-
+    
     // Read SMC key for precise timing between when the wake event physically occurred
     // and now (i.e. the moment we read the key).
     // - SMC key returns the delta in tens of milliseconds
     ret = _smcWakeTimerGetResults(&wakeup_smc_result);
-    if ((ret != kIOReturnSuccess) || (wakeup_smc_result == 0)) 
+    if ((ret != kIOReturnSuccess) || (wakeup_smc_result == 0))
     {
         if (kIOReturnNotFound == ret) {
             gSMCSupportsWakeupTimer = false;
@@ -1425,15 +1410,32 @@ static void calendarRTCDidResync(
     }
     // re-sample the current time closer to the SMC key read
     *gLastWakeTime = CFAbsoluteTimeGetCurrent();
-
+    
     // convert 10x msecs to (double)seconds
     *gLastSMCS3S0WakeInterval = ((double)wakeup_smc_result / 100.0);
-
+    
     // And we adjust backwards to determine the real time of physical wake.
     *gLastWakeTime -= *gLastSMCS3S0WakeInterval;
 #endif
-
 exit:
+    return;
+}
+
+static void calendarRTCDidResync(CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+    mach_msg_header_t   *header = (mach_msg_header_t *)msg;
+
+    if (!header || HOST_CALENDAR_CHANGED_REPLYID != header->msgh_id) {
+        return;
+    }
+    
+    // renew our request for calendar change notification
+    (void) host_request_notification(mach_host_self(), HOST_NOTIFY_CALENDAR_CHANGE,
+                                     header->msgh_local_port);
+
+    calendarRTCDidResync_getSMCWakeInterval();
+    AutoWakeCalendarChange();
+    
     return;
 }
 

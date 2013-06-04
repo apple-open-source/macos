@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>makefile</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">makefile&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">##
+</span><span class="enscript-comment"># Makefile for TimeZoneData
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># See <a href="http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents">http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents</a>
+</span><span class="enscript-comment"># for documentation on makefiles. Most of this was culled from the ncurses makefile.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">##
+</span>
+<span class="enscript-comment">#################################
+</span><span class="enscript-comment">#################################
+</span><span class="enscript-comment"># MAKE VARS
+</span><span class="enscript-comment">#################################
+</span><span class="enscript-comment">#################################
+</span>
+<span class="enscript-comment"># ':=' denotes a &quot;simply expanded&quot; variable. Its value is
+</span><span class="enscript-comment"># set at the time of definition and it never recursively expands
+</span><span class="enscript-comment"># when used. This is in contrast to using '=' which denotes a
+</span><span class="enscript-comment"># recursively expanded variable.
+</span>
+SHELL := /bin/sh
+
+<span class="enscript-comment"># Sane defaults, which are typically overridden on the command line.
+</span>SRCROOT=$(<span class="enscript-reference">shell pwd</span>)
+OBJROOT=$(<span class="enscript-reference">SRCROOT</span>)/build
+DSTROOT=$(<span class="enscript-reference">OBJROOT</span>)
+SYMROOT=$(<span class="enscript-reference">OBJROOT</span>)
+RC_ARCHS=
+
+<span class="enscript-comment">#################################
+</span><span class="enscript-comment"># Install
+</span><span class="enscript-comment">#################################
+</span>
+INSTALL = /usr/bin/install
+ifeq <span class="enscript-string">&quot;$(OS)&quot;</span> <span class="enscript-string">&quot;Windows_NT&quot;</span>
+	INSTALLDIR = /AppleInternal/bin/tz
+else
+	INSTALLDIR = /usr/local/share/tz
+endif
+
+<span class="enscript-comment">#################################
+</span><span class="enscript-comment"># B&amp;I TARGETS
+</span><span class="enscript-comment">#################################
+</span>
+installsrc :
+	if test ! -d $(<span class="enscript-reference">SRCROOT</span>); then mkdir $(<span class="enscript-reference">SRCROOT</span>); fi;
+	tar cf - ./makefile ./tz*.tar.gz ./boundaries | (cd $(<span class="enscript-reference">SRCROOT</span>) ; tar xfp -);
+
+installhdrs :
+	echo <span class="enscript-string">&quot;Nothing to do for installhdrs&quot;</span>
+
+install : installhdrs
+	if test ! -d $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>)/; then \
+		$(<span class="enscript-reference">INSTALL</span>) -d -m 0775 $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>)/; \
+	fi;
+	if test ! -d $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>)/boundaries/; then \
+		$(<span class="enscript-reference">INSTALL</span>) -d -m 0775 $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>)/boundaries/; \
+	fi;
+	$(<span class="enscript-reference">INSTALL</span>) -b -m 0644 $(<span class="enscript-reference">SRCROOT</span>)/tz*.tar.gz $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>)
+	$(<span class="enscript-reference">INSTALL</span>) -b -m 0644 $(<span class="enscript-reference">SRCROOT</span>)/boundaries/*.gpx $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>)/boundaries
+	(cd $(<span class="enscript-reference">DSTROOT</span>)$(<span class="enscript-reference">INSTALLDIR</span>); \
+	ln -sf $(<span class="enscript-reference">notdir $(lastword $(wildcard $(SRCROOT)/tzdata*.tar.gz))</span>) latest_tzdata.tar.gz; \
+	ln -sf $(<span class="enscript-reference">notdir $(lastword $(wildcard $(SRCROOT)/tzcode*.tar.gz))</span>) latest_tzcode.tar.gz;);
+
+clean :
+</pre>
+<hr />
+</body></html>

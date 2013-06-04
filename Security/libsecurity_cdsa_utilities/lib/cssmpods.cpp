@@ -133,6 +133,12 @@ CssmSubserviceUid::CssmSubserviceUid(const CSSM_GUID &guid,
 
 bool CssmSubserviceUid::operator == (const CSSM_SUBSERVICE_UID &otherUid) const
 {
+    // make sure we don't crash if we get bad data
+    if (&otherUid == 0x0)
+    {
+        return false;
+    }
+    
 	const CssmSubserviceUid &other = CssmSubserviceUid::overlay(otherUid);
 	return subserviceId() == other.subserviceId()
 		&& subserviceType() == other.subserviceType()
@@ -141,6 +147,11 @@ bool CssmSubserviceUid::operator == (const CSSM_SUBSERVICE_UID &otherUid) const
 
 bool CssmSubserviceUid::operator < (const CSSM_SUBSERVICE_UID &otherUid) const
 {
+    if (&otherUid == 0x0)
+    {
+        return false;
+    }
+    
 	const CssmSubserviceUid &other = CssmSubserviceUid::overlay(otherUid);
 	if (subserviceId() < other.subserviceId())
 		return true;

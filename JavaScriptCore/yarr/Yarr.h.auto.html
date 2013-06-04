@@ -1,0 +1,94 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Yarr.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Yarr.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Peter Varga (<a href="mailto:pvarga@inf.u-szeged.hu">pvarga@inf.u-szeged.hu</a>), University of Szeged
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY UNIVERSITY OF SZEGED ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL UNIVERSITY OF SZEGED OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">Yarr_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">Yarr_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;YarrInterpreter.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;YarrPattern.h&quot;</span>
+
+namespace JSC { namespace Yarr {
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoPatternCharacter</span> 1 // Only for !fixed quantifiers.
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoCharacterClass</span> 1 // Only for !fixed quantifiers.
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoBackReference</span> 2
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoAlternative</span> 1 // One per alternative.
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoParentheticalAssertion</span> 1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoParenthesesOnce</span> 1 // Only for !fixed quantifiers.
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoParenthesesTerminal</span> 1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrStackSpaceForBackTrackInfoParentheses</span> 2
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> quantifyInfinite = UINT_MAX;
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> offsetNoMatch = (<span class="enscript-type">unsigned</span>)-1;
+
+<span class="enscript-comment">// The below limit restricts the number of &quot;recursive&quot; match calls in order to
+</span><span class="enscript-comment">// avoid spending exponential time on complex regular expressions.
+</span><span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> matchLimit = 1000000;
+
+<span class="enscript-type">enum</span> JSRegExpResult {
+    JSRegExpMatch = 1,
+    JSRegExpNoMatch = 0,
+    JSRegExpErrorNoMatch = -1,
+    JSRegExpErrorHitLimit = -2,
+    JSRegExpErrorNoMemory = -3,
+    JSRegExpErrorInternal = -4
+};
+
+<span class="enscript-type">enum</span> YarrCharSize {
+    Char8,
+    Char16
+};
+
+} } <span class="enscript-comment">// namespace JSC::Yarr
+</span>
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">Yarr_h</span>
+
+</pre>
+<hr />
+</body></html>

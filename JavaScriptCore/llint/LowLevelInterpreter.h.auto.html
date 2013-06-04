@@ -1,0 +1,82 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>LowLevelInterpreter.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">LowLevelInterpreter.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2012 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">LowLevelInterpreter_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">LowLevelInterpreter_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/Platform.h&gt;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">LLINT</span>)
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Opcode.h&quot;</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_INSTRUCTION_DECL</span>(opcode, length) extern <span class="enscript-string">&quot;C&quot;</span> void llint_##opcode();
+    FOR_EACH_OPCODE_ID(LLINT_INSTRUCTION_DECL);
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">LLINT_INSTRUCTION_DECL</span>
+
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_begin();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_end();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_program_prologue();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_eval_prologue();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_function_for_call_prologue();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_function_for_construct_prologue();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_function_for_call_arity_check();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_function_for_construct_arity_check();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_generic_return_point();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_throw_from_slow_path_trampoline();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_throw_during_call_trampoline();
+
+<span class="enscript-comment">// Native call trampolines
+</span><span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_native_call_trampoline();
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> <span class="enscript-type">void</span> llint_native_construct_trampoline();
+
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">LLINT</span>)
+
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">LowLevelInterpreter_h</span>
+</pre>
+<hr />
+</body></html>

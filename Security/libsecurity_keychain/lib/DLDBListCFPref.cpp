@@ -863,6 +863,11 @@ DLDbListCFPref::rename(const DLDbIdentifier &oldId, const DLDbIdentifier &newId)
 bool
 DLDbListCFPref::member(const DLDbIdentifier &dldbIdentifier)
 {
+    if (dldbIdentifier.IsImplEmpty())
+    {
+        return false;
+    }
+    
     for (vector<DLDbIdentifier>::const_iterator ix = searchList().begin(); ix != mSearchList.end(); ++ix)
 	{
         if (ix->mImpl == NULL)

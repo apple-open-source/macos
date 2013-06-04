@@ -1,3 +1,467 @@
+2013-04-13  Lucas Forschler  <lforschler@apple.com>
+
+        Merge 147512
+
+    2013-03-27  Sam Weinig  <sam@webkit.org>
+
+            [WebKit2] Need SPI to determine whether a plug-in is blocked
+            https://bugs.webkit.org/show_bug.cgi?id=113463
+
+            Reviewed by Anders Carlsson.
+
+            Add new SPI, WKContextCopyPlugInInfoForBundleIdetifier, to get data about a plug-in,
+            including whether it is blocked by x-protect.
+
+            * UIProcess/WebLoaderClient.cpp:
+            * UIProcess/API/C/WKAPICast.h:
+            (WebKit::toWKPluginLoadPolicy):
+            (WebKit::toPluginModuleLoadPolicy):
+            Move to a shared location.
+
+            * UIProcess/API/C/mac/WKContextPrivateMac.h:
+            * UIProcess/API/C/mac/WKContextPrivateMac.mm:
+            (WKContextIsPlugInUpdateAvailable):
+            (WKPlugInInfoPathKey):
+            (WKPlugInInfoBundleIdentifierKey):
+            (WKPlugInInfoVersionKey):
+            (WKPlugInInfoLoadPolicyKey):
+            (WKPlugInInfoUpdatePastLastBlockedVersionIsKnownAvailableKey):
+            (WKContextCopyPlugInInfoForBundleIdetifier):
+            Add new SPI and dictionary keys.
+
+            * UIProcess/Plugins/PluginInfoStore.cpp:
+            (WebKit::PluginInfoStore::findPluginWithBundleIdentifer):
+            * UIProcess/Plugins/PluginInfoStore.h:
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::PluginInfoStore::findPluginWithBundleIdentifer):
+            Add function to lookup plug-ins by bundle identifier.
+
+2013-04-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Merge r148284
+
+    2013-04-12  Alexey Proskuryakov  <ap@apple.com> 
+
+            <rdar://problem/13126204> [Mac] Tweak sandbox profile. 
+
+            Reviewed by Anders Carlsson. 
+
+            * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in: 
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2013-04-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Merge r141445 (cherry-picking the fix for <rdar://problem/13266396>)
+
+    2013-01-31  Alexey Proskuryakov  <ap@apple.com>
+
+            WebProcess sandbox profile overhaul.
+
+            Reviewed by Sam Weinig.
+
+            Moves some rules together by susbystem for easier maintenance.
+
+            Addresses <rdar://problem/9276393>, <rdar://problem/10844321>, <rdar://problem/12408537>,
+            <rdar://problem/12558524>.
+
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2013-04-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Merge r141445 (cherry-picking the actual fix)
+
+    2013-01-31  Alexey Proskuryakov  <ap@apple.com>
+
+            WebProcess sandbox profile overhaul.
+
+            Reviewed by Sam Weinig.
+
+            Moves some rules together by susbystem for easier maintenance.
+
+            Addresses <rdar://problem/9276393>, <rdar://problem/10844321>, <rdar://problem/12408537>,
+            <rdar://problem/12558524>.
+
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2013-03-08  Lucas Forschler  <lforschler@apple.com>
+
+        Windows build fix #2.
+        <rdar://problem/13380471> REGRESSION: Debussy Windows broken after merging http://trac.webkit.org/changeset/144831
+
+        Reviewed by Roger Fong.
+
+        * win/WebKit2.def:
+        * win/WebKit2.vcproj:
+
+2013-03-08  Lucas Forschler  <lforschler@apple.com>
+
+        Windows build fix.
+        <rdar://problem/13380471> REGRESSION: Debussy Windows broken after merging http://trac.webkit.org/changeset/144831
+
+        Reviewed by Roger Fong.
+
+        * win/WebKit2.def:
+
+2013-03-05  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r144672
+
+    2013-03-04  Jer Noble  <jer.noble@apple.com>
+
+            Add API to allow WK2 clients to query the list of installed plug-ins.
+            https://bugs.webkit.org/show_bug.cgi?id=111245
+
+            Reviewed by Alexey Proskuryakov.
+
+            Add API in WKContext, implemented by WebContext, that allows callers to register a callback 
+            retrieve an array containing installed plugin information. This API is exposed through WebContext 
+            because it owns the PluginInfoStore used to fulfill the request.
+
+            Bump the WKContextClient API by 1:
+            * Shared/APIClientTraits.cpp:
+            * Shared/APIClientTraits.h:
+            * UIProcess/API/C/WKContext.h:
+
+            Add a client protocol to PluginInfoStore to notify the client when plugIn information has been
+            successfully loaded:
+            * UIProcess/Plugins/PluginInfoStore.cpp:
+            (WebKit::PluginInfoStore::PluginInfoStore): Initialize m_client to 0.
+            (WebKit::PluginInfoStore::loadPluginsIfNecessary): If the client is present, notify after loading the plugin store.
+            * UIProcess/Plugins/PluginInfoStore.h:
+            (WebKit::PluginInfoStoreClient::~PluginInfoStoreClient): Default destructor.
+            (WebKit::PluginInfoStoreClient::PluginInfoStoreClient): Default constructor.
+            (WebKit::PluginInfoStore::setClient): Simple setter.
+            (WebKit::PluginInfoStore::client): Simple getter.
+
+            * UIProcess/WebContext.cpp:
+            (WebKit::WebContext::WebContext): Set self as the client of PluginInfoStore.
+            (WebKit::WebContext::~WebContext): Clear the client of PluginInfoStore.
+            (WebKit::WebContext::pluginInfoStoreDidLoadPlugins): Pass the callback to own client.
+            * UIProcess/WebContext.h:
+            * UIProcess/WebContextClient.cpp:
+            (WebKit::WebContextClient::plugInInformationBecameAvailable): Pass the callback to the registered WK callback, if present.
+            * UIProcess/WebContextClient.h:
+
+2013-03-04  Brady Eidson  <beidson@apple.com>
+
+        Merge 144114
+
+    2013-02-26  Anders Carlsson  <andersca@apple.com>
+
+            Fix a copy/paste error in WebLoaderClient::didBlockInsecurePluginVersion
+            https://bugs.webkit.org/show_bug.cgi?id=110914
+            <rdar://problem/13297581>
+
+            Reviewed by Beth Dakin.
+
+            Pass kWKErrorCodeInsecurePlugInVersion to the pluginDidFail callback.
+
+            * UIProcess/WebLoaderClient.cpp:
+            (WebKit::WebLoaderClient::didBlockInsecurePluginVersion):
+
+
+2013-03-04  Brady Eidson  <beidson@apple.com>
+
+        Merge 144659
+
+    2013-03-04  Anders Carlsson  <andersca@apple.com>
+
+            Complete the plug-in URL string before sending it to the UI process
+            https://bugs.webkit.org/show_bug.cgi?id=111355
+            <rdar://problem/13326713>
+
+            Reviewed by Andreas Kling.
+
+            If the URL is not absolute, we won't be able to find it by path extension in the plug-in info store.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::unavailablePluginButtonClicked):
+
+2013-03-04  Brady Eidson  <beidson@apple.com>
+
+        <rdar://problem/13337144> - Update 536.29 branch Loader and UI client layouts
+
+        Reviewed by Anders Carlsson.
+
+        * Shared/APIClientTraits.cpp:
+        * Shared/APIClientTraits.h:
+        * UIProcess/API/C/WKPage.h:
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge 143988
+
+    2013-02-25  Anders Carlsson  <andersca@apple.com>
+
+            Add a new unavailablePluginButtonClicked callback that takes a WKDictionary of plug-in information
+            https://bugs.webkit.org/show_bug.cgi?id=110821
+
+            Reviewed by Beth Dakin.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageGetPluginInformationPluginspageAttributeURLKey):
+            (WKPageGetPluginInformationPluginURLKey):
+            Add two new API key getters.
+        
+            * UIProcess/API/C/WKPage.h:
+            Add a new callback and deprecate the old callback.
+        
+            * UIProcess/WebLoaderClient.cpp:
+            (WebKit::WebLoaderClient::didFailToInitializePlugin):
+            (WebKit::WebLoaderClient::didBlockInsecurePluginVersion):
+            (WebKit::WebLoaderClient::pluginLoadPolicy):
+            Make the pluginInformationDictionary a static member function of WebPageProxy so it
+            can be called from WebUIClient as well.
+        
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::getPluginPath):
+            Pass the bundle version as well.
+
+            (WebKit::WebPageProxy::pluginInformationPluginspageAttributeURLKey):
+            (WebKit::WebPageProxy::pluginInformationPluginURLKey):
+            Add two new keys.
+
+            (WebKit::WebPageProxy::pluginInformationDictionary):
+            Handle more keys.
+
+            (WebKit::WebPageProxy::unavailablePluginButtonClicked):
+            Get the plug-in bundle identifier and version.
+
+            * UIProcess/WebPageProxy.messages.in:
+            Pass along more information; the frame and page URLs.
+
+            * UIProcess/WebUIClient.cpp:
+            (WebKit::WebUIClient::unavailablePluginButtonClicked):
+            Call the new callback if it's supported.
+
+            * UIProcess/WebUIClient.h:
+            (WebUIClient):
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::platformCreateInspectorPage):
+            Update for API changes.
+
+            * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+            (WebKit::WebChromeClient::unavailablePluginButtonClicked):
+            Ensure that the pluginspage attribute is a valid URL.
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge 143976
+
+    2013-02-25  Anders Carlsson  <andersca@apple.com>
+
+            Add a new pluginDidFail callback that takes a WKDictionary of plug-in information
+            https://bugs.webkit.org/show_bug.cgi?id=110793
+            <rdar://problem/13265303>
+
+            Reviewed by Sam Weinig.
+
+            Add a new pluginDidFail callback that takes a WKDictionaryRef and also pass in the
+            frame and page URLs.
+
+            * UIProcess/API/C/WKPage.h:
+            * UIProcess/WebLoaderClient.cpp:
+            (WebKit::pluginInformationDictionary):
+            (WebKit::WebLoaderClient::didFailToInitializePlugin):
+            (WebKit::WebLoaderClient::didBlockInsecurePluginVersion):
+            (WebKit::WebLoaderClient::pluginLoadPolicy):
+            * UIProcess/WebLoaderClient.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::didFailToInitializePlugin):
+            (WebKit::WebPageProxy::didBlockInsecurePluginVersion):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * WebProcess/Plugins/PluginView.cpp:
+            (WebKit::PluginView::didFailToInitializePlugin):
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::createJavaAppletWidget):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::createPlugin):
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge 143815
+
+    2013-02-22  Anders Carlsson  <andersca@apple.com>
+
+            pluginLoadStrategy should take a WKDictionaryRef for extensibility
+            https://bugs.webkit.org/show_bug.cgi?id=110656
+            <rdar://problem/13265303>
+
+            Reviewed by Jessie Berlin.
+
+            Change pluginLoadStrategy to take a WKDictionaryRef instead of a number of parameters;
+            this lets us add more plug-in information if needed. Also add the page URL and rename documentURL to frameURL.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageGetPluginInformationBundleIdentifierKey):
+            (WKPageGetPluginInformationBundleVersionKey):
+            (WKPageGetPluginInformationDisplayNameKey):
+            (WKPageGetPluginInformationFrameURLKey):
+            (WKPageGetPluginInformationMIMETypeKey):
+            (WKPageGetPluginInformationPageURLKey):
+            * UIProcess/API/C/WKPage.h:
+            * UIProcess/WebLoaderClient.cpp:
+            (WebKit):
+            (WebKit::WebLoaderClient::pluginLoadPolicy):
+            * UIProcess/WebLoaderClient.h:
+            (WebLoaderClient):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::getPluginPath):
+            (WebKit::WebPageProxy::pluginInformationBundleIdentifierKey):
+            (WebKit):
+            (WebKit::WebPageProxy::pluginInformationBundleVersionKey):
+            (WebKit::WebPageProxy::pluginInformationDisplayNameKey):
+            (WebKit::WebPageProxy::pluginInformationFrameURLKey):
+            (WebKit::WebPageProxy::pluginInformationMIMETypeKey):
+            (WebKit::WebPageProxy::pluginInformationPageURLKey):
+            * UIProcess/WebPageProxy.h:
+            (WebPageProxy):
+            * UIProcess/WebPageProxy.messages.in:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::createPlugin):
+            (WebKit::WebPage::canPluginHandleResponse):
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge r143790
+
+    2013-02-22  Anders Carlsson  <andersca@apple.com>
+
+            Move pluginLoadPolicy to the page loader client
+            https://bugs.webkit.org/show_bug.cgi?id=110635
+            <rdar://problem/13265303>
+        
+            Reviewed by Sam Weinig.
+
+            Move the pluginLoadPolicy callback to the page loader client where it belongs.
+
+            * UIProcess/API/C/WKPage.h:
+            * UIProcess/WebLoaderClient.cpp:
+            (WebKit::toWKPluginLoadPolicy):
+            (WebKit):
+            (WebKit::toPluginModuleLoadPolicy):
+            (WebKit::WebLoaderClient::pluginLoadPolicy):
+            * UIProcess/WebLoaderClient.h:
+            (WebLoaderClient):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::getPluginPath):
+            * UIProcess/WebUIClient.cpp:
+            (WebKit):
+            * UIProcess/WebUIClient.h:
+            (WebUIClient):
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::platformCreateInspectorPage):
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge r142919
+
+    2013-02-14  Anders Carlsson  <andersca@apple.com>
+
+            Add WKContextIsPlugInUpdateAvailable
+            https://bugs.webkit.org/show_bug.cgi?id=109862
+            <rdar://problem/13173140>
+
+            Reviewed by Sam Weinig.
+
+            * UIProcess/API/C/mac/WKContextPrivateMac.h:
+            * UIProcess/API/C/mac/WKContextPrivateMac.mm: Renamed from Source/WebKit2/UIProcess/API/C/mac/WKContextPrivateMac.cpp.
+            (WKContextGetProcessSuppressionEnabled):
+            (WKContextSetProcessSuppressionEnabled):
+            (WKContextIsPlugInUpdateAvailable):
+            * WebKit2.xcodeproj/project.pbxproj:
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge r142017
+
+    2013-02-06  Anders Carlsson  <andersca@apple.com>
+
+            Pass the document source URL to the pluginLoadPolicy callback
+            https://bugs.webkit.org/show_bug.cgi?id=109084
+            <rdar://problem/13154516>
+
+            Reviewed by Andreas Kling.
+
+            * UIProcess/API/C/WKPage.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::getPluginPath):
+            * UIProcess/WebPageProxy.h:
+            (WebPageProxy):
+            * UIProcess/WebPageProxy.messages.in:
+            * UIProcess/WebUIClient.cpp:
+            (WebKit::WebUIClient::pluginLoadPolicy):
+            * UIProcess/WebUIClient.h:
+            (WebUIClient):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::createPlugin):
+            (WebKit::WebPage::canPluginHandleResponse):
+
+2013-03-01  Brady Eidson  <beidson@apple.com>
+
+        Merge r141923
+
+    2013-02-05  Anders Carlsson  <andersca@apple.com>
+
+            WebKit clients should be able to override loading of blocked plug-ins
+            https://bugs.webkit.org/show_bug.cgi?id=108968
+            <rdar://problem/13154516>
+
+            Reviewed by Sam Weinig.
+
+            Replace the shouldInstantiatePlugin callback with a new pluginLoadPolicy which is called regardless
+            of whether the plug-in is blocked or not. This lets clients override the plug-in load policy and
+            force loading of blacklisted plug-ins (and vice versa).
+
+            * UIProcess/API/C/WKPage.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::getPluginPath):
+            * UIProcess/WebUIClient.cpp:
+            (WebKit::toWKPluginLoadPolicy):
+            (WebKit):
+            (WebKit::toPluginModuleLoadPolicy):
+            (WebKit::WebUIClient::pluginLoadPolicy):
+            * UIProcess/WebUIClient.h:
+            (WebUIClient):
+
+2013-02-28  Brady Eidson  <beidson@apple.com>
+
+        Merge r141486
+
+    2013-01-30  Brian Weinstein  <bweinstein@apple.com>
+
+            Add a call to the page UI client to determine if a plug-in should load
+            https://bugs.webkit.org/show_bug.cgi?id=108407
+            <rdar://problem/13066332>
+
+            Reviewed by Anders Carlsson.
+
+            This patch adds a client call to the WKPageUIClient to be called to determine
+            whether or not a plug-in should load.
+
+            * UIProcess/API/C/WKPage.h: Add shouldLoadPlugin.
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::getPluginPath): Moved from WebProcessProxy, and added a call to
+                m_uiClient.shouldInstantiatePlugin.
+            * UIProcess/WebPageProxy.h:
+            * UIProcss/WebPageProxy.messages.in: Moved GetPluginPath from WebProcessProxy to WebPageProxy.
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::getPluginPath): Moved to WebPageProxy.
+            * UIProcess/WebProcessProxy.h:
+            * UIProcess/WebUIClient.cpp:
+            (WebKit::WebUIClient::shouldInstantiatePlugin): Return that we should load the plug-in if
+                the client function isn't defined, and call the function if it is.
+            * UIProcess/WebUIClient.h:
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::platformCreateInspectorPage): Add an entry for the new
+                client function.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::createPlugin): Send the message to the WebPageProxy, not the WebProcessProxy.
+            (WebKit::WebPage::canPluginHandleResponse): Made a member function, so it can call sendSync, and
+                send the message to the WebPageProxy, not the WebProcessProxy.
+            * WebProcess/WebPage/WebPage.h:
+
 2013-01-30  Lucas Forschler  <lforschler@apple.com>
 
         Merge r138606

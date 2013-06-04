@@ -679,7 +679,7 @@ void IOHIDResourceQueue::free()
     IODataQueue::free();
 }
 
-#define ALIGNED_DATA_SIZE(data_size,align_size) (data_size+(align_size-(data_size%align_size)))
+#define ALIGNED_DATA_SIZE(data_size,align_size) ((((data_size - 1) / align_size) + 1) * align_size)
 
 Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report)
 {

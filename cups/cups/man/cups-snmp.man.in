@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: cups-snmp.man.in 3796 2012-04-23 22:54:48Z msweet $"
+.\" "$Id: cups-snmp.man.in 4188 2013-02-20 02:30:47Z msweet $"
 .\"
 .\"   SNMP backend man page for CUPS.
 .\"
-.\"   Copyright 2012 by Apple Inc.
+.\"   Copyright 2012-2013 by Apple Inc.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
 .\"   property of Apple Inc. and are protected by Federal copyright
@@ -53,7 +53,7 @@ environment variable.
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007-2012 by Apple Inc.
+Copyright 2007-2013 by Apple Inc.
 .\"
-.\" End of "$Id: cups-snmp.man.in 3796 2012-04-23 22:54:48Z msweet $".
+.\" End of "$Id: cups-snmp.man.in 4188 2013-02-20 02:30:47Z msweet $".
 .\"

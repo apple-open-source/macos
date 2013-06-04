@@ -103,7 +103,7 @@ $(info # DSTROOT=$(DSTROOT))
 $(info # DEST_ROOT=$(DEST_ROOT))
 
 ICU_TARGET_VERSION_FOR_TZ_EXTRA :=
-ifeq "$(filter arm armv6 armv7,$(RC_ARCHS))" ""
+ifeq "$(filter arm armv6 armv7 armv7s,$(RC_ARCHS))" ""
 	THUMB_FLAG =
 	ifneq "$(SDKROOT)" ""
 		ICU_TARGET_VERSION_FOR_TZ_EXTRA := -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING)

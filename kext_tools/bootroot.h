@@ -262,6 +262,7 @@ OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
                               CFURLRef targetDir,
                               BRBlessStyle blessSpec,
                               CFStringRef pickerLabel);
+
 OSStatus BRCopyBootFilesWithOpts(CFURLRef srcVol,
                               CFURLRef initialRoot,
                               CFDictionaryRef bootPrefOverrides,

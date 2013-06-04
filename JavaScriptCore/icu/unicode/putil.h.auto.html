@@ -1,0 +1,205 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>putil.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">putil.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+******************************************************************************
+*
+*   Copyright (C) 1997-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+*
+******************************************************************************
+*
+*  FILE NAME : putil.h
+*
+*   Date        Name        Description
+*   05/14/98    nos         Creation (content moved here from utypes.h).
+*   06/17/99    erm         Added IEEE_754
+*   07/22/98    stephen     Added IEEEremainder, max, min, trunc
+*   08/13/98    stephen     Added isNegativeInfinity, isPositiveInfinity
+*   08/24/98    stephen     Added longBitsFromDouble
+*   03/02/99    stephen     Removed openFile().  Added AS400 support.
+*   04/15/99    stephen     Converted to C
+*   11/15/99    helena      Integrated S/390 changes for IEEE support.
+*   01/11/00    helena      Added u_getVersion.
+******************************************************************************
+*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">PUTIL_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">PUTIL_H</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/utypes.h&quot;</span>
+
+<span class="enscript-comment">/* Define this to 1 if your platform supports IEEE 754 floating point,
+   to 0 if it does not. */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">IEEE_754</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">IEEE_754</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* Platform utilities                                                       */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+<span class="enscript-comment">/**
+ * Platform utilities isolates the platform dependencies of the
+ * libarary.  For each platform which this code is ported to, these
+ * functions may have to be re-implemented.
+ */</span>
+
+<span class="enscript-comment">/**
+ * Return the ICU data directory. 
+ * The data directory is where common format ICU data files (.dat files)
+ *   are loaded from.  Note that normal use of the built-in ICU
+ *   facilities does not require loading of an external data file;
+ *   unless you are adding custom data to ICU, the data directory
+ *   does not need to be set.
+ *
+ * The data directory is determined as follows:
+ *    If u_setDataDirectory() has been called, that is it, otherwise
+ *    if the ICU_DATA environment variable is set, use that, otherwise
+ *    If a data directory was specifed at ICU build time
+ *      (#define ICU_DATA_DIR &quot;path&quot;), use that,
+ *    otherwise no data directory is available.
+ *
+ * @return the data directory, or an empty string (&quot;&quot;) if no data directory has
+ *         been specified.
+ *   
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2 <span class="enscript-function-name">u_getDataDirectory</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/** 
+ * Set the ICU data directory. 
+ * The data directory is where common format ICU data files (.dat files)
+ *   are loaded from.  Note that normal use of the built-in ICU
+ *   facilities does not require loading of an external data file;
+ *   unless you are adding custom data to ICU, the data directory
+ *   does not need to be set.
+ *
+ * This function should be called at most once in a process, before the
+ * first ICU operation (e.g., u_init()) that will require the loading of an
+ * ICU data file.
+ * This function is not thread-safe. Use it before calling ICU APIs from
+ * multiple threads.
+ *
+ * @param directory The directory to be set.
+ *
+ * @see u_init
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2 <span class="enscript-function-name">u_setDataDirectory</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span> *directory);
+
+<span class="enscript-comment">/**
+ * Please use ucnv_getDefaultName() instead.
+ * Return the default codepage for this platform and locale.
+ * This function can call setlocale() on Unix platforms. Please read the
+ * platform documentation on setlocale() before calling this function.
+ * @return the default codepage for this platform 
+ * @internal
+ */</span>
+U_INTERNAL <span class="enscript-type">const</span> <span class="enscript-type">char</span>*  U_EXPORT2 <span class="enscript-function-name">uprv_getDefaultCodepage</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/**
+ * Please use uloc_getDefault() instead.
+ * Return the default locale ID string by querying ths system, or
+ *     zero if one cannot be found. 
+ * This function can call setlocale() on Unix platforms. Please read the
+ * platform documentation on setlocale() before calling this function.
+ * @return the default locale ID string
+ * @internal
+ */</span>
+U_INTERNAL <span class="enscript-type">const</span> <span class="enscript-type">char</span>*  U_EXPORT2 <span class="enscript-function-name">uprv_getDefaultLocaleID</span>(<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/**
+ * Filesystem file and path separator characters.
+ * Example: '/' and ':' on Unix, '\\' and ';' on Windows.
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">XP_MAC</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_SEP_CHAR</span> <span class="enscript-string">':'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_ALT_SEP_CHAR</span> <span class="enscript-string">':'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_PATH_SEP_CHAR</span> <span class="enscript-string">';'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_SEP_STRING</span> <span class="enscript-string">&quot;:&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_ALT_SEP_STRING</span> <span class="enscript-string">&quot;:&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_PATH_SEP_STRING</span> <span class="enscript-string">&quot;;&quot;</span>
+#<span class="enscript-reference">elif</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WIN32</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">OS2</span>)
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_SEP_CHAR</span> <span class="enscript-string">'\\'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_ALT_SEP_CHAR</span> <span class="enscript-string">'/'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_PATH_SEP_CHAR</span> <span class="enscript-string">';'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_SEP_STRING</span> <span class="enscript-string">&quot;\\&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_ALT_SEP_STRING</span> <span class="enscript-string">&quot;/&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_PATH_SEP_STRING</span> <span class="enscript-string">&quot;;&quot;</span>
+#<span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_SEP_CHAR</span> <span class="enscript-string">'/'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_ALT_SEP_CHAR</span> <span class="enscript-string">'/'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_PATH_SEP_CHAR</span> <span class="enscript-string">':'</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_SEP_STRING</span> <span class="enscript-string">&quot;/&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FILE_ALT_SEP_STRING</span> <span class="enscript-string">&quot;/&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_PATH_SEP_STRING</span> <span class="enscript-string">&quot;:&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * Convert char characters to UChar characters.
+ * This utility function is useful only for &quot;invariant characters&quot;
+ * that are encoded in the platform default encoding.
+ * They are a small, constant subset of the encoding and include
+ * just the latin letters, digits, and some punctuation.
+ * For details, see U_CHARSET_FAMILY.
+ *
+ * @param cs Input string, points to &lt;code&gt;length&lt;/code&gt;
+ *           character bytes from a subset of the platform encoding.
+ * @param us Output string, points to memory for &lt;code&gt;length&lt;/code&gt;
+ *           Unicode characters.
+ * @param length The number of characters to convert; this may
+ *               include the terminating &lt;code&gt;NUL&lt;/code&gt;.
+ *
+ * @see U_CHARSET_FAMILY
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">u_charsToUChars</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span> *cs, UChar *us, int32_t length);
+
+<span class="enscript-comment">/**
+ * Convert UChar characters to char characters.
+ * This utility function is useful only for &quot;invariant characters&quot;
+ * that can be encoded in the platform default encoding.
+ * They are a small, constant subset of the encoding and include
+ * just the latin letters, digits, and some punctuation.
+ * For details, see U_CHARSET_FAMILY.
+ *
+ * @param us Input string, points to &lt;code&gt;length&lt;/code&gt;
+ *           Unicode characters that can be encoded with the
+ *           codepage-invariant subset of the platform encoding.
+ * @param cs Output string, points to memory for &lt;code&gt;length&lt;/code&gt;
+ *           character bytes.
+ * @param length The number of characters to convert; this may
+ *               include the terminating &lt;code&gt;NUL&lt;/code&gt;.
+ *
+ * @see U_CHARSET_FAMILY
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">u_UCharsToChars</span>(<span class="enscript-type">const</span> UChar *us, <span class="enscript-type">char</span> *cs, int32_t length);
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

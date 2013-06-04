@@ -1,0 +1,1587 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>LLIntSlowPaths.cpp</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">LLIntSlowPaths.cpp&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;LLIntSlowPaths.h&quot;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">LLINT</span>)
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Arguments.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;CallFrame.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;CommonSlowPaths.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;GetterSetter.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;HostCallReturnValue.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Interpreter.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JIT.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JITDriver.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSActivation.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSGlobalObjectFunctions.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSPropertyNameIterator.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSStaticScopeObject.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSString.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSValue.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;LLIntCommon.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;LLIntExceptions.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;LowLevelInterpreter.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Operations.h&quot;</span>
+
+namespace JSC { namespace LLInt {
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_BEGIN_NO_SET_PC</span>() \
+    JSGlobalData&amp; globalData = exec-&gt;globalData();      \
+    NativeCallFrameTracer tracer(&amp;globalData, exec)
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">NDEBUG</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_SET_PC_FOR_STUBS</span>() do { \
+        exec-&gt;codeBlock()-&gt;bytecodeOffset(pc); \
+        exec-&gt;setCurrentVPC(pc + 1); \
+    } <span class="enscript-keyword">while</span> (false)
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_SET_PC_FOR_STUBS</span>() do { \
+        exec-&gt;setCurrentVPC(pc + 1); \
+    } <span class="enscript-keyword">while</span> (false)
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_BEGIN</span>()                           \
+    LLINT_BEGIN_NO_SET_PC();                    \
+    LLINT_SET_PC_FOR_STUBS()
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_OP</span>(index) (exec-&gt;uncheckedR(pc[index].u.operand))
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_OP_C</span>(index) (exec-&gt;r(pc[index].u.operand))
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_RETURN_TWO</span>(first, second) do {       \
+        <span class="enscript-keyword">return</span> encodeResult(first, second);        \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_END_IMPL</span>() LLINT_RETURN_TWO(pc, exec)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_THROW</span>(exceptionToThrow) do {                        \
+        globalData.exception = (exceptionToThrow);                \
+        pc = returnToThrow(exec, pc);                             \
+        LLINT_END_IMPL();                                         \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_CHECK_EXCEPTION</span>() do {                    \
+        <span class="enscript-keyword">if</span> (UNLIKELY(globalData.exception)) {           \
+            pc = returnToThrow(exec, pc);               \
+            LLINT_END_IMPL();                           \
+        }                                               \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_END</span>() do {                        \
+        LLINT_CHECK_EXCEPTION();                \
+        LLINT_END_IMPL();                       \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_BRANCH</span>(opcode, condition) do {                      \
+        <span class="enscript-type">bool</span> __b_condition = (condition);                         \
+        LLINT_CHECK_EXCEPTION();                                  \
+        <span class="enscript-keyword">if</span> (__b_condition)                                        \
+            pc += pc[OPCODE_LENGTH(opcode) - 1].u.operand;        \
+        <span class="enscript-keyword">else</span>                                                      \
+            pc += OPCODE_LENGTH(opcode);                          \
+        LLINT_END_IMPL();                                         \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_RETURN</span>(value) do {                \
+        JSValue __r_returnValue = (value);      \
+        LLINT_CHECK_EXCEPTION();                \
+        LLINT_OP(1) = __r_returnValue;          \
+        LLINT_END_IMPL();                       \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">VALUE_PROFILER</span>)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_RETURN_PROFILED</span>(opcode, value) do {               \
+        JSValue __rp_returnValue = (value);                     \
+        LLINT_CHECK_EXCEPTION();                                \
+        LLINT_OP(1) = __rp_returnValue;                         \
+        pc[OPCODE_LENGTH(opcode) - 1].u.profile-&gt;m_buckets[0] = \
+            <span class="enscript-reference">JSValue</span>::encode(__rp_returnValue);                  \
+        LLINT_END_IMPL();                                       \
+    } <span class="enscript-keyword">while</span> (false)
+#<span class="enscript-reference">else</span> // <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">VALUE_PROFILER</span>)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_RETURN_PROFILED</span>(opcode, value) LLINT_RETURN(value)
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">VALUE_PROFILER</span>)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_CALL_END_IMPL</span>(exec, callTarget) LLINT_RETURN_TWO((callTarget), (exec))
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_CALL_THROW</span>(exec, pc, exceptionToThrow) do {               \
+        ExecState* __ct_exec = (exec);                                  \
+        Instruction* __ct_pc = (pc);                                    \
+        globalData.exception = (exceptionToThrow);                      \
+        LLINT_CALL_END_IMPL(__ct_exec, callToThrow(__ct_exec, __ct_pc)); \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_CALL_CHECK_EXCEPTION</span>(exec, pc) do {                       \
+        ExecState* __cce_exec = (exec);                                 \
+        Instruction* __cce_pc = (pc);                                   \
+        <span class="enscript-keyword">if</span> (UNLIKELY(globalData.exception))                              \
+            LLINT_CALL_END_IMPL(__cce_exec, callToThrow(__cce_exec, __cce_pc)); \
+    } <span class="enscript-keyword">while</span> (false)
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_CALL_RETURN</span>(exec, pc, callTarget) do {                    \
+        ExecState* __cr_exec = (exec);                                  \
+        Instruction* __cr_pc = (pc);                                    \
+        <span class="enscript-type">void</span>* __cr_callTarget = (callTarget);                           \
+        LLINT_CALL_CHECK_EXCEPTION(__cr_exec-&gt;callerFrame(), __cr_pc);  \
+        LLINT_CALL_END_IMPL(__cr_exec, __cr_callTarget);                \
+    } <span class="enscript-keyword">while</span> (false)
+
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> SlowPathReturnType llint_trace_operand(ExecState* exec, Instruction* pc, <span class="enscript-type">int</span> fromWhere, <span class="enscript-type">int</span> operand)
+{
+    LLINT_BEGIN();
+    dataLog(<span class="enscript-string">&quot;%p / %p: executing bc#%zu, op#%u: Trace(%d): %d: %d\n&quot;</span>,
+            exec-&gt;codeBlock(),
+            exec,
+            static_cast&lt;intptr_t&gt;(pc - exec-&gt;codeBlock()-&gt;instructions().begin()),
+            exec-&gt;globalData().interpreter-&gt;getOpcodeID(pc[0].u.opcode),
+            fromWhere,
+            operand,
+            pc[operand].u.operand);
+    LLINT_END();
+}
+
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> SlowPathReturnType llint_trace_value(ExecState* exec, Instruction* pc, <span class="enscript-type">int</span> fromWhere, <span class="enscript-type">int</span> operand)
+{
+    JSValue value = LLINT_OP_C(operand).jsValue();
+    <span class="enscript-type">union</span> {
+        <span class="enscript-type">struct</span> {
+            uint32_t tag;
+            uint32_t payload;
+        } bits;
+        EncodedJSValue asValue;
+    } u;
+    u.asValue = JSValue::encode(value);
+    dataLog(<span class="enscript-string">&quot;%p / %p: executing bc#%zu, op#%u: Trace(%d): %d: %d: %08x:%08x: %s\n&quot;</span>,
+            exec-&gt;codeBlock(),
+            exec,
+            static_cast&lt;intptr_t&gt;(pc - exec-&gt;codeBlock()-&gt;instructions().begin()),
+            exec-&gt;globalData().interpreter-&gt;getOpcodeID(pc[0].u.opcode),
+            fromWhere,
+            operand,
+            pc[operand].u.operand,
+            u.bits.tag,
+            u.bits.payload,
+            value.description());
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_prologue)
+{
+    dataLog(<span class="enscript-string">&quot;%p / %p: in prologue.\n&quot;</span>, exec-&gt;codeBlock(), exec);
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">void</span> <span class="enscript-function-name">traceFunctionPrologue</span>(ExecState* exec, <span class="enscript-type">const</span> <span class="enscript-type">char</span>* comment, CodeSpecializationKind kind)
+{
+    JSFunction* callee = jsCast&lt;JSFunction*&gt;(exec-&gt;callee());
+    FunctionExecutable* executable = callee-&gt;jsExecutable();
+    CodeBlock* codeBlock = &amp;executable-&gt;generatedBytecodeFor(kind);
+    dataLog(<span class="enscript-string">&quot;%p / %p: in %s of function %p, executable %p; numVars = %u, numParameters = %u, numCalleeRegisters = %u, caller = %p.\n&quot;</span>,
+            codeBlock, exec, comment, callee, executable,
+            codeBlock-&gt;m_numVars, codeBlock-&gt;numParameters(), codeBlock-&gt;m_numCalleeRegisters,
+            exec-&gt;callerFrame());
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_prologue_function_for_call)
+{
+    traceFunctionPrologue(exec, <span class="enscript-string">&quot;call prologue&quot;</span>, CodeForCall);
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_prologue_function_for_construct)
+{
+    traceFunctionPrologue(exec, <span class="enscript-string">&quot;construct prologue&quot;</span>, CodeForConstruct);
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_arityCheck_for_call)
+{
+    traceFunctionPrologue(exec, <span class="enscript-string">&quot;call arity check&quot;</span>, CodeForCall);
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_arityCheck_for_construct)
+{
+    traceFunctionPrologue(exec, <span class="enscript-string">&quot;construct arity check&quot;</span>, CodeForConstruct);
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace)
+{
+    dataLog(<span class="enscript-string">&quot;%p / %p: executing bc#%zu, %s, scope %p\n&quot;</span>,
+            exec-&gt;codeBlock(),
+            exec,
+            static_cast&lt;intptr_t&gt;(pc - exec-&gt;codeBlock()-&gt;instructions().begin()),
+            opcodeNames[exec-&gt;globalData().interpreter-&gt;getOpcodeID(pc[0].u.opcode)],
+            exec-&gt;scopeChain());
+    <span class="enscript-keyword">if</span> (exec-&gt;globalData().interpreter-&gt;getOpcodeID(pc[0].u.opcode) == op_ret) {
+        dataLog(<span class="enscript-string">&quot;Will be returning to %p\n&quot;</span>, exec-&gt;returnPC().value());
+        dataLog(<span class="enscript-string">&quot;The new cfr will be %p\n&quot;</span>, exec-&gt;callerFrame());
+    }
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(special_trace)
+{
+    dataLog(<span class="enscript-string">&quot;%p / %p: executing special case bc#%zu, op#%u, return PC is %p\n&quot;</span>,
+            exec-&gt;codeBlock(),
+            exec,
+            static_cast&lt;intptr_t&gt;(pc - exec-&gt;codeBlock()-&gt;instructions().begin()),
+            exec-&gt;globalData().interpreter-&gt;getOpcodeID(pc[0].u.opcode),
+            exec-&gt;returnPC().value());
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-type">inline</span> <span class="enscript-type">bool</span> <span class="enscript-function-name">shouldJIT</span>(ExecState* exec)
+{
+    <span class="enscript-comment">// You can modify this to turn off JITting without rebuilding the world.
+</span>    <span class="enscript-keyword">return</span> exec-&gt;globalData().canUseJIT();
+}
+
+<span class="enscript-comment">// Returns true if we should try to OSR.
+</span><span class="enscript-type">inline</span> <span class="enscript-type">bool</span> <span class="enscript-function-name">jitCompileAndSetHeuristics</span>(CodeBlock* codeBlock, ExecState* exec)
+{
+    <span class="enscript-keyword">if</span> (!codeBlock-&gt;checkIfJITThresholdReached()) {
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+        dataLog(<span class="enscript-string">&quot;    JIT threshold should be lifted.\n&quot;</span>);
+#<span class="enscript-reference">endif</span>
+        <span class="enscript-keyword">return</span> false;
+    }
+        
+    <span class="enscript-reference">CodeBlock</span>::JITCompilationResult result = codeBlock-&gt;jitCompile(exec-&gt;globalData());
+    <span class="enscript-keyword">switch</span> (result) {
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CodeBlock</span>::AlreadyCompiled:
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+        dataLog(<span class="enscript-string">&quot;    Code was already compiled.\n&quot;</span>);
+#<span class="enscript-reference">endif</span>
+        codeBlock-&gt;jitSoon();
+        <span class="enscript-keyword">return</span> true;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CodeBlock</span>::CouldNotCompile:
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+        dataLog(<span class="enscript-string">&quot;    JIT compilation failed.\n&quot;</span>);
+#<span class="enscript-reference">endif</span>
+        codeBlock-&gt;dontJITAnytimeSoon();
+        <span class="enscript-keyword">return</span> false;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">CodeBlock</span>::CompiledSuccessfully:
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+        dataLog(<span class="enscript-string">&quot;    JIT compilation successful.\n&quot;</span>);
+#<span class="enscript-reference">endif</span>
+        codeBlock-&gt;jitSoon();
+        <span class="enscript-keyword">return</span> true;
+    }
+    ASSERT_NOT_REACHED();
+    <span class="enscript-keyword">return</span> false;
+}
+
+<span class="enscript-type">enum</span> EntryKind { Prologue, ArityCheck };
+<span class="enscript-type">static</span> SlowPathReturnType <span class="enscript-function-name">entryOSR</span>(ExecState* exec, Instruction* pc, CodeBlock* codeBlock, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *name, EntryKind kind)
+{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+    dataLog(<span class="enscript-string">&quot;%p: Entered %s with executeCounter = %d\n&quot;</span>, codeBlock, name, codeBlock-&gt;llintExecuteCounter());
+#<span class="enscript-reference">endif</span>
+    
+    <span class="enscript-keyword">if</span> (!shouldJIT(exec)) {
+        codeBlock-&gt;dontJITAnytimeSoon();
+        LLINT_RETURN_TWO(0, exec);
+    }
+    <span class="enscript-keyword">if</span> (!jitCompileAndSetHeuristics(codeBlock, exec))
+        LLINT_RETURN_TWO(0, exec);
+    
+    <span class="enscript-keyword">if</span> (kind == Prologue)
+        LLINT_RETURN_TWO(codeBlock-&gt;getJITCode().executableAddressAtOffset(0), exec);
+    ASSERT(kind == ArityCheck);
+    LLINT_RETURN_TWO(codeBlock-&gt;getJITCodeWithArityCheck().executableAddress(), exec);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr)
+{
+    <span class="enscript-keyword">return</span> entryOSR(exec, pc, exec-&gt;codeBlock(), <span class="enscript-string">&quot;entry_osr&quot;</span>, Prologue);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_call)
+{
+    <span class="enscript-keyword">return</span> entryOSR(exec, pc, &amp;jsCast&lt;JSFunction*&gt;(exec-&gt;callee())-&gt;jsExecutable()-&gt;generatedBytecodeFor(CodeForCall), <span class="enscript-string">&quot;entry_osr_function_for_call&quot;</span>, Prologue);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_construct)
+{
+    <span class="enscript-keyword">return</span> entryOSR(exec, pc, &amp;jsCast&lt;JSFunction*&gt;(exec-&gt;callee())-&gt;jsExecutable()-&gt;generatedBytecodeFor(CodeForConstruct), <span class="enscript-string">&quot;entry_osr_function_for_construct&quot;</span>, Prologue);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_call_arityCheck)
+{
+    <span class="enscript-keyword">return</span> entryOSR(exec, pc, &amp;jsCast&lt;JSFunction*&gt;(exec-&gt;callee())-&gt;jsExecutable()-&gt;generatedBytecodeFor(CodeForCall), <span class="enscript-string">&quot;entry_osr_function_for_call_arityCheck&quot;</span>, ArityCheck);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_construct_arityCheck)
+{
+    <span class="enscript-keyword">return</span> entryOSR(exec, pc, &amp;jsCast&lt;JSFunction*&gt;(exec-&gt;callee())-&gt;jsExecutable()-&gt;generatedBytecodeFor(CodeForConstruct), <span class="enscript-string">&quot;entry_osr_function_for_construct_arityCheck&quot;</span>, ArityCheck);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(loop_osr)
+{
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+    dataLog(<span class="enscript-string">&quot;%p: Entered loop_osr with executeCounter = %d\n&quot;</span>, codeBlock, codeBlock-&gt;llintExecuteCounter());
+#<span class="enscript-reference">endif</span>
+    
+    <span class="enscript-keyword">if</span> (!shouldJIT(exec)) {
+        codeBlock-&gt;dontJITAnytimeSoon();
+        LLINT_RETURN_TWO(0, exec);
+    }
+    
+    <span class="enscript-keyword">if</span> (!jitCompileAndSetHeuristics(codeBlock, exec))
+        LLINT_RETURN_TWO(0, exec);
+    
+    ASSERT(codeBlock-&gt;getJITType() == JITCode::BaselineJIT);
+    
+    Vector&lt;BytecodeAndMachineOffset&gt; map;
+    codeBlock-&gt;jitCodeMap()-&gt;decode(map);
+    BytecodeAndMachineOffset* mapping = binarySearch&lt;BytecodeAndMachineOffset, <span class="enscript-type">unsigned</span>, BytecodeAndMachineOffset::getBytecodeIndex&gt;(map.begin(), map.size(), pc - codeBlock-&gt;instructions().begin());
+    ASSERT(mapping);
+    ASSERT(mapping-&gt;m_bytecodeIndex == static_cast&lt;<span class="enscript-type">unsigned</span>&gt;(pc - codeBlock-&gt;instructions().begin()));
+    
+    <span class="enscript-type">void</span>* jumpTarget = codeBlock-&gt;getJITCode().executableAddressAtOffset(mapping-&gt;m_machineCodeOffset);
+    ASSERT(jumpTarget);
+    
+    LLINT_RETURN_TWO(jumpTarget, exec);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(replace)
+{
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">JIT_VERBOSE_OSR</span>)
+    dataLog(<span class="enscript-string">&quot;%p: Entered replace with executeCounter = %d\n&quot;</span>, codeBlock, codeBlock-&gt;llintExecuteCounter());
+#<span class="enscript-reference">endif</span>
+    
+    <span class="enscript-keyword">if</span> (shouldJIT(exec))
+        jitCompileAndSetHeuristics(codeBlock, exec);
+    <span class="enscript-keyword">else</span>
+        codeBlock-&gt;dontJITAnytimeSoon();
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(register_file_check)
+{
+    LLINT_BEGIN();
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+    dataLog(<span class="enscript-string">&quot;Checking stack height with exec = %p.\n&quot;</span>, exec);
+    dataLog(<span class="enscript-string">&quot;CodeBlock = %p.\n&quot;</span>, exec-&gt;codeBlock());
+    dataLog(<span class="enscript-string">&quot;Num callee registers = %u.\n&quot;</span>, exec-&gt;codeBlock()-&gt;m_numCalleeRegisters);
+    dataLog(<span class="enscript-string">&quot;Num vars = %u.\n&quot;</span>, exec-&gt;codeBlock()-&gt;m_numVars);
+    dataLog(<span class="enscript-string">&quot;Current end is at %p.\n&quot;</span>, exec-&gt;globalData().interpreter-&gt;registerFile().end());
+#<span class="enscript-reference">endif</span>
+    ASSERT(&amp;exec-&gt;registers()[exec-&gt;codeBlock()-&gt;m_numCalleeRegisters] &gt; exec-&gt;globalData().interpreter-&gt;registerFile().end());
+    <span class="enscript-keyword">if</span> (UNLIKELY(!globalData.interpreter-&gt;registerFile().grow(&amp;exec-&gt;registers()[exec-&gt;codeBlock()-&gt;m_numCalleeRegisters]))) {
+        ReturnAddressPtr returnPC = exec-&gt;returnPC();
+        exec = exec-&gt;callerFrame();
+        globalData.exception = createStackOverflowError(exec);
+        interpreterThrowInCaller(exec, returnPC);
+        pc = returnToThrowForThrownException(exec);
+    }
+    LLINT_END_IMPL();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call_arityCheck)
+{
+    LLINT_BEGIN();
+    ExecState* newExec = CommonSlowPaths::arityCheckFor(exec, &amp;globalData.interpreter-&gt;registerFile(), CodeForCall);
+    <span class="enscript-keyword">if</span> (!newExec) {
+        ReturnAddressPtr returnPC = exec-&gt;returnPC();
+        exec = exec-&gt;callerFrame();
+        globalData.exception = createStackOverflowError(exec);
+        interpreterThrowInCaller(exec, returnPC);
+        LLINT_RETURN_TWO(bitwise_cast&lt;<span class="enscript-type">void</span>*&gt;(static_cast&lt;uintptr_t&gt;(1)), exec);
+    }
+    LLINT_RETURN_TWO(0, newExec);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_construct_arityCheck)
+{
+    LLINT_BEGIN();
+    ExecState* newExec = CommonSlowPaths::arityCheckFor(exec, &amp;globalData.interpreter-&gt;registerFile(), CodeForConstruct);
+    <span class="enscript-keyword">if</span> (!newExec) {
+        ReturnAddressPtr returnPC = exec-&gt;returnPC();
+        exec = exec-&gt;callerFrame();
+        globalData.exception = createStackOverflowError(exec);
+        interpreterThrowInCaller(exec, returnPC);
+        LLINT_RETURN_TWO(bitwise_cast&lt;<span class="enscript-type">void</span>*&gt;(static_cast&lt;uintptr_t&gt;(1)), exec);
+    }
+    LLINT_RETURN_TWO(0, newExec);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_create_activation)
+{
+    LLINT_BEGIN();
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+    dataLog(<span class="enscript-string">&quot;Creating an activation, exec = %p!\n&quot;</span>, exec);
+#<span class="enscript-reference">endif</span>
+    JSActivation* activation = JSActivation::create(globalData, exec, static_cast&lt;FunctionExecutable*&gt;(exec-&gt;codeBlock()-&gt;ownerExecutable()));
+    exec-&gt;setScopeChain(exec-&gt;scopeChain()-&gt;push(activation));
+    LLINT_RETURN(JSValue(activation));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_create_arguments)
+{
+    LLINT_BEGIN();
+    JSValue arguments = JSValue(Arguments::create(globalData, exec));
+    LLINT_CHECK_EXCEPTION();
+    exec-&gt;uncheckedR(pc[1].u.operand) = arguments;
+    exec-&gt;uncheckedR(unmodifiedArgumentsRegister(pc[1].u.operand)) = arguments;
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_create_this)
+{
+    LLINT_BEGIN();
+    JSFunction* constructor = jsCast&lt;JSFunction*&gt;(exec-&gt;callee());
+    
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">ASSERT_DISABLED</span>
+    ConstructData constructData;
+    ASSERT(constructor-&gt;methodTable()-&gt;getConstructData(constructor, constructData) == ConstructTypeJS);
+#<span class="enscript-reference">endif</span>
+    
+    Structure* structure;
+    JSValue proto = LLINT_OP(2).jsValue();
+    <span class="enscript-keyword">if</span> (proto.isObject())
+        structure = asObject(proto)-&gt;inheritorID(globalData);
+    <span class="enscript-keyword">else</span>
+        structure = constructor-&gt;scope()-&gt;globalObject-&gt;emptyObjectStructure();
+    
+    LLINT_RETURN(constructEmptyObject(exec, structure));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_convert_this)
+{
+    LLINT_BEGIN();
+    JSValue v1 = LLINT_OP(1).jsValue();
+    ASSERT(v1.isPrimitive());
+    LLINT_RETURN(v1.toThisObject(exec));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_object)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(constructEmptyObject(exec));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_array)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(constructArray(exec, bitwise_cast&lt;JSValue*&gt;(&amp;LLINT_OP(2)), pc[3].u.operand));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_array_buffer)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(constructArray(exec, exec-&gt;codeBlock()-&gt;constantBuffer(pc[2].u.operand), pc[3].u.operand));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_regexp)
+{
+    LLINT_BEGIN();
+    RegExp* regExp = exec-&gt;codeBlock()-&gt;regexp(pc[2].u.operand);
+    <span class="enscript-keyword">if</span> (!regExp-&gt;isValid())
+        LLINT_THROW(createSyntaxError(exec, <span class="enscript-string">&quot;Invalid flag supplied to RegExp constructor.&quot;</span>));
+    LLINT_RETURN(RegExpObject::create(globalData, exec-&gt;lexicalGlobalObject(), exec-&gt;lexicalGlobalObject()-&gt;regExpStructure(), regExp));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_not)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(!LLINT_OP_C(2).jsValue().toBoolean(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_eq)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(JSValue::equal(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_neq)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(!JSValue::equal(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_stricteq)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(JSValue::strictEqual(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_nstricteq)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(!JSValue::strictEqual(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_less)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(jsLess&lt;true&gt;(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_lesseq)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(jsLessEq&lt;true&gt;(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_greater)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(jsLess&lt;false&gt;(exec, LLINT_OP_C(3).jsValue(), LLINT_OP_C(2).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_greatereq)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(jsLessEq&lt;false&gt;(exec, LLINT_OP_C(3).jsValue(), LLINT_OP_C(2).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_pre_inc)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP(1).jsValue().toNumber(exec) + 1));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_pre_dec)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP(1).jsValue().toNumber(exec) - 1));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_post_inc)
+{
+    LLINT_BEGIN();
+    <span class="enscript-type">double</span> result = LLINT_OP(2).jsValue().toNumber(exec);
+    LLINT_OP(2) = jsNumber(result + 1);
+    LLINT_RETURN(jsNumber(result));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_post_dec)
+{
+    LLINT_BEGIN();
+    <span class="enscript-type">double</span> result = LLINT_OP(2).jsValue().toNumber(exec);
+    LLINT_OP(2) = jsNumber(result - 1);
+    LLINT_RETURN(jsNumber(result));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_to_jsnumber)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toNumber(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_negate)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(-LLINT_OP_C(2).jsValue().toNumber(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_add)
+{
+    LLINT_BEGIN();
+    JSValue v1 = LLINT_OP_C(2).jsValue();
+    JSValue v2 = LLINT_OP_C(3).jsValue();
+    
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+    dataLog(<span class="enscript-string">&quot;Trying to add %s&quot;</span>, v1.description());
+    dataLog(<span class="enscript-string">&quot; to %s.\n&quot;</span>, v2.description());
+#<span class="enscript-reference">endif</span>
+    
+    <span class="enscript-keyword">if</span> (v1.isString() &amp;&amp; !v2.isObject())
+        LLINT_RETURN(jsString(exec, asString(v1), v2.toString(exec)));
+    
+    <span class="enscript-keyword">if</span> (v1.isNumber() &amp;&amp; v2.isNumber())
+        LLINT_RETURN(jsNumber(v1.asNumber() + v2.asNumber()));
+    
+    LLINT_RETURN(jsAddSlowCase(exec, v1, v2));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_mul)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toNumber(exec) * LLINT_OP_C(3).jsValue().toNumber(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_sub)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toNumber(exec) - LLINT_OP_C(3).jsValue().toNumber(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_div)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toNumber(exec) / LLINT_OP_C(3).jsValue().toNumber(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_mod)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(fmod(LLINT_OP_C(2).jsValue().toNumber(exec), LLINT_OP_C(3).jsValue().toNumber(exec))));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_lshift)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toInt32(exec) &lt;&lt; (LLINT_OP_C(3).jsValue().toUInt32(exec) &amp; 31)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_rshift)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toInt32(exec) &gt;&gt; (LLINT_OP_C(3).jsValue().toUInt32(exec) &amp; 31)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_urshift)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toUInt32(exec) &gt;&gt; (LLINT_OP_C(3).jsValue().toUInt32(exec) &amp; 31)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_bitand)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toInt32(exec) &amp; LLINT_OP_C(3).jsValue().toInt32(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_bitor)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toInt32(exec) | LLINT_OP_C(3).jsValue().toInt32(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_bitxor)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsNumber(LLINT_OP_C(2).jsValue().toInt32(exec) ^ LLINT_OP_C(3).jsValue().toInt32(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_check_has_instance)
+{
+    LLINT_BEGIN();
+    JSValue baseVal = LLINT_OP_C(1).jsValue();
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">NDEBUG</span>
+    TypeInfo typeInfo(UnspecifiedType);
+    ASSERT(!baseVal.isObject()
+           || !(typeInfo = asObject(baseVal)-&gt;structure()-&gt;typeInfo()).implementsHasInstance());
+#<span class="enscript-reference">endif</span>
+    LLINT_THROW(createInvalidParamError(exec, <span class="enscript-string">&quot;instanceof&quot;</span>, baseVal));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_instanceof)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(CommonSlowPaths::opInstanceOfSlow(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue(), LLINT_OP_C(4).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_typeof)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsTypeStringForValue(exec, LLINT_OP_C(2).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_is_object)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(jsIsObjectType(LLINT_OP_C(2).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_is_function)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(jsIsFunctionType(LLINT_OP_C(2).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_in)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsBoolean(CommonSlowPaths::opIn(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue())));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN_PROFILED(op_resolve, CommonSlowPaths::opResolve(exec, exec-&gt;codeBlock()-&gt;identifier(pc[2].u.operand)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_skip)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN_PROFILED(
+        op_resolve_skip,
+        <span class="enscript-reference">CommonSlowPaths</span>::opResolveSkip(
+            exec,
+            exec-&gt;codeBlock()-&gt;identifier(pc[2].u.operand),
+            pc[3].u.operand));
+}
+
+<span class="enscript-type">static</span> JSValue <span class="enscript-function-name">resolveGlobal</span>(ExecState* exec, Instruction* pc)
+{
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    JSGlobalObject* globalObject = codeBlock-&gt;globalObject();
+    ASSERT(globalObject-&gt;isGlobalObject());
+    <span class="enscript-type">int</span> property = pc[2].u.operand;
+    Structure* structure = pc[3].u.structure.get();
+    
+    ASSERT_UNUSED(structure, structure != globalObject-&gt;structure());
+    
+    Identifier&amp; ident = codeBlock-&gt;identifier(property);
+    PropertySlot slot(globalObject);
+    
+    <span class="enscript-keyword">if</span> (globalObject-&gt;getPropertySlot(exec, ident, slot)) {
+        JSValue result = slot.getValue(exec, ident);
+        <span class="enscript-keyword">if</span> (slot.isCacheableValue() &amp;&amp; !globalObject-&gt;structure()-&gt;isUncacheableDictionary()
+            &amp;&amp; slot.slotBase() == globalObject) {
+            pc[3].u.structure.set(
+                exec-&gt;globalData(), codeBlock-&gt;ownerExecutable(), globalObject-&gt;structure());
+            pc[4] = slot.cachedOffset();
+        }
+        
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    exec-&gt;globalData().exception = createUndefinedVariableError(exec, ident);
+    <span class="enscript-keyword">return</span> JSValue();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_global)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN_PROFILED(op_resolve_global, resolveGlobal(exec, pc));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_global_dynamic)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN_PROFILED(op_resolve_global_dynamic, resolveGlobal(exec, pc));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_for_resolve_global_dynamic)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN_PROFILED(op_resolve_global_dynamic, CommonSlowPaths::opResolve(exec, exec-&gt;codeBlock()-&gt;identifier(pc[2].u.operand)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_base)
+{
+    LLINT_BEGIN();
+    Identifier&amp; ident = exec-&gt;codeBlock()-&gt;identifier(pc[2].u.operand);
+    <span class="enscript-keyword">if</span> (pc[3].u.operand) {
+        JSValue base = JSC::resolveBase(exec, ident, exec-&gt;scopeChain(), true);
+        <span class="enscript-keyword">if</span> (!base)
+            LLINT_THROW(createErrorForInvalidGlobalAssignment(exec, ident.ustring()));
+        LLINT_RETURN(base);
+    }
+    
+    LLINT_RETURN_PROFILED(op_resolve_base, JSC::resolveBase(exec, ident, exec-&gt;scopeChain(), false));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_ensure_property_exists)
+{
+    LLINT_BEGIN();
+    JSObject* object = asObject(LLINT_OP(1).jsValue());
+    PropertySlot slot(object);
+    Identifier&amp; ident = exec-&gt;codeBlock()-&gt;identifier(pc[2].u.operand);
+    <span class="enscript-keyword">if</span> (!object-&gt;getPropertySlot(exec, ident, slot))
+        LLINT_THROW(createErrorForInvalidGlobalAssignment(exec, ident.ustring()));
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_with_base)
+{
+    LLINT_BEGIN();
+    JSValue result = CommonSlowPaths::opResolveWithBase(exec, exec-&gt;codeBlock()-&gt;identifier(pc[3].u.operand), LLINT_OP(1));
+    LLINT_CHECK_EXCEPTION();
+    LLINT_OP(2) = result;
+    <span class="enscript-comment">// FIXME: technically should have profiling, but we don't do it because the DFG won't use it.
+</span>    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_with_this)
+{
+    LLINT_BEGIN();
+    JSValue result = CommonSlowPaths::opResolveWithThis(exec, exec-&gt;codeBlock()-&gt;identifier(pc[3].u.operand), LLINT_OP(1));
+    LLINT_CHECK_EXCEPTION();
+    LLINT_OP(2) = result;
+    <span class="enscript-comment">// FIXME: technically should have profiling, but we don't do it because the DFG won't use it.
+</span>    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_by_id)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    Identifier&amp; ident = codeBlock-&gt;identifier(pc[3].u.operand);
+    JSValue baseValue = LLINT_OP_C(2).jsValue();
+    PropertySlot slot(baseValue);
+
+    JSValue result = baseValue.get(exec, ident, slot);
+    LLINT_CHECK_EXCEPTION();
+    LLINT_OP(1) = result;
+
+    <span class="enscript-keyword">if</span> (baseValue.isCell()
+        &amp;&amp; slot.isCacheable()
+        &amp;&amp; slot.slotBase() == baseValue
+        &amp;&amp; slot.cachedPropertyType() == PropertySlot::Value) {
+        
+        JSCell* baseCell = baseValue.asCell();
+        Structure* structure = baseCell-&gt;structure();
+        
+        <span class="enscript-keyword">if</span> (!structure-&gt;isUncacheableDictionary()
+            &amp;&amp; !structure-&gt;typeInfo().prohibitsPropertyCaching()) {
+            pc[4].u.structure.set(
+                globalData, codeBlock-&gt;ownerExecutable(), structure);
+            pc[5].u.operand = slot.cachedOffset() * <span class="enscript-keyword">sizeof</span>(JSValue);
+        }
+    }
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">VALUE_PROFILER</span>)    
+    pc[OPCODE_LENGTH(op_get_by_id) - 1].u.profile-&gt;m_buckets[0] = JSValue::encode(result);
+#<span class="enscript-reference">endif</span>
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_arguments_length)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    Identifier&amp; ident = codeBlock-&gt;identifier(pc[3].u.operand);
+    JSValue baseValue = LLINT_OP(2).jsValue();
+    PropertySlot slot(baseValue);
+    LLINT_RETURN(baseValue.get(exec, ident, slot));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_by_id)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    Identifier&amp; ident = codeBlock-&gt;identifier(pc[2].u.operand);
+    
+    JSValue baseValue = LLINT_OP_C(1).jsValue();
+    PutPropertySlot slot(codeBlock-&gt;isStrictMode());
+    <span class="enscript-keyword">if</span> (pc[8].u.operand)
+        asObject(baseValue)-&gt;putDirect(globalData, ident, LLINT_OP_C(3).jsValue(), slot);
+    <span class="enscript-keyword">else</span>
+        baseValue.put(exec, ident, LLINT_OP_C(3).jsValue(), slot);
+    LLINT_CHECK_EXCEPTION();
+    
+    <span class="enscript-keyword">if</span> (baseValue.isCell()
+        &amp;&amp; slot.isCacheable()) {
+        
+        JSCell* baseCell = baseValue.asCell();
+        Structure* structure = baseCell-&gt;structure();
+        
+        <span class="enscript-keyword">if</span> (!structure-&gt;isUncacheableDictionary()
+            &amp;&amp; !structure-&gt;typeInfo().prohibitsPropertyCaching()
+            &amp;&amp; baseCell == slot.base()) {
+            
+            <span class="enscript-keyword">if</span> (slot.type() == PutPropertySlot::NewProperty) {
+                <span class="enscript-keyword">if</span> (!structure-&gt;isDictionary() &amp;&amp; structure-&gt;previousID()-&gt;propertyStorageCapacity() == structure-&gt;propertyStorageCapacity()) {
+                    <span class="enscript-comment">// This is needed because some of the methods we call
+</span>                    <span class="enscript-comment">// below may GC.
+</span>                    pc[0].u.opcode = bitwise_cast&lt;<span class="enscript-type">void</span>*&gt;(&amp;llint_op_put_by_id);
+
+                    normalizePrototypeChain(exec, baseCell);
+                    
+                    ASSERT(structure-&gt;previousID()-&gt;isObject());
+                    pc[4].u.structure.set(
+                        globalData, codeBlock-&gt;ownerExecutable(), structure-&gt;previousID());
+                    pc[5].u.operand = slot.cachedOffset() * <span class="enscript-keyword">sizeof</span>(JSValue);
+                    pc[6].u.structure.set(
+                        globalData, codeBlock-&gt;ownerExecutable(), structure);
+                    StructureChain* chain = structure-&gt;prototypeChain(exec);
+                    ASSERT(chain);
+                    pc[7].u.structureChain.set(
+                        globalData, codeBlock-&gt;ownerExecutable(), chain);
+                    
+                    <span class="enscript-keyword">if</span> (pc[8].u.operand)
+                        pc[0].u.opcode = bitwise_cast&lt;<span class="enscript-type">void</span>*&gt;(&amp;llint_op_put_by_id_transition_direct);
+                    <span class="enscript-keyword">else</span>
+                        pc[0].u.opcode = bitwise_cast&lt;<span class="enscript-type">void</span>*&gt;(&amp;llint_op_put_by_id_transition_normal);
+                }
+            } <span class="enscript-keyword">else</span> {
+                pc[0].u.opcode = bitwise_cast&lt;<span class="enscript-type">void</span>*&gt;(&amp;llint_op_put_by_id);
+                pc[4].u.structure.set(
+                    globalData, codeBlock-&gt;ownerExecutable(), structure);
+                pc[5].u.operand = slot.cachedOffset() * <span class="enscript-keyword">sizeof</span>(JSValue);
+            }
+        }
+    }
+    
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_del_by_id)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    JSObject* baseObject = LLINT_OP_C(2).jsValue().toObject(exec);
+    <span class="enscript-type">bool</span> couldDelete = baseObject-&gt;methodTable()-&gt;deleteProperty(baseObject, exec, codeBlock-&gt;identifier(pc[3].u.operand));
+    LLINT_CHECK_EXCEPTION();
+    <span class="enscript-keyword">if</span> (!couldDelete &amp;&amp; codeBlock-&gt;isStrictMode())
+        LLINT_THROW(createTypeError(exec, <span class="enscript-string">&quot;Unable to delete property.&quot;</span>));
+    LLINT_RETURN(jsBoolean(couldDelete));
+}
+
+<span class="enscript-type">inline</span> JSValue <span class="enscript-function-name">getByVal</span>(ExecState* exec, JSValue baseValue, JSValue subscript)
+{
+    <span class="enscript-keyword">if</span> (LIKELY(baseValue.isCell() &amp;&amp; subscript.isString())) {
+        <span class="enscript-keyword">if</span> (JSValue result = baseValue.asCell()-&gt;fastGetOwnProperty(exec, asString(subscript)-&gt;value(exec)))
+            <span class="enscript-keyword">return</span> result;
+    }
+    
+    <span class="enscript-keyword">if</span> (subscript.isUInt32()) {
+        uint32_t i = subscript.asUInt32();
+        <span class="enscript-keyword">if</span> (isJSString(baseValue) &amp;&amp; asString(baseValue)-&gt;canGetIndex(i))
+            <span class="enscript-keyword">return</span> asString(baseValue)-&gt;getIndex(exec, i);
+        
+        <span class="enscript-keyword">return</span> baseValue.get(exec, i);
+    }
+    
+    Identifier property(exec, subscript.toString(exec)-&gt;value(exec));
+    <span class="enscript-keyword">return</span> baseValue.get(exec, property);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_by_val)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN_PROFILED(op_get_by_val, getByVal(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_argument_by_val)
+{
+    LLINT_BEGIN();
+    JSValue arguments = LLINT_OP(2).jsValue();
+    <span class="enscript-keyword">if</span> (!arguments) {
+        arguments = Arguments::create(globalData, exec);
+        LLINT_CHECK_EXCEPTION();
+        LLINT_OP(2) = arguments;
+        exec-&gt;uncheckedR(unmodifiedArgumentsRegister(pc[2].u.operand)) = arguments;
+    }
+    
+    LLINT_RETURN(getByVal(exec, arguments, LLINT_OP_C(3).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_by_pname)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(getByVal(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_by_val)
+{
+    LLINT_BEGIN();
+    
+    JSValue baseValue = LLINT_OP_C(1).jsValue();
+    JSValue subscript = LLINT_OP_C(2).jsValue();
+    JSValue value = LLINT_OP_C(3).jsValue();
+    
+    <span class="enscript-keyword">if</span> (LIKELY(subscript.isUInt32())) {
+        uint32_t i = subscript.asUInt32();
+        <span class="enscript-keyword">if</span> (isJSArray(baseValue)) {
+            JSArray* jsArray = asArray(baseValue);
+            <span class="enscript-keyword">if</span> (jsArray-&gt;canSetIndex(i))
+                jsArray-&gt;setIndex(globalData, i, value);
+            <span class="enscript-keyword">else</span>
+                <span class="enscript-reference">JSArray</span>::putByIndex(jsArray, exec, i, value, exec-&gt;codeBlock()-&gt;isStrictMode());
+            LLINT_END();
+        }
+        baseValue.putByIndex(exec, i, value, exec-&gt;codeBlock()-&gt;isStrictMode());
+        LLINT_END();
+    }
+    
+    Identifier property(exec, subscript.toString(exec)-&gt;value(exec));
+    LLINT_CHECK_EXCEPTION();
+    PutPropertySlot slot(exec-&gt;codeBlock()-&gt;isStrictMode());
+    baseValue.put(exec, property, value, slot);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_del_by_val)
+{
+    LLINT_BEGIN();
+    JSValue baseValue = LLINT_OP_C(2).jsValue();
+    JSObject* baseObject = baseValue.toObject(exec);
+    
+    JSValue subscript = LLINT_OP_C(3).jsValue();
+    
+    <span class="enscript-type">bool</span> couldDelete;
+    
+    uint32_t i;
+    <span class="enscript-keyword">if</span> (subscript.getUInt32(i))
+        couldDelete = baseObject-&gt;methodTable()-&gt;deletePropertyByIndex(baseObject, exec, i);
+    <span class="enscript-keyword">else</span> {
+        LLINT_CHECK_EXCEPTION();
+        Identifier property(exec, subscript.toString(exec)-&gt;value(exec));
+        LLINT_CHECK_EXCEPTION();
+        couldDelete = baseObject-&gt;methodTable()-&gt;deleteProperty(baseObject, exec, property);
+    }
+    
+    <span class="enscript-keyword">if</span> (!couldDelete &amp;&amp; exec-&gt;codeBlock()-&gt;isStrictMode())
+        LLINT_THROW(createTypeError(exec, <span class="enscript-string">&quot;Unable to delete property.&quot;</span>));
+    
+    LLINT_RETURN(jsBoolean(couldDelete));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_by_index)
+{
+    LLINT_BEGIN();
+    JSValue arrayValue = LLINT_OP_C(1).jsValue();
+    ASSERT(isJSArray(arrayValue));
+    asArray(arrayValue)-&gt;putDirectIndex(exec, pc[2].u.operand, LLINT_OP_C(3).jsValue(), false);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_getter_setter)
+{
+    LLINT_BEGIN();
+    ASSERT(LLINT_OP(1).jsValue().isObject());
+    JSObject* baseObj = asObject(LLINT_OP(1).jsValue());
+    
+    GetterSetter* accessor = GetterSetter::create(exec);
+    LLINT_CHECK_EXCEPTION();
+    
+    JSValue getter = LLINT_OP(3).jsValue();
+    JSValue setter = LLINT_OP(4).jsValue();
+    ASSERT(getter.isObject() || getter.isUndefined());
+    ASSERT(setter.isObject() || setter.isUndefined());
+    ASSERT(getter.isObject() || setter.isObject());
+    
+    <span class="enscript-keyword">if</span> (!getter.isUndefined())
+        accessor-&gt;setGetter(globalData, asObject(getter));
+    <span class="enscript-keyword">if</span> (!setter.isUndefined())
+        accessor-&gt;setSetter(globalData, asObject(setter));
+    baseObj-&gt;putDirectAccessor(
+        globalData,
+        exec-&gt;codeBlock()-&gt;identifier(pc[2].u.operand),
+        accessor, Accessor);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jmp_scopes)
+{
+    LLINT_BEGIN();
+    <span class="enscript-type">unsigned</span> count = pc[1].u.operand;
+    ScopeChainNode* tmp = exec-&gt;scopeChain();
+    <span class="enscript-keyword">while</span> (count--)
+        tmp = tmp-&gt;pop();
+    exec-&gt;setScopeChain(tmp);
+    pc += pc[2].u.operand;
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jtrue)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jtrue, LLINT_OP_C(1).jsValue().toBoolean(exec));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jfalse)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jfalse, !LLINT_OP_C(1).jsValue().toBoolean(exec));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jless)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jless, jsLess&lt;true&gt;(exec, LLINT_OP_C(1).jsValue(), LLINT_OP_C(2).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jnless)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jnless, !jsLess&lt;true&gt;(exec, LLINT_OP_C(1).jsValue(), LLINT_OP_C(2).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jgreater)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jgreater, jsLess&lt;false&gt;(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(1).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jngreater)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jngreater, !jsLess&lt;false&gt;(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(1).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jlesseq)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jlesseq, jsLessEq&lt;true&gt;(exec, LLINT_OP_C(1).jsValue(), LLINT_OP_C(2).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jnlesseq)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jnlesseq, !jsLessEq&lt;true&gt;(exec, LLINT_OP_C(1).jsValue(), LLINT_OP_C(2).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jgreatereq)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jgreatereq, jsLessEq&lt;false&gt;(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(1).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jngreatereq)
+{
+    LLINT_BEGIN();
+    LLINT_BRANCH(op_jngreatereq, !jsLessEq&lt;false&gt;(exec, LLINT_OP_C(2).jsValue(), LLINT_OP_C(1).jsValue()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_switch_imm)
+{
+    LLINT_BEGIN();
+    JSValue scrutinee = LLINT_OP_C(3).jsValue();
+    ASSERT(scrutinee.isDouble());
+    <span class="enscript-type">double</span> value = scrutinee.asDouble();
+    int32_t intValue = static_cast&lt;int32_t&gt;(value);
+    <span class="enscript-type">int</span> defaultOffset = pc[2].u.operand;
+    <span class="enscript-keyword">if</span> (value == intValue) {
+        CodeBlock* codeBlock = exec-&gt;codeBlock();
+        pc += codeBlock-&gt;immediateSwitchJumpTable(pc[1].u.operand).offsetForValue(intValue, defaultOffset);
+    } <span class="enscript-keyword">else</span>
+        pc += defaultOffset;
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_switch_char)
+{
+    LLINT_BEGIN();
+    JSValue scrutinee = LLINT_OP_C(3).jsValue();
+    ASSERT(scrutinee.isString());
+    JSString* string = asString(scrutinee);
+    ASSERT(string-&gt;length() == 1);
+    <span class="enscript-type">int</span> defaultOffset = pc[2].u.operand;
+    StringImpl* impl = string-&gt;value(exec).impl();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    pc += codeBlock-&gt;characterSwitchJumpTable(pc[1].u.operand).offsetForValue((*impl)[0], defaultOffset);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_switch_string)
+{
+    LLINT_BEGIN();
+    JSValue scrutinee = LLINT_OP_C(3).jsValue();
+    <span class="enscript-type">int</span> defaultOffset = pc[2].u.operand;
+    <span class="enscript-keyword">if</span> (!scrutinee.isString())
+        pc += defaultOffset;
+    <span class="enscript-keyword">else</span> {
+        CodeBlock* codeBlock = exec-&gt;codeBlock();
+        pc += codeBlock-&gt;stringSwitchJumpTable(pc[1].u.operand).offsetForValue(asString(scrutinee)-&gt;value(exec).impl(), defaultOffset);
+    }
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_func)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    ASSERT(codeBlock-&gt;codeType() != FunctionCode
+           || !codeBlock-&gt;needsFullScopeChain()
+           || exec-&gt;uncheckedR(codeBlock-&gt;activationRegister()).jsValue());
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+    dataLog(<span class="enscript-string">&quot;Creating function!\n&quot;</span>);
+#<span class="enscript-reference">endif</span>
+    LLINT_RETURN(codeBlock-&gt;functionDecl(pc[2].u.operand)-&gt;make(exec, exec-&gt;scopeChain()));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_func_exp)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    FunctionExecutable* function = codeBlock-&gt;functionExpr(pc[2].u.operand);
+    JSFunction* func = function-&gt;make(exec, exec-&gt;scopeChain());
+    
+    <span class="enscript-keyword">if</span> (!function-&gt;name().isNull()) {
+        JSStaticScopeObject* functionScopeObject = JSStaticScopeObject::create(exec, function-&gt;name(), func, ReadOnly | DontDelete);
+        func-&gt;setScope(globalData, func-&gt;scope()-&gt;push(functionScopeObject));
+    }
+    
+    LLINT_RETURN(func);
+}
+
+<span class="enscript-type">static</span> SlowPathReturnType <span class="enscript-function-name">handleHostCall</span>(ExecState* execCallee, Instruction* pc, JSValue callee, CodeSpecializationKind kind)
+{
+    ExecState* exec = execCallee-&gt;callerFrame();
+    JSGlobalData&amp; globalData = exec-&gt;globalData();
+
+    execCallee-&gt;setScopeChain(exec-&gt;scopeChain());
+    execCallee-&gt;setCodeBlock(0);
+    execCallee-&gt;clearReturnPC();
+
+    <span class="enscript-keyword">if</span> (kind == CodeForCall) {
+        CallData callData;
+        CallType callType = getCallData(callee, callData);
+    
+        ASSERT(callType != CallTypeJS);
+    
+        <span class="enscript-keyword">if</span> (callType == CallTypeHost) {
+            NativeCallFrameTracer tracer(&amp;globalData, execCallee);
+            execCallee-&gt;setCallee(asObject(callee));
+            globalData.hostCallReturnValue = JSValue::decode(callData.native.function(execCallee));
+            
+            LLINT_CALL_RETURN(execCallee, pc, reinterpret_cast&lt;<span class="enscript-type">void</span>*&gt;(getHostCallReturnValue));
+        }
+        
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+        dataLog(<span class="enscript-string">&quot;Call callee is not a function: %s\n&quot;</span>, callee.description());
+#<span class="enscript-reference">endif</span>
+
+        ASSERT(callType == CallTypeNone);
+        LLINT_CALL_THROW(exec, pc, createNotAFunctionError(exec, callee));
+    }
+
+    ASSERT(kind == CodeForConstruct);
+    
+    ConstructData constructData;
+    ConstructType constructType = getConstructData(callee, constructData);
+    
+    ASSERT(constructType != ConstructTypeJS);
+    
+    <span class="enscript-keyword">if</span> (constructType == ConstructTypeHost) {
+        NativeCallFrameTracer tracer(&amp;globalData, execCallee);
+        execCallee-&gt;setCallee(asObject(callee));
+        globalData.hostCallReturnValue = JSValue::decode(constructData.native.function(execCallee));
+
+        LLINT_CALL_RETURN(execCallee, pc, reinterpret_cast&lt;<span class="enscript-type">void</span>*&gt;(getHostCallReturnValue));
+    }
+    
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+    dataLog(<span class="enscript-string">&quot;Constructor callee is not a function: %s\n&quot;</span>, callee.description());
+#<span class="enscript-reference">endif</span>
+
+    ASSERT(constructType == ConstructTypeNone);
+    LLINT_CALL_THROW(exec, pc, createNotAConstructorError(exec, callee));
+}
+
+<span class="enscript-type">inline</span> SlowPathReturnType <span class="enscript-function-name">setUpCall</span>(ExecState* execCallee, Instruction* pc, CodeSpecializationKind kind, JSValue calleeAsValue, LLIntCallLinkInfo* callLinkInfo = 0)
+{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">LLINT_SLOW_PATH_TRACING</span>
+    dataLog(<span class="enscript-string">&quot;Performing call with recorded PC = %p\n&quot;</span>, execCallee-&gt;callerFrame()-&gt;currentVPC());
+#<span class="enscript-reference">endif</span>
+
+    JSCell* calleeAsFunctionCell = getJSFunction(calleeAsValue);
+    <span class="enscript-keyword">if</span> (!calleeAsFunctionCell)
+        <span class="enscript-keyword">return</span> handleHostCall(execCallee, pc, calleeAsValue, kind);
+    
+    JSFunction* callee = jsCast&lt;JSFunction*&gt;(calleeAsFunctionCell);
+    ScopeChainNode* scope = callee-&gt;scopeUnchecked();
+    JSGlobalData&amp; globalData = *scope-&gt;globalData;
+    execCallee-&gt;setScopeChain(scope);
+    ExecutableBase* executable = callee-&gt;executable();
+    
+    MacroAssemblerCodePtr codePtr;
+    CodeBlock* codeBlock = 0;
+    <span class="enscript-keyword">if</span> (executable-&gt;isHostFunction())
+        codePtr = executable-&gt;generatedJITCodeFor(kind).addressForCall();
+    <span class="enscript-keyword">else</span> {
+        FunctionExecutable* functionExecutable = static_cast&lt;FunctionExecutable*&gt;(executable);
+        JSObject* error = functionExecutable-&gt;compileFor(execCallee, callee-&gt;scope(), kind);
+        <span class="enscript-keyword">if</span> (error)
+            LLINT_CALL_THROW(execCallee-&gt;callerFrame(), pc, error);
+        codeBlock = &amp;functionExecutable-&gt;generatedBytecodeFor(kind);
+        ASSERT(codeBlock);
+        <span class="enscript-keyword">if</span> (execCallee-&gt;argumentCountIncludingThis() &lt; static_cast&lt;size_t&gt;(codeBlock-&gt;numParameters()))
+            codePtr = functionExecutable-&gt;generatedJITCodeWithArityCheckFor(kind);
+        <span class="enscript-keyword">else</span>
+            codePtr = functionExecutable-&gt;generatedJITCodeFor(kind).addressForCall();
+    }
+    
+    <span class="enscript-keyword">if</span> (callLinkInfo) {
+        <span class="enscript-keyword">if</span> (callLinkInfo-&gt;isOnList())
+            callLinkInfo-&gt;remove();
+        ExecState* execCaller = execCallee-&gt;callerFrame();
+        callLinkInfo-&gt;callee.set(globalData, execCaller-&gt;codeBlock()-&gt;ownerExecutable(), callee);
+        callLinkInfo-&gt;lastSeenCallee.set(globalData, execCaller-&gt;codeBlock()-&gt;ownerExecutable(), callee);
+        callLinkInfo-&gt;machineCodeTarget = codePtr;
+        <span class="enscript-keyword">if</span> (codeBlock)
+            codeBlock-&gt;linkIncomingCall(callLinkInfo);
+    }
+    
+    LLINT_CALL_RETURN(execCallee, pc, codePtr.executableAddress());
+}
+
+<span class="enscript-type">inline</span> SlowPathReturnType <span class="enscript-function-name">genericCall</span>(ExecState* exec, Instruction* pc, CodeSpecializationKind kind)
+{
+    <span class="enscript-comment">// This needs to:
+</span>    <span class="enscript-comment">// - Set up a call frame.
+</span>    <span class="enscript-comment">// - Figure out what to call and compile it if necessary.
+</span>    <span class="enscript-comment">// - If possible, link the call's inline cache.
+</span>    <span class="enscript-comment">// - Return a tuple of machine code address to call and the new call frame.
+</span>    
+    JSValue calleeAsValue = LLINT_OP_C(1).jsValue();
+    
+    ExecState* execCallee = exec + pc[3].u.operand;
+    
+    execCallee-&gt;setArgumentCountIncludingThis(pc[2].u.operand);
+    execCallee-&gt;uncheckedR(RegisterFile::Callee) = calleeAsValue;
+    execCallee-&gt;setCallerFrame(exec);
+    
+    ASSERT(pc[4].u.callLinkInfo);
+    <span class="enscript-keyword">return</span> setUpCall(execCallee, pc, kind, calleeAsValue, pc[4].u.callLinkInfo);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call)
+{
+    LLINT_BEGIN_NO_SET_PC();
+    <span class="enscript-keyword">return</span> genericCall(exec, pc, CodeForCall);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_construct)
+{
+    LLINT_BEGIN_NO_SET_PC();
+    <span class="enscript-keyword">return</span> genericCall(exec, pc, CodeForConstruct);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call_varargs)
+{
+    LLINT_BEGIN();
+    <span class="enscript-comment">// This needs to:
+</span>    <span class="enscript-comment">// - Set up a call frame while respecting the variable arguments.
+</span>    <span class="enscript-comment">// - Figure out what to call and compile it if necessary.
+</span>    <span class="enscript-comment">// - Return a tuple of machine code address to call and the new call frame.
+</span>    
+    JSValue calleeAsValue = LLINT_OP_C(1).jsValue();
+    
+    ExecState* execCallee = loadVarargs(
+        exec, &amp;globalData.interpreter-&gt;registerFile(),
+        LLINT_OP_C(2).jsValue(), LLINT_OP_C(3).jsValue(), pc[4].u.operand);
+    LLINT_CALL_CHECK_EXCEPTION(exec, pc);
+    
+    execCallee-&gt;uncheckedR(RegisterFile::Callee) = calleeAsValue;
+    execCallee-&gt;setCallerFrame(exec);
+    exec-&gt;setCurrentVPC(pc + OPCODE_LENGTH(op_call_varargs));
+    
+    <span class="enscript-keyword">return</span> setUpCall(execCallee, pc, CodeForCall, calleeAsValue);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call_eval)
+{
+    LLINT_BEGIN_NO_SET_PC();
+    JSValue calleeAsValue = LLINT_OP(1).jsValue();
+    
+    ExecState* execCallee = exec + pc[3].u.operand;
+    
+    execCallee-&gt;setArgumentCountIncludingThis(pc[2].u.operand);
+    execCallee-&gt;setCallerFrame(exec);
+    execCallee-&gt;uncheckedR(RegisterFile::Callee) = calleeAsValue;
+    execCallee-&gt;setScopeChain(exec-&gt;scopeChain());
+    execCallee-&gt;setReturnPC(bitwise_cast&lt;Instruction*&gt;(&amp;llint_generic_return_point));
+    execCallee-&gt;setCodeBlock(0);
+    exec-&gt;setCurrentVPC(pc + OPCODE_LENGTH(op_call_eval));
+    
+    <span class="enscript-keyword">if</span> (!isHostFunction(calleeAsValue, globalFuncEval))
+        <span class="enscript-keyword">return</span> setUpCall(execCallee, pc, CodeForCall, calleeAsValue);
+    
+    globalData.hostCallReturnValue = eval(execCallee);
+    LLINT_CALL_RETURN(execCallee, pc, reinterpret_cast&lt;<span class="enscript-type">void</span>*&gt;(getHostCallReturnValue));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_tear_off_activation)
+{
+    LLINT_BEGIN();
+    ASSERT(exec-&gt;codeBlock()-&gt;needsFullScopeChain());
+    JSValue activationValue = LLINT_OP(1).jsValue();
+    <span class="enscript-keyword">if</span> (!activationValue) {
+        <span class="enscript-keyword">if</span> (JSValue v = exec-&gt;uncheckedR(unmodifiedArgumentsRegister(pc[2].u.operand)).jsValue()) {
+            <span class="enscript-keyword">if</span> (!exec-&gt;codeBlock()-&gt;isStrictMode())
+                asArguments(v)-&gt;tearOff(exec);
+        }
+        LLINT_END();
+    }
+    JSActivation* activation = asActivation(activationValue);
+    activation-&gt;tearOff(globalData);
+    <span class="enscript-keyword">if</span> (JSValue v = exec-&gt;uncheckedR(unmodifiedArgumentsRegister(pc[2].u.operand)).jsValue())
+        asArguments(v)-&gt;didTearOffActivation(globalData, activation);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_tear_off_arguments)
+{
+    LLINT_BEGIN();
+    ASSERT(exec-&gt;codeBlock()-&gt;usesArguments() &amp;&amp; !exec-&gt;codeBlock()-&gt;needsFullScopeChain());
+    asArguments(exec-&gt;uncheckedR(unmodifiedArgumentsRegister(pc[1].u.operand)).jsValue())-&gt;tearOff(exec);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_strcat)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(jsString(exec, &amp;LLINT_OP(2), pc[3].u.operand));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_to_primitive)
+{
+    LLINT_BEGIN();
+    LLINT_RETURN(LLINT_OP_C(2).jsValue().toPrimitive(exec));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_pnames)
+{
+    LLINT_BEGIN();
+    JSValue v = LLINT_OP(2).jsValue();
+    <span class="enscript-keyword">if</span> (v.isUndefinedOrNull()) {
+        pc += pc[5].u.operand;
+        LLINT_END();
+    }
+    
+    JSObject* o = v.toObject(exec);
+    Structure* structure = o-&gt;structure();
+    JSPropertyNameIterator* jsPropertyNameIterator = structure-&gt;enumerationCache();
+    <span class="enscript-keyword">if</span> (!jsPropertyNameIterator || jsPropertyNameIterator-&gt;cachedPrototypeChain() != structure-&gt;prototypeChain(exec))
+        jsPropertyNameIterator = JSPropertyNameIterator::create(exec, o);
+    
+    LLINT_OP(1) = JSValue(jsPropertyNameIterator);
+    LLINT_OP(2) = JSValue(o);
+    LLINT_OP(3) = Register::withInt(0);
+    LLINT_OP(4) = Register::withInt(jsPropertyNameIterator-&gt;size());
+    
+    pc += OPCODE_LENGTH(op_get_pnames);
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_next_pname)
+{
+    LLINT_BEGIN();
+    JSObject* base = asObject(LLINT_OP(2).jsValue());
+    JSString* property = asString(LLINT_OP(1).jsValue());
+    <span class="enscript-keyword">if</span> (base-&gt;hasProperty(exec, Identifier(exec, property-&gt;value(exec)))) {
+        <span class="enscript-comment">// Go to target.
+</span>        pc += pc[6].u.operand;
+    } <span class="enscript-comment">// Else, don't change the PC, so the interpreter will reloop.
+</span>    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_push_scope)
+{
+    LLINT_BEGIN();
+    JSValue v = LLINT_OP(1).jsValue();
+    JSObject* o = v.toObject(exec);
+    LLINT_CHECK_EXCEPTION();
+    
+    LLINT_OP(1) = o;
+    exec-&gt;setScopeChain(exec-&gt;scopeChain()-&gt;push(o));
+    
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_pop_scope)
+{
+    LLINT_BEGIN();
+    exec-&gt;setScopeChain(exec-&gt;scopeChain()-&gt;pop());
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_push_new_scope)
+{
+    LLINT_BEGIN();
+    CodeBlock* codeBlock = exec-&gt;codeBlock();
+    JSObject* scope = JSStaticScopeObject::create(exec, codeBlock-&gt;identifier(pc[2].u.operand), LLINT_OP(3).jsValue(), DontDelete);
+    exec-&gt;setScopeChain(exec-&gt;scopeChain()-&gt;push(scope));
+    LLINT_RETURN(scope);
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_throw)
+{
+    LLINT_BEGIN();
+    LLINT_THROW(LLINT_OP_C(1).jsValue());
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_throw_reference_error)
+{
+    LLINT_BEGIN();
+    LLINT_THROW(createReferenceError(exec, LLINT_OP_C(1).jsValue().toString(exec)-&gt;value(exec)));
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_debug)
+{
+    LLINT_BEGIN();
+    <span class="enscript-type">int</span> debugHookID = pc[1].u.operand;
+    <span class="enscript-type">int</span> firstLine = pc[2].u.operand;
+    <span class="enscript-type">int</span> lastLine = pc[3].u.operand;
+    
+    globalData.interpreter-&gt;debug(exec, static_cast&lt;DebugHookID&gt;(debugHookID), firstLine, lastLine);
+    
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_profile_will_call)
+{
+    LLINT_BEGIN();
+    (*Profiler::enabledProfilerReference())-&gt;willExecute(exec, LLINT_OP(1).jsValue());
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_profile_did_call)
+{
+    LLINT_BEGIN();
+    (*Profiler::enabledProfilerReference())-&gt;didExecute(exec, LLINT_OP(1).jsValue());
+    LLINT_END();
+}
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(throw_from_native_call)
+{
+    LLINT_BEGIN();
+    ASSERT(globalData.exception);
+    LLINT_END();
+}
+
+} } <span class="enscript-comment">// namespace JSC::LLInt
+</span>
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">LLINT</span>)
+</pre>
+<hr />
+</body></html>

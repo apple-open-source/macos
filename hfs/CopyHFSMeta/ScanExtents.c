@@ -3,9 +3,15 @@
 #include <unistd.h>
 #include <err.h>
 #include <errno.h>
+#include <string.h>
 
 #include "hfsmeta.h"
 #include "Data.h"
+
+#ifndef MAX
+# define MAX(a, b) \
+	({ __typeof(a) __a = (a); __typeof(b) __b = (b); __a > __b ? __a : __b; })
+#endif
 
 /*
  * Functions to scan through the extents overflow file, grabbing
@@ -43,25 +49,41 @@ FindBlock(HFSPlusExtentRecord *erp, unsigned int blockNum)
  * 0 on success.
  */
 static int
-GetNode(DeviceInfo_t *devp, HFSPlusVolumeHeader *hp, int nodeNum, int blocksPerNode, void *nodePtr)
+GetNode(DeviceInfo_t *devp, HFSPlusVolumeHeader *hp, int nodeNum, size_t nodeSize, void *nodePtr)
 {
 	int retval = 0;
 	unsigned char *ptr, *endPtr;
 	unsigned int offset;
 	HFSPlusExtentRecord *erp = &hp->extentsFile.extents;
+	size_t bufferSize = MAX(nodeSize, S32(hp->blockSize));
 
 	ptr = nodePtr;
-	endPtr = ptr + (blocksPerNode * S32(hp->blockSize));
-	offset = nodeNum * blocksPerNode;
+	endPtr = ptr + bufferSize;
+	/*
+	 * The block number for HFS Plus is guaranteed to be 32 bits.
+	 * But the multiplication could over-flow, so we cast one
+	 * of the variables to off_t, and cast the whole thing back
+	 * to uint32_t.
+	 */
+	offset = (uint32_t)(((off_t)nodeNum * nodeSize) / S32(hp->blockSize));
 
 	/*
-	 * We have two block sizes to consider here.  The device blocksize, and the
-	 * btree node size.
+	 * We have two sizes to consider here:  the device blocksize, and the
+	 * buffer size.  The buffer size is the larger of the btree node size
+	 * and the volume allocation block size.
+	 *
+	 * This loop is the case where the device block size is smaller than
+	 * the amount we want to read (in a common case, 8kbyte node size, and
+	 * 512 byte block size).  It reads in a device block, and adds it to
+	 * the buffer; it continues until an error, or until it has gotten
+	 * the amount it needs.
+	 *
+	 * The variable "offset" is in *allocation blocks*, not *bytes*.
 	 */
 	while (ptr < endPtr) {
 		ssize_t rv;
 		off_t lba;
-		int i;
+		unsigned int i;
 
 
 		lba = FindBlock(erp, offset);
@@ -74,7 +96,7 @@ GetNode(DeviceInfo_t *devp, HFSPlusVolumeHeader *hp, int nodeNum, int blocksPerN
 //			printf("Trying to get block %lld\n", lba + i);
 			rv = GetBlock(devp, lba + (i * devp->blockSize), ptr);
 			if (rv == -1) {
-				warnx("Cannot read block %u in extents overflow file", lba + i);
+				warnx("Cannot read block %llu in extents overflow file", lba + i);
 				return -1;
 			}
 			ptr += devp->blockSize;
@@ -82,7 +104,18 @@ GetNode(DeviceInfo_t *devp, HFSPlusVolumeHeader *hp, int nodeNum, int blocksPerN
 		offset++;
 	}
 
-done:
+	/*
+	 * Per 13080856:  if the node size is less than the allocation block size, we
+	 * have to deal with having multiple nodes per block.  The code above to read it
+	 * has read in either an allocation block, or a node block, depending on which
+	 * is larger.  If the allocation block is larger, then we have to move the node
+	 * we want to the beginning of the buffer.
+	 */
+	if (nodeSize < bufferSize) {
+		size_t indx = nodeNum % (S32(hp->blockSize) / nodeSize);
+		ptr = nodePtr;
+		memmove(ptr, ptr + (indx * nodeSize), nodeSize);
+	}
 	return retval;
 }
 
@@ -122,7 +155,7 @@ ScanNode(VolumeObjects_t *vop, uint8_t *nodePtr, size_t nodeSize, off_t blockSiz
 		}
 		keyp = (HFSPlusExtentKey*)recp;
 		datap = (HFSPlusExtentRecord*)(recp + sizeof(HFSPlusExtentKey));
-//		printf("Node index #%d:  fileID = %u\n", indx, S32(keyp->fileID));
+		if (debug > 1) printf("Node index #%d:  fileID = %u\n", indx, S32(keyp->fileID));
 		if (S32(keyp->fileID) >= kHFSFirstUserCatalogNodeID) {
 			if (debug) printf("Done scanning extents overflow file\n");
 			retval = 0;
@@ -151,15 +184,15 @@ ScanExtents(VolumeObjects_t *vop, int useAltHdr)
 {
 	int retval = -1;
 	ssize_t rv;
-	char buffer[vop->devp->blockSize];
+	uint8_t buffer[vop->devp->blockSize];
 	struct RootNode {
 		BTNodeDescriptor desc;
 		BTHeaderRec header;
 	} *headerNode;
 	HFSPlusVolumeHeader *hp;
-	HFSPlusExtentRecord *erp;
 	off_t vBlockSize;
-	size_t tBlockSize;
+	size_t nodeSize;
+	size_t bufferSize;
 	int blocksPerNode;
 	void *nodePtr = NULL;
 	unsigned int nodeNum = 0;
@@ -180,17 +213,34 @@ ScanExtents(VolumeObjects_t *vop, int useAltHdr)
 		goto done;
 	}
 
-	tBlockSize = S16(headerNode->header.nodeSize);
-	blocksPerNode = tBlockSize / vBlockSize;
+	nodeSize = S16(headerNode->header.nodeSize);
+	/*
+	 * There are three cases here:
+	 * nodeSize == vBlockSize;
+	 * nodeSize > vBlockSize;
+	 * nodeSize < vBlockSize.
+	 * For the first two, everything is easy:  we just need to read in a nodeSize, and that
+	 * contains everything we care about.  For the third case, however, we will
+	 * need to read in an allocation block size, but then have GetNode move memory
+	 * around so the node we want is at the beginning of the buffer.  Note that this
+	 * does mean it is less efficient than it should be.
+	 */
+	if (nodeSize < vBlockSize) {
+		blocksPerNode = 1;	// 1 block will hold multiple nodes
+		bufferSize = vBlockSize;
+	} else {
+		blocksPerNode = nodeSize / vBlockSize;
+		bufferSize = nodeSize;
+	}
 
-	nodePtr = malloc(tBlockSize);
+	nodePtr = malloc(bufferSize);
 	if (nodePtr == NULL) {
 		warn("cannot allocate buffer for node");
 		goto done;
 	}
 	nodeNum = S32(headerNode->header.firstLeafNode);
 
-	if (debug) printf("nodenum = %u\n", nodeNum);
+	if (debug) printf("first leaf nodenum = %u\n", nodeNum);
 
 	/*
 	 * Iterate through the leaf nodes.
@@ -198,13 +248,19 @@ ScanExtents(VolumeObjects_t *vop, int useAltHdr)
 	while (nodeNum != 0) {
 		if (debug) printf("Getting node %u\n", nodeNum);
 
-		rv = GetNode(vop->devp, hp, nodeNum, blocksPerNode, nodePtr);
+		/*
+		 * GetNode() puts the node we want into nodePtr;
+		 * we have ensured that the buffer is large enough
+		 * to contain at least one node, or one allocation block,
+		 * whichever is larger.
+		 */
+		rv = GetNode(vop->devp, hp, nodeNum, nodeSize, nodePtr);
 		if (rv == -1) {
 			warnx("Cannot get node %u", nodeNum);
 			retval = -1;
 			goto done;
 		}
-		nodeNum = ScanNode(vop, nodePtr, tBlockSize, vBlockSize);
+		nodeNum = ScanNode(vop, nodePtr, nodeSize, vBlockSize);
 	}
 	retval = 0;
 

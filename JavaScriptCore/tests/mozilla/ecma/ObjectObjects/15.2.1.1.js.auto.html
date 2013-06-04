@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>15.2.1.1.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">15.2.1.1.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* The contents of this file are subject to the Netscape Public
+ * License Version 1.1 (the &quot;License&quot;); you may not use this file
+ * except in compliance with the License. You may obtain a copy of
+ * the License at <a href="http://www.mozilla.org/NPL/">http://www.mozilla.org/NPL/</a>
+ *
+ * Software distributed under the License is distributed on an &quot;AS
+ * IS&quot; basis, WITHOUT WARRANTY OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * rights and limitations under the License.
+ *
+ * The Original Code is Mozilla Communicator client code, released March
+ * 31, 1998.
+ *
+ * The Initial Developer of the Original Code is Netscape Communications
+ * Corporation. Portions created by Netscape are
+ * Copyright (C) 1998 Netscape Communications Corporation. All
+ * Rights Reserved.
+ *
+ * Contributor(s): 
+ * 
+ */</span>
+<span class="enscript-comment">/**
+    File Name:          15.2.1.1.js
+    ECMA Section:       15.2.1.1  The Object Constructor Called as a Function:
+                                  Object(value)
+    Description:        When Object is called as a function rather than as a
+                        constructor, the following steps are taken:
+
+                        1.  If value is null or undefined, create and return a
+                            new object with no properties other than internal
+                            properties exactly as if the object constructor
+                            had been called on that same value (15.2.2.1).
+                        2.  Return ToObject (value), whose rules are:
+
+                        undefined   generate a runtime error
+                        null        generate a runtime error
+                        boolean     create a new Boolean object whose default
+                                    value is the value of the boolean.
+                        number      Create a new Number object whose default
+                                    value is the value of the number.
+                        string      Create a new String object whose default
+                                    value is the value of the string.
+                        object      Return the input argument (no conversion).
+
+    Author:             <a href="mailto:christine@netscape.com">christine@netscape.com</a>
+    Date:               17 july 1997
+*/</span>
+
+    <span class="enscript-keyword">var</span> SECTION = <span class="enscript-string">&quot;15.2.1.1&quot;</span>;
+    <span class="enscript-keyword">var</span> VERSION = <span class="enscript-string">&quot;ECMA_1&quot;</span>;
+    startTest();
+    <span class="enscript-keyword">var</span> TITLE   = <span class="enscript-string">&quot;Object( value )&quot;</span>;
+
+    writeHeaderToLog( SECTION + <span class="enscript-string">&quot; &quot;</span>+ TITLE);
+
+    <span class="enscript-keyword">var</span> testcases = getTestCases();
+    test();
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">getTestCases</span>() {
+    <span class="enscript-keyword">var</span> array = <span class="enscript-keyword">new</span> Array();
+    <span class="enscript-keyword">var</span> item = 0;
+
+    <span class="enscript-keyword">var</span> NULL_OBJECT = Object(<span class="enscript-keyword">null</span>);
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(null).valueOf()&quot;</span>,    NULL_OBJECT,           (NULL_OBJECT).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(null)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,               typeof (Object(<span class="enscript-keyword">null</span>)) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(null).__proto__&quot;</span>,    Object.prototype,       (Object(<span class="enscript-keyword">null</span>)).__proto__ );
+
+    <span class="enscript-keyword">var</span> UNDEFINED_OBJECT = Object( <span class="enscript-keyword">void</span> 0 );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(void 0).valueOf()&quot;</span>,    UNDEFINED_OBJECT,           (UNDEFINED_OBJECT).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(void 0)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,               typeof (Object(<span class="enscript-keyword">void</span> 0)) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(void 0).__proto__&quot;</span>,    Object.prototype,       (Object(<span class="enscript-keyword">void</span> 0)).__proto__ );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(true).valueOf()&quot;</span>,    <span class="enscript-keyword">true</span>,                   (Object(<span class="enscript-keyword">true</span>)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(true)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,               typeof Object(<span class="enscript-keyword">true</span>) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(true); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,  <span class="enscript-string">&quot;[object Boolean]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(true); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(false).valueOf()&quot;</span>,    <span class="enscript-keyword">false</span>,                  (Object(<span class="enscript-keyword">false</span>)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(false)&quot;</span>,      <span class="enscript-string">&quot;object&quot;</span>,               typeof Object(<span class="enscript-keyword">false</span>) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(false); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,  <span class="enscript-string">&quot;[object Boolean]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(false); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(0).valueOf()&quot;</span>,       0,                      (Object(0)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(0)&quot;</span>,          <span class="enscript-string">&quot;object&quot;</span>,               typeof Object(0) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(0); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,      <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(0); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(-0).valueOf()&quot;</span>,      -0,                     (Object(-0)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(-0)&quot;</span>,         <span class="enscript-string">&quot;object&quot;</span>,               typeof Object(-0) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(-0); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(-0); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(1).valueOf()&quot;</span>,       1,                      (Object(1)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(1)&quot;</span>,          <span class="enscript-string">&quot;object&quot;</span>,               typeof Object(1) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(1); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(1); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(-1).valueOf()&quot;</span>,      -1,                     (Object(-1)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(-1)&quot;</span>,         <span class="enscript-string">&quot;object&quot;</span>,               typeof Object(-1) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(-1); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(-1); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(Number.MAX_VALUE).valueOf()&quot;</span>,    1.7976931348623157e308,         (Object(Number.MAX_VALUE)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(Number.MAX_VALUE)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,                       typeof Object(Number.MAX_VALUE) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(Number.MAX_VALUE); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(Number.MAX_VALUE); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(Number.MIN_VALUE).valueOf()&quot;</span>,     5e-324,           (Object(Number.MIN_VALUE)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(Number.MIN_VALUE)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,         typeof Object(Number.MIN_VALUE) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(Number.MIN_VALUE); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(Number.MIN_VALUE); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(Number.POSITIVE_INFINITY).valueOf()&quot;</span>,    Number.POSITIVE_INFINITY,       (Object(Number.POSITIVE_INFINITY)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(Number.POSITIVE_INFINITY)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,                       typeof Object(Number.POSITIVE_INFINITY) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(Number.POSITIVE_INFINITY); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(Number.POSITIVE_INFINITY); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(Number.NEGATIVE_INFINITY).valueOf()&quot;</span>,    Number.NEGATIVE_INFINITY,       (Object(Number.NEGATIVE_INFINITY)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(Number.NEGATIVE_INFINITY)&quot;</span>,       <span class="enscript-string">&quot;object&quot;</span>,            typeof Object(Number.NEGATIVE_INFINITY) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(Number.NEGATIVE_INFINITY); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(Number.NEGATIVE_INFINITY); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object(Number.NaN).valueOf()&quot;</span>,      Number.NaN,                (Object(Number.NaN)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object(Number.NaN)&quot;</span>,         <span class="enscript-string">&quot;object&quot;</span>,                  typeof Object(Number.NaN) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(Number.NaN); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object Number]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(Number.NaN); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object('a string').valueOf()&quot;</span>,      <span class="enscript-string">&quot;a string&quot;</span>,         (Object(<span class="enscript-string">&quot;a string&quot;</span>)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object('a string')&quot;</span>,         <span class="enscript-string">&quot;object&quot;</span>,           typeof (Object(<span class="enscript-string">&quot;a string&quot;</span>)) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object('a string'); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object String]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object('a string'); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object('').valueOf()&quot;</span>,              <span class="enscript-string">&quot;&quot;</span>,                 (Object(<span class="enscript-string">&quot;&quot;</span>)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object('')&quot;</span>,                 <span class="enscript-string">&quot;object&quot;</span>,           typeof (Object(<span class="enscript-string">&quot;&quot;</span>)) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object(''); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object String]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object(''); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;Object('\\r\\t\\b\\n\\v\\f').valueOf()&quot;</span>,   <span class="enscript-string">&quot;\r\t\b\n\v\f&quot;</span>,   (Object(<span class="enscript-string">&quot;\r\t\b\n\v\f&quot;</span>)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;typeof Object('\\r\\t\\b\\n\\v\\f')&quot;</span>,      <span class="enscript-string">&quot;object&quot;</span>,           typeof (Object(<span class="enscript-string">&quot;\\r\\t\\b\\n\\v\\f&quot;</span>)) );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION, <span class="enscript-string">&quot;var MYOB = Object('\\r\\t\\b\\n\\v\\f'); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>,     <span class="enscript-string">&quot;[object String]&quot;</span>,      <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var MYOB = Object('\\r\\t\\b\\n\\v\\f'); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;</span>) );
+
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION,  <span class="enscript-string">&quot;Object( '\\\'\\\&quot;\\' ).valueOf()&quot;</span>,      <span class="enscript-string">&quot;\'\&quot;\\&quot;</span>,          (Object(<span class="enscript-string">&quot;\'\&quot;\\&quot;</span>)).valueOf() );
+    array[item++] = <span class="enscript-keyword">new</span> TestCase( SECTION,  <span class="enscript-string">&quot;typeof Object( '\\\'\\\&quot;\\' )&quot;</span>,        <span class="enscript-string">&quot;object&quot;</span>,           typeof Object(<span class="enscript-string">&quot;\'\&quot;\\&quot;</span>) );
+<span class="enscript-comment">//    array[item++] = new TestCase( SECTION, &quot;var MYOB = Object(  '\\\'\\\&quot;\\' ); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;,     &quot;[object String]&quot;,      eval(&quot;var MYOB = Object( '\\\'\\\&quot;\\' ); MYOB.toString = Object.prototype.toString; MYOB.toString()&quot;) );
+</span>
+    <span class="enscript-keyword">return</span> ( array );
+}
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc = 0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                    testcases[tc].expect,
+                    testcases[tc].actual,
+                    testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                    testcases[tc].actual );
+
+        testcases[tc].reason +=
+                    ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+</pre>
+<hr />
+</body></html>

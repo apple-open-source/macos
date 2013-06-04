@@ -28,6 +28,67 @@
 #include "security.h"
 #include "kext_tools_util.h"
 
+/*******************************************************************************
+ * createArchitectureList() - create the list of architectures for the kext
+ *  <rdar://13529984> MessageTrace which kexts are FAT
+ *  the caller must release the created CFStringRef
+ *******************************************************************************/
+CFStringRef createArchitectureList(OSKextRef aKext, CFBooleanRef *isFat)
+{
+    if (aKext == NULL || isFat == NULL) {
+        return NULL;
+    }
+    
+    *isFat = kCFBooleanFalse;
+    
+    const NXArchInfo **         archList            = NULL; // must free
+    CFMutableArrayRef           archNamesList       = NULL; // must release
+    CFStringRef                 archNames           = NULL; // do not release
+    const char *                archNameCString     = NULL; // do not free
+    int                         index               = 0;
+    
+    archList = OSKextCopyArchitectures(aKext);
+    if (!archList) {
+        goto finish;
+    }
+    
+    archNamesList = CFArrayCreateMutable(kCFAllocatorDefault,
+                                         0,
+                                         &kCFTypeArrayCallBacks);
+    if (!archNamesList) {
+        goto finish;
+    }
+    
+    for (index=0; archList[index]; index++) {
+        archNameCString = archList[index]->name;
+        if (archNameCString) {
+            CFStringRef archName = NULL;
+            archName = CFStringCreateWithCString(kCFAllocatorDefault,
+                                                 archNameCString,
+                                                 kCFStringEncodingUTF8);
+            if (archName) {
+                CFArrayAppendValue(archNamesList, archName);
+                SAFE_RELEASE_NULL(archName);
+            }
+        }
+    }
+    
+    if (CFArrayGetCount(archNamesList)>1) {
+        *isFat = kCFBooleanTrue;
+    }
+    archNames = CFStringCreateByCombiningStrings(kCFAllocatorDefault,
+                                                 archNamesList,
+                                                 CFSTR(" "));
+    if (!archNames) {
+        goto finish;
+    }
+    
+finish:
+    SAFE_RELEASE(archNamesList);
+    SAFE_FREE(archList);
+    
+    return archNames;
+}
 
 /*******************************************************************************
  * logMTMessage() - log MessageTracer message
@@ -37,31 +98,40 @@
 
 void logMTMessage(OSKextRef aKext)
 {
-    CFStringRef     versionString;
-    CFStringRef     bundleIDString;
-    CFURLRef        kextURL             = NULL;   // must release
-    CFStringRef     kextPath            = NULL;   // must release
-    CFStringRef     filename            = NULL;   // must release
-    aslmsg          amsg                = NULL;   // must free
-    char            *versionCString     = NULL;   // must free
-    char            *bundleIDCString    = NULL;   // must free
-    char            *filenameCString    = NULL;   // must free
-    char            *tempBufPtr         = NULL;   // must free
-    CFMutableDictionaryRef signdict     = NULL;   // must release
-    SecCodeSignerRef    signerRef       = NULL;   // must release
-    SecStaticCodeRef    staticCodeRef   = NULL;   // must release
-    CFDataRef           signature       = NULL;   // must release
-    CFDictionaryRef     signingDict     = NULL;   // must release
-    CFDataRef           cdhash          = NULL;   // must release
-    CFMutableDictionaryRef resourceRules = NULL;  // must release
-    CFMutableDictionaryRef rules        = NULL;   // must release
-    CFMutableDictionaryRef omitPlugins  = NULL;   // must release
+    CFStringRef             versionString;                // do not release
+    CFStringRef             bundleIDString;               // do not release
+    CFURLRef                kextURL             = NULL;   // must release
+    CFStringRef             kextPath            = NULL;   // must release
+    CFStringRef             filename            = NULL;   // must release
+    aslmsg                  amsg                = NULL;   // must free
+    char                    *versionCString     = NULL;   // must free
+    char                    *bundleIDCString    = NULL;   // must free
+    char                    *filenameCString    = NULL;   // must free
+    char                    *archCString        = NULL;   // must free
+    char                    *tempBufPtr         = NULL;   // must free
+    CFMutableDictionaryRef  signdict            = NULL;   // must release
+    SecCodeSignerRef        signerRef           = NULL;   // must release
+    SecStaticCodeRef        staticCodeRef       = NULL;   // must release
+    CFDataRef               signature           = NULL;   // must release
+    CFDictionaryRef         signingDict         = NULL;   // must release
+    CFDataRef               cdhash              = NULL;   // must release
+    CFMutableDictionaryRef  resourceRules       = NULL;   // must release
+    CFMutableDictionaryRef  rules               = NULL;   // must release
+    CFMutableDictionaryRef  omitPlugins         = NULL;   // must release
+    CFStringRef             archString          = NULL;   // must release
+    CFBooleanRef            isFat               = kCFBooleanFalse;
+    unsigned int            perThousands        = 200;
     
     /* do not message trace this if boot-args has debug set */
     if (isDebugSetInBootargs()) {
         return;
     }
-
+    
+    /* Decrease the amount of messages by a factor 5 */
+    if (arc4random_uniform(1000) > perThousands) {
+        goto finish;
+    }
+    
     if (!OSKextGetURL(aKext)) {
         OSKextLogMemError();
         goto finish;
@@ -77,33 +147,10 @@ void logMTMessage(OSKextRef aKext)
         goto finish;
     }
     
-    /* we want to exclude all apple kexts except for ones that are NOT in /S/L/E
-     */
+    /* we want to exclude all apple kexts */
     bundleIDString = OSKextGetIdentifier(aKext);
     if (CFStringHasPrefix(bundleIDString, __kOSKextApplePrefix)) {
-        char            scratchPath[PATH_MAX];
-        
-        if (CFStringGetCString(kextPath, scratchPath,
-                               sizeof(scratchPath),
-                               kCFStringEncodingUTF8) == 0) {
-            OSKextLogMemError();
-            goto finish;
-        }
-        
-        /* bump past extra '/'s at the beginning of the path */
-        char     *pathPtr = &scratchPath[0];
-        for (size_t i = 0; i < strlen(&scratchPath[0]); i++) {
-            if (scratchPath[i] == '/' && scratchPath[i + 1] == '/') {
-                pathPtr++;
-                continue;
-            }
-            break;
-        }
-        if (strncmp(pathPtr,
-                    _kOSKextSystemLibraryExtensionsFolder,
-                    strlen(_kOSKextSystemLibraryExtensionsFolder)) == 0) {
-            goto finish;
-        }
+        goto finish;
     }
     
 #if 0
@@ -181,8 +228,7 @@ void logMTMessage(OSKextRef aKext)
         goto finish;
     }
     
-    /* exclude PlugIns directory
-     */
+    /* exclude PlugIns directory */
     CFNumberRef myNumValue;
     int myNum = 100;
     myNumValue = CFNumberCreate(kCFAllocatorDefault,
@@ -217,8 +263,7 @@ void logMTMessage(OSKextRef aKext)
         goto finish;
     }
     
-    /* get the hash info
-     */
+    /* get the hash info */
     if (SecCodeCopySigningInformation(staticCodeRef, kSecCSDefaultFlags, &signingDict) != 0) {
         OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                   "%s - SecCodeCopySigningInformation failed", __func__);
@@ -250,6 +295,11 @@ void logMTMessage(OSKextRef aKext)
             sprintf(tempBufPtr + (i * 2), "%02.2x", *(hashDataPtr + i));
         }
     }
+
+    archString = createArchitectureList(aKext, &isFat);
+    if (archString){
+        archCString = createUTF8CStringForCFString(archString);
+    }
     
     /* log the message tracer data
      */
@@ -260,22 +310,27 @@ void logMTMessage(OSKextRef aKext)
     }
     
     asl_set(amsg, kMessageTracerDomainKey, kMTKextLoadingDomain);
-    asl_set(amsg, kMessageTracerBundleIDKey,
+    asl_set(amsg, "com.apple.message.signature",
             bundleIDCString ? bundleIDCString : "");
-    asl_set(amsg, kMessageTracerVersionKey,
-            versionCString ? versionCString : "");
-    asl_set(amsg, kMessageTracerKextNameKey,
-            filenameCString ? filenameCString : "");
-    asl_set(amsg, kMessageTracerHashKey,
+    asl_set(amsg, "com.apple.message.signature1",
             tempBufPtr ? tempBufPtr : "");
+    asl_set(amsg, "com.apple.message.signature2",
+            versionCString ? versionCString : "");
+    asl_set(amsg, "com.apple.message.signature3",
+            filenameCString ? filenameCString : "");
+    asl_set(amsg, "com.apple.message.signature5",
+            isFat==kCFBooleanTrue ? "true" : "false");
+    asl_set(amsg, "com.apple.message.signature6",
+            archCString ? archCString : "");
     
     asl_log(NULL, amsg, ASL_LEVEL_NOTICE, "");
-    
+        
 finish:
     SAFE_FREE(versionCString);
     SAFE_FREE(bundleIDCString);
     SAFE_FREE(filenameCString);
     SAFE_FREE(tempBufPtr);
+    SAFE_FREE(archCString);
     
     SAFE_RELEASE(kextURL);
     SAFE_RELEASE(kextPath);
@@ -288,6 +343,7 @@ finish:
     SAFE_RELEASE(resourceRules);
     SAFE_RELEASE(rules);
     SAFE_RELEASE(omitPlugins);
+    SAFE_RELEASE(archString);
     
     if (amsg) {
         asl_free(amsg);

@@ -703,6 +703,16 @@ setup( char *dev, int *canWritePtr )
 			(void)fplog(stderr, "sysctlbyname failed, not auto-setting cache size\n");
 		} else {
 			int d = (hotroot && !lflag) ? 2 : 8;
+			int safeMode = 0;
+			dsize = sizeof(safeMode);
+			rv = sysctlbyname("kern.safeboot", &safeMode, &dsize, NULL, 0);
+			if (rv != -1 && safeMode != 0 && hotroot && !lflag) {
+#define kMaxSafeModeMem	((size_t)2 * 1024 * 1024 * 1024)	/* 2Gbytes, means cache will max out at 1gbyte */
+				if (debug) {
+					(void)fplog(stderr, "Safe mode and single-user, setting memsize to a maximum of 2gbytes\n");
+				}
+				memSize = (memSize < kMaxSafeModeMem) ? memSize : kMaxSafeModeMem;
+			}
 			reqCacheSize = memSize / d;
 		}
 	}

@@ -6069,7 +6069,7 @@ static void show_uuid(bool keep_running)
     io_object_t             notification_ref = IO_OBJECT_NULL;
     
     notify = IONotificationPortCreate(kIOMasterPortDefault);
-    IONotificationPortSetDispatchQueue(notify, dispatch_get_current_queue());
+    IONotificationPortSetDispatchQueue(notify, dispatch_get_main_queue());
     
     IOServiceAddInterestNotification(notify, rd, 
                                      kIOGeneralInterest, _show_uuid_handler,

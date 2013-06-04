@@ -1,0 +1,2691 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>YarrJIT.cpp</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">YarrJIT.cpp&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2009 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;YarrJIT.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/ASCIICType.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;LinkBuffer.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Yarr.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;YarrCanonicalizeUCS2.h&quot;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">YARR_JIT</span>)
+
+using namespace WTF;
+
+namespace JSC { namespace Yarr {
+
+<span class="enscript-type">template</span>&lt;YarrJITCompileMode compileMode&gt;
+<span class="enscript-type">class</span> YarrGenerator : <span class="enscript-type">private</span> MacroAssembler {
+    <span class="enscript-type">friend</span> <span class="enscript-type">void</span> jitCompile(JSGlobalData*, YarrCodeBlock&amp; jitObject, <span class="enscript-type">const</span> UString&amp; pattern, <span class="enscript-type">unsigned</span>&amp; numSubpatterns, <span class="enscript-type">const</span> <span class="enscript-type">char</span>*&amp; error, <span class="enscript-type">bool</span> ignoreCase, <span class="enscript-type">bool</span> multiline);
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">ARM</span>)
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID input = ARMRegisters::r0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID index = ARMRegisters::r1;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID length = ARMRegisters::r2;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID output = ARMRegisters::r4;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT0 = ARMRegisters::r5;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT1 = ARMRegisters::r6;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister = ARMRegisters::r0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister2 = ARMRegisters::r1;
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">MIPS</span>)
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID input = MIPSRegisters::a0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID index = MIPSRegisters::a1;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID length = MIPSRegisters::a2;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID output = MIPSRegisters::a3;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT0 = MIPSRegisters::t4;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT1 = MIPSRegisters::t5;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister = MIPSRegisters::v0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister2 = MIPSRegisters::v1;
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">SH4</span>)
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID input = SH4Registers::r4;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID index = SH4Registers::r5;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID length = SH4Registers::r6;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID output = SH4Registers::r7;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT0 = SH4Registers::r0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT1 = SH4Registers::r1;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister = SH4Registers::r0;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister2 = SH4Registers::r1;
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">X86</span>)
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID input = X86Registers::eax;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID index = X86Registers::edx;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID length = X86Registers::ecx;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID output = X86Registers::edi;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT0 = X86Registers::ebx;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT1 = X86Registers::esi;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister = X86Registers::eax;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister2 = X86Registers::edx;
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">X86_64</span>)
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID input = X86Registers::edi;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID index = X86Registers::esi;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID length = X86Registers::edx;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID output = X86Registers::ecx;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT0 = X86Registers::eax;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID regT1 = X86Registers::ebx;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister = X86Registers::eax;
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> RegisterID returnRegister2 = X86Registers::edx;
+#<span class="enscript-reference">endif</span>
+
+    <span class="enscript-type">void</span> optimizeAlternative(PatternAlternative* alternative)
+    {
+        <span class="enscript-keyword">if</span> (!alternative-&gt;m_terms.size())
+            <span class="enscript-keyword">return</span>;
+
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; alternative-&gt;m_terms.size() - 1; ++i) {
+            PatternTerm&amp; term = alternative-&gt;m_terms[i];
+            PatternTerm&amp; nextTerm = alternative-&gt;m_terms[i + 1];
+
+            <span class="enscript-keyword">if</span> ((term.type == PatternTerm::TypeCharacterClass)
+                &amp;&amp; (term.quantityType == QuantifierFixedCount)
+                &amp;&amp; (nextTerm.type == PatternTerm::TypePatternCharacter)
+                &amp;&amp; (nextTerm.quantityType == QuantifierFixedCount)) {
+                PatternTerm termCopy = term;
+                alternative-&gt;m_terms[i] = nextTerm;
+                alternative-&gt;m_terms[i + 1] = termCopy;
+            }
+        }
+    }
+
+    <span class="enscript-type">void</span> matchCharacterClassRange(RegisterID character, JumpList&amp; failures, JumpList&amp; matchDest, <span class="enscript-type">const</span> CharacterRange* ranges, <span class="enscript-type">unsigned</span> count, <span class="enscript-type">unsigned</span>* matchIndex, <span class="enscript-type">const</span> UChar* matches, <span class="enscript-type">unsigned</span> matchCount)
+    {
+        <span class="enscript-keyword">do</span> {
+            <span class="enscript-comment">// pick which range we're going to generate
+</span>            <span class="enscript-type">int</span> which = count &gt;&gt; 1;
+            <span class="enscript-type">char</span> lo = ranges[which].begin;
+            <span class="enscript-type">char</span> hi = ranges[which].end;
+
+            <span class="enscript-comment">// check if there are any ranges or matches below lo.  If not, just jl to failure -
+</span>            <span class="enscript-comment">// if there is anything else to check, check that first, if it falls through jmp to failure.
+</span>            <span class="enscript-keyword">if</span> ((*matchIndex &lt; matchCount) &amp;&amp; (matches[*matchIndex] &lt; lo)) {
+                Jump loOrAbove = branch32(GreaterThanOrEqual, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)lo));
+
+                <span class="enscript-comment">// generate code for all ranges before this one
+</span>                <span class="enscript-keyword">if</span> (which)
+                    matchCharacterClassRange(character, failures, matchDest, ranges, which, matchIndex, matches, matchCount);
+
+                <span class="enscript-keyword">while</span> ((*matchIndex &lt; matchCount) &amp;&amp; (matches[*matchIndex] &lt; lo)) {
+                    matchDest.append(branch32(Equal, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)matches[*matchIndex])));
+                    ++*matchIndex;
+                }
+                failures.append(jump());
+
+                loOrAbove.link(<span class="enscript-keyword">this</span>);
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (which) {
+                Jump loOrAbove = branch32(GreaterThanOrEqual, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)lo));
+
+                matchCharacterClassRange(character, failures, matchDest, ranges, which, matchIndex, matches, matchCount);
+                failures.append(jump());
+
+                loOrAbove.link(<span class="enscript-keyword">this</span>);
+            } <span class="enscript-keyword">else</span>
+                failures.append(branch32(LessThan, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)lo)));
+
+            <span class="enscript-keyword">while</span> ((*matchIndex &lt; matchCount) &amp;&amp; (matches[*matchIndex] &lt;= hi))
+                ++*matchIndex;
+
+            matchDest.append(branch32(LessThanOrEqual, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)hi)));
+            <span class="enscript-comment">// fall through to here, the value is above hi.
+</span>
+            <span class="enscript-comment">// shuffle along &amp; loop around if there are any more matches to handle.
+</span>            <span class="enscript-type">unsigned</span> next = which + 1;
+            ranges += next;
+            count -= next;
+        } <span class="enscript-keyword">while</span> (count);
+    }
+
+    <span class="enscript-type">void</span> matchCharacterClass(RegisterID character, JumpList&amp; matchDest, <span class="enscript-type">const</span> CharacterClass* charClass)
+    {
+        <span class="enscript-keyword">if</span> (charClass-&gt;m_table) {
+            ExtendedAddress tableEntry(character, reinterpret_cast&lt;intptr_t&gt;(charClass-&gt;m_table-&gt;m_table));
+            matchDest.append(branchTest8(charClass-&gt;m_table-&gt;m_inverted ? Zero : NonZero, tableEntry));
+            <span class="enscript-keyword">return</span>;
+        }
+        Jump unicodeFail;
+        <span class="enscript-keyword">if</span> (charClass-&gt;m_matchesUnicode.size() || charClass-&gt;m_rangesUnicode.size()) {
+            Jump isAscii = branch32(LessThanOrEqual, character, TrustedImm32(0x7f));
+
+            <span class="enscript-keyword">if</span> (charClass-&gt;m_matchesUnicode.size()) {
+                <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; charClass-&gt;m_matchesUnicode.size(); ++i) {
+                    UChar ch = charClass-&gt;m_matchesUnicode[i];
+                    matchDest.append(branch32(Equal, character, Imm32(ch)));
+                }
+            }
+
+            <span class="enscript-keyword">if</span> (charClass-&gt;m_rangesUnicode.size()) {
+                <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; charClass-&gt;m_rangesUnicode.size(); ++i) {
+                    UChar lo = charClass-&gt;m_rangesUnicode[i].begin;
+                    UChar hi = charClass-&gt;m_rangesUnicode[i].end;
+
+                    Jump below = branch32(LessThan, character, Imm32(lo));
+                    matchDest.append(branch32(LessThanOrEqual, character, Imm32(hi)));
+                    below.link(<span class="enscript-keyword">this</span>);
+                }
+            }
+
+            unicodeFail = jump();
+            isAscii.link(<span class="enscript-keyword">this</span>);
+        }
+
+        <span class="enscript-keyword">if</span> (charClass-&gt;m_ranges.size()) {
+            <span class="enscript-type">unsigned</span> matchIndex = 0;
+            JumpList failures;
+            matchCharacterClassRange(character, failures, matchDest, charClass-&gt;m_ranges.begin(), charClass-&gt;m_ranges.size(), &amp;matchIndex, charClass-&gt;m_matches.begin(), charClass-&gt;m_matches.size());
+            <span class="enscript-keyword">while</span> (matchIndex &lt; charClass-&gt;m_matches.size())
+                matchDest.append(branch32(Equal, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)charClass-&gt;m_matches[matchIndex++])));
+
+            failures.link(<span class="enscript-keyword">this</span>);
+        } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (charClass-&gt;m_matches.size()) {
+            <span class="enscript-comment">// optimization: gather 'a','A' etc back together, can mask &amp; test once.
+</span>            Vector&lt;<span class="enscript-type">char</span>&gt; matchesAZaz;
+
+            <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; charClass-&gt;m_matches.size(); ++i) {
+                <span class="enscript-type">char</span> ch = charClass-&gt;m_matches[i];
+                <span class="enscript-keyword">if</span> (m_pattern.m_ignoreCase) {
+                    <span class="enscript-keyword">if</span> (isASCIILower(ch)) {
+                        matchesAZaz.append(ch);
+                        <span class="enscript-keyword">continue</span>;
+                    }
+                    <span class="enscript-keyword">if</span> (isASCIIUpper(ch))
+                        <span class="enscript-keyword">continue</span>;
+                }
+                matchDest.append(branch32(Equal, character, Imm32((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>)ch)));
+            }
+
+            <span class="enscript-keyword">if</span> (<span class="enscript-type">unsigned</span> countAZaz = matchesAZaz.size()) {
+                or32(TrustedImm32(32), character);
+                <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; countAZaz; ++i)
+                    matchDest.append(branch32(Equal, character, TrustedImm32(matchesAZaz[i])));
+            }
+        }
+
+        <span class="enscript-keyword">if</span> (charClass-&gt;m_matchesUnicode.size() || charClass-&gt;m_rangesUnicode.size())
+            unicodeFail.link(<span class="enscript-keyword">this</span>);
+    }
+
+    <span class="enscript-comment">// Jumps if input not available; will have (incorrectly) incremented already!
+</span>    Jump jumpIfNoAvailableInput(<span class="enscript-type">unsigned</span> countToCheck = 0)
+    {
+        <span class="enscript-keyword">if</span> (countToCheck)
+            add32(Imm32(countToCheck), index);
+        <span class="enscript-keyword">return</span> branch32(Above, index, length);
+    }
+
+    Jump jumpIfAvailableInput(<span class="enscript-type">unsigned</span> countToCheck)
+    {
+        add32(Imm32(countToCheck), index);
+        <span class="enscript-keyword">return</span> branch32(BelowOrEqual, index, length);
+    }
+
+    Jump checkInput()
+    {
+        <span class="enscript-keyword">return</span> branch32(BelowOrEqual, index, length);
+    }
+
+    Jump atEndOfInput()
+    {
+        <span class="enscript-keyword">return</span> branch32(Equal, index, length);
+    }
+
+    Jump notAtEndOfInput()
+    {
+        <span class="enscript-keyword">return</span> branch32(NotEqual, index, length);
+    }
+
+    Jump jumpIfCharNotEquals(UChar ch, <span class="enscript-type">int</span> inputPosition, RegisterID character)
+    {
+        readCharacter(inputPosition, character);
+
+        <span class="enscript-comment">// For case-insesitive compares, non-ascii characters that have different
+</span>        <span class="enscript-comment">// upper &amp; lower case representations are converted to a character class.
+</span>        ASSERT(!m_pattern.m_ignoreCase || isASCIIAlpha(ch) || isCanonicallyUnique(ch));
+        <span class="enscript-keyword">if</span> (m_pattern.m_ignoreCase &amp;&amp; isASCIIAlpha(ch)) {
+            or32(TrustedImm32(0x20), character);
+            ch |= 0x20;
+        }
+
+        <span class="enscript-keyword">return</span> branch32(NotEqual, character, Imm32(ch));
+    }
+
+    <span class="enscript-type">void</span> readCharacter(<span class="enscript-type">int</span> inputPosition, RegisterID reg)
+    {
+        <span class="enscript-keyword">if</span> (m_charSize == Char8)
+            load8(BaseIndex(input, index, TimesOne, inputPosition * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">char</span>)), reg);
+        <span class="enscript-keyword">else</span>
+            load16(BaseIndex(input, index, TimesTwo, inputPosition * <span class="enscript-keyword">sizeof</span>(UChar)), reg);
+    }
+
+    <span class="enscript-type">void</span> storeToFrame(RegisterID reg, <span class="enscript-type">unsigned</span> frameLocation)
+    {
+        poke(reg, frameLocation);
+    }
+
+    <span class="enscript-type">void</span> storeToFrame(TrustedImm32 imm, <span class="enscript-type">unsigned</span> frameLocation)
+    {
+        poke(imm, frameLocation);
+    }
+
+    DataLabelPtr storeToFrameWithPatch(<span class="enscript-type">unsigned</span> frameLocation)
+    {
+        <span class="enscript-keyword">return</span> storePtrWithPatch(TrustedImmPtr(0), Address(stackPointerRegister, frameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)));
+    }
+
+    <span class="enscript-type">void</span> loadFromFrame(<span class="enscript-type">unsigned</span> frameLocation, RegisterID reg)
+    {
+        peek(reg, frameLocation);
+    }
+
+    <span class="enscript-type">void</span> loadFromFrameAndJump(<span class="enscript-type">unsigned</span> frameLocation)
+    {
+        jump(Address(stackPointerRegister, frameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)));
+    }
+
+    <span class="enscript-type">void</span> initCallFrame()
+    {
+        <span class="enscript-type">unsigned</span> callFrameSize = m_pattern.m_body-&gt;m_callFrameSize;
+        <span class="enscript-keyword">if</span> (callFrameSize)
+            subPtr(Imm32(callFrameSize * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), stackPointerRegister);
+    }
+    <span class="enscript-type">void</span> removeCallFrame()
+    {
+        <span class="enscript-type">unsigned</span> callFrameSize = m_pattern.m_body-&gt;m_callFrameSize;
+        <span class="enscript-keyword">if</span> (callFrameSize)
+            addPtr(Imm32(callFrameSize * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), stackPointerRegister);
+    }
+
+    <span class="enscript-comment">// Used to record subpatters, should only be called if compileMode is IncludeSubpatterns.
+</span>    <span class="enscript-type">void</span> setSubpatternStart(RegisterID reg, <span class="enscript-type">unsigned</span> subpattern)
+    {
+        ASSERT(subpattern);
+        <span class="enscript-comment">// FIXME: should be able to ASSERT(compileMode == IncludeSubpatterns), but then this function is conditionally NORETURN. :-(
+</span>        store32(reg, Address(output, (subpattern &lt;&lt; 1) * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">int</span>)));
+    }
+    <span class="enscript-type">void</span> setSubpatternEnd(RegisterID reg, <span class="enscript-type">unsigned</span> subpattern)
+    {
+        ASSERT(subpattern);
+        <span class="enscript-comment">// FIXME: should be able to ASSERT(compileMode == IncludeSubpatterns), but then this function is conditionally NORETURN. :-(
+</span>        store32(reg, Address(output, ((subpattern &lt;&lt; 1) + 1) * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">int</span>)));
+    }
+    <span class="enscript-type">void</span> clearSubpatternStart(<span class="enscript-type">unsigned</span> subpattern)
+    {
+        ASSERT(subpattern);
+        <span class="enscript-comment">// FIXME: should be able to ASSERT(compileMode == IncludeSubpatterns), but then this function is conditionally NORETURN. :-(
+</span>        store32(TrustedImm32(-1), Address(output, (subpattern &lt;&lt; 1) * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">int</span>)));
+    }
+
+    <span class="enscript-comment">// We use one of three different strategies to track the start of the current match,
+</span>    <span class="enscript-comment">// while matching.
+</span>    <span class="enscript-comment">// 1) If the pattern has a fixed size, do nothing! - we calculate the value lazily
+</span>    <span class="enscript-comment">//    at the end of matching. This is irrespective of compileMode, and in this case
+</span>    <span class="enscript-comment">//    these methods should never be called.
+</span>    <span class="enscript-comment">// 2) If we're compiling IncludeSubpatterns, 'output' contains a pointer to an output
+</span>    <span class="enscript-comment">//    vector, store the match start in the output vector.
+</span>    <span class="enscript-comment">// 3) If we're compiling MatchOnly, 'output' is unused, store the match start directly
+</span>    <span class="enscript-comment">//    in this register.
+</span>    <span class="enscript-type">void</span> setMatchStart(RegisterID reg)
+    {
+        ASSERT(!m_pattern.m_body-&gt;m_hasFixedSize);
+        <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+            store32(reg, output);
+        <span class="enscript-keyword">else</span>
+            move(reg, output);
+    }
+    <span class="enscript-type">void</span> getMatchStart(RegisterID reg)
+    {
+        ASSERT(!m_pattern.m_body-&gt;m_hasFixedSize);
+        <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+            load32(output, reg);
+        <span class="enscript-keyword">else</span>
+            move(output, reg);
+    }
+
+    <span class="enscript-type">enum</span> YarrOpCode {
+        <span class="enscript-comment">// These nodes wrap body alternatives - those in the main disjunction,
+</span>        <span class="enscript-comment">// rather than subpatterns or assertions. These are chained together in
+</span>        <span class="enscript-comment">// a doubly linked list, with a 'begin' node for the first alternative,
+</span>        <span class="enscript-comment">// a 'next' node for each subsequent alternative, and an 'end' node at
+</span>        <span class="enscript-comment">// the end. In the case of repeating alternatives, the 'end' node also
+</span>        <span class="enscript-comment">// has a reference back to 'begin'.
+</span>        OpBodyAlternativeBegin,
+        OpBodyAlternativeNext,
+        OpBodyAlternativeEnd,
+        <span class="enscript-comment">// Similar to the body alternatives, but used for subpatterns with two
+</span>        <span class="enscript-comment">// or more alternatives.
+</span>        OpNestedAlternativeBegin,
+        OpNestedAlternativeNext,
+        OpNestedAlternativeEnd,
+        <span class="enscript-comment">// Used for alternatives in subpatterns where there is only a single
+</span>        <span class="enscript-comment">// alternative (backtrackingis easier in these cases), or for alternatives
+</span>        <span class="enscript-comment">// which never need to be backtracked (those in parenthetical assertions,
+</span>        <span class="enscript-comment">// terminal subpatterns).
+</span>        OpSimpleNestedAlternativeBegin,
+        OpSimpleNestedAlternativeNext,
+        OpSimpleNestedAlternativeEnd,
+        <span class="enscript-comment">// Used to wrap 'Once' subpattern matches (quantityCount == 1).
+</span>        OpParenthesesSubpatternOnceBegin,
+        OpParenthesesSubpatternOnceEnd,
+        <span class="enscript-comment">// Used to wrap 'Terminal' subpattern matches (at the end of the regexp).
+</span>        OpParenthesesSubpatternTerminalBegin,
+        OpParenthesesSubpatternTerminalEnd,
+        <span class="enscript-comment">// Used to wrap parenthetical assertions.
+</span>        OpParentheticalAssertionBegin,
+        OpParentheticalAssertionEnd,
+        <span class="enscript-comment">// Wraps all simple terms (pattern characters, character classes).
+</span>        OpTerm,
+        <span class="enscript-comment">// Where an expression contains only 'once through' body alternatives
+</span>        <span class="enscript-comment">// and no repeating ones, this op is used to return match failure.
+</span>        OpMatchFailed
+    };
+
+    <span class="enscript-comment">// This structure is used to hold the compiled opcode information,
+</span>    <span class="enscript-comment">// including reference back to the original PatternTerm/PatternAlternatives,
+</span>    <span class="enscript-comment">// and JIT compilation data structures.
+</span>    <span class="enscript-type">struct</span> YarrOp {
+        explicit YarrOp(PatternTerm* term)
+            : m_op(OpTerm)
+            , m_term(term)
+            , m_isDeadCode(false)
+        {
+        }
+
+        explicit YarrOp(YarrOpCode op)
+            : m_op(op)
+            , m_isDeadCode(false)
+        {
+        }
+
+        <span class="enscript-comment">// The operation, as a YarrOpCode, and also a reference to the PatternTerm.
+</span>        YarrOpCode m_op;
+        PatternTerm* m_term;
+
+        <span class="enscript-comment">// For alternatives, this holds the PatternAlternative and doubly linked
+</span>        <span class="enscript-comment">// references to this alternative's siblings. In the case of the
+</span>        <span class="enscript-comment">// OpBodyAlternativeEnd node at the end of a section of repeating nodes,
+</span>        <span class="enscript-comment">// m_nextOp will reference the OpBodyAlternativeBegin node of the first
+</span>        <span class="enscript-comment">// repeating alternative.
+</span>        PatternAlternative* m_alternative;
+        size_t m_previousOp;
+        size_t m_nextOp;
+
+        <span class="enscript-comment">// Used to record a set of Jumps out of the generated code, typically
+</span>        <span class="enscript-comment">// used for jumps out to backtracking code, and a single reentry back
+</span>        <span class="enscript-comment">// into the code for a node (likely where a backtrack will trigger
+</span>        <span class="enscript-comment">// rematching).
+</span>        Label m_reentry;
+        JumpList m_jumps;
+
+        <span class="enscript-comment">// Used for backtracking when the prior alternative did not consume any
+</span>        <span class="enscript-comment">// characters but matched.
+</span>        Jump m_zeroLengthMatch;
+
+        <span class="enscript-comment">// This flag is used to null out the second pattern character, when
+</span>        <span class="enscript-comment">// two are fused to match a pair together.
+</span>        <span class="enscript-type">bool</span> m_isDeadCode;
+
+        <span class="enscript-comment">// Currently used in the case of some of the more complex management of
+</span>        <span class="enscript-comment">// 'm_checked', to cache the offset used in this alternative, to avoid
+</span>        <span class="enscript-comment">// recalculating it.
+</span>        <span class="enscript-type">int</span> m_checkAdjust;
+
+        <span class="enscript-comment">// Used by OpNestedAlternativeNext/End to hold the pointer to the
+</span>        <span class="enscript-comment">// value that will be pushed into the pattern's frame to return to,
+</span>        <span class="enscript-comment">// upon backtracking back into the disjunction.
+</span>        DataLabelPtr m_returnAddress;
+    };
+
+    <span class="enscript-comment">// BacktrackingState
+</span>    <span class="enscript-comment">// This class encapsulates information about the state of code generation
+</span>    <span class="enscript-comment">// whilst generating the code for backtracking, when a term fails to match.
+</span>    <span class="enscript-comment">// Upon entry to code generation of the backtracking code for a given node,
+</span>    <span class="enscript-comment">// the Backtracking state will hold references to all control flow sources
+</span>    <span class="enscript-comment">// that are outputs in need of further backtracking from the prior node
+</span>    <span class="enscript-comment">// generated (which is the subsequent operation in the regular expression,
+</span>    <span class="enscript-comment">// and in the m_ops Vector, since we generated backtracking backwards).
+</span>    <span class="enscript-comment">// These references to control flow take the form of:
+</span>    <span class="enscript-comment">//  - A jump list of jumps, to be linked to code that will backtrack them
+</span>    <span class="enscript-comment">//    further.
+</span>    <span class="enscript-comment">//  - A set of DataLabelPtr values, to be populated with values to be
+</span>    <span class="enscript-comment">//    treated effectively as return addresses backtracking into complex
+</span>    <span class="enscript-comment">//    subpatterns.
+</span>    <span class="enscript-comment">//  - A flag indicating that the current sequence of generated code up to
+</span>    <span class="enscript-comment">//    this point requires backtracking.
+</span>    <span class="enscript-type">class</span> BacktrackingState {
+    <span class="enscript-type">public</span>:
+        BacktrackingState()
+            : m_pendingFallthrough(false)
+        {
+        }
+
+        <span class="enscript-comment">// Add a jump or jumps, a return address, or set the flag indicating
+</span>        <span class="enscript-comment">// that the current 'fallthrough' control flow requires backtracking.
+</span>        <span class="enscript-type">void</span> append(<span class="enscript-type">const</span> Jump&amp; jump)
+        {
+            m_laterFailures.append(jump);
+        }
+        <span class="enscript-type">void</span> append(JumpList&amp; jumpList)
+        {
+            m_laterFailures.append(jumpList);
+        }
+        <span class="enscript-type">void</span> append(<span class="enscript-type">const</span> DataLabelPtr&amp; returnAddress)
+        {
+            m_pendingReturns.append(returnAddress);
+        }
+        <span class="enscript-type">void</span> fallthrough()
+        {
+            ASSERT(!m_pendingFallthrough);
+            m_pendingFallthrough = true;
+        }
+
+        <span class="enscript-comment">// These methods clear the backtracking state, either linking to the
+</span>        <span class="enscript-comment">// current location, a provided label, or copying the backtracking out
+</span>        <span class="enscript-comment">// to a JumpList. All actions may require code generation to take place,
+</span>        <span class="enscript-comment">// and as such are passed a pointer to the assembler.
+</span>        <span class="enscript-type">void</span> link(MacroAssembler* assembler)
+        {
+            <span class="enscript-keyword">if</span> (m_pendingReturns.size()) {
+                Label here(assembler);
+                <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; m_pendingReturns.size(); ++i)
+                    m_backtrackRecords.append(ReturnAddressRecord(m_pendingReturns[i], here));
+                m_pendingReturns.clear();
+            }
+            m_laterFailures.link(assembler);
+            m_laterFailures.clear();
+            m_pendingFallthrough = false;
+        }
+        <span class="enscript-type">void</span> linkTo(Label label, MacroAssembler* assembler)
+        {
+            <span class="enscript-keyword">if</span> (m_pendingReturns.size()) {
+                <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; m_pendingReturns.size(); ++i)
+                    m_backtrackRecords.append(ReturnAddressRecord(m_pendingReturns[i], label));
+                m_pendingReturns.clear();
+            }
+            <span class="enscript-keyword">if</span> (m_pendingFallthrough)
+                assembler-&gt;jump(label);
+            m_laterFailures.linkTo(label, assembler);
+            m_laterFailures.clear();
+            m_pendingFallthrough = false;
+        }
+        <span class="enscript-type">void</span> takeBacktracksToJumpList(JumpList&amp; jumpList, MacroAssembler* assembler)
+        {
+            <span class="enscript-keyword">if</span> (m_pendingReturns.size()) {
+                Label here(assembler);
+                <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; m_pendingReturns.size(); ++i)
+                    m_backtrackRecords.append(ReturnAddressRecord(m_pendingReturns[i], here));
+                m_pendingReturns.clear();
+                m_pendingFallthrough = true;
+            }
+            <span class="enscript-keyword">if</span> (m_pendingFallthrough)
+                jumpList.append(assembler-&gt;jump());
+            jumpList.append(m_laterFailures);
+            m_laterFailures.clear();
+            m_pendingFallthrough = false;
+        }
+
+        <span class="enscript-type">bool</span> isEmpty()
+        {
+            <span class="enscript-keyword">return</span> m_laterFailures.empty() &amp;&amp; m_pendingReturns.isEmpty() &amp;&amp; !m_pendingFallthrough;
+        }
+
+        <span class="enscript-comment">// Called at the end of code generation to link all return addresses.
+</span>        <span class="enscript-type">void</span> linkDataLabels(LinkBuffer&amp; linkBuffer)
+        {
+            ASSERT(isEmpty());
+            <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; m_backtrackRecords.size(); ++i)
+                linkBuffer.patch(m_backtrackRecords[i].m_dataLabel, linkBuffer.locationOf(m_backtrackRecords[i].m_backtrackLocation));
+        }
+
+    <span class="enscript-type">private</span>:
+        <span class="enscript-type">struct</span> ReturnAddressRecord {
+            ReturnAddressRecord(DataLabelPtr dataLabel, Label backtrackLocation)
+                : m_dataLabel(dataLabel)
+                , m_backtrackLocation(backtrackLocation)
+            {
+            }
+
+            DataLabelPtr m_dataLabel;
+            Label m_backtrackLocation;
+        };
+
+        JumpList m_laterFailures;
+        <span class="enscript-type">bool</span> m_pendingFallthrough;
+        Vector&lt;DataLabelPtr, 4&gt; m_pendingReturns;
+        Vector&lt;ReturnAddressRecord, 4&gt; m_backtrackRecords;
+    };
+
+    <span class="enscript-comment">// Generation methods:
+</span>    <span class="enscript-comment">// ===================
+</span>
+    <span class="enscript-comment">// This method provides a default implementation of backtracking common
+</span>    <span class="enscript-comment">// to many terms; terms commonly jump out of the forwards  matching path
+</span>    <span class="enscript-comment">// on any failed conditions, and add these jumps to the m_jumps list. If
+</span>    <span class="enscript-comment">// no special handling is required we can often just backtrack to m_jumps.
+</span>    <span class="enscript-type">void</span> backtrackTermDefault(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        m_backtrackingState.append(op.m_jumps);
+    }
+
+    <span class="enscript-type">void</span> generateAssertionBOL(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-keyword">if</span> (m_pattern.m_multiline) {
+            <span class="enscript-type">const</span> RegisterID character = regT0;
+
+            JumpList matchDest;
+            <span class="enscript-keyword">if</span> (!term-&gt;inputPosition)
+                matchDest.append(branch32(Equal, index, Imm32(m_checked)));
+
+            readCharacter((term-&gt;inputPosition - m_checked) - 1, character);
+            matchCharacterClass(character, matchDest, m_pattern.newlineCharacterClass());
+            op.m_jumps.append(jump());
+
+            matchDest.link(<span class="enscript-keyword">this</span>);
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-comment">// Erk, really should poison out these alternatives early. :-/
+</span>            <span class="enscript-keyword">if</span> (term-&gt;inputPosition)
+                op.m_jumps.append(jump());
+            <span class="enscript-keyword">else</span>
+                op.m_jumps.append(branch32(NotEqual, index, Imm32(m_checked)));
+        }
+    }
+    <span class="enscript-type">void</span> backtrackAssertionBOL(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-type">void</span> generateAssertionEOL(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-keyword">if</span> (m_pattern.m_multiline) {
+            <span class="enscript-type">const</span> RegisterID character = regT0;
+
+            JumpList matchDest;
+            <span class="enscript-keyword">if</span> (term-&gt;inputPosition == m_checked)
+                matchDest.append(atEndOfInput());
+
+            readCharacter(term-&gt;inputPosition - m_checked, character);
+            matchCharacterClass(character, matchDest, m_pattern.newlineCharacterClass());
+            op.m_jumps.append(jump());
+
+            matchDest.link(<span class="enscript-keyword">this</span>);
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">if</span> (term-&gt;inputPosition == m_checked)
+                op.m_jumps.append(notAtEndOfInput());
+            <span class="enscript-comment">// Erk, really should poison out these alternatives early. :-/
+</span>            <span class="enscript-keyword">else</span>
+                op.m_jumps.append(jump());
+        }
+    }
+    <span class="enscript-type">void</span> backtrackAssertionEOL(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-comment">// Also falls though on nextIsNotWordChar.
+</span>    <span class="enscript-type">void</span> matchAssertionWordchar(size_t opIndex, JumpList&amp; nextIsWordChar, JumpList&amp; nextIsNotWordChar)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+
+        <span class="enscript-keyword">if</span> (term-&gt;inputPosition == m_checked)
+            nextIsNotWordChar.append(atEndOfInput());
+
+        readCharacter((term-&gt;inputPosition - m_checked), character);
+        matchCharacterClass(character, nextIsWordChar, m_pattern.wordcharCharacterClass());
+    }
+
+    <span class="enscript-type">void</span> generateAssertionWordBoundary(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+
+        Jump atBegin;
+        JumpList matchDest;
+        <span class="enscript-keyword">if</span> (!term-&gt;inputPosition)
+            atBegin = branch32(Equal, index, Imm32(m_checked));
+        readCharacter((term-&gt;inputPosition - m_checked) - 1, character);
+        matchCharacterClass(character, matchDest, m_pattern.wordcharCharacterClass());
+        <span class="enscript-keyword">if</span> (!term-&gt;inputPosition)
+            atBegin.link(<span class="enscript-keyword">this</span>);
+
+        <span class="enscript-comment">// We fall through to here if the last character was not a wordchar.
+</span>        JumpList nonWordCharThenWordChar;
+        JumpList nonWordCharThenNonWordChar;
+        <span class="enscript-keyword">if</span> (term-&gt;invert()) {
+            matchAssertionWordchar(opIndex, nonWordCharThenNonWordChar, nonWordCharThenWordChar);
+            nonWordCharThenWordChar.append(jump());
+        } <span class="enscript-keyword">else</span> {
+            matchAssertionWordchar(opIndex, nonWordCharThenWordChar, nonWordCharThenNonWordChar);
+            nonWordCharThenNonWordChar.append(jump());
+        }
+        op.m_jumps.append(nonWordCharThenNonWordChar);
+
+        <span class="enscript-comment">// We jump here if the last character was a wordchar.
+</span>        matchDest.link(<span class="enscript-keyword">this</span>);
+        JumpList wordCharThenWordChar;
+        JumpList wordCharThenNonWordChar;
+        <span class="enscript-keyword">if</span> (term-&gt;invert()) {
+            matchAssertionWordchar(opIndex, wordCharThenNonWordChar, wordCharThenWordChar);
+            wordCharThenWordChar.append(jump());
+        } <span class="enscript-keyword">else</span> {
+            matchAssertionWordchar(opIndex, wordCharThenWordChar, wordCharThenNonWordChar);
+            <span class="enscript-comment">// This can fall-though!
+</span>        }
+
+        op.m_jumps.append(wordCharThenWordChar);
+
+        nonWordCharThenWordChar.link(<span class="enscript-keyword">this</span>);
+        wordCharThenNonWordChar.link(<span class="enscript-keyword">this</span>);
+    }
+    <span class="enscript-type">void</span> backtrackAssertionWordBoundary(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-type">void</span> generatePatternCharacterOnce(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+
+        <span class="enscript-keyword">if</span> (op.m_isDeadCode)
+            <span class="enscript-keyword">return</span>;
+        
+        <span class="enscript-comment">// m_ops always ends with a OpBodyAlternativeEnd or OpMatchFailed
+</span>        <span class="enscript-comment">// node, so there must always be at least one more node.
+</span>        ASSERT(opIndex + 1 &lt; m_ops.size());
+        YarrOp* nextOp = &amp;m_ops[opIndex + 1];
+
+        PatternTerm* term = op.m_term;
+        UChar ch = term-&gt;patternCharacter;
+
+        <span class="enscript-keyword">if</span> ((ch &gt; 0xff) &amp;&amp; (m_charSize == Char8)) {
+            <span class="enscript-comment">// Have a 16 bit pattern character and an 8 bit string - short circuit
+</span>            op.m_jumps.append(jump());
+            <span class="enscript-keyword">return</span>;
+        }
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">int</span> maxCharactersAtOnce = m_charSize == Char8 ? 4 : 2;
+        <span class="enscript-type">unsigned</span> ignoreCaseMask = 0;
+        <span class="enscript-type">int</span> allCharacters = ch;
+        <span class="enscript-type">int</span> numberCharacters;
+        <span class="enscript-type">int</span> startTermPosition = term-&gt;inputPosition;
+
+        <span class="enscript-comment">// For case-insesitive compares, non-ascii characters that have different
+</span>        <span class="enscript-comment">// upper &amp; lower case representations are converted to a character class.
+</span>        ASSERT(!m_pattern.m_ignoreCase || isASCIIAlpha(ch) || isCanonicallyUnique(ch));
+
+        <span class="enscript-keyword">if</span> (m_pattern.m_ignoreCase &amp;&amp; isASCIIAlpha(ch))
+            ignoreCaseMask |= 32;
+
+        <span class="enscript-keyword">for</span> (numberCharacters = 1; numberCharacters &lt; maxCharactersAtOnce &amp;&amp; nextOp-&gt;m_op == OpTerm; ++numberCharacters, nextOp = &amp;m_ops[opIndex + numberCharacters]) {
+            PatternTerm* nextTerm = nextOp-&gt;m_term;
+            
+            <span class="enscript-keyword">if</span> (nextTerm-&gt;type != PatternTerm::TypePatternCharacter
+                || nextTerm-&gt;quantityType != QuantifierFixedCount
+                || nextTerm-&gt;quantityCount != 1
+                || nextTerm-&gt;inputPosition != (startTermPosition + numberCharacters))
+                <span class="enscript-keyword">break</span>;
+
+            nextOp-&gt;m_isDeadCode = true;
+
+            <span class="enscript-type">int</span> shiftAmount = (m_charSize == Char8 ? 8 : 16) * numberCharacters;
+
+            UChar currentCharacter = nextTerm-&gt;patternCharacter;
+
+            <span class="enscript-keyword">if</span> ((currentCharacter &gt; 0xff) &amp;&amp; (m_charSize == Char8)) {
+                <span class="enscript-comment">// Have a 16 bit pattern character and an 8 bit string - short circuit
+</span>                op.m_jumps.append(jump());
+                <span class="enscript-keyword">return</span>;
+            }
+
+            <span class="enscript-comment">// For case-insesitive compares, non-ascii characters that have different
+</span>            <span class="enscript-comment">// upper &amp; lower case representations are converted to a character class.
+</span>            ASSERT(!m_pattern.m_ignoreCase || isASCIIAlpha(currentCharacter) || isCanonicallyUnique(currentCharacter));
+
+            allCharacters |= (currentCharacter &lt;&lt; shiftAmount);
+
+            <span class="enscript-keyword">if</span> ((m_pattern.m_ignoreCase) &amp;&amp; (isASCIIAlpha(currentCharacter)))
+                ignoreCaseMask |= 32 &lt;&lt; shiftAmount;                    
+        }
+
+        <span class="enscript-keyword">if</span> (m_charSize == Char8) {
+            <span class="enscript-keyword">switch</span> (numberCharacters) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">1</span>:
+                op.m_jumps.append(jumpIfCharNotEquals(ch, startTermPosition - m_checked, character));
+                <span class="enscript-keyword">return</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">2</span>: {
+                BaseIndex address(input, index, TimesOne, (startTermPosition - m_checked) * <span class="enscript-keyword">sizeof</span>(LChar));
+                load16Unaligned(address, character);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">3</span>: {
+                BaseIndex highAddress(input, index, TimesOne, (startTermPosition - m_checked) * <span class="enscript-keyword">sizeof</span>(LChar));
+                load16Unaligned(highAddress, character);
+                <span class="enscript-keyword">if</span> (ignoreCaseMask)
+                    or32(Imm32(ignoreCaseMask), character);
+                op.m_jumps.append(branch32(NotEqual, character, Imm32((allCharacters &amp; 0xffff) | ignoreCaseMask)));
+                op.m_jumps.append(jumpIfCharNotEquals(allCharacters &gt;&gt; 16, startTermPosition + 2 - m_checked, character));
+                <span class="enscript-keyword">return</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">4</span>: {
+                BaseIndex address(input, index, TimesOne, (startTermPosition - m_checked) * <span class="enscript-keyword">sizeof</span>(LChar));
+                load32WithUnalignedHalfWords(address, character);
+                <span class="enscript-keyword">break</span>;
+            }
+            }
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">switch</span> (numberCharacters) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">1</span>:
+                op.m_jumps.append(jumpIfCharNotEquals(ch, term-&gt;inputPosition - m_checked, character));
+                <span class="enscript-keyword">return</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">2</span>:
+                BaseIndex address(input, index, TimesTwo, (term-&gt;inputPosition - m_checked) * <span class="enscript-keyword">sizeof</span>(UChar));
+                load32WithUnalignedHalfWords(address, character);
+                <span class="enscript-keyword">break</span>;
+            }
+        }
+
+        <span class="enscript-keyword">if</span> (ignoreCaseMask)
+            or32(Imm32(ignoreCaseMask), character);
+        op.m_jumps.append(branch32(NotEqual, character, Imm32(allCharacters | ignoreCaseMask)));
+        <span class="enscript-keyword">return</span>;
+    }
+    <span class="enscript-type">void</span> backtrackPatternCharacterOnce(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-type">void</span> generatePatternCharacterFixed(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+        UChar ch = term-&gt;patternCharacter;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        move(index, countRegister);
+        sub32(Imm32(term-&gt;quantityCount.unsafeGet()), countRegister);
+
+        Label loop(<span class="enscript-keyword">this</span>);
+        BaseIndex address(input, countRegister, m_charScale, (Checked&lt;<span class="enscript-type">int</span>&gt;(term-&gt;inputPosition - m_checked + Checked&lt;int64_t&gt;(term-&gt;quantityCount)) * static_cast&lt;<span class="enscript-type">int</span>&gt;(m_charSize == Char8 ? <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">char</span>) : <span class="enscript-keyword">sizeof</span>(UChar))).unsafeGet());
+
+        <span class="enscript-keyword">if</span> (m_charSize == Char8)
+            load8(address, character);
+        <span class="enscript-keyword">else</span>
+            load16(address, character);
+
+        <span class="enscript-comment">// For case-insesitive compares, non-ascii characters that have different
+</span>        <span class="enscript-comment">// upper &amp; lower case representations are converted to a character class.
+</span>        ASSERT(!m_pattern.m_ignoreCase || isASCIIAlpha(ch) || isCanonicallyUnique(ch));
+        <span class="enscript-keyword">if</span> (m_pattern.m_ignoreCase &amp;&amp; isASCIIAlpha(ch)) {
+            or32(TrustedImm32(0x20), character);
+            ch |= 0x20;
+        }
+
+        op.m_jumps.append(branch32(NotEqual, character, Imm32(ch)));
+        add32(TrustedImm32(1), countRegister);
+        branch32(NotEqual, countRegister, index).linkTo(loop, <span class="enscript-keyword">this</span>);
+    }
+    <span class="enscript-type">void</span> backtrackPatternCharacterFixed(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-type">void</span> generatePatternCharacterGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+        UChar ch = term-&gt;patternCharacter;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        move(TrustedImm32(0), countRegister);
+
+        <span class="enscript-comment">// Unless have a 16 bit pattern character and an 8 bit string - short circuit
+</span>        <span class="enscript-keyword">if</span> (!((ch &gt; 0xff) &amp;&amp; (m_charSize == Char8))) {
+            JumpList failures;
+            Label loop(<span class="enscript-keyword">this</span>);
+            failures.append(atEndOfInput());
+            failures.append(jumpIfCharNotEquals(ch, term-&gt;inputPosition - m_checked, character));
+
+            add32(TrustedImm32(1), countRegister);
+            add32(TrustedImm32(1), index);
+            <span class="enscript-keyword">if</span> (term-&gt;quantityCount == quantifyInfinite)
+                jump(loop);
+            <span class="enscript-keyword">else</span>
+                branch32(NotEqual, countRegister, Imm32(term-&gt;quantityCount.unsafeGet())).linkTo(loop, <span class="enscript-keyword">this</span>);
+
+            failures.link(<span class="enscript-keyword">this</span>);
+        }
+        op.m_reentry = label();
+
+        storeToFrame(countRegister, term-&gt;frameLocation);
+    }
+    <span class="enscript-type">void</span> backtrackPatternCharacterGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+        loadFromFrame(term-&gt;frameLocation, countRegister);
+        m_backtrackingState.append(branchTest32(Zero, countRegister));
+        sub32(TrustedImm32(1), countRegister);
+        sub32(TrustedImm32(1), index);
+        jump(op.m_reentry);
+    }
+
+    <span class="enscript-type">void</span> generatePatternCharacterNonGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        move(TrustedImm32(0), countRegister);
+        op.m_reentry = label();
+        storeToFrame(countRegister, term-&gt;frameLocation);
+    }
+    <span class="enscript-type">void</span> backtrackPatternCharacterNonGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+        UChar ch = term-&gt;patternCharacter;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+        loadFromFrame(term-&gt;frameLocation, countRegister);
+
+        <span class="enscript-comment">// Unless have a 16 bit pattern character and an 8 bit string - short circuit
+</span>        <span class="enscript-keyword">if</span> (!((ch &gt; 0xff) &amp;&amp; (m_charSize == Char8))) {
+            JumpList nonGreedyFailures;
+            nonGreedyFailures.append(atEndOfInput());
+            <span class="enscript-keyword">if</span> (term-&gt;quantityCount != quantifyInfinite)
+                nonGreedyFailures.append(branch32(Equal, countRegister, Imm32(term-&gt;quantityCount.unsafeGet())));
+            nonGreedyFailures.append(jumpIfCharNotEquals(ch, term-&gt;inputPosition - m_checked, character));
+
+            add32(TrustedImm32(1), countRegister);
+            add32(TrustedImm32(1), index);
+
+            jump(op.m_reentry);
+            nonGreedyFailures.link(<span class="enscript-keyword">this</span>);
+        }
+
+        sub32(countRegister, index);
+        m_backtrackingState.fallthrough();
+    }
+
+    <span class="enscript-type">void</span> generateCharacterClassOnce(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+
+        JumpList matchDest;
+        readCharacter(term-&gt;inputPosition - m_checked, character);
+        matchCharacterClass(character, matchDest, term-&gt;characterClass);
+
+        <span class="enscript-keyword">if</span> (term-&gt;invert())
+            op.m_jumps.append(matchDest);
+        <span class="enscript-keyword">else</span> {
+            op.m_jumps.append(jump());
+            matchDest.link(<span class="enscript-keyword">this</span>);
+        }
+    }
+    <span class="enscript-type">void</span> backtrackCharacterClassOnce(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-type">void</span> generateCharacterClassFixed(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        move(index, countRegister);
+        sub32(Imm32(term-&gt;quantityCount.unsafeGet()), countRegister);
+
+        Label loop(<span class="enscript-keyword">this</span>);
+        JumpList matchDest;
+        <span class="enscript-keyword">if</span> (m_charSize == Char8)
+            load8(BaseIndex(input, countRegister, TimesOne, (Checked&lt;<span class="enscript-type">int</span>&gt;(term-&gt;inputPosition - m_checked + Checked&lt;int64_t&gt;(term-&gt;quantityCount)) * static_cast&lt;<span class="enscript-type">int</span>&gt;(<span class="enscript-keyword">sizeof</span>(<span class="enscript-type">char</span>))).unsafeGet()), character);
+        <span class="enscript-keyword">else</span>
+            load16(BaseIndex(input, countRegister, TimesTwo, (Checked&lt;<span class="enscript-type">int</span>&gt;(term-&gt;inputPosition - m_checked + Checked&lt;int64_t&gt;(term-&gt;quantityCount)) * static_cast&lt;<span class="enscript-type">int</span>&gt;(<span class="enscript-keyword">sizeof</span>(UChar))).unsafeGet()), character);
+        matchCharacterClass(character, matchDest, term-&gt;characterClass);
+
+        <span class="enscript-keyword">if</span> (term-&gt;invert())
+            op.m_jumps.append(matchDest);
+        <span class="enscript-keyword">else</span> {
+            op.m_jumps.append(jump());
+            matchDest.link(<span class="enscript-keyword">this</span>);
+        }
+
+        add32(TrustedImm32(1), countRegister);
+        branch32(NotEqual, countRegister, index).linkTo(loop, <span class="enscript-keyword">this</span>);
+    }
+    <span class="enscript-type">void</span> backtrackCharacterClassFixed(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+
+    <span class="enscript-type">void</span> generateCharacterClassGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        move(TrustedImm32(0), countRegister);
+
+        JumpList failures;
+        Label loop(<span class="enscript-keyword">this</span>);
+        failures.append(atEndOfInput());
+
+        <span class="enscript-keyword">if</span> (term-&gt;invert()) {
+            readCharacter(term-&gt;inputPosition - m_checked, character);
+            matchCharacterClass(character, failures, term-&gt;characterClass);
+        } <span class="enscript-keyword">else</span> {
+            JumpList matchDest;
+            readCharacter(term-&gt;inputPosition - m_checked, character);
+            matchCharacterClass(character, matchDest, term-&gt;characterClass);
+            failures.append(jump());
+            matchDest.link(<span class="enscript-keyword">this</span>);
+        }
+
+        add32(TrustedImm32(1), countRegister);
+        add32(TrustedImm32(1), index);
+        <span class="enscript-keyword">if</span> (term-&gt;quantityCount != quantifyInfinite) {
+            branch32(NotEqual, countRegister, Imm32(term-&gt;quantityCount.unsafeGet())).linkTo(loop, <span class="enscript-keyword">this</span>);
+            failures.append(jump());
+        } <span class="enscript-keyword">else</span>
+            jump(loop);
+
+        failures.link(<span class="enscript-keyword">this</span>);
+        op.m_reentry = label();
+
+        storeToFrame(countRegister, term-&gt;frameLocation);
+    }
+    <span class="enscript-type">void</span> backtrackCharacterClassGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+        loadFromFrame(term-&gt;frameLocation, countRegister);
+        m_backtrackingState.append(branchTest32(Zero, countRegister));
+        sub32(TrustedImm32(1), countRegister);
+        sub32(TrustedImm32(1), index);
+        jump(op.m_reentry);
+    }
+
+    <span class="enscript-type">void</span> generateCharacterClassNonGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        move(TrustedImm32(0), countRegister);
+        op.m_reentry = label();
+        storeToFrame(countRegister, term-&gt;frameLocation);
+    }
+    <span class="enscript-type">void</span> backtrackCharacterClassNonGreedy(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID countRegister = regT1;
+
+        JumpList nonGreedyFailures;
+
+        m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+        loadFromFrame(term-&gt;frameLocation, countRegister);
+
+        nonGreedyFailures.append(atEndOfInput());
+        nonGreedyFailures.append(branch32(Equal, countRegister, Imm32(term-&gt;quantityCount.unsafeGet())));
+
+        JumpList matchDest;
+        readCharacter(term-&gt;inputPosition - m_checked, character);
+        matchCharacterClass(character, matchDest, term-&gt;characterClass);
+
+        <span class="enscript-keyword">if</span> (term-&gt;invert())
+            nonGreedyFailures.append(matchDest);
+        <span class="enscript-keyword">else</span> {
+            nonGreedyFailures.append(jump());
+            matchDest.link(<span class="enscript-keyword">this</span>);
+        }
+
+        add32(TrustedImm32(1), countRegister);
+        add32(TrustedImm32(1), index);
+
+        jump(op.m_reentry);
+
+        nonGreedyFailures.link(<span class="enscript-keyword">this</span>);
+        sub32(countRegister, index);
+        m_backtrackingState.fallthrough();
+    }
+
+    <span class="enscript-type">void</span> generateDotStarEnclosure(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-type">const</span> RegisterID character = regT0;
+        <span class="enscript-type">const</span> RegisterID matchPos = regT1;
+
+        JumpList foundBeginningNewLine;
+        JumpList saveStartIndex;
+        JumpList foundEndingNewLine;
+
+        ASSERT(!m_pattern.m_body-&gt;m_hasFixedSize);
+        getMatchStart(matchPos);
+
+        saveStartIndex.append(branchTest32(Zero, matchPos));
+        Label findBOLLoop(<span class="enscript-keyword">this</span>);
+        sub32(TrustedImm32(1), matchPos);
+        <span class="enscript-keyword">if</span> (m_charSize == Char8)
+            load8(BaseIndex(input, matchPos, TimesOne, 0), character);
+        <span class="enscript-keyword">else</span>
+            load16(BaseIndex(input, matchPos, TimesTwo, 0), character);
+        matchCharacterClass(character, foundBeginningNewLine, m_pattern.newlineCharacterClass());
+        branchTest32(NonZero, matchPos).linkTo(findBOLLoop, <span class="enscript-keyword">this</span>);
+        saveStartIndex.append(jump());
+
+        foundBeginningNewLine.link(<span class="enscript-keyword">this</span>);
+        add32(TrustedImm32(1), matchPos); <span class="enscript-comment">// Advance past newline
+</span>        saveStartIndex.link(<span class="enscript-keyword">this</span>);
+
+        <span class="enscript-keyword">if</span> (!m_pattern.m_multiline &amp;&amp; term-&gt;anchors.bolAnchor)
+            op.m_jumps.append(branchTest32(NonZero, matchPos));
+
+        ASSERT(!m_pattern.m_body-&gt;m_hasFixedSize);
+        setMatchStart(matchPos);
+
+        move(index, matchPos);
+
+        Label findEOLLoop(<span class="enscript-keyword">this</span>);        
+        foundEndingNewLine.append(branch32(Equal, matchPos, length));
+        <span class="enscript-keyword">if</span> (m_charSize == Char8)
+            load8(BaseIndex(input, matchPos, TimesOne, 0), character);
+        <span class="enscript-keyword">else</span>
+            load16(BaseIndex(input, matchPos, TimesTwo, 0), character);
+        matchCharacterClass(character, foundEndingNewLine, m_pattern.newlineCharacterClass());
+        add32(TrustedImm32(1), matchPos);
+        jump(findEOLLoop);
+
+        foundEndingNewLine.link(<span class="enscript-keyword">this</span>);
+
+        <span class="enscript-keyword">if</span> (!m_pattern.m_multiline &amp;&amp; term-&gt;anchors.eolAnchor)
+            op.m_jumps.append(branch32(NotEqual, matchPos, length));
+
+        move(matchPos, index);
+    }
+
+    <span class="enscript-type">void</span> backtrackDotStarEnclosure(size_t opIndex)
+    {
+        backtrackTermDefault(opIndex);
+    }
+    
+    <span class="enscript-comment">// Code generation/backtracking for simple terms
+</span>    <span class="enscript-comment">// (pattern characters, character classes, and assertions).
+</span>    <span class="enscript-comment">// These methods farm out work to the set of functions above.
+</span>    <span class="enscript-type">void</span> generateTerm(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-keyword">switch</span> (term-&gt;type) {
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypePatternCharacter:
+            <span class="enscript-keyword">switch</span> (term-&gt;quantityType) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierFixedCount</span>:
+                <span class="enscript-keyword">if</span> (term-&gt;quantityCount == 1)
+                    generatePatternCharacterOnce(opIndex);
+                <span class="enscript-keyword">else</span>
+                    generatePatternCharacterFixed(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierGreedy</span>:
+                generatePatternCharacterGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierNonGreedy</span>:
+                generatePatternCharacterNonGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeCharacterClass:
+            <span class="enscript-keyword">switch</span> (term-&gt;quantityType) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierFixedCount</span>:
+                <span class="enscript-keyword">if</span> (term-&gt;quantityCount == 1)
+                    generateCharacterClassOnce(opIndex);
+                <span class="enscript-keyword">else</span>
+                    generateCharacterClassFixed(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierGreedy</span>:
+                generateCharacterClassGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierNonGreedy</span>:
+                generateCharacterClassNonGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeAssertionBOL:
+            generateAssertionBOL(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeAssertionEOL:
+            generateAssertionEOL(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeAssertionWordBoundary:
+            generateAssertionWordBoundary(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeForwardReference:
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeParenthesesSubpattern:
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeParentheticalAssertion:
+            ASSERT_NOT_REACHED();
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeBackReference:
+            m_shouldFallBack = true;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeDotStarEnclosure:
+            generateDotStarEnclosure(opIndex);
+            <span class="enscript-keyword">break</span>;
+        }
+    }
+    <span class="enscript-type">void</span> backtrackTerm(size_t opIndex)
+    {
+        YarrOp&amp; op = m_ops[opIndex];
+        PatternTerm* term = op.m_term;
+
+        <span class="enscript-keyword">switch</span> (term-&gt;type) {
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypePatternCharacter:
+            <span class="enscript-keyword">switch</span> (term-&gt;quantityType) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierFixedCount</span>:
+                <span class="enscript-keyword">if</span> (term-&gt;quantityCount == 1)
+                    backtrackPatternCharacterOnce(opIndex);
+                <span class="enscript-keyword">else</span>
+                    backtrackPatternCharacterFixed(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierGreedy</span>:
+                backtrackPatternCharacterGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierNonGreedy</span>:
+                backtrackPatternCharacterNonGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeCharacterClass:
+            <span class="enscript-keyword">switch</span> (term-&gt;quantityType) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierFixedCount</span>:
+                <span class="enscript-keyword">if</span> (term-&gt;quantityCount == 1)
+                    backtrackCharacterClassOnce(opIndex);
+                <span class="enscript-keyword">else</span>
+                    backtrackCharacterClassFixed(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierGreedy</span>:
+                backtrackCharacterClassGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierNonGreedy</span>:
+                backtrackCharacterClassNonGreedy(opIndex);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeAssertionBOL:
+            backtrackAssertionBOL(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeAssertionEOL:
+            backtrackAssertionEOL(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeAssertionWordBoundary:
+            backtrackAssertionWordBoundary(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeForwardReference:
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeParenthesesSubpattern:
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeParentheticalAssertion:
+            ASSERT_NOT_REACHED();
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeDotStarEnclosure:
+            backtrackDotStarEnclosure(opIndex);
+            <span class="enscript-keyword">break</span>;
+
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeBackReference:
+            m_shouldFallBack = true;
+            <span class="enscript-keyword">break</span>;
+        }
+    }
+
+    <span class="enscript-type">void</span> generate()
+    {
+        <span class="enscript-comment">// Forwards generate the matching code.
+</span>        ASSERT(m_ops.size());
+        size_t opIndex = 0;
+
+        <span class="enscript-keyword">do</span> {
+            YarrOp&amp; op = m_ops[opIndex];
+            <span class="enscript-keyword">switch</span> (op.m_op) {
+
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpTerm</span>:
+                generateTerm(opIndex);
+                <span class="enscript-keyword">break</span>;
+
+            <span class="enscript-comment">// OpBodyAlternativeBegin/Next/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// These nodes wrap the set of alternatives in the body of the regular expression.
+</span>            <span class="enscript-comment">// There may be either one or two chains of OpBodyAlternative nodes, one representing
+</span>            <span class="enscript-comment">// the 'once through' sequence of alternatives (if any exist), and one representing
+</span>            <span class="enscript-comment">// the repeating alternatives (again, if any exist).
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Upon normal entry to the Begin alternative, we will check that input is available.
+</span>            <span class="enscript-comment">// Reentry to the Begin alternative will take place after the check has taken place,
+</span>            <span class="enscript-comment">// and will assume that the input position has already been progressed as appropriate.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Entry to subsequent Next/End alternatives occurs when the prior alternative has
+</span>            <span class="enscript-comment">// successfully completed a match - return a success state from JIT code.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Next alternatives allow for reentry optimized to suit backtracking from its
+</span>            <span class="enscript-comment">// preceding alternative. It expects the input position to still be set to a position
+</span>            <span class="enscript-comment">// appropriate to its predecessor, and it will only perform an input check if the
+</span>            <span class="enscript-comment">// predecessor had a minimum size less than its own.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// In the case 'once through' expressions, the End node will also have a reentry
+</span>            <span class="enscript-comment">// point to jump to when the last alternative fails. Again, this expects the input
+</span>            <span class="enscript-comment">// position to still reflect that expected by the prior alternative.
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpBodyAlternativeBegin</span>: {
+                PatternAlternative* alternative = op.m_alternative;
+
+                <span class="enscript-comment">// Upon entry at the head of the set of alternatives, check if input is available
+</span>                <span class="enscript-comment">// to run the first alternative. (This progresses the input position).
+</span>                op.m_jumps.append(jumpIfNoAvailableInput(alternative-&gt;m_minimumSize));
+                <span class="enscript-comment">// We will reenter after the check, and assume the input position to have been
+</span>                <span class="enscript-comment">// set as appropriate to this alternative.
+</span>                op.m_reentry = label();
+
+                m_checked += alternative-&gt;m_minimumSize;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpBodyAlternativeNext</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpBodyAlternativeEnd</span>: {
+                PatternAlternative* priorAlternative = m_ops[op.m_previousOp].m_alternative;
+                PatternAlternative* alternative = op.m_alternative;
+
+                <span class="enscript-comment">// If we get here, the prior alternative matched - return success.
+</span>                
+                <span class="enscript-comment">// Adjust the stack pointer to remove the pattern's frame.
+</span>                removeCallFrame();
+
+                <span class="enscript-comment">// Load appropriate values into the return register and the first output
+</span>                <span class="enscript-comment">// slot, and return. In the case of pattern with a fixed size, we will
+</span>                <span class="enscript-comment">// not have yet set the value in the first 
+</span>                ASSERT(index != returnRegister);
+                <span class="enscript-keyword">if</span> (m_pattern.m_body-&gt;m_hasFixedSize) {
+                    move(index, returnRegister);
+                    <span class="enscript-keyword">if</span> (priorAlternative-&gt;m_minimumSize)
+                        sub32(Imm32(priorAlternative-&gt;m_minimumSize), returnRegister);
+                    <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+                        store32(returnRegister, output);
+                } <span class="enscript-keyword">else</span>
+                    getMatchStart(returnRegister);
+                <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+                    store32(index, Address(output, 4));
+                move(index, returnRegister2);
+
+                generateReturn();
+
+                <span class="enscript-comment">// This is the divide between the tail of the prior alternative, above, and
+</span>                <span class="enscript-comment">// the head of the subsequent alternative, below.
+</span>
+                <span class="enscript-keyword">if</span> (op.m_op == OpBodyAlternativeNext) {
+                    <span class="enscript-comment">// This is the reentry point for the Next alternative. We expect any code
+</span>                    <span class="enscript-comment">// that jumps here to do so with the input position matching that of the
+</span>                    <span class="enscript-comment">// PRIOR alteranative, and we will only check input availability if we
+</span>                    <span class="enscript-comment">// need to progress it forwards.
+</span>                    op.m_reentry = label();
+                    <span class="enscript-keyword">if</span> (alternative-&gt;m_minimumSize &gt; priorAlternative-&gt;m_minimumSize) {
+                        add32(Imm32(alternative-&gt;m_minimumSize - priorAlternative-&gt;m_minimumSize), index);
+                        op.m_jumps.append(jumpIfNoAvailableInput());
+                    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (priorAlternative-&gt;m_minimumSize &gt; alternative-&gt;m_minimumSize)
+                        sub32(Imm32(priorAlternative-&gt;m_minimumSize - alternative-&gt;m_minimumSize), index);
+                } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (op.m_nextOp == notFound) {
+                    <span class="enscript-comment">// This is the reentry point for the End of 'once through' alternatives,
+</span>                    <span class="enscript-comment">// jumped to when the last alternative fails to match.
+</span>                    op.m_reentry = label();
+                    sub32(Imm32(priorAlternative-&gt;m_minimumSize), index);
+                }
+
+                <span class="enscript-keyword">if</span> (op.m_op == OpBodyAlternativeNext)
+                    m_checked += alternative-&gt;m_minimumSize;
+                m_checked -= priorAlternative-&gt;m_minimumSize;
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpSimpleNestedAlternativeBegin/Next/End
+</span>            <span class="enscript-comment">// OpNestedAlternativeBegin/Next/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// These nodes are used to handle sets of alternatives that are nested within
+</span>            <span class="enscript-comment">// subpatterns and parenthetical assertions. The 'simple' forms are used where
+</span>            <span class="enscript-comment">// we do not need to be able to backtrack back into any alternative other than
+</span>            <span class="enscript-comment">// the last, the normal forms allow backtracking into any alternative.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Each Begin/Next node is responsible for planting an input check to ensure
+</span>            <span class="enscript-comment">// sufficient input is available on entry. Next nodes additionally need to
+</span>            <span class="enscript-comment">// jump to the end - Next nodes use the End node's m_jumps list to hold this
+</span>            <span class="enscript-comment">// set of jumps.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// In the non-simple forms, successful alternative matches must store a
+</span>            <span class="enscript-comment">// 'return address' using a DataLabelPtr, used to store the address to jump
+</span>            <span class="enscript-comment">// to when backtracking, to get to the code for the appropriate alternative.
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpSimpleNestedAlternativeBegin</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpNestedAlternativeBegin</span>: {
+                PatternTerm* term = op.m_term;
+                PatternAlternative* alternative = op.m_alternative;
+                PatternDisjunction* disjunction = term-&gt;parentheses.disjunction;
+
+                <span class="enscript-comment">// Calculate how much input we need to check for, and if non-zero check.
+</span>                op.m_checkAdjust = alternative-&gt;m_minimumSize;
+                <span class="enscript-keyword">if</span> ((term-&gt;quantityType == QuantifierFixedCount) &amp;&amp; (term-&gt;type != PatternTerm::TypeParentheticalAssertion))
+                    op.m_checkAdjust -= disjunction-&gt;m_minimumSize;
+                <span class="enscript-keyword">if</span> (op.m_checkAdjust)
+                    op.m_jumps.append(jumpIfNoAvailableInput(op.m_checkAdjust));
+
+                m_checked += op.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpSimpleNestedAlternativeNext</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpNestedAlternativeNext</span>: {
+                PatternTerm* term = op.m_term;
+                PatternAlternative* alternative = op.m_alternative;
+                PatternDisjunction* disjunction = term-&gt;parentheses.disjunction;
+
+                <span class="enscript-comment">// In the non-simple case, store a 'return address' so we can backtrack correctly.
+</span>                <span class="enscript-keyword">if</span> (op.m_op == OpNestedAlternativeNext) {
+                    <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                    <span class="enscript-type">unsigned</span> alternativeFrameLocation = parenthesesFrameLocation;
+                    <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount)
+                        alternativeFrameLocation += YarrStackSpaceForBackTrackInfoParenthesesOnce;
+                    op.m_returnAddress = storeToFrameWithPatch(alternativeFrameLocation);
+                }
+
+                <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount &amp;&amp; !m_ops[op.m_previousOp].m_alternative-&gt;m_minimumSize) {
+                    <span class="enscript-comment">// If the previous alternative matched without consuming characters then
+</span>                    <span class="enscript-comment">// backtrack to try to match while consumming some input.
+</span>                    op.m_zeroLengthMatch = branch32(Equal, index, Address(stackPointerRegister, term-&gt;frameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)));
+                }
+
+                <span class="enscript-comment">// If we reach here then the last alternative has matched - jump to the
+</span>                <span class="enscript-comment">// End node, to skip over any further alternatives.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// FIXME: this is logically O(N^2) (though N can be expected to be very
+</span>                <span class="enscript-comment">// small). We could avoid this either by adding an extra jump to the JIT
+</span>                <span class="enscript-comment">// data structures, or by making backtracking code that jumps to Next
+</span>                <span class="enscript-comment">// alternatives are responsible for checking that input is available (if
+</span>                <span class="enscript-comment">// we didn't need to plant the input checks, then m_jumps would be free).
+</span>                YarrOp* endOp = &amp;m_ops[op.m_nextOp];
+                <span class="enscript-keyword">while</span> (endOp-&gt;m_nextOp != notFound) {
+                    ASSERT(endOp-&gt;m_op == OpSimpleNestedAlternativeNext || endOp-&gt;m_op == OpNestedAlternativeNext);
+                    endOp = &amp;m_ops[endOp-&gt;m_nextOp];
+                }
+                ASSERT(endOp-&gt;m_op == OpSimpleNestedAlternativeEnd || endOp-&gt;m_op == OpNestedAlternativeEnd);
+                endOp-&gt;m_jumps.append(jump());
+
+                <span class="enscript-comment">// This is the entry point for the next alternative.
+</span>                op.m_reentry = label();
+
+                <span class="enscript-comment">// Calculate how much input we need to check for, and if non-zero check.
+</span>                op.m_checkAdjust = alternative-&gt;m_minimumSize;
+                <span class="enscript-keyword">if</span> ((term-&gt;quantityType == QuantifierFixedCount) &amp;&amp; (term-&gt;type != PatternTerm::TypeParentheticalAssertion))
+                    op.m_checkAdjust -= disjunction-&gt;m_minimumSize;
+                <span class="enscript-keyword">if</span> (op.m_checkAdjust)
+                    op.m_jumps.append(jumpIfNoAvailableInput(op.m_checkAdjust));
+
+                YarrOp&amp; lastOp = m_ops[op.m_previousOp];
+                m_checked -= lastOp.m_checkAdjust;
+                m_checked += op.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpSimpleNestedAlternativeEnd</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpNestedAlternativeEnd</span>: {
+                PatternTerm* term = op.m_term;
+
+                <span class="enscript-comment">// In the non-simple case, store a 'return address' so we can backtrack correctly.
+</span>                <span class="enscript-keyword">if</span> (op.m_op == OpNestedAlternativeEnd) {
+                    <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                    <span class="enscript-type">unsigned</span> alternativeFrameLocation = parenthesesFrameLocation;
+                    <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount)
+                        alternativeFrameLocation += YarrStackSpaceForBackTrackInfoParenthesesOnce;
+                    op.m_returnAddress = storeToFrameWithPatch(alternativeFrameLocation);
+                }
+
+                <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount &amp;&amp; !m_ops[op.m_previousOp].m_alternative-&gt;m_minimumSize) {
+                    <span class="enscript-comment">// If the previous alternative matched without consuming characters then
+</span>                    <span class="enscript-comment">// backtrack to try to match while consumming some input.
+</span>                    op.m_zeroLengthMatch = branch32(Equal, index, Address(stackPointerRegister, term-&gt;frameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)));
+                }
+
+                <span class="enscript-comment">// If this set of alternatives contains more than one alternative,
+</span>                <span class="enscript-comment">// then the Next nodes will have planted jumps to the End, and added
+</span>                <span class="enscript-comment">// them to this node's m_jumps list.
+</span>                op.m_jumps.link(<span class="enscript-keyword">this</span>);
+                op.m_jumps.clear();
+
+                YarrOp&amp; lastOp = m_ops[op.m_previousOp];
+                m_checked -= lastOp.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpParenthesesSubpatternOnceBegin/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// These nodes support (optionally) capturing subpatterns, that have a
+</span>            <span class="enscript-comment">// quantity count of 1 (this covers fixed once, and ?/?? quantifiers). 
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternOnceBegin</span>: {
+                PatternTerm* term = op.m_term;
+                <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                <span class="enscript-type">const</span> RegisterID indexTemporary = regT0;
+                ASSERT(term-&gt;quantityCount == 1);
+
+                <span class="enscript-comment">// Upon entry to a Greedy quantified set of parenthese store the index.
+</span>                <span class="enscript-comment">// We'll use this for two purposes:
+</span>                <span class="enscript-comment">//  - To indicate which iteration we are on of mathing the remainder of
+</span>                <span class="enscript-comment">//    the expression after the parentheses - the first, including the
+</span>                <span class="enscript-comment">//    match within the parentheses, or the second having skipped over them.
+</span>                <span class="enscript-comment">//  - To check for empty matches, which must be rejected.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// At the head of a NonGreedy set of parentheses we'll immediately set the
+</span>                <span class="enscript-comment">// value on the stack to -1 (indicating a match skipping the subpattern),
+</span>                <span class="enscript-comment">// and plant a jump to the end. We'll also plant a label to backtrack to
+</span>                <span class="enscript-comment">// to reenter the subpattern later, with a store to set up index on the
+</span>                <span class="enscript-comment">// second iteration.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// FIXME: for capturing parens, could use the index in the capture array?
+</span>                <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierGreedy)
+                    storeToFrame(index, parenthesesFrameLocation);
+                <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierNonGreedy) {
+                    storeToFrame(TrustedImm32(-1), parenthesesFrameLocation);
+                    op.m_jumps.append(jump());
+                    op.m_reentry = label();
+                    storeToFrame(index, parenthesesFrameLocation);
+                }
+
+                <span class="enscript-comment">// If the parenthese are capturing, store the starting index value to the
+</span>                <span class="enscript-comment">// captures array, offsetting as necessary.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// FIXME: could avoid offsetting this value in JIT code, apply
+</span>                <span class="enscript-comment">// offsets only afterwards, at the point the results array is
+</span>                <span class="enscript-comment">// being accessed.
+</span>                <span class="enscript-keyword">if</span> (term-&gt;capture() &amp;&amp; compileMode == IncludeSubpatterns) {
+                    <span class="enscript-type">int</span> inputOffset = term-&gt;inputPosition - m_checked;
+                    <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierFixedCount)
+                        inputOffset -= term-&gt;parentheses.disjunction-&gt;m_minimumSize;
+                    <span class="enscript-keyword">if</span> (inputOffset) {
+                        move(index, indexTemporary);
+                        add32(Imm32(inputOffset), indexTemporary);
+                        setSubpatternStart(indexTemporary, term-&gt;parentheses.subpatternId);
+                    } <span class="enscript-keyword">else</span>
+                        setSubpatternStart(index, term-&gt;parentheses.subpatternId);
+                }
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternOnceEnd</span>: {
+                PatternTerm* term = op.m_term;
+                <span class="enscript-type">const</span> RegisterID indexTemporary = regT0;
+                ASSERT(term-&gt;quantityCount == 1);
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">NDEBUG</span>
+                <span class="enscript-comment">// Runtime ASSERT to make sure that the nested alternative handled the
+</span>                <span class="enscript-comment">// &quot;no input consumed&quot; check.
+</span>                <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount &amp;&amp; !term-&gt;parentheses.disjunction-&gt;m_minimumSize) {
+                    Jump pastBreakpoint;
+                    pastBreakpoint = branch32(NotEqual, index, Address(stackPointerRegister, term-&gt;frameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)));
+                    breakpoint();
+                    pastBreakpoint.link(<span class="enscript-keyword">this</span>);
+                }
+#<span class="enscript-reference">endif</span>
+
+                <span class="enscript-comment">// If the parenthese are capturing, store the ending index value to the
+</span>                <span class="enscript-comment">// captures array, offsetting as necessary.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// FIXME: could avoid offsetting this value in JIT code, apply
+</span>                <span class="enscript-comment">// offsets only afterwards, at the point the results array is
+</span>                <span class="enscript-comment">// being accessed.
+</span>                <span class="enscript-keyword">if</span> (term-&gt;capture() &amp;&amp; compileMode == IncludeSubpatterns) {
+                    <span class="enscript-type">int</span> inputOffset = term-&gt;inputPosition - m_checked;
+                    <span class="enscript-keyword">if</span> (inputOffset) {
+                        move(index, indexTemporary);
+                        add32(Imm32(inputOffset), indexTemporary);
+                        setSubpatternEnd(indexTemporary, term-&gt;parentheses.subpatternId);
+                    } <span class="enscript-keyword">else</span>
+                        setSubpatternEnd(index, term-&gt;parentheses.subpatternId);
+                }
+
+                <span class="enscript-comment">// If the parentheses are quantified Greedy then add a label to jump back
+</span>                <span class="enscript-comment">// to if get a failed match from after the parentheses. For NonGreedy
+</span>                <span class="enscript-comment">// parentheses, link the jump from before the subpattern to here.
+</span>                <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierGreedy)
+                    op.m_reentry = label();
+                <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierNonGreedy) {
+                    YarrOp&amp; beginOp = m_ops[op.m_previousOp];
+                    beginOp.m_jumps.link(<span class="enscript-keyword">this</span>);
+                }
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpParenthesesSubpatternTerminalBegin/End
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternTerminalBegin</span>: {
+                PatternTerm* term = op.m_term;
+                ASSERT(term-&gt;quantityType == QuantifierGreedy);
+                ASSERT(term-&gt;quantityCount == quantifyInfinite);
+                ASSERT(!term-&gt;capture());
+
+                <span class="enscript-comment">// Upon entry set a label to loop back to.
+</span>                op.m_reentry = label();
+
+                <span class="enscript-comment">// Store the start index of the current match; we need to reject zero
+</span>                <span class="enscript-comment">// length matches.
+</span>                storeToFrame(index, term-&gt;frameLocation);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternTerminalEnd</span>: {
+                YarrOp&amp; beginOp = m_ops[op.m_previousOp];
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">NDEBUG</span>
+                PatternTerm* term = op.m_term;
+
+                <span class="enscript-comment">// Runtime ASSERT to make sure that the nested alternative handled the
+</span>                <span class="enscript-comment">// &quot;no input consumed&quot; check.
+</span>                Jump pastBreakpoint;
+                pastBreakpoint = branch32(NotEqual, index, Address(stackPointerRegister, term-&gt;frameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)));
+                breakpoint();
+                pastBreakpoint.link(<span class="enscript-keyword">this</span>);
+#<span class="enscript-reference">endif</span>
+
+                <span class="enscript-comment">// We know that the match is non-zero, we can accept it  and
+</span>                <span class="enscript-comment">// loop back up to the head of the subpattern.
+</span>                jump(beginOp.m_reentry);
+
+                <span class="enscript-comment">// This is the entry point to jump to when we stop matching - we will
+</span>                <span class="enscript-comment">// do so once the subpattern cannot match any more.
+</span>                op.m_reentry = label();
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpParentheticalAssertionBegin/End
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParentheticalAssertionBegin</span>: {
+                PatternTerm* term = op.m_term;
+
+                <span class="enscript-comment">// Store the current index - assertions should not update index, so
+</span>                <span class="enscript-comment">// we will need to restore it upon a successful match.
+</span>                <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                storeToFrame(index, parenthesesFrameLocation);
+
+                <span class="enscript-comment">// Check 
+</span>                op.m_checkAdjust = m_checked - term-&gt;inputPosition;
+                <span class="enscript-keyword">if</span> (op.m_checkAdjust)
+                    sub32(Imm32(op.m_checkAdjust), index);
+
+                m_checked -= op.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParentheticalAssertionEnd</span>: {
+                PatternTerm* term = op.m_term;
+
+                <span class="enscript-comment">// Restore the input index value.
+</span>                <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                loadFromFrame(parenthesesFrameLocation, index);
+
+                <span class="enscript-comment">// If inverted, a successful match of the assertion must be treated
+</span>                <span class="enscript-comment">// as a failure, so jump to backtracking.
+</span>                <span class="enscript-keyword">if</span> (term-&gt;invert()) {
+                    op.m_jumps.append(jump());
+                    op.m_reentry = label();
+                }
+
+                YarrOp&amp; lastOp = m_ops[op.m_previousOp];
+                m_checked += lastOp.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpMatchFailed</span>:
+                removeCallFrame();
+                move(TrustedImmPtr((<span class="enscript-type">void</span>*)WTF::notFound), returnRegister);
+                move(TrustedImm32(0), returnRegister2);
+                generateReturn();
+                <span class="enscript-keyword">break</span>;
+            }
+
+            ++opIndex;
+        } <span class="enscript-keyword">while</span> (opIndex &lt; m_ops.size());
+    }
+
+    <span class="enscript-type">void</span> backtrack()
+    {
+        <span class="enscript-comment">// Backwards generate the backtracking code.
+</span>        size_t opIndex = m_ops.size();
+        ASSERT(opIndex);
+
+        <span class="enscript-keyword">do</span> {
+            --opIndex;
+            YarrOp&amp; op = m_ops[opIndex];
+            <span class="enscript-keyword">switch</span> (op.m_op) {
+
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpTerm</span>:
+                backtrackTerm(opIndex);
+                <span class="enscript-keyword">break</span>;
+
+            <span class="enscript-comment">// OpBodyAlternativeBegin/Next/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// For each Begin/Next node representing an alternative, we need to decide what to do
+</span>            <span class="enscript-comment">// in two circumstances:
+</span>            <span class="enscript-comment">//  - If we backtrack back into this node, from within the alternative.
+</span>            <span class="enscript-comment">//  - If the input check at the head of the alternative fails (if this exists).
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// We treat these two cases differently since in the former case we have slightly
+</span>            <span class="enscript-comment">// more information - since we are backtracking out of a prior alternative we know
+</span>            <span class="enscript-comment">// that at least enough input was available to run it. For example, given the regular
+</span>            <span class="enscript-comment">// expression /a|b/, if we backtrack out of the first alternative (a failed pattern
+</span>            <span class="enscript-comment">// character match of 'a'), then we need not perform an additional input availability
+</span>            <span class="enscript-comment">// check before running the second alternative.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Backtracking required differs for the last alternative, which in the case of the
+</span>            <span class="enscript-comment">// repeating set of alternatives must loop. The code generated for the last alternative
+</span>            <span class="enscript-comment">// will also be used to handle all input check failures from any prior alternatives -
+</span>            <span class="enscript-comment">// these require similar functionality, in seeking the next available alternative for
+</span>            <span class="enscript-comment">// which there is sufficient input.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Since backtracking of all other alternatives simply requires us to link backtracks
+</span>            <span class="enscript-comment">// to the reentry point for the subsequent alternative, we will only be generating any
+</span>            <span class="enscript-comment">// code when backtracking the last alternative.
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpBodyAlternativeBegin</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpBodyAlternativeNext</span>: {
+                PatternAlternative* alternative = op.m_alternative;
+
+                <span class="enscript-keyword">if</span> (op.m_op == OpBodyAlternativeNext) {
+                    PatternAlternative* priorAlternative = m_ops[op.m_previousOp].m_alternative;
+                    m_checked += priorAlternative-&gt;m_minimumSize;
+                }
+                m_checked -= alternative-&gt;m_minimumSize;
+
+                <span class="enscript-comment">// Is this the last alternative? If not, then if we backtrack to this point we just
+</span>                <span class="enscript-comment">// need to jump to try to match the next alternative.
+</span>                <span class="enscript-keyword">if</span> (m_ops[op.m_nextOp].m_op != OpBodyAlternativeEnd) {
+                    m_backtrackingState.linkTo(m_ops[op.m_nextOp].m_reentry, <span class="enscript-keyword">this</span>);
+                    <span class="enscript-keyword">break</span>;
+                }
+                YarrOp&amp; endOp = m_ops[op.m_nextOp];
+
+                YarrOp* beginOp = &amp;op;
+                <span class="enscript-keyword">while</span> (beginOp-&gt;m_op != OpBodyAlternativeBegin) {
+                    ASSERT(beginOp-&gt;m_op == OpBodyAlternativeNext);
+                    beginOp = &amp;m_ops[beginOp-&gt;m_previousOp];
+                }
+
+                <span class="enscript-type">bool</span> onceThrough = endOp.m_nextOp == notFound;
+
+                <span class="enscript-comment">// First, generate code to handle cases where we backtrack out of an attempted match
+</span>                <span class="enscript-comment">// of the last alternative. If this is a 'once through' set of alternatives then we
+</span>                <span class="enscript-comment">// have nothing to do - link this straight through to the End.
+</span>                <span class="enscript-keyword">if</span> (onceThrough)
+                    m_backtrackingState.linkTo(endOp.m_reentry, <span class="enscript-keyword">this</span>);
+                <span class="enscript-keyword">else</span> {
+                    <span class="enscript-comment">// If we don't need to move the input poistion, and the pattern has a fixed size
+</span>                    <span class="enscript-comment">// (in which case we omit the store of the start index until the pattern has matched)
+</span>                    <span class="enscript-comment">// then we can just link the backtrack out of the last alternative straight to the
+</span>                    <span class="enscript-comment">// head of the first alternative.
+</span>                    <span class="enscript-keyword">if</span> (m_pattern.m_body-&gt;m_hasFixedSize
+                        &amp;&amp; (alternative-&gt;m_minimumSize &gt; beginOp-&gt;m_alternative-&gt;m_minimumSize)
+                        &amp;&amp; (alternative-&gt;m_minimumSize - beginOp-&gt;m_alternative-&gt;m_minimumSize == 1))
+                        m_backtrackingState.linkTo(beginOp-&gt;m_reentry, <span class="enscript-keyword">this</span>);
+                    <span class="enscript-keyword">else</span> {
+                        <span class="enscript-comment">// We need to generate a trampoline of code to execute before looping back
+</span>                        <span class="enscript-comment">// around to the first alternative.
+</span>                        m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+                        <span class="enscript-comment">// If the pattern size is not fixed, then store the start index, for use if we match.
+</span>                        <span class="enscript-keyword">if</span> (!m_pattern.m_body-&gt;m_hasFixedSize) {
+                            <span class="enscript-keyword">if</span> (alternative-&gt;m_minimumSize == 1)
+                                setMatchStart(index);
+                            <span class="enscript-keyword">else</span> {
+                                move(index, regT0);
+                                <span class="enscript-keyword">if</span> (alternative-&gt;m_minimumSize)
+                                    sub32(Imm32(alternative-&gt;m_minimumSize - 1), regT0);
+                                <span class="enscript-keyword">else</span>
+                                    add32(TrustedImm32(1), regT0);
+                                setMatchStart(regT0);
+                            }
+                        }
+
+                        <span class="enscript-comment">// Generate code to loop. Check whether the last alternative is longer than the
+</span>                        <span class="enscript-comment">// first (e.g. /a|xy/ or /a|xyz/).
+</span>                        <span class="enscript-keyword">if</span> (alternative-&gt;m_minimumSize &gt; beginOp-&gt;m_alternative-&gt;m_minimumSize) {
+                            <span class="enscript-comment">// We want to loop, and increment input position. If the delta is 1, it is
+</span>                            <span class="enscript-comment">// already correctly incremented, if more than one then decrement as appropriate.
+</span>                            <span class="enscript-type">unsigned</span> delta = alternative-&gt;m_minimumSize - beginOp-&gt;m_alternative-&gt;m_minimumSize;
+                            ASSERT(delta);
+                            <span class="enscript-keyword">if</span> (delta != 1)
+                                sub32(Imm32(delta - 1), index);
+                            jump(beginOp-&gt;m_reentry);
+                        } <span class="enscript-keyword">else</span> {
+                            <span class="enscript-comment">// If the first alternative has minimum size 0xFFFFFFFFu, then there cannot
+</span>                            <span class="enscript-comment">// be sufficent input available to handle this, so just fall through.
+</span>                            <span class="enscript-type">unsigned</span> delta = beginOp-&gt;m_alternative-&gt;m_minimumSize - alternative-&gt;m_minimumSize;
+                            <span class="enscript-keyword">if</span> (delta != 0xFFFFFFFFu) {
+                                <span class="enscript-comment">// We need to check input because we are incrementing the input.
+</span>                                add32(Imm32(delta + 1), index);
+                                checkInput().linkTo(beginOp-&gt;m_reentry, <span class="enscript-keyword">this</span>);
+                            }
+                        }
+                    }
+                }
+
+                <span class="enscript-comment">// We can reach this point in the code in two ways:
+</span>                <span class="enscript-comment">//  - Fallthrough from the code above (a repeating alternative backtracked out of its
+</span>                <span class="enscript-comment">//    last alternative, and did not have sufficent input to run the first).
+</span>                <span class="enscript-comment">//  - We will loop back up to the following label when a releating alternative loops,
+</span>                <span class="enscript-comment">//    following a failed input check.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// Either way, we have just failed the input check for the first alternative.
+</span>                Label firstInputCheckFailed(<span class="enscript-keyword">this</span>);
+
+                <span class="enscript-comment">// Generate code to handle input check failures from alternatives except the last.
+</span>                <span class="enscript-comment">// prevOp is the alternative we're handling a bail out from (initially Begin), and
+</span>                <span class="enscript-comment">// nextOp is the alternative we will be attempting to reenter into.
+</span>                <span class="enscript-comment">// 
+</span>                <span class="enscript-comment">// We will link input check failures from the forwards matching path back to the code
+</span>                <span class="enscript-comment">// that can handle them.
+</span>                YarrOp* prevOp = beginOp;
+                YarrOp* nextOp = &amp;m_ops[beginOp-&gt;m_nextOp];
+                <span class="enscript-keyword">while</span> (nextOp-&gt;m_op != OpBodyAlternativeEnd) {
+                    prevOp-&gt;m_jumps.link(<span class="enscript-keyword">this</span>);
+
+                    <span class="enscript-comment">// We only get here if an input check fails, it is only worth checking again
+</span>                    <span class="enscript-comment">// if the next alternative has a minimum size less than the last.
+</span>                    <span class="enscript-keyword">if</span> (prevOp-&gt;m_alternative-&gt;m_minimumSize &gt; nextOp-&gt;m_alternative-&gt;m_minimumSize) {
+                        <span class="enscript-comment">// FIXME: if we added an extra label to YarrOp, we could avoid needing to
+</span>                        <span class="enscript-comment">// subtract delta back out, and reduce this code. Should performance test
+</span>                        <span class="enscript-comment">// the benefit of this.
+</span>                        <span class="enscript-type">unsigned</span> delta = prevOp-&gt;m_alternative-&gt;m_minimumSize - nextOp-&gt;m_alternative-&gt;m_minimumSize;
+                        sub32(Imm32(delta), index);
+                        Jump fail = jumpIfNoAvailableInput();
+                        add32(Imm32(delta), index);
+                        jump(nextOp-&gt;m_reentry);
+                        fail.link(<span class="enscript-keyword">this</span>);
+                    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (prevOp-&gt;m_alternative-&gt;m_minimumSize &lt; nextOp-&gt;m_alternative-&gt;m_minimumSize)
+                        add32(Imm32(nextOp-&gt;m_alternative-&gt;m_minimumSize - prevOp-&gt;m_alternative-&gt;m_minimumSize), index);
+                    prevOp = nextOp;
+                    nextOp = &amp;m_ops[nextOp-&gt;m_nextOp];
+                }
+
+                <span class="enscript-comment">// We fall through to here if there is insufficient input to run the last alternative.
+</span>
+                <span class="enscript-comment">// If there is insufficient input to run the last alternative, then for 'once through'
+</span>                <span class="enscript-comment">// alternatives we are done - just jump back up into the forwards matching path at the End.
+</span>                <span class="enscript-keyword">if</span> (onceThrough) {
+                    op.m_jumps.linkTo(endOp.m_reentry, <span class="enscript-keyword">this</span>);
+                    jump(endOp.m_reentry);
+                    <span class="enscript-keyword">break</span>;
+                }
+
+                <span class="enscript-comment">// For repeating alternatives, link any input check failure from the last alternative to
+</span>                <span class="enscript-comment">// this point.
+</span>                op.m_jumps.link(<span class="enscript-keyword">this</span>);
+
+                <span class="enscript-type">bool</span> needsToUpdateMatchStart = !m_pattern.m_body-&gt;m_hasFixedSize;
+
+                <span class="enscript-comment">// Check for cases where input position is already incremented by 1 for the last
+</span>                <span class="enscript-comment">// alternative (this is particularly useful where the minimum size of the body
+</span>                <span class="enscript-comment">// disjunction is 0, e.g. /a*|b/).
+</span>                <span class="enscript-keyword">if</span> (needsToUpdateMatchStart &amp;&amp; alternative-&gt;m_minimumSize == 1) {
+                    <span class="enscript-comment">// index is already incremented by 1, so just store it now!
+</span>                    setMatchStart(index);
+                    needsToUpdateMatchStart = false;
+                }
+
+                <span class="enscript-comment">// Check whether there is sufficient input to loop. Increment the input position by
+</span>                <span class="enscript-comment">// one, and check. Also add in the minimum disjunction size before checking - there
+</span>                <span class="enscript-comment">// is no point in looping if we're just going to fail all the input checks around
+</span>                <span class="enscript-comment">// the next iteration.
+</span>                ASSERT(alternative-&gt;m_minimumSize &gt;= m_pattern.m_body-&gt;m_minimumSize);
+                <span class="enscript-keyword">if</span> (alternative-&gt;m_minimumSize == m_pattern.m_body-&gt;m_minimumSize) {
+                    <span class="enscript-comment">// If the last alternative had the same minimum size as the disjunction,
+</span>                    <span class="enscript-comment">// just simply increment input pos by 1, no adjustment based on minimum size.
+</span>                    add32(TrustedImm32(1), index);
+                } <span class="enscript-keyword">else</span> {
+                    <span class="enscript-comment">// If the minumum for the last alternative was one greater than than that
+</span>                    <span class="enscript-comment">// for the disjunction, we're already progressed by 1, nothing to do!
+</span>                    <span class="enscript-type">unsigned</span> delta = (alternative-&gt;m_minimumSize - m_pattern.m_body-&gt;m_minimumSize) - 1;
+                    <span class="enscript-keyword">if</span> (delta)
+                        sub32(Imm32(delta), index);
+                }
+                Jump matchFailed = jumpIfNoAvailableInput();
+
+                <span class="enscript-keyword">if</span> (needsToUpdateMatchStart) {
+                    <span class="enscript-keyword">if</span> (!m_pattern.m_body-&gt;m_minimumSize)
+                        setMatchStart(index);
+                    <span class="enscript-keyword">else</span> {
+                        move(index, regT0);
+                        sub32(Imm32(m_pattern.m_body-&gt;m_minimumSize), regT0);
+                        setMatchStart(regT0);
+                    }
+                }
+
+                <span class="enscript-comment">// Calculate how much more input the first alternative requires than the minimum
+</span>                <span class="enscript-comment">// for the body as a whole. If no more is needed then we dont need an additional
+</span>                <span class="enscript-comment">// input check here - jump straight back up to the start of the first alternative.
+</span>                <span class="enscript-keyword">if</span> (beginOp-&gt;m_alternative-&gt;m_minimumSize == m_pattern.m_body-&gt;m_minimumSize)
+                    jump(beginOp-&gt;m_reentry);
+                <span class="enscript-keyword">else</span> {
+                    <span class="enscript-keyword">if</span> (beginOp-&gt;m_alternative-&gt;m_minimumSize &gt; m_pattern.m_body-&gt;m_minimumSize)
+                        add32(Imm32(beginOp-&gt;m_alternative-&gt;m_minimumSize - m_pattern.m_body-&gt;m_minimumSize), index);
+                    <span class="enscript-keyword">else</span>
+                        sub32(Imm32(m_pattern.m_body-&gt;m_minimumSize - beginOp-&gt;m_alternative-&gt;m_minimumSize), index);
+                    checkInput().linkTo(beginOp-&gt;m_reentry, <span class="enscript-keyword">this</span>);
+                    jump(firstInputCheckFailed);
+                }
+
+                <span class="enscript-comment">// We jump to here if we iterate to the point that there is insufficient input to
+</span>                <span class="enscript-comment">// run any matches, and need to return a failure state from JIT code.
+</span>                matchFailed.link(<span class="enscript-keyword">this</span>);
+
+                removeCallFrame();
+                move(TrustedImmPtr((<span class="enscript-type">void</span>*)WTF::notFound), returnRegister);
+                move(TrustedImm32(0), returnRegister2);
+                generateReturn();
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpBodyAlternativeEnd</span>: {
+                <span class="enscript-comment">// We should never backtrack back into a body disjunction.
+</span>                ASSERT(m_backtrackingState.isEmpty());
+
+                PatternAlternative* priorAlternative = m_ops[op.m_previousOp].m_alternative;
+                m_checked += priorAlternative-&gt;m_minimumSize;
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpSimpleNestedAlternativeBegin/Next/End
+</span>            <span class="enscript-comment">// OpNestedAlternativeBegin/Next/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Generate code for when we backtrack back out of an alternative into
+</span>            <span class="enscript-comment">// a Begin or Next node, or when the entry input count check fails. If
+</span>            <span class="enscript-comment">// there are more alternatives we need to jump to the next alternative,
+</span>            <span class="enscript-comment">// if not we backtrack back out of the current set of parentheses.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// In the case of non-simple nested assertions we need to also link the
+</span>            <span class="enscript-comment">// 'return address' appropriately to backtrack back out into the correct
+</span>            <span class="enscript-comment">// alternative.
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpSimpleNestedAlternativeBegin</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpSimpleNestedAlternativeNext</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpNestedAlternativeBegin</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpNestedAlternativeNext</span>: {
+                YarrOp&amp; nextOp = m_ops[op.m_nextOp];
+                <span class="enscript-type">bool</span> isBegin = op.m_previousOp == notFound;
+                <span class="enscript-type">bool</span> isLastAlternative = nextOp.m_nextOp == notFound;
+                ASSERT(isBegin == (op.m_op == OpSimpleNestedAlternativeBegin || op.m_op == OpNestedAlternativeBegin));
+                ASSERT(isLastAlternative == (nextOp.m_op == OpSimpleNestedAlternativeEnd || nextOp.m_op == OpNestedAlternativeEnd));
+
+                <span class="enscript-comment">// Treat an input check failure the same as a failed match.
+</span>                m_backtrackingState.append(op.m_jumps);
+
+                <span class="enscript-comment">// Set the backtracks to jump to the appropriate place. We may need
+</span>                <span class="enscript-comment">// to link the backtracks in one of three different way depending on
+</span>                <span class="enscript-comment">// the type of alternative we are dealing with:
+</span>                <span class="enscript-comment">//  - A single alternative, with no simplings.
+</span>                <span class="enscript-comment">//  - The last alternative of a set of two or more.
+</span>                <span class="enscript-comment">//  - An alternative other than the last of a set of two or more.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// In the case of a single alternative on its own, we don't need to
+</span>                <span class="enscript-comment">// jump anywhere - if the alternative fails to match we can just
+</span>                <span class="enscript-comment">// continue to backtrack out of the parentheses without jumping.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// In the case of the last alternative in a set of more than one, we
+</span>                <span class="enscript-comment">// need to jump to return back out to the beginning. We'll do so by
+</span>                <span class="enscript-comment">// adding a jump to the End node's m_jumps list, and linking this
+</span>                <span class="enscript-comment">// when we come to generate the Begin node. For alternatives other
+</span>                <span class="enscript-comment">// than the last, we need to jump to the next alternative.
+</span>                <span class="enscript-comment">//
+</span>                <span class="enscript-comment">// If the alternative had adjusted the input position we must link
+</span>                <span class="enscript-comment">// backtracking to here, correct, and then jump on. If not we can
+</span>                <span class="enscript-comment">// link the backtracks directly to their destination.
+</span>                <span class="enscript-keyword">if</span> (op.m_checkAdjust) {
+                    <span class="enscript-comment">// Handle the cases where we need to link the backtracks here.
+</span>                    m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+                    sub32(Imm32(op.m_checkAdjust), index);
+                    <span class="enscript-keyword">if</span> (!isLastAlternative) {
+                        <span class="enscript-comment">// An alternative that is not the last should jump to its successor.
+</span>                        jump(nextOp.m_reentry);
+                    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (!isBegin) {
+                        <span class="enscript-comment">// The last of more than one alternatives must jump back to the beginning.
+</span>                        nextOp.m_jumps.append(jump());
+                    } <span class="enscript-keyword">else</span> {
+                        <span class="enscript-comment">// A single alternative on its own can fall through.
+</span>                        m_backtrackingState.fallthrough();
+                    }
+                } <span class="enscript-keyword">else</span> {
+                    <span class="enscript-comment">// Handle the cases where we can link the backtracks directly to their destinations.
+</span>                    <span class="enscript-keyword">if</span> (!isLastAlternative) {
+                        <span class="enscript-comment">// An alternative that is not the last should jump to its successor.
+</span>                        m_backtrackingState.linkTo(nextOp.m_reentry, <span class="enscript-keyword">this</span>);
+                    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (!isBegin) {
+                        <span class="enscript-comment">// The last of more than one alternatives must jump back to the beginning.
+</span>                        m_backtrackingState.takeBacktracksToJumpList(nextOp.m_jumps, <span class="enscript-keyword">this</span>);
+                    }
+                    <span class="enscript-comment">// In the case of a single alternative on its own do nothing - it can fall through.
+</span>                }
+
+                <span class="enscript-comment">// If there is a backtrack jump from a zero length match link it here.
+</span>                <span class="enscript-keyword">if</span> (op.m_zeroLengthMatch.isSet())
+                    m_backtrackingState.append(op.m_zeroLengthMatch);
+
+                <span class="enscript-comment">// At this point we've handled the backtracking back into this node.
+</span>                <span class="enscript-comment">// Now link any backtracks that need to jump to here.
+</span>
+                <span class="enscript-comment">// For non-simple alternatives, link the alternative's 'return address'
+</span>                <span class="enscript-comment">// so that we backtrack back out into the previous alternative.
+</span>                <span class="enscript-keyword">if</span> (op.m_op == OpNestedAlternativeNext)
+                    m_backtrackingState.append(op.m_returnAddress);
+
+                <span class="enscript-comment">// If there is more than one alternative, then the last alternative will
+</span>                <span class="enscript-comment">// have planted a jump to be linked to the end. This jump was added to the
+</span>                <span class="enscript-comment">// End node's m_jumps list. If we are back at the beginning, link it here.
+</span>                <span class="enscript-keyword">if</span> (isBegin) {
+                    YarrOp* endOp = &amp;m_ops[op.m_nextOp];
+                    <span class="enscript-keyword">while</span> (endOp-&gt;m_nextOp != notFound) {
+                        ASSERT(endOp-&gt;m_op == OpSimpleNestedAlternativeNext || endOp-&gt;m_op == OpNestedAlternativeNext);
+                        endOp = &amp;m_ops[endOp-&gt;m_nextOp];
+                    }
+                    ASSERT(endOp-&gt;m_op == OpSimpleNestedAlternativeEnd || endOp-&gt;m_op == OpNestedAlternativeEnd);
+                    m_backtrackingState.append(endOp-&gt;m_jumps);
+                }
+
+                <span class="enscript-keyword">if</span> (!isBegin) {
+                    YarrOp&amp; lastOp = m_ops[op.m_previousOp];
+                    m_checked += lastOp.m_checkAdjust;
+                }
+                m_checked -= op.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpSimpleNestedAlternativeEnd</span>:
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpNestedAlternativeEnd</span>: {
+                PatternTerm* term = op.m_term;
+
+                <span class="enscript-comment">// If there is a backtrack jump from a zero length match link it here.
+</span>                <span class="enscript-keyword">if</span> (op.m_zeroLengthMatch.isSet())
+                    m_backtrackingState.append(op.m_zeroLengthMatch);
+
+                <span class="enscript-comment">// If we backtrack into the end of a simple subpattern do nothing;
+</span>                <span class="enscript-comment">// just continue through into the last alternative. If we backtrack
+</span>                <span class="enscript-comment">// into the end of a non-simple set of alterntives we need to jump
+</span>                <span class="enscript-comment">// to the backtracking return address set up during generation.
+</span>                <span class="enscript-keyword">if</span> (op.m_op == OpNestedAlternativeEnd) {
+                    m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+                    <span class="enscript-comment">// Plant a jump to the return address.
+</span>                    <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                    <span class="enscript-type">unsigned</span> alternativeFrameLocation = parenthesesFrameLocation;
+                    <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount)
+                        alternativeFrameLocation += YarrStackSpaceForBackTrackInfoParenthesesOnce;
+                    loadFromFrameAndJump(alternativeFrameLocation);
+
+                    <span class="enscript-comment">// Link the DataLabelPtr associated with the end of the last
+</span>                    <span class="enscript-comment">// alternative to this point.
+</span>                    m_backtrackingState.append(op.m_returnAddress);
+                }
+
+                YarrOp&amp; lastOp = m_ops[op.m_previousOp];
+                m_checked += lastOp.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpParenthesesSubpatternOnceBegin/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// When we are backtracking back out of a capturing subpattern we need
+</span>            <span class="enscript-comment">// to clear the start index in the matches output array, to record that
+</span>            <span class="enscript-comment">// this subpattern has not been captured.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// When backtracking back out of a Greedy quantified subpattern we need
+</span>            <span class="enscript-comment">// to catch this, and try running the remainder of the alternative after
+</span>            <span class="enscript-comment">// the subpattern again, skipping the parentheses.
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Upon backtracking back into a quantified set of parentheses we need to
+</span>            <span class="enscript-comment">// check whether we were currently skipping the subpattern. If not, we
+</span>            <span class="enscript-comment">// can backtrack into them, if we were we need to either backtrack back
+</span>            <span class="enscript-comment">// out of the start of the parentheses, or jump back to the forwards
+</span>            <span class="enscript-comment">// matching start, depending of whether the match is Greedy or NonGreedy.
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternOnceBegin</span>: {
+                PatternTerm* term = op.m_term;
+                ASSERT(term-&gt;quantityCount == 1);
+
+                <span class="enscript-comment">// We only need to backtrack to thispoint if capturing or greedy.
+</span>                <span class="enscript-keyword">if</span> ((term-&gt;capture() &amp;&amp; compileMode == IncludeSubpatterns) || term-&gt;quantityType == QuantifierGreedy) {
+                    m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+                    <span class="enscript-comment">// If capturing, clear the capture (we only need to reset start).
+</span>                    <span class="enscript-keyword">if</span> (term-&gt;capture() &amp;&amp; compileMode == IncludeSubpatterns)
+                        clearSubpatternStart(term-&gt;parentheses.subpatternId);
+
+                    <span class="enscript-comment">// If Greedy, jump to the end.
+</span>                    <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierGreedy) {
+                        <span class="enscript-comment">// Clear the flag in the stackframe indicating we ran through the subpattern.
+</span>                        <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                        storeToFrame(TrustedImm32(-1), parenthesesFrameLocation);
+                        <span class="enscript-comment">// Jump to after the parentheses, skipping the subpattern.
+</span>                        jump(m_ops[op.m_nextOp].m_reentry);
+                        <span class="enscript-comment">// A backtrack from after the parentheses, when skipping the subpattern,
+</span>                        <span class="enscript-comment">// will jump back to here.
+</span>                        op.m_jumps.link(<span class="enscript-keyword">this</span>);
+                    }
+
+                    m_backtrackingState.fallthrough();
+                }
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternOnceEnd</span>: {
+                PatternTerm* term = op.m_term;
+
+                <span class="enscript-keyword">if</span> (term-&gt;quantityType != QuantifierFixedCount) {
+                    m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+                    <span class="enscript-comment">// Check whether we should backtrack back into the parentheses, or if we
+</span>                    <span class="enscript-comment">// are currently in a state where we had skipped over the subpattern
+</span>                    <span class="enscript-comment">// (in which case the flag value on the stack will be -1).
+</span>                    <span class="enscript-type">unsigned</span> parenthesesFrameLocation = term-&gt;frameLocation;
+                    Jump hadSkipped = branch32(Equal, Address(stackPointerRegister, parenthesesFrameLocation * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), TrustedImm32(-1));
+
+                    <span class="enscript-keyword">if</span> (term-&gt;quantityType == QuantifierGreedy) {
+                        <span class="enscript-comment">// For Greedy parentheses, we skip after having already tried going
+</span>                        <span class="enscript-comment">// through the subpattern, so if we get here we're done.
+</span>                        YarrOp&amp; beginOp = m_ops[op.m_previousOp];
+                        beginOp.m_jumps.append(hadSkipped);
+                    } <span class="enscript-keyword">else</span> {
+                        <span class="enscript-comment">// For NonGreedy parentheses, we try skipping the subpattern first,
+</span>                        <span class="enscript-comment">// so if we get here we need to try running through the subpattern
+</span>                        <span class="enscript-comment">// next. Jump back to the start of the parentheses in the forwards
+</span>                        <span class="enscript-comment">// matching path.
+</span>                        ASSERT(term-&gt;quantityType == QuantifierNonGreedy);
+                        YarrOp&amp; beginOp = m_ops[op.m_previousOp];
+                        hadSkipped.linkTo(beginOp.m_reentry, <span class="enscript-keyword">this</span>);
+                    }
+
+                    m_backtrackingState.fallthrough();
+                }
+
+                m_backtrackingState.append(op.m_jumps);
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-comment">// OpParenthesesSubpatternTerminalBegin/End
+</span>            <span class="enscript-comment">//
+</span>            <span class="enscript-comment">// Terminal subpatterns will always match - there is nothing after them to
+</span>            <span class="enscript-comment">// force a backtrack, and they have a minimum count of 0, and as such will
+</span>            <span class="enscript-comment">// always produce an acceptable result.
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternTerminalBegin</span>: {
+                <span class="enscript-comment">// We will backtrack to this point once the subpattern cannot match any
+</span>                <span class="enscript-comment">// more. Since no match is accepted as a successful match (we are Greedy
+</span>                <span class="enscript-comment">// quantified with a minimum of zero) jump back to the forwards matching
+</span>                <span class="enscript-comment">// path at the end.
+</span>                YarrOp&amp; endOp = m_ops[op.m_nextOp];
+                m_backtrackingState.linkTo(endOp.m_reentry, <span class="enscript-keyword">this</span>);
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParenthesesSubpatternTerminalEnd</span>:
+                <span class="enscript-comment">// We should never be backtracking to here (hence the 'terminal' in the name).
+</span>                ASSERT(m_backtrackingState.isEmpty());
+                m_backtrackingState.append(op.m_jumps);
+                <span class="enscript-keyword">break</span>;
+
+            <span class="enscript-comment">// OpParentheticalAssertionBegin/End
+</span>            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParentheticalAssertionBegin</span>: {
+                PatternTerm* term = op.m_term;
+                YarrOp&amp; endOp = m_ops[op.m_nextOp];
+
+                <span class="enscript-comment">// We need to handle the backtracks upon backtracking back out
+</span>                <span class="enscript-comment">// of a parenthetical assertion if either we need to correct
+</span>                <span class="enscript-comment">// the input index, or the assertion was inverted.
+</span>                <span class="enscript-keyword">if</span> (op.m_checkAdjust || term-&gt;invert()) {
+                     m_backtrackingState.link(<span class="enscript-keyword">this</span>);
+
+                    <span class="enscript-keyword">if</span> (op.m_checkAdjust)
+                        add32(Imm32(op.m_checkAdjust), index);
+
+                    <span class="enscript-comment">// In an inverted assertion failure to match the subpattern
+</span>                    <span class="enscript-comment">// is treated as a successful match - jump to the end of the
+</span>                    <span class="enscript-comment">// subpattern. We already have adjusted the input position
+</span>                    <span class="enscript-comment">// back to that before the assertion, which is correct.
+</span>                    <span class="enscript-keyword">if</span> (term-&gt;invert())
+                        jump(endOp.m_reentry);
+
+                    m_backtrackingState.fallthrough();
+                }
+
+                <span class="enscript-comment">// The End node's jump list will contain any backtracks into
+</span>                <span class="enscript-comment">// the end of the assertion. Also, if inverted, we will have
+</span>                <span class="enscript-comment">// added the failure caused by a successful match to this.
+</span>                m_backtrackingState.append(endOp.m_jumps);
+
+                m_checked += op.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpParentheticalAssertionEnd</span>: {
+                <span class="enscript-comment">// FIXME: We should really be clearing any nested subpattern
+</span>                <span class="enscript-comment">// matches on bailing out from after the pattern. Firefox has
+</span>                <span class="enscript-comment">// this bug too (presumably because they use YARR!)
+</span>
+                <span class="enscript-comment">// Never backtrack into an assertion; later failures bail to before the begin.
+</span>                m_backtrackingState.takeBacktracksToJumpList(op.m_jumps, <span class="enscript-keyword">this</span>);
+
+                YarrOp&amp; lastOp = m_ops[op.m_previousOp];
+                m_checked -= lastOp.m_checkAdjust;
+                <span class="enscript-keyword">break</span>;
+            }
+
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">OpMatchFailed</span>:
+                <span class="enscript-keyword">break</span>;
+            }
+
+        } <span class="enscript-keyword">while</span> (opIndex);
+    }
+
+    <span class="enscript-comment">// Compilation methods:
+</span>    <span class="enscript-comment">// ====================
+</span>
+    <span class="enscript-comment">// opCompileParenthesesSubpattern
+</span>    <span class="enscript-comment">// Emits ops for a subpattern (set of parentheses). These consist
+</span>    <span class="enscript-comment">// of a set of alternatives wrapped in an outer set of nodes for
+</span>    <span class="enscript-comment">// the parentheses.
+</span>    <span class="enscript-comment">// Supported types of parentheses are 'Once' (quantityCount == 1)
+</span>    <span class="enscript-comment">// and 'Terminal' (non-capturing parentheses quantified as greedy
+</span>    <span class="enscript-comment">// and infinite).
+</span>    <span class="enscript-comment">// Alternatives will use the 'Simple' set of ops if either the
+</span>    <span class="enscript-comment">// subpattern is terminal (in which case we will never need to
+</span>    <span class="enscript-comment">// backtrack), or if the subpattern only contains one alternative.
+</span>    <span class="enscript-type">void</span> opCompileParenthesesSubpattern(PatternTerm* term)
+    {
+        YarrOpCode parenthesesBeginOpCode;
+        YarrOpCode parenthesesEndOpCode;
+        YarrOpCode alternativeBeginOpCode = OpSimpleNestedAlternativeBegin;
+        YarrOpCode alternativeNextOpCode = OpSimpleNestedAlternativeNext;
+        YarrOpCode alternativeEndOpCode = OpSimpleNestedAlternativeEnd;
+
+        <span class="enscript-comment">// We can currently only compile quantity 1 subpatterns that are
+</span>        <span class="enscript-comment">// not copies. We generate a copy in the case of a range quantifier,
+</span>        <span class="enscript-comment">// e.g. /(?:x){3,9}/, or /(?:x)+/ (These are effectively expanded to
+</span>        <span class="enscript-comment">// /(?:x){3,3}(?:x){0,6}/ and /(?:x)(?:x)*/ repectively). The problem
+</span>        <span class="enscript-comment">// comes where the subpattern is capturing, in which case we would
+</span>        <span class="enscript-comment">// need to restore the capture from the first subpattern upon a
+</span>        <span class="enscript-comment">// failure in the second.
+</span>        <span class="enscript-keyword">if</span> (term-&gt;quantityCount == 1 &amp;&amp; !term-&gt;parentheses.isCopy) {
+            <span class="enscript-comment">// Select the 'Once' nodes.
+</span>            parenthesesBeginOpCode = OpParenthesesSubpatternOnceBegin;
+            parenthesesEndOpCode = OpParenthesesSubpatternOnceEnd;
+
+            <span class="enscript-comment">// If there is more than one alternative we cannot use the 'simple' nodes.
+</span>            <span class="enscript-keyword">if</span> (term-&gt;parentheses.disjunction-&gt;m_alternatives.size() != 1) {
+                alternativeBeginOpCode = OpNestedAlternativeBegin;
+                alternativeNextOpCode = OpNestedAlternativeNext;
+                alternativeEndOpCode = OpNestedAlternativeEnd;
+            }
+        } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (term-&gt;parentheses.isTerminal) {
+            <span class="enscript-comment">// Select the 'Terminal' nodes.
+</span>            parenthesesBeginOpCode = OpParenthesesSubpatternTerminalBegin;
+            parenthesesEndOpCode = OpParenthesesSubpatternTerminalEnd;
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-comment">// This subpattern is not supported by the JIT.
+</span>            m_shouldFallBack = true;
+            <span class="enscript-keyword">return</span>;
+        }
+
+        size_t parenBegin = m_ops.size();
+        m_ops.append(parenthesesBeginOpCode);
+
+        m_ops.append(alternativeBeginOpCode);
+        m_ops.last().m_previousOp = notFound;
+        m_ops.last().m_term = term;
+        Vector&lt;PatternAlternative*&gt;&amp; alternatives =  term-&gt;parentheses.disjunction-&gt;m_alternatives;
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; alternatives.size(); ++i) {
+            size_t lastOpIndex = m_ops.size() - 1;
+
+            PatternAlternative* nestedAlternative = alternatives[i];
+            opCompileAlternative(nestedAlternative);
+
+            size_t thisOpIndex = m_ops.size();
+            m_ops.append(YarrOp(alternativeNextOpCode));
+
+            YarrOp&amp; lastOp = m_ops[lastOpIndex];
+            YarrOp&amp; thisOp = m_ops[thisOpIndex];
+
+            lastOp.m_alternative = nestedAlternative;
+            lastOp.m_nextOp = thisOpIndex;
+            thisOp.m_previousOp = lastOpIndex;
+            thisOp.m_term = term;
+        }
+        YarrOp&amp; lastOp = m_ops.last();
+        ASSERT(lastOp.m_op == alternativeNextOpCode);
+        lastOp.m_op = alternativeEndOpCode;
+        lastOp.m_alternative = 0;
+        lastOp.m_nextOp = notFound;
+
+        size_t parenEnd = m_ops.size();
+        m_ops.append(parenthesesEndOpCode);
+
+        m_ops[parenBegin].m_term = term;
+        m_ops[parenBegin].m_previousOp = notFound;
+        m_ops[parenBegin].m_nextOp = parenEnd;
+        m_ops[parenEnd].m_term = term;
+        m_ops[parenEnd].m_previousOp = parenBegin;
+        m_ops[parenEnd].m_nextOp = notFound;
+    }
+
+    <span class="enscript-comment">// opCompileParentheticalAssertion
+</span>    <span class="enscript-comment">// Emits ops for a parenthetical assertion. These consist of an
+</span>    <span class="enscript-comment">// OpSimpleNestedAlternativeBegin/Next/End set of nodes wrapping
+</span>    <span class="enscript-comment">// the alternatives, with these wrapped by an outer pair of
+</span>    <span class="enscript-comment">// OpParentheticalAssertionBegin/End nodes.
+</span>    <span class="enscript-comment">// We can always use the OpSimpleNestedAlternative nodes in the
+</span>    <span class="enscript-comment">// case of parenthetical assertions since these only ever match
+</span>    <span class="enscript-comment">// once, and will never backtrack back into the assertion.
+</span>    <span class="enscript-type">void</span> opCompileParentheticalAssertion(PatternTerm* term)
+    {
+        size_t parenBegin = m_ops.size();
+        m_ops.append(OpParentheticalAssertionBegin);
+
+        m_ops.append(OpSimpleNestedAlternativeBegin);
+        m_ops.last().m_previousOp = notFound;
+        m_ops.last().m_term = term;
+        Vector&lt;PatternAlternative*&gt;&amp; alternatives =  term-&gt;parentheses.disjunction-&gt;m_alternatives;
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; alternatives.size(); ++i) {
+            size_t lastOpIndex = m_ops.size() - 1;
+
+            PatternAlternative* nestedAlternative = alternatives[i];
+            opCompileAlternative(nestedAlternative);
+
+            size_t thisOpIndex = m_ops.size();
+            m_ops.append(YarrOp(OpSimpleNestedAlternativeNext));
+
+            YarrOp&amp; lastOp = m_ops[lastOpIndex];
+            YarrOp&amp; thisOp = m_ops[thisOpIndex];
+
+            lastOp.m_alternative = nestedAlternative;
+            lastOp.m_nextOp = thisOpIndex;
+            thisOp.m_previousOp = lastOpIndex;
+            thisOp.m_term = term;
+        }
+        YarrOp&amp; lastOp = m_ops.last();
+        ASSERT(lastOp.m_op == OpSimpleNestedAlternativeNext);
+        lastOp.m_op = OpSimpleNestedAlternativeEnd;
+        lastOp.m_alternative = 0;
+        lastOp.m_nextOp = notFound;
+
+        size_t parenEnd = m_ops.size();
+        m_ops.append(OpParentheticalAssertionEnd);
+
+        m_ops[parenBegin].m_term = term;
+        m_ops[parenBegin].m_previousOp = notFound;
+        m_ops[parenBegin].m_nextOp = parenEnd;
+        m_ops[parenEnd].m_term = term;
+        m_ops[parenEnd].m_previousOp = parenBegin;
+        m_ops[parenEnd].m_nextOp = notFound;
+    }
+
+    <span class="enscript-comment">// opCompileAlternative
+</span>    <span class="enscript-comment">// Called to emit nodes for all terms in an alternative.
+</span>    <span class="enscript-type">void</span> opCompileAlternative(PatternAlternative* alternative)
+    {
+        optimizeAlternative(alternative);
+
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; alternative-&gt;m_terms.size(); ++i) {
+            PatternTerm* term = &amp;alternative-&gt;m_terms[i];
+
+            <span class="enscript-keyword">switch</span> (term-&gt;type) {
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeParenthesesSubpattern:
+                opCompileParenthesesSubpattern(term);
+                <span class="enscript-keyword">break</span>;
+
+            <span class="enscript-keyword">case</span> <span class="enscript-reference">PatternTerm</span>::TypeParentheticalAssertion:
+                opCompileParentheticalAssertion(term);
+                <span class="enscript-keyword">break</span>;
+
+            <span class="enscript-reference">default</span>:
+                m_ops.append(term);
+            }
+        }
+    }
+
+    <span class="enscript-comment">// opCompileBody
+</span>    <span class="enscript-comment">// This method compiles the body disjunction of the regular expression.
+</span>    <span class="enscript-comment">// The body consists of two sets of alternatives - zero or more 'once
+</span>    <span class="enscript-comment">// through' (BOL anchored) alternatives, followed by zero or more
+</span>    <span class="enscript-comment">// repeated alternatives.
+</span>    <span class="enscript-comment">// For each of these two sets of alteratives, if not empty they will be
+</span>    <span class="enscript-comment">// wrapped in a set of OpBodyAlternativeBegin/Next/End nodes (with the
+</span>    <span class="enscript-comment">// 'begin' node referencing the first alternative, and 'next' nodes
+</span>    <span class="enscript-comment">// referencing any further alternatives. The begin/next/end nodes are
+</span>    <span class="enscript-comment">// linked together in a doubly linked list. In the case of repeating
+</span>    <span class="enscript-comment">// alternatives, the end node is also linked back to the beginning.
+</span>    <span class="enscript-comment">// If no repeating alternatives exist, then a OpMatchFailed node exists
+</span>    <span class="enscript-comment">// to return the failing result.
+</span>    <span class="enscript-type">void</span> opCompileBody(PatternDisjunction* disjunction)
+    {
+        Vector&lt;PatternAlternative*&gt;&amp; alternatives =  disjunction-&gt;m_alternatives;
+        size_t currentAlternativeIndex = 0;
+
+        <span class="enscript-comment">// Emit the 'once through' alternatives.
+</span>        <span class="enscript-keyword">if</span> (alternatives.size() &amp;&amp; alternatives[0]-&gt;onceThrough()) {
+            m_ops.append(YarrOp(OpBodyAlternativeBegin));
+            m_ops.last().m_previousOp = notFound;
+
+            <span class="enscript-keyword">do</span> {
+                size_t lastOpIndex = m_ops.size() - 1;
+                PatternAlternative* alternative = alternatives[currentAlternativeIndex];
+                opCompileAlternative(alternative);
+
+                size_t thisOpIndex = m_ops.size();
+                m_ops.append(YarrOp(OpBodyAlternativeNext));
+
+                YarrOp&amp; lastOp = m_ops[lastOpIndex];
+                YarrOp&amp; thisOp = m_ops[thisOpIndex];
+
+                lastOp.m_alternative = alternative;
+                lastOp.m_nextOp = thisOpIndex;
+                thisOp.m_previousOp = lastOpIndex;
+                
+                ++currentAlternativeIndex;
+            } <span class="enscript-keyword">while</span> (currentAlternativeIndex &lt; alternatives.size() &amp;&amp; alternatives[currentAlternativeIndex]-&gt;onceThrough());
+
+            YarrOp&amp; lastOp = m_ops.last();
+
+            ASSERT(lastOp.m_op == OpBodyAlternativeNext);
+            lastOp.m_op = OpBodyAlternativeEnd;
+            lastOp.m_alternative = 0;
+            lastOp.m_nextOp = notFound;
+        }
+
+        <span class="enscript-keyword">if</span> (currentAlternativeIndex == alternatives.size()) {
+            m_ops.append(YarrOp(OpMatchFailed));
+            <span class="enscript-keyword">return</span>;
+        }
+
+        <span class="enscript-comment">// Emit the repeated alternatives.
+</span>        size_t repeatLoop = m_ops.size();
+        m_ops.append(YarrOp(OpBodyAlternativeBegin));
+        m_ops.last().m_previousOp = notFound;
+        <span class="enscript-keyword">do</span> {
+            size_t lastOpIndex = m_ops.size() - 1;
+            PatternAlternative* alternative = alternatives[currentAlternativeIndex];
+            ASSERT(!alternative-&gt;onceThrough());
+            opCompileAlternative(alternative);
+
+            size_t thisOpIndex = m_ops.size();
+            m_ops.append(YarrOp(OpBodyAlternativeNext));
+
+            YarrOp&amp; lastOp = m_ops[lastOpIndex];
+            YarrOp&amp; thisOp = m_ops[thisOpIndex];
+
+            lastOp.m_alternative = alternative;
+            lastOp.m_nextOp = thisOpIndex;
+            thisOp.m_previousOp = lastOpIndex;
+            
+            ++currentAlternativeIndex;
+        } <span class="enscript-keyword">while</span> (currentAlternativeIndex &lt; alternatives.size());
+        YarrOp&amp; lastOp = m_ops.last();
+        ASSERT(lastOp.m_op == OpBodyAlternativeNext);
+        lastOp.m_op = OpBodyAlternativeEnd;
+        lastOp.m_alternative = 0;
+        lastOp.m_nextOp = repeatLoop;
+    }
+
+    <span class="enscript-type">void</span> generateEnter()
+    {
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">X86_64</span>)
+        push(X86Registers::ebp);
+        move(stackPointerRegister, X86Registers::ebp);
+        push(X86Registers::ebx);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">X86</span>)
+        push(X86Registers::ebp);
+        move(stackPointerRegister, X86Registers::ebp);
+        <span class="enscript-comment">// TODO: do we need spill registers to fill the output pointer if there are no sub captures?
+</span>        push(X86Registers::ebx);
+        push(X86Registers::edi);
+        push(X86Registers::esi);
+        <span class="enscript-comment">// load output into edi (2 = saved ebp + return address).
+</span>    #<span class="enscript-keyword">if</span> COMPILER(MSVC)
+        loadPtr(Address(X86Registers::ebp, 2 * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), input);
+        loadPtr(Address(X86Registers::ebp, 3 * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), index);
+        loadPtr(Address(X86Registers::ebp, 4 * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), length);
+        <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+            loadPtr(Address(X86Registers::ebp, 5 * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), output);
+    #<span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+            loadPtr(Address(X86Registers::ebp, 2 * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">void</span>*)), output);
+    #endif
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">ARM</span>)
+        push(ARMRegisters::r4);
+        push(ARMRegisters::r5);
+        push(ARMRegisters::r6);
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">ARM_TRADITIONAL</span>)
+        push(ARMRegisters::r8); <span class="enscript-comment">// scratch register
+</span>#<span class="enscript-reference">endif</span>
+        <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns)
+            move(ARMRegisters::r3, output);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">SH4</span>)
+        push(SH4Registers::r11);
+        push(SH4Registers::r13);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">MIPS</span>)
+        <span class="enscript-comment">// Do nothing.
+</span>#<span class="enscript-reference">endif</span>
+    }
+
+    <span class="enscript-type">void</span> generateReturn()
+    {
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">X86_64</span>)
+        pop(X86Registers::ebx);
+        pop(X86Registers::ebp);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">X86</span>)
+        pop(X86Registers::esi);
+        pop(X86Registers::edi);
+        pop(X86Registers::ebx);
+        pop(X86Registers::ebp);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">ARM</span>)
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">ARM_TRADITIONAL</span>)
+        pop(ARMRegisters::r8); <span class="enscript-comment">// scratch register
+</span>#<span class="enscript-reference">endif</span>
+        pop(ARMRegisters::r6);
+        pop(ARMRegisters::r5);
+        pop(ARMRegisters::r4);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">SH4</span>)
+        pop(SH4Registers::r13);
+        pop(SH4Registers::r11);
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">CPU</span>(<span class="enscript-variable-name">MIPS</span>)
+        <span class="enscript-comment">// Do nothing
+</span>#<span class="enscript-reference">endif</span>
+        ret();
+    }
+
+<span class="enscript-type">public</span>:
+    YarrGenerator(YarrPattern&amp; pattern, YarrCharSize charSize)
+        : m_pattern(pattern)
+        , m_charSize(charSize)
+        , m_charScale(m_charSize == Char8 ? TimesOne: TimesTwo)
+        , m_shouldFallBack(false)
+        , m_checked(0)
+    {
+    }
+
+    <span class="enscript-type">void</span> compile(JSGlobalData* globalData, YarrCodeBlock&amp; jitObject)
+    {
+        generateEnter();
+
+        Jump hasInput = checkInput();
+        move(TrustedImmPtr((<span class="enscript-type">void</span>*)WTF::notFound), returnRegister);
+        move(TrustedImm32(0), returnRegister2);
+        generateReturn();
+        hasInput.link(<span class="enscript-keyword">this</span>);
+
+        <span class="enscript-keyword">if</span> (compileMode == IncludeSubpatterns) {
+            <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; m_pattern.m_numSubpatterns + 1; ++i)
+                store32(TrustedImm32(-1), Address(output, (i &lt;&lt; 1) * <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">int</span>)));
+        }
+
+        <span class="enscript-keyword">if</span> (!m_pattern.m_body-&gt;m_hasFixedSize)
+            setMatchStart(index);
+
+        initCallFrame();
+
+        <span class="enscript-comment">// Compile the pattern to the internal 'YarrOp' representation.
+</span>        opCompileBody(m_pattern.m_body);
+
+        <span class="enscript-comment">// If we encountered anything we can't handle in the JIT code
+</span>        <span class="enscript-comment">// (e.g. backreferences) then return early.
+</span>        <span class="enscript-keyword">if</span> (m_shouldFallBack) {
+            jitObject.setFallBack(true);
+            <span class="enscript-keyword">return</span>;
+        }
+
+        generate();
+        backtrack();
+
+        <span class="enscript-comment">// Link &amp; finalize the code.
+</span>        LinkBuffer linkBuffer(*globalData, <span class="enscript-keyword">this</span>, REGEXP_CODE_ID);
+        m_backtrackingState.linkDataLabels(linkBuffer);
+
+        <span class="enscript-keyword">if</span> (compileMode == MatchOnly) {
+            <span class="enscript-keyword">if</span> (m_charSize == Char8)
+                jitObject.set8BitCodeMatchOnly(linkBuffer.finalizeCode());
+            <span class="enscript-keyword">else</span>
+                jitObject.set16BitCodeMatchOnly(linkBuffer.finalizeCode());
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">if</span> (m_charSize == Char8)
+                jitObject.set8BitCode(linkBuffer.finalizeCode());
+            <span class="enscript-keyword">else</span>
+                jitObject.set16BitCode(linkBuffer.finalizeCode());
+        }
+        jitObject.setFallBack(m_shouldFallBack);
+    }
+
+<span class="enscript-type">private</span>:
+    YarrPattern&amp; m_pattern;
+
+    YarrCharSize m_charSize;
+
+    Scale m_charScale;
+
+    <span class="enscript-comment">// Used to detect regular expression constructs that are not currently
+</span>    <span class="enscript-comment">// supported in the JIT; fall back to the interpreter when this is detected.
+</span>    <span class="enscript-type">bool</span> m_shouldFallBack;
+
+    <span class="enscript-comment">// The regular expression expressed as a linear sequence of operations.
+</span>    Vector&lt;YarrOp, 128&gt; m_ops;
+
+    <span class="enscript-comment">// This records the current input offset being applied due to the current
+</span>    <span class="enscript-comment">// set of alternatives we are nested within. E.g. when matching the
+</span>    <span class="enscript-comment">// character 'b' within the regular expression /abc/, we will know that
+</span>    <span class="enscript-comment">// the minimum size for the alternative is 3, checked upon entry to the
+</span>    <span class="enscript-comment">// alternative, and that 'b' is at offset 1 from the start, and as such
+</span>    <span class="enscript-comment">// when matching 'b' we need to apply an offset of -2 to the load.
+</span>    <span class="enscript-comment">//
+</span>    <span class="enscript-comment">// FIXME: This should go away. Rather than tracking this value throughout
+</span>    <span class="enscript-comment">// code generation, we should gather this information up front &amp; store it
+</span>    <span class="enscript-comment">// on the YarrOp structure.
+</span>    <span class="enscript-type">int</span> m_checked;
+
+    <span class="enscript-comment">// This class records state whilst generating the backtracking path of code.
+</span>    BacktrackingState m_backtrackingState;
+};
+
+<span class="enscript-type">void</span> <span class="enscript-function-name">jitCompile</span>(YarrPattern&amp; pattern, YarrCharSize charSize, JSGlobalData* globalData, YarrCodeBlock&amp; jitObject, YarrJITCompileMode mode)
+{
+    <span class="enscript-keyword">if</span> (mode == MatchOnly)
+        YarrGenerator&lt;MatchOnly&gt;(pattern, charSize).compile(globalData, jitObject);
+    <span class="enscript-keyword">else</span>
+        YarrGenerator&lt;IncludeSubpatterns&gt;(pattern, charSize).compile(globalData, jitObject);
+}
+
+}}
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

@@ -106,8 +106,8 @@ bool IOHIDEventSystem::start(IOService * provider)
 //====================================================================================================
 void IOHIDEventSystem::free()
 {
-    if (workLoop) {
-        workLoop->disableAllEventSources();
+    if (_workLoop) {
+        _workLoop->disableAllEventSources();
     }
     
     if ( _publishNotify ) {

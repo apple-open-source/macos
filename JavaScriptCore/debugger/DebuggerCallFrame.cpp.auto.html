@@ -1,0 +1,133 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>DebuggerCallFrame.cpp</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">DebuggerCallFrame.cpp&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Computer, Inc. (&quot;Apple&quot;) nor the names of
+ *     its contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS &quot;AS IS&quot; AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;DebuggerCallFrame.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSFunction.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;CodeBlock.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Interpreter.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Parser.h&quot;</span>
+
+namespace JSC {
+
+<span class="enscript-type">const</span> UString* <span class="enscript-function-name">DebuggerCallFrame::functionName</span>() <span class="enscript-type">const</span>
+{
+    <span class="enscript-keyword">if</span> (!m_callFrame-&gt;codeBlock())
+        <span class="enscript-keyword">return</span> 0;
+
+    <span class="enscript-keyword">if</span> (!m_callFrame-&gt;callee())
+        <span class="enscript-keyword">return</span> 0;
+
+    JSObject* function = m_callFrame-&gt;callee();
+    <span class="enscript-keyword">if</span> (!function || !function-&gt;inherits(&amp;JSFunction::s_info))
+        <span class="enscript-keyword">return</span> 0;
+    <span class="enscript-keyword">return</span> &amp;jsCast&lt;JSFunction*&gt;(function)-&gt;name(m_callFrame);
+}
+    
+UString <span class="enscript-function-name">DebuggerCallFrame::calculatedFunctionName</span>() <span class="enscript-type">const</span>
+{
+    <span class="enscript-keyword">if</span> (!m_callFrame-&gt;codeBlock())
+        <span class="enscript-keyword">return</span> UString();
+
+    JSObject* function = m_callFrame-&gt;callee();
+
+    <span class="enscript-keyword">if</span> (!function)
+        <span class="enscript-keyword">return</span> UString();
+
+    <span class="enscript-keyword">return</span> getCalculatedDisplayName(m_callFrame, function);
+}
+
+DebuggerCallFrame::Type DebuggerCallFrame::type() <span class="enscript-type">const</span>
+{
+    <span class="enscript-keyword">if</span> (m_callFrame-&gt;callee())
+        <span class="enscript-keyword">return</span> FunctionType;
+
+    <span class="enscript-keyword">return</span> ProgramType;
+}
+
+JSObject* <span class="enscript-function-name">DebuggerCallFrame::thisObject</span>() <span class="enscript-type">const</span>
+{
+    CodeBlock* codeBlock = m_callFrame-&gt;codeBlock();
+    <span class="enscript-keyword">if</span> (!codeBlock)
+        <span class="enscript-keyword">return</span> 0;
+
+    JSValue thisValue = m_callFrame-&gt;uncheckedR(codeBlock-&gt;thisRegister()).jsValue();
+    <span class="enscript-keyword">if</span> (!thisValue.isObject())
+        <span class="enscript-keyword">return</span> 0;
+
+    <span class="enscript-keyword">return</span> asObject(thisValue);
+}
+
+JSValue <span class="enscript-function-name">DebuggerCallFrame::evaluate</span>(<span class="enscript-type">const</span> UString&amp; script, JSValue&amp; exception) <span class="enscript-type">const</span>
+{
+    <span class="enscript-keyword">if</span> (!m_callFrame-&gt;codeBlock())
+        <span class="enscript-keyword">return</span> JSValue();
+    
+    JSGlobalData&amp; globalData = m_callFrame-&gt;globalData();
+    EvalExecutable* eval = EvalExecutable::create(m_callFrame, makeSource(script), m_callFrame-&gt;codeBlock()-&gt;isStrictMode());
+    <span class="enscript-keyword">if</span> (globalData.exception) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+    }
+
+    JSValue result = globalData.interpreter-&gt;execute(eval, m_callFrame, thisObject(), m_callFrame-&gt;scopeChain());
+    <span class="enscript-keyword">if</span> (globalData.exception) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+    }
+    ASSERT(result);
+    <span class="enscript-keyword">return</span> result;
+}
+
+} <span class="enscript-comment">// namespace JSC
+</span></pre>
+<hr />
+</body></html>

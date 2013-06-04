@@ -672,7 +672,8 @@ public:
     const CssmSubserviceUid &ssuid() const { return mImpl->ssuid(); }
     const char *dbName() const { return mImpl->dbName(); }
     const CssmNetAddress *dbLocation() const { return mImpl->dbLocation(); }
-
+    bool IsImplEmpty() const {return mImpl == NULL;}
+    
     RefPointer<Impl> mImpl;
 };
 

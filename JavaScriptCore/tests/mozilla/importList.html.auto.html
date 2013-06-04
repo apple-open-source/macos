@@ -1,0 +1,94 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>importList.html</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">importList.html&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-keyword">&lt;!DOCTYPE HTML PUBLIC </span><span class="enscript-string">&quot;-//IETF//DTD HTML//EN&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;html&gt;</span>
+  <span class="enscript-keyword">&lt;head&gt;</span>
+    <span class="enscript-keyword">&lt;title&gt;</span>Import Test List<span class="enscript-keyword">&lt;/title&gt;</span>
+    <span class="enscript-keyword">&lt;script language=&quot;</span><span class="enscript-string">JavaScript</span><span class="enscript-keyword">&quot;&gt;</span>
+      <span class="enscript-keyword">function</span> <span class="enscript-function-name">onRadioClick</span> (name)
+      {
+	  <span class="enscript-keyword">var</span> radio = document.forms[<span class="enscript-string">&quot;foo&quot;</span>].elements[name];
+	  radio.checked = !radio.checked;
+	  <span class="enscript-keyword">return</span> <span class="enscript-keyword">false</span>;
+      }
+
+      <span class="enscript-keyword">function</span> <span class="enscript-function-name">doImport</span>()
+      {
+          <span class="enscript-keyword">var</span> lines =
+              document.forms[<span class="enscript-string">&quot;foo&quot;</span>].elements[<span class="enscript-string">&quot;testList&quot;</span>].value.split(/\r?\n/);
+          <span class="enscript-keyword">var</span> suites = window.opener.suites;
+          <span class="enscript-keyword">var</span> elems = window.opener.document.forms[<span class="enscript-string">&quot;testCases&quot;</span>].elements;
+
+          <span class="enscript-keyword">if</span> (document.forms[<span class="enscript-string">&quot;foo&quot;</span>].elements[<span class="enscript-string">&quot;clear_all&quot;</span>].checked)
+              window.opener.selectNone();
+
+          <span class="enscript-keyword">for</span> (<span class="enscript-keyword">var</span> l <span class="enscript-keyword">in</span> lines)
+          {
+              <span class="enscript-keyword">if</span> (lines[l].search(/^\s$|\s*\#/) == -1)
+              {
+                  <span class="enscript-keyword">var</span> ary = lines[l].match (/(.*)\/(.*)\/(.*)/);
+
+                  <span class="enscript-keyword">if</span> (!ary) 
+                      <span class="enscript-keyword">if</span> (!confirm (<span class="enscript-string">&quot;Line &quot;</span> + lines[l] + <span class="enscript-string">&quot; is confusing, &quot;</span> +
+                                    <span class="enscript-string">&quot;continue with import?&quot;</span>))
+                          <span class="enscript-keyword">return</span>;
+                      <span class="enscript-keyword">else</span>
+                          <span class="enscript-keyword">continue</span>;
+                  
+                  <span class="enscript-keyword">if</span> (suites[ary[1]] &amp;&amp; suites[ary[1]].testDirs[ary[2]] &amp;&amp;
+                      suites[ary[1]].testDirs[ary[2]].tests[ary[3]])
+                      elems[suites[ary[1]].testDirs[ary[2]].tests[ary[3]]].
+                          checked = <span class="enscript-keyword">true</span>;    
+              }
+          }
+
+          window.opener.updateTotals();
+
+	  window.close();
+                  
+      }
+      <span class="enscript-keyword">&lt;/script&gt;</span>
+  <span class="enscript-keyword">&lt;/head&gt;</span>
+
+  <span class="enscript-keyword">&lt;body&gt;</span>
+    
+    <span class="enscript-keyword">&lt;form name=</span><span class="enscript-string">&quot;foo&quot;</span><span class="enscript-keyword">&gt;</span>
+      <span class="enscript-keyword">&lt;textarea rows=</span><span class="enscript-string">&quot;25&quot;</span><span class="enscript-keyword"> cols=</span><span class="enscript-string">&quot;50&quot;</span><span class="enscript-keyword"> name=</span><span class="enscript-string">&quot;testList&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/textarea&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+      <span class="enscript-keyword">&lt;input type=</span><span class="enscript-string">&quot;radio&quot;</span><span class="enscript-keyword"> name=</span><span class="enscript-string">&quot;clear_all&quot;</span><span class="enscript-keyword"> checked 
+        onclick=</span><span class="enscript-string">&quot;return onRadioClick('clear_all');&quot;</span><span class="enscript-keyword">&gt;</span>
+      <span class="enscript-keyword">&amp;nbsp;</span>Clear all selections berofe import.<span class="enscript-keyword">&lt;br&gt;</span>
+      <span class="enscript-keyword">&lt;input type=</span><span class="enscript-string">&quot;button&quot;</span><span class="enscript-keyword"> value=</span><span class="enscript-string">&quot;Import&quot;</span><span class="enscript-keyword"> onclick=</span><span class="enscript-string">&quot;doImport();&quot;</span><span class="enscript-keyword">&gt;</span>
+      <span class="enscript-keyword">&lt;input type=</span><span class="enscript-string">&quot;button&quot;</span><span class="enscript-keyword"> value=</span><span class="enscript-string">&quot;Cancel&quot;</span><span class="enscript-keyword"> onclick=</span><span class="enscript-string">&quot;window.close();&quot;</span><span class="enscript-keyword">&gt;</span>
+    <span class="enscript-keyword">&lt;/form&gt;</span>
+
+    <span class="enscript-keyword">&lt;hr&gt;</span>
+    <span class="enscript-keyword">&lt;address&gt;</span><span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;mailto:<a href="mailto:rginda@netscape.com">rginda@netscape.com</a>&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;/address&gt;</span>
+<span class="enscript-keyword">&lt;!-- Created: Wed Nov 17 13:52:23 PST 1999 --&gt;</span>
+<span class="enscript-keyword">&lt;!-- hhmts start --&gt;</span>
+Last modified: Wed Nov 17 14:18:42 PST 1999
+<span class="enscript-keyword">&lt;!-- hhmts end --&gt;</span>
+  <span class="enscript-keyword">&lt;/body&gt;</span>
+<span class="enscript-keyword">&lt;/html&gt;</span>
+</pre>
+<hr />
+</body></html>

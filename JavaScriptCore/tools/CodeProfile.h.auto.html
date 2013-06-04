@@ -1,0 +1,118 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>CodeProfile.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">CodeProfile.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2012 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">CodeProfile_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">CodeProfile_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;SourceCode.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;TieredMMapArray.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/text/CString.h&gt;</span>
+
+namespace JSC {
+
+class CodeProfile {
+<span class="enscript-reference">public</span>:
+    CodeProfile(<span class="enscript-type">const</span> SourceCode&amp; source, CodeProfile* parent)
+        : m_file(source.provider()-&gt;url().utf8())
+        , m_lineNo(source.firstLine())
+        , m_parent(parent)
+    {
+        <span class="enscript-keyword">if</span> (parent)
+            parent-&gt;addChild(this);
+    }
+
+    <span class="enscript-type">void</span> sample(<span class="enscript-type">void</span>* pc, <span class="enscript-type">void</span>** framePointer);
+    <span class="enscript-type">void</span> report();
+
+    CodeProfile* parent()
+    {
+        <span class="enscript-keyword">return</span> m_parent;
+    }
+    
+    <span class="enscript-type">void</span> addChild(CodeProfile* child)
+    {
+        m_children.append(adoptPtr(child));
+    }
+
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">enum</span> CodeType {
+        EngineCode,
+        GlobalThunk,
+        RegExpCode,
+        DFGJIT,
+        BaselineOnly,
+        BaselineProfile,
+        BaselineOSR,
+        EngineFrame,
+        NumberOfCodeTypes
+    };
+    <span class="enscript-type">struct</span> CodeRecord {
+        CodeRecord(<span class="enscript-type">void</span>* pc, CodeType type)
+            : pc(pc)
+            , type(type)
+        {
+        }
+        <span class="enscript-type">void</span>* pc;
+        CodeType type;
+    };
+
+    CString m_file;
+    <span class="enscript-type">unsigned</span> m_lineNo;
+    CodeProfile* m_parent;
+    Vector&lt; OwnPtr&lt;CodeProfile&gt; &gt; m_children;
+    TieredMMapArray&lt;CodeRecord&gt; m_samples;
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span>* s_codeTypeNames[NumberOfCodeTypes];
+};
+
+}
+
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">CodeProfile_h</span>
+
+</pre>
+<hr />
+</body></html>

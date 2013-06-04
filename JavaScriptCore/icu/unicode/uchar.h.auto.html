@@ -1,0 +1,2823 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>uchar.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">uchar.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+**********************************************************************
+*   Copyright (C) 1997-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+**********************************************************************
+*
+* File UCHAR.H
+*
+* Modification History:
+*
+*   Date        Name        Description
+*   04/02/97    aliu        Creation.
+*   03/29/99    helena      Updated for C APIs.
+*   4/15/99     Madhu       Updated for C Implementation and Javadoc
+*   5/20/99     Madhu       Added the function u_getVersion()
+*   8/19/1999   srl         Upgraded scripts to Unicode 3.0
+*   8/27/1999   schererm    UCharDirection constants: U_...
+*   11/11/1999  weiv        added u_isalnum(), cleaned comments
+*   01/11/2000  helena      Renamed u_getVersion to u_getUnicodeVersion().
+******************************************************************************
+*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCHAR_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">UCHAR_H</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/utypes.h&quot;</span>
+
+U_CDECL_BEGIN
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* Unicode version number                                                   */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/**
+ * Unicode version number, default for the current ICU version.
+ * The actual Unicode Character Database (UCD) data is stored in uprops.dat
+ * and may be generated from UCD files from a different Unicode version.
+ * Call u_getUnicodeVersion to get the actual Unicode version of the data.
+ *
+ * @see u_getUnicodeVersion
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_UNICODE_VERSION</span> <span class="enscript-string">&quot;4.0.1&quot;</span>
+
+<span class="enscript-comment">/**
+ * \file
+ * \brief C API: Unicode Properties
+ *
+ * This C API provides low-level access to the Unicode Character Database.
+ * In addition to raw property values, some convenience functions calculate
+ * derived properties, for example for Java-style programming.
+ *
+ * Unicode assigns each code point (not just assigned character) values for
+ * many properties.
+ * Most of them are simple boolean flags, or constants from a small enumerated list.
+ * For some properties, values are strings or other relatively more complex types.
+ *
+ * For more information see
+ * &quot;About the Unicode Character Database&quot; (<a href="http://www.unicode.org/ucd/">http://www.unicode.org/ucd/</a>)
+ * and the ICU User Guide chapter on Properties (<a href="http://oss.software.ibm.com/icu/userguide/properties.html">http://oss.software.ibm.com/icu/userguide/properties.html</a>).
+ *
+ * Many functions are designed to match java.lang.Character functions.
+ * See the individual function documentation,
+ * and see the JDK 1.4.1 java.lang.Character documentation
+ * at <a href="http://java.sun.com/j2se/1.4.1/docs/api/java/lang/Character.html">http://java.sun.com/j2se/1.4.1/docs/api/java/lang/Character.html</a>
+ *
+ * There are also functions that provide easy migration from C/POSIX functions
+ * like isblank(). Their use is generally discouraged because the C/POSIX
+ * standards do not define their semantics beyond the ASCII range, which means
+ * that different implementations exhibit very different behavior.
+ * Instead, Unicode properties should be used directly.
+ *
+ * There are also only a few, broad C/POSIX character classes, and they tend
+ * to be used for conflicting purposes. For example, the &quot;isalpha()&quot; class
+ * is sometimes used to determine word boundaries, while a more sophisticated
+ * approach would at least distinguish initial letters from continuation
+ * characters (the latter including combining marks).
+ * (In ICU, BreakIterator is the most sophisticated API for word boundaries.)
+ * Another example: There is no &quot;istitle()&quot; class for titlecase characters.
+ *
+ * A summary of the behavior of some C/POSIX character classification implementations
+ * for Unicode is available at <a href="http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/posix_classes.html">http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/posix_classes.html</a>
+ *
+ * &lt;strong&gt;Important&lt;/strong&gt;:
+ * The behavior of the ICU C/POSIX-style character classification
+ * functions is subject to change according to discussion of the above summary.
+ *
+ * Note: There are several ICU whitespace functions.
+ * Comparison:
+ * - u_isUWhiteSpace=UCHAR_WHITE_SPACE: Unicode White_Space property;
+ *       most of general categories &quot;Z&quot; (separators) + most whitespace ISO controls
+ *       (including no-break spaces, but excluding IS1..IS4 and ZWSP)
+ * - u_isWhitespace: Java isWhitespace; Z + whitespace ISO controls but excluding no-break spaces
+ * - u_isJavaSpaceChar: Java isSpaceChar; just Z (including no-break spaces)
+ * - u_isspace: Z + whitespace ISO controls (including no-break spaces)
+ * - u_isblank: &quot;horizontal spaces&quot; = TAB + Zs - ZWSP
+ */</span>
+
+<span class="enscript-comment">/**
+ * Constants.
+ */</span>
+
+<span class="enscript-comment">/** The lowest Unicode code point value. Code points are non-negative. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">UCHAR_MIN_VALUE</span> 0
+
+<span class="enscript-comment">/**
+ * The highest Unicode code point value (scalar value) according to
+ * The Unicode Standard. This is a 21-bit value (20.1 bits, rounded up).
+ * For a single character, UChar32 is a simple type that can hold any code point value.
+ *
+ * @see UChar32
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">UCHAR_MAX_VALUE</span> 0x10ffff
+
+<span class="enscript-comment">/**
+ * Get a single-bit bit set (a flag) from a bit number 0..31.
+ * @stable ICU 2.1
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">U_MASK</span>(x) ((uint32_t)1&lt;&lt;(x))
+
+<span class="enscript-comment">/*
+ * !! Note: Several comments in this file are machine-read by the
+ * genpname tool.  These comments describe the correspondence between
+ * icu enum constants and UCD entities.  Do not delete them.  Update
+ * these comments as needed.
+ *
+ * Any comment of the form &quot;/ *[name]* /&quot; (spaces added) is such
+ * a comment.
+ *
+ * The U_JG_* and U_GC_*_MASK constants are matched by their symbolic
+ * name, which must match PropertyValueAliases.txt.
+ */</span>
+
+<span class="enscript-comment">/**
+ * Selection constants for Unicode properties.
+ * These constants are used in functions like u_hasBinaryProperty to select
+ * one of the Unicode properties.
+ *
+ * The properties APIs are intended to reflect Unicode properties as defined
+ * in the Unicode Character Database (UCD) and Unicode Technical Reports (UTR).
+ * For details about the properties see <a href="http://www.unicode.org/ucd/">http://www.unicode.org/ucd/</a> .
+ * For names of Unicode properties see the UCD file PropertyAliases.txt.
+ *
+ * Important: If ICU is built with UCD files from Unicode versions below, e.g., 3.2,
+ * then properties marked with &quot;new in Unicode 3.2&quot; are not or not fully available.
+ * Check u_getUnicodeVersion to be sure.
+ *
+ * @see u_hasBinaryProperty
+ * @see u_getIntPropertyValue
+ * @see u_getUnicodeVersion
+ * @stable ICU 2.1
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UProperty {
+    <span class="enscript-comment">/*  See note !!.  Comments of the form &quot;Binary property Dash&quot;,
+        &quot;Enumerated property Script&quot;, &quot;Double property Numeric_Value&quot;,
+        and &quot;String property Age&quot; are read by genpname. */</span>
+
+    <span class="enscript-comment">/*  Note: Place UCHAR_ALPHABETIC before UCHAR_BINARY_START so that
+    debuggers display UCHAR_ALPHABETIC as the symbolic name for 0,
+    rather than UCHAR_BINARY_START.  Likewise for other *_START
+    identifiers. */</span>
+
+    <span class="enscript-comment">/** Binary property Alphabetic. Same as u_isUAlphabetic, different from u_isalpha.
+        Lu+Ll+Lt+Lm+Lo+Nl+Other_Alphabetic @stable ICU 2.1 */</span>
+    UCHAR_ALPHABETIC=0,
+    <span class="enscript-comment">/** First constant for binary Unicode properties. @stable ICU 2.1 */</span>
+    UCHAR_BINARY_START=UCHAR_ALPHABETIC,
+    <span class="enscript-comment">/** Binary property ASCII_Hex_Digit. 0-9 A-F a-f @stable ICU 2.1 */</span>
+    UCHAR_ASCII_HEX_DIGIT,
+    <span class="enscript-comment">/** Binary property Bidi_Control.
+        Format controls which have specific functions
+        in the Bidi Algorithm. @stable ICU 2.1 */</span>
+    UCHAR_BIDI_CONTROL,
+    <span class="enscript-comment">/** Binary property Bidi_Mirrored.
+        Characters that may change display in RTL text.
+        Same as u_isMirrored.
+        See Bidi Algorithm, UTR 9. @stable ICU 2.1 */</span>
+    UCHAR_BIDI_MIRRORED,
+    <span class="enscript-comment">/** Binary property Dash. Variations of dashes. @stable ICU 2.1 */</span>
+    UCHAR_DASH,
+    <span class="enscript-comment">/** Binary property Default_Ignorable_Code_Point (new in Unicode 3.2).
+        Ignorable in most processing.
+        &lt;2060..206F, FFF0..FFFB, E0000..E0FFF&gt;+Other_Default_Ignorable_Code_Point+(Cf+Cc+Cs-White_Space) @stable ICU 2.1 */</span>
+    UCHAR_DEFAULT_IGNORABLE_CODE_POINT,
+    <span class="enscript-comment">/** Binary property Deprecated (new in Unicode 3.2).
+        The usage of deprecated characters is strongly discouraged. @stable ICU 2.1 */</span>
+    UCHAR_DEPRECATED,
+    <span class="enscript-comment">/** Binary property Diacritic. Characters that linguistically modify
+        the meaning of another character to which they apply. @stable ICU 2.1 */</span>
+    UCHAR_DIACRITIC,
+    <span class="enscript-comment">/** Binary property Extender.
+        Extend the value or shape of a preceding alphabetic character,
+        e.g., length and iteration marks. @stable ICU 2.1 */</span>
+    UCHAR_EXTENDER,
+    <span class="enscript-comment">/** Binary property Full_Composition_Exclusion.
+        CompositionExclusions.txt+Singleton Decompositions+
+        Non-Starter Decompositions. @stable ICU 2.1 */</span>
+    UCHAR_FULL_COMPOSITION_EXCLUSION,
+    <span class="enscript-comment">/** Binary property Grapheme_Base (new in Unicode 3.2).
+        For programmatic determination of grapheme cluster boundaries.
+        [0..10FFFF]-Cc-Cf-Cs-Co-Cn-Zl-Zp-Grapheme_Link-Grapheme_Extend-CGJ @stable ICU 2.1 */</span>
+    UCHAR_GRAPHEME_BASE,
+    <span class="enscript-comment">/** Binary property Grapheme_Extend (new in Unicode 3.2).
+        For programmatic determination of grapheme cluster boundaries.
+        Me+Mn+Mc+Other_Grapheme_Extend-Grapheme_Link-CGJ @stable ICU 2.1 */</span>
+    UCHAR_GRAPHEME_EXTEND,
+    <span class="enscript-comment">/** Binary property Grapheme_Link (new in Unicode 3.2).
+        For programmatic determination of grapheme cluster boundaries. @stable ICU 2.1 */</span>
+    UCHAR_GRAPHEME_LINK,
+    <span class="enscript-comment">/** Binary property Hex_Digit.
+        Characters commonly used for hexadecimal numbers. @stable ICU 2.1 */</span>
+    UCHAR_HEX_DIGIT,
+    <span class="enscript-comment">/** Binary property Hyphen. Dashes used to mark connections
+        between pieces of words, plus the Katakana middle dot. @stable ICU 2.1 */</span>
+    UCHAR_HYPHEN,
+    <span class="enscript-comment">/** Binary property ID_Continue.
+        Characters that can continue an identifier.
+        DerivedCoreProperties.txt also says &quot;NOTE: Cf characters should be filtered out.&quot;
+        ID_Start+Mn+Mc+Nd+Pc @stable ICU 2.1 */</span>
+    UCHAR_ID_CONTINUE,
+    <span class="enscript-comment">/** Binary property ID_Start.
+        Characters that can start an identifier.
+        Lu+Ll+Lt+Lm+Lo+Nl @stable ICU 2.1 */</span>
+    UCHAR_ID_START,
+    <span class="enscript-comment">/** Binary property Ideographic.
+        CJKV ideographs. @stable ICU 2.1 */</span>
+    UCHAR_IDEOGRAPHIC,
+    <span class="enscript-comment">/** Binary property IDS_Binary_Operator (new in Unicode 3.2).
+        For programmatic determination of
+        Ideographic Description Sequences. @stable ICU 2.1 */</span>
+    UCHAR_IDS_BINARY_OPERATOR,
+    <span class="enscript-comment">/** Binary property IDS_Trinary_Operator (new in Unicode 3.2).
+        For programmatic determination of
+        Ideographic Description Sequences. @stable ICU 2.1 */</span>
+    UCHAR_IDS_TRINARY_OPERATOR,
+    <span class="enscript-comment">/** Binary property Join_Control.
+        Format controls for cursive joining and ligation. @stable ICU 2.1 */</span>
+    UCHAR_JOIN_CONTROL,
+    <span class="enscript-comment">/** Binary property Logical_Order_Exception (new in Unicode 3.2).
+        Characters that do not use logical order and
+        require special handling in most processing. @stable ICU 2.1 */</span>
+    UCHAR_LOGICAL_ORDER_EXCEPTION,
+    <span class="enscript-comment">/** Binary property Lowercase. Same as u_isULowercase, different from u_islower.
+        Ll+Other_Lowercase @stable ICU 2.1 */</span>
+    UCHAR_LOWERCASE,
+    <span class="enscript-comment">/** Binary property Math. Sm+Other_Math @stable ICU 2.1 */</span>
+    UCHAR_MATH,
+    <span class="enscript-comment">/** Binary property Noncharacter_Code_Point.
+        Code points that are explicitly defined as illegal
+        for the encoding of characters. @stable ICU 2.1 */</span>
+    UCHAR_NONCHARACTER_CODE_POINT,
+    <span class="enscript-comment">/** Binary property Quotation_Mark. @stable ICU 2.1 */</span>
+    UCHAR_QUOTATION_MARK,
+    <span class="enscript-comment">/** Binary property Radical (new in Unicode 3.2).
+        For programmatic determination of
+        Ideographic Description Sequences. @stable ICU 2.1 */</span>
+    UCHAR_RADICAL,
+    <span class="enscript-comment">/** Binary property Soft_Dotted (new in Unicode 3.2).
+        Characters with a &quot;soft dot&quot;, like i or j.
+        An accent placed on these characters causes
+        the dot to disappear. @stable ICU 2.1 */</span>
+    UCHAR_SOFT_DOTTED,
+    <span class="enscript-comment">/** Binary property Terminal_Punctuation.
+        Punctuation characters that generally mark
+        the end of textual units. @stable ICU 2.1 */</span>
+    UCHAR_TERMINAL_PUNCTUATION,
+    <span class="enscript-comment">/** Binary property Unified_Ideograph (new in Unicode 3.2).
+        For programmatic determination of
+        Ideographic Description Sequences. @stable ICU 2.1 */</span>
+    UCHAR_UNIFIED_IDEOGRAPH,
+    <span class="enscript-comment">/** Binary property Uppercase. Same as u_isUUppercase, different from u_isupper.
+        Lu+Other_Uppercase @stable ICU 2.1 */</span>
+    UCHAR_UPPERCASE,
+    <span class="enscript-comment">/** Binary property White_Space.
+        Same as u_isUWhiteSpace, different from u_isspace and u_isWhitespace.
+        Space characters+TAB+CR+LF-ZWSP-ZWNBSP @stable ICU 2.1 */</span>
+    UCHAR_WHITE_SPACE,
+    <span class="enscript-comment">/** Binary property XID_Continue.
+        ID_Continue modified to allow closure under
+        normalization forms NFKC and NFKD. @stable ICU 2.1 */</span>
+    UCHAR_XID_CONTINUE,
+    <span class="enscript-comment">/** Binary property XID_Start. ID_Start modified to allow
+        closure under normalization forms NFKC and NFKD. @stable ICU 2.1 */</span>
+    UCHAR_XID_START,
+    <span class="enscript-comment">/** Binary property Case_Sensitive. Either the source of a case
+        mapping or _in_ the target of a case mapping. Not the same as
+        the general category Cased_Letter. @stable ICU 2.6 */</span>
+    UCHAR_CASE_SENSITIVE,
+    <span class="enscript-comment">/** Binary property STerm (new in Unicode 4.0.1).
+        Sentence Terminal. Used in UAX #29: Text Boundaries
+        (<a href="http://www.unicode.org/reports/tr29/">http://www.unicode.org/reports/tr29/</a>)
+        @draft ICU 3.0 */</span>
+    UCHAR_S_TERM,
+    <span class="enscript-comment">/** Binary property Variation_Selector (new in Unicode 4.0.1).
+        Indicates all those characters that qualify as Variation Selectors.
+        For details on the behavior of these characters,
+        see StandardizedVariants.html and 15.6 Variation Selectors.
+        @draft ICU 3.0 */</span>
+    UCHAR_VARIATION_SELECTOR,
+    <span class="enscript-comment">/** Binary property NFD_Inert.
+        ICU-specific property for characters that are inert under NFD,
+        i.e., they do not interact with adjacent characters.
+        Used for example in normalizing transforms in incremental mode
+        to find the boundary of safely normalizable text despite possible
+        text additions.
+
+        There is one such property per normalization form.
+        These properties are computed as follows - an inert character is:
+        a) unassigned, or ALL of the following:
+        b) of combining class 0.
+        c) not decomposed by this normalization form.
+        AND if NFC or NFKC,
+        d) can never compose with a previous character.
+        e) can never compose with a following character.
+        f) can never change if another character is added.
+           Example: a-breve might satisfy all but f, but if you
+           add an ogonek it changes to a-ogonek + breve
+
+        See also com.ibm.text.UCD.NFSkippable in the ICU4J repository,
+        and icu/source/common/unormimp.h .
+        @draft ICU 3.0 */</span>
+    UCHAR_NFD_INERT,
+    <span class="enscript-comment">/** Binary property NFKD_Inert.
+        ICU-specific property for characters that are inert under NFKD,
+        i.e., they do not interact with adjacent characters.
+        Used for example in normalizing transforms in incremental mode
+        to find the boundary of safely normalizable text despite possible
+        text additions.
+        @see UCHAR_NFD_INERT
+        @draft ICU 3.0 */</span>
+    UCHAR_NFKD_INERT,
+    <span class="enscript-comment">/** Binary property NFC_Inert.
+        ICU-specific property for characters that are inert under NFC,
+        i.e., they do not interact with adjacent characters.
+        Used for example in normalizing transforms in incremental mode
+        to find the boundary of safely normalizable text despite possible
+        text additions.
+        @see UCHAR_NFD_INERT
+        @draft ICU 3.0 */</span>
+    UCHAR_NFC_INERT,
+    <span class="enscript-comment">/** Binary property NFKC_Inert.
+        ICU-specific property for characters that are inert under NFKC,
+        i.e., they do not interact with adjacent characters.
+        Used for example in normalizing transforms in incremental mode
+        to find the boundary of safely normalizable text despite possible
+        text additions.
+        @see UCHAR_NFD_INERT
+        @draft ICU 3.0 */</span>
+    UCHAR_NFKC_INERT,
+    <span class="enscript-comment">/** Binary Property Segment_Starter.
+        ICU-specific property for characters that are starters in terms of
+        Unicode normalization and combining character sequences.
+        They have ccc=0 and do not occur in non-initial position of the
+        canonical decomposition of any character
+        (like &quot; in NFD(a-umlaut) and a Jamo T in an NFD(Hangul LVT)).
+        ICU uses this property for segmenting a string for generating a set of
+        canonically equivalent strings, e.g. for canonical closure while
+        processing collation tailoring rules.
+        @draft ICU 3.0 */</span>
+    UCHAR_SEGMENT_STARTER,
+    <span class="enscript-comment">/** One more than the last constant for binary Unicode properties. @stable ICU 2.1 */</span>
+    UCHAR_BINARY_LIMIT,
+
+    <span class="enscript-comment">/** Enumerated property Bidi_Class.
+        Same as u_charDirection, returns UCharDirection values. @stable ICU 2.2 */</span>
+    UCHAR_BIDI_CLASS=0x1000,
+    <span class="enscript-comment">/** First constant for enumerated/integer Unicode properties. @stable ICU 2.2 */</span>
+    UCHAR_INT_START=UCHAR_BIDI_CLASS,
+    <span class="enscript-comment">/** Enumerated property Block.
+        Same as ublock_getCode, returns UBlockCode values. @stable ICU 2.2 */</span>
+    UCHAR_BLOCK,
+    <span class="enscript-comment">/** Enumerated property Canonical_Combining_Class.
+        Same as u_getCombiningClass, returns 8-bit numeric values. @stable ICU 2.2 */</span>
+    UCHAR_CANONICAL_COMBINING_CLASS,
+    <span class="enscript-comment">/** Enumerated property Decomposition_Type.
+        Returns UDecompositionType values. @stable ICU 2.2 */</span>
+    UCHAR_DECOMPOSITION_TYPE,
+    <span class="enscript-comment">/** Enumerated property East_Asian_Width.
+        See <a href="http://www.unicode.org/reports/tr11/">http://www.unicode.org/reports/tr11/</a>
+        Returns UEastAsianWidth values. @stable ICU 2.2 */</span>
+    UCHAR_EAST_ASIAN_WIDTH,
+    <span class="enscript-comment">/** Enumerated property General_Category.
+        Same as u_charType, returns UCharCategory values. @stable ICU 2.2 */</span>
+    UCHAR_GENERAL_CATEGORY,
+    <span class="enscript-comment">/** Enumerated property Joining_Group.
+        Returns UJoiningGroup values. @stable ICU 2.2 */</span>
+    UCHAR_JOINING_GROUP,
+    <span class="enscript-comment">/** Enumerated property Joining_Type.
+        Returns UJoiningType values. @stable ICU 2.2 */</span>
+    UCHAR_JOINING_TYPE,
+    <span class="enscript-comment">/** Enumerated property Line_Break.
+        Returns ULineBreak values. @stable ICU 2.2 */</span>
+    UCHAR_LINE_BREAK,
+    <span class="enscript-comment">/** Enumerated property Numeric_Type.
+        Returns UNumericType values. @stable ICU 2.2 */</span>
+    UCHAR_NUMERIC_TYPE,
+    <span class="enscript-comment">/** Enumerated property Script.
+        Same as uscript_getScript, returns UScriptCode values. @stable ICU 2.2 */</span>
+    UCHAR_SCRIPT,
+    <span class="enscript-comment">/** Enumerated property Hangul_Syllable_Type, new in Unicode 4.
+        Returns UHangulSyllableType values. @stable ICU 2.6 */</span>
+    UCHAR_HANGUL_SYLLABLE_TYPE,
+    <span class="enscript-comment">/** Enumerated property NFD_Quick_Check.
+        Returns UNormalizationCheckResult values. @draft ICU 3.0 */</span>
+    UCHAR_NFD_QUICK_CHECK,
+    <span class="enscript-comment">/** Enumerated property NFKD_Quick_Check.
+        Returns UNormalizationCheckResult values. @draft ICU 3.0 */</span>
+    UCHAR_NFKD_QUICK_CHECK,
+    <span class="enscript-comment">/** Enumerated property NFC_Quick_Check.
+        Returns UNormalizationCheckResult values. @draft ICU 3.0 */</span>
+    UCHAR_NFC_QUICK_CHECK,
+    <span class="enscript-comment">/** Enumerated property NFKC_Quick_Check.
+        Returns UNormalizationCheckResult values. @draft ICU 3.0 */</span>
+    UCHAR_NFKC_QUICK_CHECK,
+    <span class="enscript-comment">/** Enumerated property Lead_Canonical_Combining_Class.
+        ICU-specific property for the ccc of the first code point
+        of the decomposition, or lccc(c)=ccc(NFD(c)[0]).
+        Useful for checking for canonically ordered text;
+        see UNORM_FCD and <a href="http://www.unicode.org/notes/tn5/#FCD">http://www.unicode.org/notes/tn5/#FCD</a> .
+        Returns 8-bit numeric values like UCHAR_CANONICAL_COMBINING_CLASS. @draft ICU 3.0 */</span>
+    UCHAR_LEAD_CANONICAL_COMBINING_CLASS,
+    <span class="enscript-comment">/** Enumerated property Trail_Canonical_Combining_Class.
+        ICU-specific property for the ccc of the last code point
+        of the decomposition, or tccc(c)=ccc(NFD(c)[last]).
+        Useful for checking for canonically ordered text;
+        see UNORM_FCD and <a href="http://www.unicode.org/notes/tn5/#FCD">http://www.unicode.org/notes/tn5/#FCD</a> .
+        Returns 8-bit numeric values like UCHAR_CANONICAL_COMBINING_CLASS. @draft ICU 3.0 */</span>
+    UCHAR_TRAIL_CANONICAL_COMBINING_CLASS,
+    <span class="enscript-comment">/** One more than the last constant for enumerated/integer Unicode properties. @stable ICU 2.2 */</span>
+    UCHAR_INT_LIMIT,
+
+    <span class="enscript-comment">/** Bitmask property General_Category_Mask.
+        This is the General_Category property returned as a bit mask.
+        When used in u_getIntPropertyValue(c), same as U_MASK(u_charType(c)),
+        returns bit masks for UCharCategory values where exactly one bit is set.
+        When used with u_getPropertyValueName() and u_getPropertyValueEnum(),
+        a multi-bit mask is used for sets of categories like &quot;Letters&quot;.
+        Mask values should be cast to uint32_t.
+        @stable ICU 2.4 */</span>
+    UCHAR_GENERAL_CATEGORY_MASK=0x2000,
+    <span class="enscript-comment">/** First constant for bit-mask Unicode properties. @stable ICU 2.4 */</span>
+    UCHAR_MASK_START=UCHAR_GENERAL_CATEGORY_MASK,
+    <span class="enscript-comment">/** One more than the last constant for bit-mask Unicode properties. @stable ICU 2.4 */</span>
+    UCHAR_MASK_LIMIT,
+
+    <span class="enscript-comment">/** Double property Numeric_Value.
+        Corresponds to u_getNumericValue. @stable ICU 2.4 */</span>
+    UCHAR_NUMERIC_VALUE=0x3000,
+    <span class="enscript-comment">/** First constant for double Unicode properties. @stable ICU 2.4 */</span>
+    UCHAR_DOUBLE_START=UCHAR_NUMERIC_VALUE,
+    <span class="enscript-comment">/** One more than the last constant for double Unicode properties. @stable ICU 2.4 */</span>
+    UCHAR_DOUBLE_LIMIT,
+
+    <span class="enscript-comment">/** String property Age.
+        Corresponds to u_charAge. @stable ICU 2.4 */</span>
+    UCHAR_AGE=0x4000,
+    <span class="enscript-comment">/** First constant for string Unicode properties. @stable ICU 2.4 */</span>
+    UCHAR_STRING_START=UCHAR_AGE,
+    <span class="enscript-comment">/** String property Bidi_Mirroring_Glyph.
+        Corresponds to u_charMirror. @stable ICU 2.4 */</span>
+    UCHAR_BIDI_MIRRORING_GLYPH,
+    <span class="enscript-comment">/** String property Case_Folding.
+        Corresponds to u_strFoldCase in ustring.h. @stable ICU 2.4 */</span>
+    UCHAR_CASE_FOLDING,
+    <span class="enscript-comment">/** String property ISO_Comment.
+        Corresponds to u_getISOComment. @stable ICU 2.4 */</span>
+    UCHAR_ISO_COMMENT,
+    <span class="enscript-comment">/** String property Lowercase_Mapping.
+        Corresponds to u_strToLower in ustring.h. @stable ICU 2.4 */</span>
+    UCHAR_LOWERCASE_MAPPING,
+    <span class="enscript-comment">/** String property Name.
+        Corresponds to u_charName. @stable ICU 2.4 */</span>
+    UCHAR_NAME,
+    <span class="enscript-comment">/** String property Simple_Case_Folding.
+        Corresponds to u_foldCase. @stable ICU 2.4 */</span>
+    UCHAR_SIMPLE_CASE_FOLDING,
+    <span class="enscript-comment">/** String property Simple_Lowercase_Mapping.
+        Corresponds to u_tolower. @stable ICU 2.4 */</span>
+    UCHAR_SIMPLE_LOWERCASE_MAPPING,
+    <span class="enscript-comment">/** String property Simple_Titlecase_Mapping.
+        Corresponds to u_totitle. @stable ICU 2.4 */</span>
+    UCHAR_SIMPLE_TITLECASE_MAPPING,
+    <span class="enscript-comment">/** String property Simple_Uppercase_Mapping.
+        Corresponds to u_toupper. @stable ICU 2.4 */</span>
+    UCHAR_SIMPLE_UPPERCASE_MAPPING,
+    <span class="enscript-comment">/** String property Titlecase_Mapping.
+        Corresponds to u_strToTitle in ustring.h. @stable ICU 2.4 */</span>
+    UCHAR_TITLECASE_MAPPING,
+    <span class="enscript-comment">/** String property Unicode_1_Name.
+        Corresponds to u_charName. @stable ICU 2.4 */</span>
+    UCHAR_UNICODE_1_NAME,
+    <span class="enscript-comment">/** String property Uppercase_Mapping.
+        Corresponds to u_strToUpper in ustring.h. @stable ICU 2.4 */</span>
+    UCHAR_UPPERCASE_MAPPING,
+    <span class="enscript-comment">/** One more than the last constant for string Unicode properties. @stable ICU 2.4 */</span>
+    UCHAR_STRING_LIMIT,
+
+    <span class="enscript-comment">/** Represents a nonexistent or invalid property or property value. @stable ICU 2.4 */</span>
+    UCHAR_INVALID_CODE = -1
+} UProperty;
+
+<span class="enscript-comment">/**
+ * Data for enumerated Unicode general category types.
+ * See <a href="http://www.unicode.org/Public/UNIDATA/UnicodeData.html">http://www.unicode.org/Public/UNIDATA/UnicodeData.html</a> .
+ * @stable ICU 2.0
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UCharCategory
+{
+    <span class="enscript-comment">/** See note !!.  Comments of the form &quot;Cn&quot; are read by genpname. */</span>
+
+    <span class="enscript-comment">/** Non-category for unassigned and non-character code points. @stable ICU 2.0 */</span>
+    U_UNASSIGNED              = 0,
+    <span class="enscript-comment">/** Cn &quot;Other, Not Assigned (no characters in [UnicodeData.txt] have this property)&quot; (same as U_UNASSIGNED!) @stable ICU 2.0 */</span>
+    U_GENERAL_OTHER_TYPES     = 0,
+    <span class="enscript-comment">/** Lu @stable ICU 2.0 */</span>
+    U_UPPERCASE_LETTER        = 1,
+    <span class="enscript-comment">/** Ll @stable ICU 2.0 */</span>
+    U_LOWERCASE_LETTER        = 2,
+    <span class="enscript-comment">/** Lt @stable ICU 2.0 */</span>
+    U_TITLECASE_LETTER        = 3,
+    <span class="enscript-comment">/** Lm @stable ICU 2.0 */</span>
+    U_MODIFIER_LETTER         = 4,
+    <span class="enscript-comment">/** Lo @stable ICU 2.0 */</span>
+    U_OTHER_LETTER            = 5,
+    <span class="enscript-comment">/** Mn @stable ICU 2.0 */</span>
+    U_NON_SPACING_MARK        = 6,
+    <span class="enscript-comment">/** Me @stable ICU 2.0 */</span>
+    U_ENCLOSING_MARK          = 7,
+    <span class="enscript-comment">/** Mc @stable ICU 2.0 */</span>
+    U_COMBINING_SPACING_MARK  = 8,
+    <span class="enscript-comment">/** Nd @stable ICU 2.0 */</span>
+    U_DECIMAL_DIGIT_NUMBER    = 9,
+    <span class="enscript-comment">/** Nl @stable ICU 2.0 */</span>
+    U_LETTER_NUMBER           = 10,
+    <span class="enscript-comment">/** No @stable ICU 2.0 */</span>
+    U_OTHER_NUMBER            = 11,
+    <span class="enscript-comment">/** Zs @stable ICU 2.0 */</span>
+    U_SPACE_SEPARATOR         = 12,
+    <span class="enscript-comment">/** Zl @stable ICU 2.0 */</span>
+    U_LINE_SEPARATOR          = 13,
+    <span class="enscript-comment">/** Zp @stable ICU 2.0 */</span>
+    U_PARAGRAPH_SEPARATOR     = 14,
+    <span class="enscript-comment">/** Cc @stable ICU 2.0 */</span>
+    U_CONTROL_CHAR            = 15,
+    <span class="enscript-comment">/** Cf @stable ICU 2.0 */</span>
+    U_FORMAT_CHAR             = 16,
+    <span class="enscript-comment">/** Co @stable ICU 2.0 */</span>
+    U_PRIVATE_USE_CHAR        = 17,
+    <span class="enscript-comment">/** Cs @stable ICU 2.0 */</span>
+    U_SURROGATE               = 18,
+    <span class="enscript-comment">/** Pd @stable ICU 2.0 */</span>
+    U_DASH_PUNCTUATION        = 19,
+    <span class="enscript-comment">/** Ps @stable ICU 2.0 */</span>
+    U_START_PUNCTUATION       = 20,
+    <span class="enscript-comment">/** Pe @stable ICU 2.0 */</span>
+    U_END_PUNCTUATION         = 21,
+    <span class="enscript-comment">/** Pc @stable ICU 2.0 */</span>
+    U_CONNECTOR_PUNCTUATION   = 22,
+    <span class="enscript-comment">/** Po @stable ICU 2.0 */</span>
+    U_OTHER_PUNCTUATION       = 23,
+    <span class="enscript-comment">/** Sm @stable ICU 2.0 */</span>
+    U_MATH_SYMBOL             = 24,
+    <span class="enscript-comment">/** Sc @stable ICU 2.0 */</span>
+    U_CURRENCY_SYMBOL         = 25,
+    <span class="enscript-comment">/** Sk @stable ICU 2.0 */</span>
+    U_MODIFIER_SYMBOL         = 26,
+    <span class="enscript-comment">/** So @stable ICU 2.0 */</span>
+    U_OTHER_SYMBOL            = 27,
+    <span class="enscript-comment">/** Pi @stable ICU 2.0 */</span>
+    U_INITIAL_PUNCTUATION     = 28,
+    <span class="enscript-comment">/** Pf @stable ICU 2.0 */</span>
+    U_FINAL_PUNCTUATION       = 29,
+    <span class="enscript-comment">/** One higher than the last enum UCharCategory constant. @stable ICU 2.0 */</span>
+    U_CHAR_CATEGORY_COUNT
+} UCharCategory;
+
+<span class="enscript-comment">/**
+ * U_GC_XX_MASK constants are bit flags corresponding to Unicode
+ * general category values.
+ * For each category, the nth bit is set if the numeric value of the
+ * corresponding UCharCategory constant is n.
+ *
+ * There are also some U_GC_Y_MASK constants for groups of general categories
+ * like L for all letter categories.
+ *
+ * @see u_charType
+ * @see U_GET_GC_MASK
+ * @see UCharCategory
+ * @stable ICU 2.1
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_CN_MASK</span>    U_MASK(U_GENERAL_OTHER_TYPES)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_LU_MASK</span>    U_MASK(U_UPPERCASE_LETTER)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_LL_MASK</span>    U_MASK(U_LOWERCASE_LETTER)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_LT_MASK</span>    U_MASK(U_TITLECASE_LETTER)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_LM_MASK</span>    U_MASK(U_MODIFIER_LETTER)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_LO_MASK</span>    U_MASK(U_OTHER_LETTER)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_MN_MASK</span>    U_MASK(U_NON_SPACING_MARK)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_ME_MASK</span>    U_MASK(U_ENCLOSING_MARK)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_MC_MASK</span>    U_MASK(U_COMBINING_SPACING_MARK)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_ND_MASK</span>    U_MASK(U_DECIMAL_DIGIT_NUMBER)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_NL_MASK</span>    U_MASK(U_LETTER_NUMBER)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_NO_MASK</span>    U_MASK(U_OTHER_NUMBER)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_ZS_MASK</span>    U_MASK(U_SPACE_SEPARATOR)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_ZL_MASK</span>    U_MASK(U_LINE_SEPARATOR)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_ZP_MASK</span>    U_MASK(U_PARAGRAPH_SEPARATOR)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_CC_MASK</span>    U_MASK(U_CONTROL_CHAR)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_CF_MASK</span>    U_MASK(U_FORMAT_CHAR)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_CO_MASK</span>    U_MASK(U_PRIVATE_USE_CHAR)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_CS_MASK</span>    U_MASK(U_SURROGATE)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PD_MASK</span>    U_MASK(U_DASH_PUNCTUATION)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PS_MASK</span>    U_MASK(U_START_PUNCTUATION)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PE_MASK</span>    U_MASK(U_END_PUNCTUATION)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PC_MASK</span>    U_MASK(U_CONNECTOR_PUNCTUATION)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PO_MASK</span>    U_MASK(U_OTHER_PUNCTUATION)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_SM_MASK</span>    U_MASK(U_MATH_SYMBOL)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_SC_MASK</span>    U_MASK(U_CURRENCY_SYMBOL)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_SK_MASK</span>    U_MASK(U_MODIFIER_SYMBOL)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_SO_MASK</span>    U_MASK(U_OTHER_SYMBOL)
+
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PI_MASK</span>    U_MASK(U_INITIAL_PUNCTUATION)
+<span class="enscript-comment">/** Mask constant for a UCharCategory. @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_PF_MASK</span>    U_MASK(U_FINAL_PUNCTUATION)
+
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (L Letters). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_L_MASK</span> \
+            (U_GC_LU_MASK|U_GC_LL_MASK|U_GC_LT_MASK|U_GC_LM_MASK|U_GC_LO_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (LC Cased Letters). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_LC_MASK</span> \
+            (U_GC_LU_MASK|U_GC_LL_MASK|U_GC_LT_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (M Marks). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_M_MASK</span> (U_GC_MN_MASK|U_GC_ME_MASK|U_GC_MC_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (N Numbers). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_N_MASK</span> (U_GC_ND_MASK|U_GC_NL_MASK|U_GC_NO_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (Z Separators). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_Z_MASK</span> (U_GC_ZS_MASK|U_GC_ZL_MASK|U_GC_ZP_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (C Others). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_C_MASK</span> \
+            (U_GC_CN_MASK|U_GC_CC_MASK|U_GC_CF_MASK|U_GC_CO_MASK|U_GC_CS_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (P Punctuation). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_P_MASK</span> \
+            (U_GC_PD_MASK|U_GC_PS_MASK|U_GC_PE_MASK|U_GC_PC_MASK|U_GC_PO_MASK| \
+             U_GC_PI_MASK|U_GC_PF_MASK)
+
+<span class="enscript-comment">/** Mask constant for multiple UCharCategory bits (S Symbols). @stable ICU 2.1 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_GC_S_MASK</span> (U_GC_SM_MASK|U_GC_SC_MASK|U_GC_SK_MASK|U_GC_SO_MASK)
+
+<span class="enscript-comment">/**
+ * This specifies the language directional property of a character set.
+ * @stable ICU 2.0
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UCharDirection {
+    <span class="enscript-comment">/** See note !!.  Comments of the form &quot;EN&quot; are read by genpname. */</span>
+
+    <span class="enscript-comment">/** L @stable ICU 2.0 */</span>
+    U_LEFT_TO_RIGHT               = 0,
+    <span class="enscript-comment">/** R @stable ICU 2.0 */</span>
+    U_RIGHT_TO_LEFT               = 1,
+    <span class="enscript-comment">/** EN @stable ICU 2.0 */</span>
+    U_EUROPEAN_NUMBER             = 2,
+    <span class="enscript-comment">/** ES @stable ICU 2.0 */</span>
+    U_EUROPEAN_NUMBER_SEPARATOR   = 3,
+    <span class="enscript-comment">/** ET @stable ICU 2.0 */</span>
+    U_EUROPEAN_NUMBER_TERMINATOR  = 4,
+    <span class="enscript-comment">/** AN @stable ICU 2.0 */</span>
+    U_ARABIC_NUMBER               = 5,
+    <span class="enscript-comment">/** CS @stable ICU 2.0 */</span>
+    U_COMMON_NUMBER_SEPARATOR     = 6,
+    <span class="enscript-comment">/** B @stable ICU 2.0 */</span>
+    U_BLOCK_SEPARATOR             = 7,
+    <span class="enscript-comment">/** S @stable ICU 2.0 */</span>
+    U_SEGMENT_SEPARATOR           = 8,
+    <span class="enscript-comment">/** WS @stable ICU 2.0 */</span>
+    U_WHITE_SPACE_NEUTRAL         = 9,
+    <span class="enscript-comment">/** ON @stable ICU 2.0 */</span>
+    U_OTHER_NEUTRAL               = 10,
+    <span class="enscript-comment">/** LRE @stable ICU 2.0 */</span>
+    U_LEFT_TO_RIGHT_EMBEDDING     = 11,
+    <span class="enscript-comment">/** LRO @stable ICU 2.0 */</span>
+    U_LEFT_TO_RIGHT_OVERRIDE      = 12,
+    <span class="enscript-comment">/** AL @stable ICU 2.0 */</span>
+    U_RIGHT_TO_LEFT_ARABIC        = 13,
+    <span class="enscript-comment">/** RLE @stable ICU 2.0 */</span>
+    U_RIGHT_TO_LEFT_EMBEDDING     = 14,
+    <span class="enscript-comment">/** RLO @stable ICU 2.0 */</span>
+    U_RIGHT_TO_LEFT_OVERRIDE      = 15,
+    <span class="enscript-comment">/** PDF @stable ICU 2.0 */</span>
+    U_POP_DIRECTIONAL_FORMAT      = 16,
+    <span class="enscript-comment">/** NSM @stable ICU 2.0 */</span>
+    U_DIR_NON_SPACING_MARK        = 17,
+    <span class="enscript-comment">/** BN @stable ICU 2.0 */</span>
+    U_BOUNDARY_NEUTRAL            = 18,
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    U_CHAR_DIRECTION_COUNT
+} UCharDirection;
+
+<span class="enscript-comment">/**
+ * Constants for Unicode blocks, see the Unicode Data file Blocks.txt
+ * @stable ICU 2.0
+ */</span>
+<span class="enscript-type">enum</span> UBlockCode {
+
+    <span class="enscript-comment">/** New No_Block value in Unicode 4. @stable ICU 2.6 */</span>
+    UBLOCK_NO_BLOCK = 0, <span class="enscript-comment">/*[none]*/</span> <span class="enscript-comment">/* Special range indicating No_Block */</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BASIC_LATIN = 1, <span class="enscript-comment">/*[0000]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LATIN_1_SUPPLEMENT=2, <span class="enscript-comment">/*[0080]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LATIN_EXTENDED_A =3, <span class="enscript-comment">/*[0100]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LATIN_EXTENDED_B =4, <span class="enscript-comment">/*[0180]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_IPA_EXTENSIONS =5, <span class="enscript-comment">/*[0250]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_SPACING_MODIFIER_LETTERS =6, <span class="enscript-comment">/*[02B0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_COMBINING_DIACRITICAL_MARKS =7, <span class="enscript-comment">/*[0300]*/</span>
+
+    <span class="enscript-comment">/**
+     * Unicode 3.2 renames this block to &quot;Greek and Coptic&quot;.
+     * @stable ICU 2.0
+     */</span>
+    UBLOCK_GREEK =8, <span class="enscript-comment">/*[0370]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CYRILLIC =9, <span class="enscript-comment">/*[0400]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ARMENIAN =10, <span class="enscript-comment">/*[0530]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HEBREW =11, <span class="enscript-comment">/*[0590]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ARABIC =12, <span class="enscript-comment">/*[0600]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_SYRIAC =13, <span class="enscript-comment">/*[0700]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_THAANA =14, <span class="enscript-comment">/*[0780]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_DEVANAGARI =15, <span class="enscript-comment">/*[0900]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BENGALI =16, <span class="enscript-comment">/*[0980]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GURMUKHI =17, <span class="enscript-comment">/*[0A00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GUJARATI =18, <span class="enscript-comment">/*[0A80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ORIYA =19, <span class="enscript-comment">/*[0B00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_TAMIL =20, <span class="enscript-comment">/*[0B80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_TELUGU =21, <span class="enscript-comment">/*[0C00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_KANNADA =22, <span class="enscript-comment">/*[0C80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MALAYALAM =23, <span class="enscript-comment">/*[0D00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_SINHALA =24, <span class="enscript-comment">/*[0D80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_THAI =25, <span class="enscript-comment">/*[0E00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LAO =26, <span class="enscript-comment">/*[0E80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_TIBETAN =27, <span class="enscript-comment">/*[0F00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MYANMAR =28, <span class="enscript-comment">/*[1000]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GEORGIAN =29, <span class="enscript-comment">/*[10A0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HANGUL_JAMO =30, <span class="enscript-comment">/*[1100]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ETHIOPIC =31, <span class="enscript-comment">/*[1200]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CHEROKEE =32, <span class="enscript-comment">/*[13A0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS =33, <span class="enscript-comment">/*[1400]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_OGHAM =34, <span class="enscript-comment">/*[1680]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_RUNIC =35, <span class="enscript-comment">/*[16A0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_KHMER =36, <span class="enscript-comment">/*[1780]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MONGOLIAN =37, <span class="enscript-comment">/*[1800]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LATIN_EXTENDED_ADDITIONAL =38, <span class="enscript-comment">/*[1E00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GREEK_EXTENDED =39, <span class="enscript-comment">/*[1F00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GENERAL_PUNCTUATION =40, <span class="enscript-comment">/*[2000]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_SUPERSCRIPTS_AND_SUBSCRIPTS =41, <span class="enscript-comment">/*[2070]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CURRENCY_SYMBOLS =42, <span class="enscript-comment">/*[20A0]*/</span>
+
+    <span class="enscript-comment">/**
+     * Unicode 3.2 renames this block to &quot;Combining Diacritical Marks for Symbols&quot;.
+     * @stable ICU 2.0
+     */</span>
+    UBLOCK_COMBINING_MARKS_FOR_SYMBOLS =43, <span class="enscript-comment">/*[20D0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LETTERLIKE_SYMBOLS =44, <span class="enscript-comment">/*[2100]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_NUMBER_FORMS =45, <span class="enscript-comment">/*[2150]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ARROWS =46, <span class="enscript-comment">/*[2190]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MATHEMATICAL_OPERATORS =47, <span class="enscript-comment">/*[2200]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MISCELLANEOUS_TECHNICAL =48, <span class="enscript-comment">/*[2300]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CONTROL_PICTURES =49, <span class="enscript-comment">/*[2400]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_OPTICAL_CHARACTER_RECOGNITION =50, <span class="enscript-comment">/*[2440]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ENCLOSED_ALPHANUMERICS =51, <span class="enscript-comment">/*[2460]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BOX_DRAWING =52, <span class="enscript-comment">/*[2500]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BLOCK_ELEMENTS =53, <span class="enscript-comment">/*[2580]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GEOMETRIC_SHAPES =54, <span class="enscript-comment">/*[25A0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MISCELLANEOUS_SYMBOLS =55, <span class="enscript-comment">/*[2600]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_DINGBATS =56, <span class="enscript-comment">/*[2700]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BRAILLE_PATTERNS =57, <span class="enscript-comment">/*[2800]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_RADICALS_SUPPLEMENT =58, <span class="enscript-comment">/*[2E80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_KANGXI_RADICALS =59, <span class="enscript-comment">/*[2F00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_IDEOGRAPHIC_DESCRIPTION_CHARACTERS =60, <span class="enscript-comment">/*[2FF0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_SYMBOLS_AND_PUNCTUATION =61, <span class="enscript-comment">/*[3000]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HIRAGANA =62, <span class="enscript-comment">/*[3040]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_KATAKANA =63, <span class="enscript-comment">/*[30A0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BOPOMOFO =64, <span class="enscript-comment">/*[3100]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HANGUL_COMPATIBILITY_JAMO =65, <span class="enscript-comment">/*[3130]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_KANBUN =66, <span class="enscript-comment">/*[3190]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BOPOMOFO_EXTENDED =67, <span class="enscript-comment">/*[31A0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ENCLOSED_CJK_LETTERS_AND_MONTHS =68, <span class="enscript-comment">/*[3200]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_COMPATIBILITY =69, <span class="enscript-comment">/*[3300]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A =70, <span class="enscript-comment">/*[3400]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_UNIFIED_IDEOGRAPHS =71, <span class="enscript-comment">/*[4E00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_YI_SYLLABLES =72, <span class="enscript-comment">/*[A000]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_YI_RADICALS =73, <span class="enscript-comment">/*[A490]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HANGUL_SYLLABLES =74, <span class="enscript-comment">/*[AC00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HIGH_SURROGATES =75, <span class="enscript-comment">/*[D800]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HIGH_PRIVATE_USE_SURROGATES =76, <span class="enscript-comment">/*[DB80]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_LOW_SURROGATES =77, <span class="enscript-comment">/*[DC00]*/</span>
+
+    <span class="enscript-comment">/**
+     * Same as UBLOCK_PRIVATE_USE_AREA.
+     * Until Unicode 3.1.1, the corresponding block name was &quot;Private Use&quot;,
+     * and multiple code point ranges had this block.
+     * Unicode 3.2 renames the block for the BMP PUA to &quot;Private Use Area&quot; and
+     * adds separate blocks for the supplementary PUAs.
+     *
+     * @stable ICU 2.0
+     */</span>
+    UBLOCK_PRIVATE_USE = 78,
+    <span class="enscript-comment">/**
+     * Same as UBLOCK_PRIVATE_USE.
+     * Until Unicode 3.1.1, the corresponding block name was &quot;Private Use&quot;,
+     * and multiple code point ranges had this block.
+     * Unicode 3.2 renames the block for the BMP PUA to &quot;Private Use Area&quot; and
+     * adds separate blocks for the supplementary PUAs.
+     *
+     * @stable ICU 2.0
+     */</span>
+    UBLOCK_PRIVATE_USE_AREA =UBLOCK_PRIVATE_USE, <span class="enscript-comment">/*[E000]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_COMPATIBILITY_IDEOGRAPHS =79, <span class="enscript-comment">/*[F900]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ALPHABETIC_PRESENTATION_FORMS =80, <span class="enscript-comment">/*[FB00]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ARABIC_PRESENTATION_FORMS_A =81, <span class="enscript-comment">/*[FB50]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_COMBINING_HALF_MARKS =82, <span class="enscript-comment">/*[FE20]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_COMPATIBILITY_FORMS =83, <span class="enscript-comment">/*[FE30]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_SMALL_FORM_VARIANTS =84, <span class="enscript-comment">/*[FE50]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_ARABIC_PRESENTATION_FORMS_B =85, <span class="enscript-comment">/*[FE70]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_SPECIALS =86, <span class="enscript-comment">/*[FFF0]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_HALFWIDTH_AND_FULLWIDTH_FORMS =87, <span class="enscript-comment">/*[FF00]*/</span>
+
+    <span class="enscript-comment">/* New blocks in Unicode 3.1 */</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_OLD_ITALIC = 88  , <span class="enscript-comment">/*[10300]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_GOTHIC = 89 , <span class="enscript-comment">/*[10330]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_DESERET = 90 , <span class="enscript-comment">/*[10400]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_BYZANTINE_MUSICAL_SYMBOLS = 91 , <span class="enscript-comment">/*[1D000]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MUSICAL_SYMBOLS = 92 , <span class="enscript-comment">/*[1D100]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_MATHEMATICAL_ALPHANUMERIC_SYMBOLS = 93  , <span class="enscript-comment">/*[1D400]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B  = 94 , <span class="enscript-comment">/*[20000]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_CJK_COMPATIBILITY_IDEOGRAPHS_SUPPLEMENT = 95 , <span class="enscript-comment">/*[2F800]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_TAGS = 96, <span class="enscript-comment">/*[E0000]*/</span>
+
+    <span class="enscript-comment">/* New blocks in Unicode 3.2 */</span>
+
+    <span class="enscript-comment">/**
+     * Unicode 4.0.1 renames the &quot;Cyrillic Supplementary&quot; block to &quot;Cyrillic Supplement&quot;.
+     * @stable ICU 2.2
+     */</span>
+    UBLOCK_CYRILLIC_SUPPLEMENTARY = 97, 
+    <span class="enscript-comment">/** @draft ICU 3.0  */</span>
+    UBLOCK_CYRILLIC_SUPPLEMENT = UBLOCK_CYRILLIC_SUPPLEMENTARY, <span class="enscript-comment">/*[0500]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_TAGALOG = 98, <span class="enscript-comment">/*[1700]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_HANUNOO = 99, <span class="enscript-comment">/*[1720]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_BUHID = 100, <span class="enscript-comment">/*[1740]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_TAGBANWA = 101, <span class="enscript-comment">/*[1760]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_MISCELLANEOUS_MATHEMATICAL_SYMBOLS_A = 102, <span class="enscript-comment">/*[27C0]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_SUPPLEMENTAL_ARROWS_A = 103, <span class="enscript-comment">/*[27F0]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_SUPPLEMENTAL_ARROWS_B = 104, <span class="enscript-comment">/*[2900]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_MISCELLANEOUS_MATHEMATICAL_SYMBOLS_B = 105, <span class="enscript-comment">/*[2980]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_SUPPLEMENTAL_MATHEMATICAL_OPERATORS = 106, <span class="enscript-comment">/*[2A00]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_KATAKANA_PHONETIC_EXTENSIONS = 107, <span class="enscript-comment">/*[31F0]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_VARIATION_SELECTORS = 108, <span class="enscript-comment">/*[FE00]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_SUPPLEMENTARY_PRIVATE_USE_AREA_A = 109, <span class="enscript-comment">/*[F0000]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.2 */</span>
+    UBLOCK_SUPPLEMENTARY_PRIVATE_USE_AREA_B = 110, <span class="enscript-comment">/*[100000]*/</span>
+
+    <span class="enscript-comment">/* New blocks in Unicode 4 */</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_LIMBU = 111, <span class="enscript-comment">/*[1900]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_TAI_LE = 112, <span class="enscript-comment">/*[1950]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_KHMER_SYMBOLS = 113, <span class="enscript-comment">/*[19E0]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_PHONETIC_EXTENSIONS = 114, <span class="enscript-comment">/*[1D00]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_MISCELLANEOUS_SYMBOLS_AND_ARROWS = 115, <span class="enscript-comment">/*[2B00]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_YIJING_HEXAGRAM_SYMBOLS = 116, <span class="enscript-comment">/*[4DC0]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_LINEAR_B_SYLLABARY = 117, <span class="enscript-comment">/*[10000]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_LINEAR_B_IDEOGRAMS = 118, <span class="enscript-comment">/*[10080]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_AEGEAN_NUMBERS = 119, <span class="enscript-comment">/*[10100]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_UGARITIC = 120, <span class="enscript-comment">/*[10380]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_SHAVIAN = 121, <span class="enscript-comment">/*[10450]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_OSMANYA = 122, <span class="enscript-comment">/*[10480]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_CYPRIOT_SYLLABARY = 123, <span class="enscript-comment">/*[10800]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_TAI_XUAN_JING_SYMBOLS = 124, <span class="enscript-comment">/*[1D300]*/</span>
+    <span class="enscript-comment">/** @stable ICU 2.6 */</span>
+    UBLOCK_VARIATION_SELECTORS_SUPPLEMENT = 125, <span class="enscript-comment">/*[E0100]*/</span>
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_COUNT,
+
+    <span class="enscript-comment">/** @stable ICU 2.0 */</span>
+    UBLOCK_INVALID_CODE=-1
+};
+
+<span class="enscript-comment">/** @stable ICU 2.0 */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UBlockCode UBlockCode;
+
+<span class="enscript-comment">/**
+ * East Asian Width constants.
+ *
+ * @see UCHAR_EAST_ASIAN_WIDTH
+ * @see u_getIntPropertyValue
+ * @stable ICU 2.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UEastAsianWidth {
+    U_EA_NEUTRAL,   <span class="enscript-comment">/*[N]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+    U_EA_AMBIGUOUS, <span class="enscript-comment">/*[A]*/</span>
+    U_EA_HALFWIDTH, <span class="enscript-comment">/*[H]*/</span>
+    U_EA_FULLWIDTH, <span class="enscript-comment">/*[F]*/</span>
+    U_EA_NARROW,    <span class="enscript-comment">/*[Na]*/</span>
+    U_EA_WIDE,      <span class="enscript-comment">/*[W]*/</span>
+    U_EA_COUNT
+} UEastAsianWidth;
+<span class="enscript-comment">/*
+ * Implementation note:
+ * Keep UEastAsianWidth constant values in sync with names list in genprops/props2.c.
+ */</span>
+
+<span class="enscript-comment">/**
+ * Selector constants for u_charName().
+ * u_charName() returns the &quot;modern&quot; name of a
+ * Unicode character; or the name that was defined in
+ * Unicode version 1.0, before the Unicode standard merged
+ * with ISO-10646; or an &quot;extended&quot; name that gives each
+ * Unicode code point a unique name.
+ *
+ * @see u_charName
+ * @stable ICU 2.0
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UCharNameChoice {
+    U_UNICODE_CHAR_NAME,
+    U_UNICODE_10_CHAR_NAME,
+    U_EXTENDED_CHAR_NAME,
+    U_CHAR_NAME_CHOICE_COUNT
+} UCharNameChoice;
+
+<span class="enscript-comment">/**
+ * Selector constants for u_getPropertyName() and
+ * u_getPropertyValueName().  These selectors are used to choose which
+ * name is returned for a given property or value.  All properties and
+ * values have a long name.  Most have a short name, but some do not.
+ * Unicode allows for additional names, beyond the long and short
+ * name, which would be indicated by U_LONG_PROPERTY_NAME + i, where
+ * i=1, 2,...
+ *
+ * @see u_getPropertyName()
+ * @see u_getPropertyValueName()
+ * @stable ICU 2.4
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UPropertyNameChoice {
+    U_SHORT_PROPERTY_NAME,
+    U_LONG_PROPERTY_NAME,
+    U_PROPERTY_NAME_CHOICE_COUNT
+} UPropertyNameChoice;
+
+<span class="enscript-comment">/**
+ * Decomposition Type constants.
+ *
+ * @see UCHAR_DECOMPOSITION_TYPE
+ * @stable ICU 2.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UDecompositionType {
+    U_DT_NONE,              <span class="enscript-comment">/*[none]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+    U_DT_CANONICAL,         <span class="enscript-comment">/*[can]*/</span>
+    U_DT_COMPAT,            <span class="enscript-comment">/*[com]*/</span>
+    U_DT_CIRCLE,            <span class="enscript-comment">/*[enc]*/</span>
+    U_DT_FINAL,             <span class="enscript-comment">/*[fin]*/</span>
+    U_DT_FONT,              <span class="enscript-comment">/*[font]*/</span>
+    U_DT_FRACTION,          <span class="enscript-comment">/*[fra]*/</span>
+    U_DT_INITIAL,           <span class="enscript-comment">/*[init]*/</span>
+    U_DT_ISOLATED,          <span class="enscript-comment">/*[iso]*/</span>
+    U_DT_MEDIAL,            <span class="enscript-comment">/*[med]*/</span>
+    U_DT_NARROW,            <span class="enscript-comment">/*[nar]*/</span>
+    U_DT_NOBREAK,           <span class="enscript-comment">/*[nb]*/</span>
+    U_DT_SMALL,             <span class="enscript-comment">/*[sml]*/</span>
+    U_DT_SQUARE,            <span class="enscript-comment">/*[sqr]*/</span>
+    U_DT_SUB,               <span class="enscript-comment">/*[sub]*/</span>
+    U_DT_SUPER,             <span class="enscript-comment">/*[sup]*/</span>
+    U_DT_VERTICAL,          <span class="enscript-comment">/*[vert]*/</span>
+    U_DT_WIDE,              <span class="enscript-comment">/*[wide]*/</span>
+    U_DT_COUNT <span class="enscript-comment">/* 18 */</span>
+} UDecompositionType;
+
+<span class="enscript-comment">/**
+ * Joining Type constants.
+ *
+ * @see UCHAR_JOINING_TYPE
+ * @stable ICU 2.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UJoiningType {
+    U_JT_NON_JOINING,       <span class="enscript-comment">/*[U]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+    U_JT_JOIN_CAUSING,      <span class="enscript-comment">/*[C]*/</span>
+    U_JT_DUAL_JOINING,      <span class="enscript-comment">/*[D]*/</span>
+    U_JT_LEFT_JOINING,      <span class="enscript-comment">/*[L]*/</span>
+    U_JT_RIGHT_JOINING,     <span class="enscript-comment">/*[R]*/</span>
+    U_JT_TRANSPARENT,       <span class="enscript-comment">/*[T]*/</span>
+    U_JT_COUNT <span class="enscript-comment">/* 6 */</span>
+} UJoiningType;
+
+<span class="enscript-comment">/**
+ * Joining Group constants.
+ *
+ * @see UCHAR_JOINING_GROUP
+ * @stable ICU 2.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UJoiningGroup {
+    U_JG_NO_JOINING_GROUP,
+    U_JG_AIN,
+    U_JG_ALAPH,
+    U_JG_ALEF,
+    U_JG_BEH,
+    U_JG_BETH,
+    U_JG_DAL,
+    U_JG_DALATH_RISH,
+    U_JG_E,
+    U_JG_FEH,
+    U_JG_FINAL_SEMKATH,
+    U_JG_GAF,
+    U_JG_GAMAL,
+    U_JG_HAH,
+    U_JG_HAMZA_ON_HEH_GOAL,
+    U_JG_HE,
+    U_JG_HEH,
+    U_JG_HEH_GOAL,
+    U_JG_HETH,
+    U_JG_KAF,
+    U_JG_KAPH,
+    U_JG_KNOTTED_HEH,
+    U_JG_LAM,
+    U_JG_LAMADH,
+    U_JG_MEEM,
+    U_JG_MIM,
+    U_JG_NOON,
+    U_JG_NUN,
+    U_JG_PE,
+    U_JG_QAF,
+    U_JG_QAPH,
+    U_JG_REH,
+    U_JG_REVERSED_PE,
+    U_JG_SAD,
+    U_JG_SADHE,
+    U_JG_SEEN,
+    U_JG_SEMKATH,
+    U_JG_SHIN,
+    U_JG_SWASH_KAF,
+    U_JG_SYRIAC_WAW,
+    U_JG_TAH,
+    U_JG_TAW,
+    U_JG_TEH_MARBUTA,
+    U_JG_TETH,
+    U_JG_WAW,
+    U_JG_YEH,
+    U_JG_YEH_BARREE,
+    U_JG_YEH_WITH_TAIL,
+    U_JG_YUDH,
+    U_JG_YUDH_HE,
+    U_JG_ZAIN,
+    U_JG_FE,        <span class="enscript-comment">/**&lt; @stable ICU 2.6 */</span>
+    U_JG_KHAPH,     <span class="enscript-comment">/**&lt; @stable ICU 2.6 */</span>
+    U_JG_ZHAIN,     <span class="enscript-comment">/**&lt; @stable ICU 2.6 */</span>
+    U_JG_COUNT
+} UJoiningGroup;
+
+<span class="enscript-comment">/**
+ * Line Break constants.
+ *
+ * @see UCHAR_LINE_BREAK
+ * @stable ICU 2.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> ULineBreak {
+    U_LB_UNKNOWN,           <span class="enscript-comment">/*[XX]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+    U_LB_AMBIGUOUS,         <span class="enscript-comment">/*[AI]*/</span>
+    U_LB_ALPHABETIC,        <span class="enscript-comment">/*[AL]*/</span>
+    U_LB_BREAK_BOTH,        <span class="enscript-comment">/*[B2]*/</span>
+    U_LB_BREAK_AFTER,       <span class="enscript-comment">/*[BA]*/</span>
+    U_LB_BREAK_BEFORE,      <span class="enscript-comment">/*[BB]*/</span>
+    U_LB_MANDATORY_BREAK,   <span class="enscript-comment">/*[BK]*/</span>
+    U_LB_CONTINGENT_BREAK,  <span class="enscript-comment">/*[CB]*/</span>
+    U_LB_CLOSE_PUNCTUATION, <span class="enscript-comment">/*[CL]*/</span>
+    U_LB_COMBINING_MARK,    <span class="enscript-comment">/*[CM]*/</span>
+    U_LB_CARRIAGE_RETURN,   <span class="enscript-comment">/*[CR]*/</span>
+    U_LB_EXCLAMATION,       <span class="enscript-comment">/*[EX]*/</span>
+    U_LB_GLUE,              <span class="enscript-comment">/*[GL]*/</span>
+    U_LB_HYPHEN,            <span class="enscript-comment">/*[HY]*/</span>
+    U_LB_IDEOGRAPHIC,       <span class="enscript-comment">/*[ID]*/</span>
+    U_LB_INSEPERABLE,
+    <span class="enscript-comment">/** Renamed from the misspelled &quot;inseperable&quot; in Unicode 4.0.1/ICU 3.0 @draft ICU 3.0 */</span>
+    U_LB_INSEPARABLE=U_LB_INSEPERABLE,<span class="enscript-comment">/*[IN]*/</span>
+    U_LB_INFIX_NUMERIC,     <span class="enscript-comment">/*[IS]*/</span>
+    U_LB_LINE_FEED,         <span class="enscript-comment">/*[LF]*/</span>
+    U_LB_NONSTARTER,        <span class="enscript-comment">/*[NS]*/</span>
+    U_LB_NUMERIC,           <span class="enscript-comment">/*[NU]*/</span>
+    U_LB_OPEN_PUNCTUATION,  <span class="enscript-comment">/*[OP]*/</span>
+    U_LB_POSTFIX_NUMERIC,   <span class="enscript-comment">/*[PO]*/</span>
+    U_LB_PREFIX_NUMERIC,    <span class="enscript-comment">/*[PR]*/</span>
+    U_LB_QUOTATION,         <span class="enscript-comment">/*[QU]*/</span>
+    U_LB_COMPLEX_CONTEXT,   <span class="enscript-comment">/*[SA]*/</span>
+    U_LB_SURROGATE,         <span class="enscript-comment">/*[SG]*/</span>
+    U_LB_SPACE,             <span class="enscript-comment">/*[SP]*/</span>
+    U_LB_BREAK_SYMBOLS,     <span class="enscript-comment">/*[SY]*/</span>
+    U_LB_ZWSPACE,           <span class="enscript-comment">/*[ZW]*/</span>
+    U_LB_NEXT_LINE,         <span class="enscript-comment">/*[NL]*/</span> <span class="enscript-comment">/* from here on: new in Unicode 4/ICU 2.6 */</span>
+    U_LB_WORD_JOINER,       <span class="enscript-comment">/*[WJ]*/</span>
+    U_LB_COUNT
+} ULineBreak;
+
+<span class="enscript-comment">/**
+ * Numeric Type constants.
+ *
+ * @see UCHAR_NUMERIC_TYPE
+ * @stable ICU 2.2
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UNumericType {
+    U_NT_NONE,              <span class="enscript-comment">/*[None]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+    U_NT_DECIMAL,           <span class="enscript-comment">/*[de]*/</span>
+    U_NT_DIGIT,             <span class="enscript-comment">/*[di]*/</span>
+    U_NT_NUMERIC,           <span class="enscript-comment">/*[nu]*/</span>
+    U_NT_COUNT
+} UNumericType;
+
+<span class="enscript-comment">/**
+ * Hangul Syllable Type constants.
+ *
+ * @see UCHAR_HANGUL_SYLLABLE_TYPE
+ * @stable ICU 2.6
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> UHangulSyllableType {
+    U_HST_NOT_APPLICABLE,   <span class="enscript-comment">/*[NA]*/</span> <span class="enscript-comment">/*See note !!*/</span>
+    U_HST_LEADING_JAMO,     <span class="enscript-comment">/*[L]*/</span>
+    U_HST_VOWEL_JAMO,       <span class="enscript-comment">/*[V]*/</span>
+    U_HST_TRAILING_JAMO,    <span class="enscript-comment">/*[T]*/</span>
+    U_HST_LV_SYLLABLE,      <span class="enscript-comment">/*[LV]*/</span>
+    U_HST_LVT_SYLLABLE,     <span class="enscript-comment">/*[LVT]*/</span>
+    U_HST_COUNT
+} UHangulSyllableType;
+
+<span class="enscript-comment">/**
+ * Check a binary Unicode property for a code point.
+ *
+ * Unicode, especially in version 3.2, defines many more properties than the
+ * original set in UnicodeData.txt.
+ *
+ * The properties APIs are intended to reflect Unicode properties as defined
+ * in the Unicode Character Database (UCD) and Unicode Technical Reports (UTR).
+ * For details about the properties see <a href="http://www.unicode.org/ucd/">http://www.unicode.org/ucd/</a> .
+ * For names of Unicode properties see the UCD file PropertyAliases.txt.
+ *
+ * Important: If ICU is built with UCD files from Unicode versions below 3.2,
+ * then properties marked with &quot;new in Unicode 3.2&quot; are not or not fully available.
+ *
+ * @param c Code point to test.
+ * @param which UProperty selector constant, identifies which binary property to check.
+ *        Must be UCHAR_BINARY_START&lt;=which&lt;UCHAR_BINARY_LIMIT.
+ * @return TRUE or FALSE according to the binary Unicode property value for c.
+ *         Also FALSE if 'which' is out of bounds or if the Unicode version
+ *         does not have data for the property at all, or not for this code point.
+ *
+ * @see UProperty
+ * @see u_getIntPropertyValue
+ * @see u_getUnicodeVersion
+ * @stable ICU 2.1
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_hasBinaryProperty</span>(UChar32 c, UProperty which);
+
+<span class="enscript-comment">/**
+ * Check if a code point has the Alphabetic Unicode property.
+ * Same as u_hasBinaryProperty(c, UCHAR_ALPHABETIC).
+ * This is different from u_isalpha!
+ * @param c Code point to test
+ * @return true if the code point has the Alphabetic Unicode property, false otherwise
+ *
+ * @see UCHAR_ALPHABETIC
+ * @see u_isalpha
+ * @see u_hasBinaryProperty
+ * @stable ICU 2.1
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isUAlphabetic</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Check if a code point has the Lowercase Unicode property.
+ * Same as u_hasBinaryProperty(c, UCHAR_LOWERCASE).
+ * This is different from u_islower!
+ * @param c Code point to test
+ * @return true if the code point has the Lowercase Unicode property, false otherwise
+ *
+ * @see UCHAR_LOWERCASE
+ * @see u_islower
+ * @see u_hasBinaryProperty
+ * @stable ICU 2.1
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isULowercase</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Check if a code point has the Uppercase Unicode property.
+ * Same as u_hasBinaryProperty(c, UCHAR_UPPERCASE).
+ * This is different from u_isupper!
+ * @param c Code point to test
+ * @return true if the code point has the Uppercase Unicode property, false otherwise
+ *
+ * @see UCHAR_UPPERCASE
+ * @see u_isupper
+ * @see u_hasBinaryProperty
+ * @stable ICU 2.1
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isUUppercase</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Check if a code point has the White_Space Unicode property.
+ * Same as u_hasBinaryProperty(c, UCHAR_WHITE_SPACE).
+ * This is different from both u_isspace and u_isWhitespace!
+ *
+ * Note: There are several ICU whitespace functions; please see the uchar.h
+ * file documentation for a detailed comparison.
+ *
+ * @param c Code point to test
+ * @return true if the code point has the White_Space Unicode property, false otherwise.
+ *
+ * @see UCHAR_WHITE_SPACE
+ * @see u_isWhitespace
+ * @see u_isspace
+ * @see u_isJavaSpaceChar
+ * @see u_hasBinaryProperty
+ * @stable ICU 2.1
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isUWhiteSpace</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Get the property value for an enumerated or integer Unicode property for a code point.
+ * Also returns binary and mask property values.
+ *
+ * Unicode, especially in version 3.2, defines many more properties than the
+ * original set in UnicodeData.txt.
+ *
+ * The properties APIs are intended to reflect Unicode properties as defined
+ * in the Unicode Character Database (UCD) and Unicode Technical Reports (UTR).
+ * For details about the properties see <a href="http://www.unicode.org/">http://www.unicode.org/</a> .
+ * For names of Unicode properties see the UCD file PropertyAliases.txt.
+ *
+ * Sample usage:
+ * UEastAsianWidth ea=(UEastAsianWidth)u_getIntPropertyValue(c, UCHAR_EAST_ASIAN_WIDTH);
+ * UBool b=(UBool)u_getIntPropertyValue(c, UCHAR_IDEOGRAPHIC);
+ *
+ * @param c Code point to test.
+ * @param which UProperty selector constant, identifies which property to check.
+ *        Must be UCHAR_BINARY_START&lt;=which&lt;UCHAR_BINARY_LIMIT
+ *        or UCHAR_INT_START&lt;=which&lt;UCHAR_INT_LIMIT
+ *        or UCHAR_MASK_START&lt;=which&lt;UCHAR_MASK_LIMIT.
+ * @return Numeric value that is directly the property value or,
+ *         for enumerated properties, corresponds to the numeric value of the enumerated
+ *         constant of the respective property value enumeration type
+ *         (cast to enum type if necessary).
+ *         Returns 0 or 1 (for FALSE/TRUE) for binary Unicode properties.
+ *         Returns a bit-mask for mask properties.
+ *         Returns 0 if 'which' is out of bounds or if the Unicode version
+ *         does not have data for the property at all, or not for this code point.
+ *
+ * @see UProperty
+ * @see u_hasBinaryProperty
+ * @see u_getIntPropertyMinValue
+ * @see u_getIntPropertyMaxValue
+ * @see u_getUnicodeVersion
+ * @stable ICU 2.2
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_getIntPropertyValue</span>(UChar32 c, UProperty which);
+
+<span class="enscript-comment">/**
+ * Get the minimum value for an enumerated/integer/binary Unicode property.
+ * Can be used together with u_getIntPropertyMaxValue
+ * to allocate arrays of UnicodeSet or similar.
+ *
+ * @param which UProperty selector constant, identifies which binary property to check.
+ *        Must be UCHAR_BINARY_START&lt;=which&lt;UCHAR_BINARY_LIMIT
+ *        or UCHAR_INT_START&lt;=which&lt;UCHAR_INT_LIMIT.
+ * @return Minimum value returned by u_getIntPropertyValue for a Unicode property.
+ *         0 if the property selector is out of range.
+ *
+ * @see UProperty
+ * @see u_hasBinaryProperty
+ * @see u_getUnicodeVersion
+ * @see u_getIntPropertyMaxValue
+ * @see u_getIntPropertyValue
+ * @stable ICU 2.2
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_getIntPropertyMinValue</span>(UProperty which);
+
+<span class="enscript-comment">/**
+ * Get the maximum value for an enumerated/integer/binary Unicode property.
+ * Can be used together with u_getIntPropertyMinValue
+ * to allocate arrays of UnicodeSet or similar.
+ *
+ * Examples for min/max values (for Unicode 3.2):
+ *
+ * - UCHAR_BIDI_CLASS:    0/18 (U_LEFT_TO_RIGHT/U_BOUNDARY_NEUTRAL)
+ * - UCHAR_SCRIPT:        0/45 (USCRIPT_COMMON/USCRIPT_TAGBANWA)
+ * - UCHAR_IDEOGRAPHIC:   0/1  (FALSE/TRUE)
+ *
+ * For undefined UProperty constant values, min/max values will be 0/-1.
+ *
+ * @param which UProperty selector constant, identifies which binary property to check.
+ *        Must be UCHAR_BINARY_START&lt;=which&lt;UCHAR_BINARY_LIMIT
+ *        or UCHAR_INT_START&lt;=which&lt;UCHAR_INT_LIMIT.
+ * @return Maximum value returned by u_getIntPropertyValue for a Unicode property.
+ *         &lt;=0 if the property selector is out of range.
+ *
+ * @see UProperty
+ * @see u_hasBinaryProperty
+ * @see u_getUnicodeVersion
+ * @see u_getIntPropertyMaxValue
+ * @see u_getIntPropertyValue
+ * @stable ICU 2.2
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_getIntPropertyMaxValue</span>(UProperty which);
+
+<span class="enscript-comment">/**
+ * Get the numeric value for a Unicode code point as defined in the
+ * Unicode Character Database.
+ *
+ * A &quot;double&quot; return type is necessary because
+ * some numeric values are fractions, negative, or too large for int32_t.
+ *
+ * For characters without any numeric values in the Unicode Character Database,
+ * this function will return U_NO_NUMERIC_VALUE.
+ *
+ * Similar to java.lang.Character.getNumericValue(), but u_getNumericValue()
+ * also supports negative values, large values, and fractions,
+ * while Java's getNumericValue() returns values 10..35 for ASCII letters.
+ *
+ * @param c Code point to get the numeric value for.
+ * @return Numeric value of c, or U_NO_NUMERIC_VALUE if none is defined.
+ *
+ * @see U_NO_NUMERIC_VALUE
+ * @stable ICU 2.2
+ */</span>
+U_STABLE <span class="enscript-type">double</span> U_EXPORT2
+<span class="enscript-function-name">u_getNumericValue</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Special value that is returned by u_getNumericValue when
+ * no numeric value is defined for a code point.
+ *
+ * @see u_getNumericValue
+ * @stable ICU 2.2
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NO_NUMERIC_VALUE</span> ((double)-123456789.)
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point has the general category &quot;Ll&quot;
+ * (lowercase letter).
+ *
+ * Same as java.lang.Character.isLowerCase().
+ *
+ * This misses some characters that are also lowercase but
+ * have a different general category value.
+ * In order to include those, use UCHAR_LOWERCASE.
+ *
+ * In addition to being equivalent to a Java function, this also serves
+ * as a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is an Ll lowercase letter
+ *
+ * @see UCHAR_LOWERCASE
+ * @see u_isupper
+ * @see u_istitle
+ * @see u_islower
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_islower</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point has the general category &quot;Lu&quot;
+ * (uppercase letter).
+ *
+ * Same as java.lang.Character.isUpperCase().
+ *
+ * This misses some characters that are also uppercase but
+ * have a different general category value.
+ * In order to include those, use UCHAR_UPPERCASE.
+ *
+ * In addition to being equivalent to a Java function, this also serves
+ * as a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is an Lu uppercase letter
+ *
+ * @see UCHAR_UPPERCASE
+ * @see u_islower
+ * @see u_istitle
+ * @see u_tolower
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isupper</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a titlecase letter.
+ * True for general category &quot;Lt&quot; (titlecase letter).
+ *
+ * Same as java.lang.Character.isTitleCase().
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is an Lt titlecase letter
+ *
+ * @see u_isupper
+ * @see u_islower
+ * @see u_totitle
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_istitle</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a digit character according to Java.
+ * True for characters with general category &quot;Nd&quot; (decimal digit numbers).
+ * Beginning with Unicode 4, this is the same as
+ * testing for the Numeric_Type of Decimal.
+ *
+ * Same as java.lang.Character.isDigit().
+ *
+ * In addition to being equivalent to a Java function, this also serves
+ * as a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a digit character according to Character.isDigit()
+ *
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isdigit</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a letter character.
+ * True for general categories &quot;L&quot; (letters).
+ *
+ * Same as java.lang.Character.isLetter().
+ *
+ * In addition to being equivalent to a Java function, this also serves
+ * as a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a letter character
+ *
+ * @see u_isdigit
+ * @see u_isalnum
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isalpha</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is an alphanumeric character
+ * (letter or digit) according to Java.
+ * True for characters with general categories
+ * &quot;L&quot; (letters) and &quot;Nd&quot; (decimal digit numbers).
+ *
+ * Same as java.lang.Character.isLetterOrDigit().
+ *
+ * In addition to being equivalent to a Java function, this also serves
+ * as a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is an alphanumeric character according to Character.isLetterOrDigit()
+ *
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isalnum</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a hexadecimal digit.
+ * This is equivalent to u_digit(c, 16)&gt;=0.
+ * True for characters with general category &quot;Nd&quot; (decimal digit numbers)
+ * as well as Latin letters a-f and A-F in both ASCII and Fullwidth ASCII.
+ * (That is, for letters with code points
+ * 0041..0046, 0061..0066, FF21..FF26, FF41..FF46.)
+ *
+ * In order to narrow the definition of hexadecimal digits to only ASCII
+ * characters, use (c&lt;=0x7f &amp;&amp; u_isxdigit(c)).
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a hexadecimal digit
+ *
+ * @stable ICU 2.6
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isxdigit</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a punctuation character.
+ * True for characters with general categories &quot;P&quot; (punctuation).
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a punctuation character
+ *
+ * @stable ICU 2.6
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_ispunct</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a &quot;graphic&quot; character
+ * (printable, excluding spaces).
+ * TRUE for all characters except those with general categories
+ * &quot;Cc&quot; (control codes), &quot;Cf&quot; (format controls), &quot;Cs&quot; (surrogates),
+ * &quot;Cn&quot; (unassigned), and &quot;Z&quot; (separators).
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a &quot;graphic&quot; character
+ *
+ * @stable ICU 2.6
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isgraph</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a &quot;blank&quot; or &quot;horizontal space&quot;,
+ * a character that visibly separates words on a line.
+ * The following are equivalent definitions:
+ *
+ * TRUE for Unicode White_Space characters except for &quot;vertical space controls&quot;
+ * where &quot;vertical space controls&quot; are the following characters:
+ * U+000A (LF) U+000B (VT) U+000C (FF) U+000D (CR) U+0085 (NEL) U+2028 (LS) U+2029 (PS)
+ *
+ * same as
+ *
+ * TRUE for U+0009 (TAB) and characters with general category &quot;Zs&quot; (space separators)
+ * except Zero Width Space (ZWSP, U+200B).
+ *
+ * Note: There are several ICU whitespace functions; please see the uchar.h
+ * file documentation for a detailed comparison.
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a &quot;blank&quot;
+ *
+ * @stable ICU 2.6
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isblank</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is &quot;defined&quot;,
+ * which usually means that it is assigned a character.
+ * True for general categories other than &quot;Cn&quot; (other, not assigned),
+ * i.e., true for all code points mentioned in UnicodeData.txt.
+ *
+ * Note that non-character code points (e.g., U+FDD0) are not &quot;defined&quot;
+ * (they are Cn), but surrogate code points are &quot;defined&quot; (Cs).
+ *
+ * Same as java.lang.Character.isDefined().
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is assigned a character
+ *
+ * @see u_isdigit
+ * @see u_isalpha
+ * @see u_isalnum
+ * @see u_isupper
+ * @see u_islower
+ * @see u_istitle
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isdefined</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines if the specified character is a space character or not.
+ *
+ * Note: There are several ICU whitespace functions; please see the uchar.h
+ * file documentation for a detailed comparison.
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c    the character to be tested
+ * @return  true if the character is a space character; false otherwise.
+ *
+ * @see u_isJavaSpaceChar
+ * @see u_isWhitespace
+ * @see u_isUWhiteSpace
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isspace</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determine if the specified code point is a space character according to Java.
+ * True for characters with general categories &quot;Z&quot; (separators),
+ * which does not include control codes (e.g., TAB or Line Feed).
+ *
+ * Same as java.lang.Character.isSpaceChar().
+ *
+ * Note: There are several ICU whitespace functions; please see the uchar.h
+ * file documentation for a detailed comparison.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a space character according to Character.isSpaceChar()
+ *
+ * @see u_isspace
+ * @see u_isWhitespace
+ * @see u_isUWhiteSpace
+ * @stable ICU 2.6
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isJavaSpaceChar</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines if the specified code point is a whitespace character according to Java/ICU.
+ * A character is considered to be a Java whitespace character if and only
+ * if it satisfies one of the following criteria:
+ *
+ * - It is a Unicode separator (categories &quot;Z&quot;), but is not
+ *      a no-break space (U+00A0 NBSP or U+2007 Figure Space or U+202F Narrow NBSP).
+ * - It is U+0009 HORIZONTAL TABULATION.
+ * - It is U+000A LINE FEED.
+ * - It is U+000B VERTICAL TABULATION.
+ * - It is U+000C FORM FEED.
+ * - It is U+000D CARRIAGE RETURN.
+ * - It is U+001C FILE SEPARATOR.
+ * - It is U+001D GROUP SEPARATOR.
+ * - It is U+001E RECORD SEPARATOR.
+ * - It is U+001F UNIT SEPARATOR.
+ * - It is U+0085 NEXT LINE.
+ *
+ * Same as java.lang.Character.isWhitespace() except that Java omits U+0085.
+ *
+ * Note: There are several ICU whitespace functions; please see the uchar.h
+ * file documentation for a detailed comparison.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a whitespace character according to Java/ICU
+ *
+ * @see u_isspace
+ * @see u_isJavaSpaceChar
+ * @see u_isUWhiteSpace
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isWhitespace</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a control character
+ * (as defined by this function).
+ * A control character is one of the following:
+ * - ISO 8-bit control character (U+0000..U+001f and U+007f..U+009f)
+ * - U_CONTROL_CHAR (Cc)
+ * - U_FORMAT_CHAR (Cf)
+ * - U_LINE_SEPARATOR (Zl)
+ * - U_PARAGRAPH_SEPARATOR (Zp)
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a control character
+ *
+ * @see UCHAR_DEFAULT_IGNORABLE_CODE_POINT
+ * @see u_isprint
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_iscntrl</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is an ISO control code.
+ * True for U+0000..U+001f and U+007f..U+009f (general category &quot;Cc&quot;).
+ *
+ * Same as java.lang.Character.isISOControl().
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is an ISO control code
+ *
+ * @see u_iscntrl
+ * @stable ICU 2.6
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isISOControl</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a printable character.
+ * True for general categories &lt;em&gt;other&lt;/em&gt; than &quot;C&quot; (controls).
+ *
+ * This is a C/POSIX migration function.
+ * See the comments about C/POSIX character classification functions in the
+ * documentation at the top of this header file.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a printable character
+ *
+ * @see UCHAR_DEFAULT_IGNORABLE_CODE_POINT
+ * @see u_iscntrl
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isprint</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the specified code point is a base character.
+ * True for general categories &quot;L&quot; (letters), &quot;N&quot; (numbers),
+ * &quot;Mc&quot; (spacing combining marks), and &quot;Me&quot; (enclosing marks).
+ *
+ * Note that this is different from the Unicode definition in
+ * chapter 3.5, conformance clause D13,
+ * which defines base characters to be all characters (not Cn)
+ * that do not graphically combine with preceding characters (M)
+ * and that are neither control (Cc) or format (Cf) characters.
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is a base character according to this function
+ *
+ * @see u_isalpha
+ * @see u_isdigit
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isbase</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns the bidirectional category value for the code point,
+ * which is used in the Unicode bidirectional algorithm
+ * (UAX #9 <a href="http://www.unicode.org/reports/tr9/">http://www.unicode.org/reports/tr9/</a>).
+ * Note that some &lt;em&gt;unassigned&lt;/em&gt; code points have bidi values
+ * of R or AL because they are in blocks that are reserved
+ * for Right-To-Left scripts.
+ *
+ * Same as java.lang.Character.getDirectionality()
+ *
+ * @param c the code point to be tested
+ * @return the bidirectional category (UCharDirection) value
+ *
+ * @see UCharDirection
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UCharDirection U_EXPORT2
+<span class="enscript-function-name">u_charDirection</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines whether the code point has the Bidi_Mirrored property.
+ * This property is set for characters that are commonly used in
+ * Right-To-Left contexts and need to be displayed with a &quot;mirrored&quot;
+ * glyph.
+ *
+ * Same as java.lang.Character.isMirrored().
+ * Same as UCHAR_BIDI_MIRRORED
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the character has the Bidi_Mirrored property
+ *
+ * @see UCHAR_BIDI_MIRRORED
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isMirrored</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Maps the specified character to a &quot;mirror-image&quot; character.
+ * For characters with the Bidi_Mirrored property, implementations
+ * sometimes need a &quot;poor man's&quot; mapping to another Unicode
+ * character (code point) such that the default glyph may serve
+ * as the mirror-image of the default glyph of the specified
+ * character. This is useful for text conversion to and from
+ * codepages with visual order, and for displays without glyph
+ * selecetion capabilities.
+ *
+ * @param c the code point to be mapped
+ * @return another Unicode code point that may serve as a mirror-image
+ *         substitute, or c itself if there is no such mapping or c
+ *         does not have the Bidi_Mirrored property
+ *
+ * @see UCHAR_BIDI_MIRRORED
+ * @see u_isMirrored
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_charMirror</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns the general category value for the code point.
+ *
+ * Same as java.lang.Character.getType().
+ *
+ * @param c the code point to be tested
+ * @return the general category (UCharCategory) value
+ *
+ * @see UCharCategory
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int8_t U_EXPORT2
+<span class="enscript-function-name">u_charType</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Get a single-bit bit set for the general category of a character.
+ * This bit set can be compared bitwise with U_GC_SM_MASK, U_GC_L_MASK, etc.
+ * Same as U_MASK(u_charType(c)).
+ *
+ * @param c the code point to be tested
+ * @return a single-bit mask corresponding to the general category (UCharCategory) value
+ *
+ * @see u_charType
+ * @see UCharCategory
+ * @see U_GC_CN_MASK
+ * @stable ICU 2.1
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">U_GET_GC_MASK</span>(c) U_MASK(u_charType(c))
+
+<span class="enscript-comment">/**
+ * Callback from u_enumCharTypes(), is called for each contiguous range
+ * of code points c (where start&lt;=c&lt;limit)
+ * with the same Unicode general category (&quot;character type&quot;).
+ *
+ * The callback function can stop the enumeration by returning FALSE.
+ *
+ * @param context an opaque pointer, as passed into utrie_enum()
+ * @param start the first code point in a contiguous range with value
+ * @param limit one past the last code point in a contiguous range with value
+ * @param type the general category for all code points in [start..limit[
+ * @return FALSE to stop the enumeration
+ *
+ * @stable ICU 2.1
+ * @see UCharCategory
+ * @see u_enumCharTypes
+ */</span>
+<span class="enscript-type">typedef</span> UBool U_CALLCONV
+<span class="enscript-function-name">UCharEnumTypeRange</span>(<span class="enscript-type">const</span> <span class="enscript-type">void</span> *context, UChar32 start, UChar32 limit, UCharCategory type);
+
+<span class="enscript-comment">/**
+ * Enumerate efficiently all code points with their Unicode general categories.
+ *
+ * This is useful for building data structures (e.g., UnicodeSet's),
+ * for enumerating all assigned code points (type!=U_UNASSIGNED), etc.
+ *
+ * For each contiguous range of code points with a given general category (&quot;character type&quot;),
+ * the UCharEnumTypeRange function is called.
+ * Adjacent ranges have different types.
+ * The Unicode Standard guarantees that the numeric value of the type is 0..31.
+ *
+ * @param enumRange a pointer to a function that is called for each contiguous range
+ *                  of code points with the same general category
+ * @param context an opaque pointer that is passed on to the callback function
+ *
+ * @stable ICU 2.1
+ * @see UCharCategory
+ * @see UCharEnumTypeRange
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">u_enumCharTypes</span>(UCharEnumTypeRange *enumRange, <span class="enscript-type">const</span> <span class="enscript-type">void</span> *context);
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">UCONFIG_NO_NORMALIZATION</span>
+
+<span class="enscript-comment">/**
+ * Returns the combining class of the code point as specified in UnicodeData.txt.
+ *
+ * @param c the code point of the character
+ * @return the combining class of the character
+ * @stable ICU 2.0
+ */</span>
+U_STABLE uint8_t U_EXPORT2
+<span class="enscript-function-name">u_getCombiningClass</span>(UChar32 c);
+
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * Returns the decimal digit value of a decimal digit character.
+ * Such characters have the general category &quot;Nd&quot; (decimal digit numbers)
+ * and a Numeric_Type of Decimal.
+ *
+ * Unlike ICU releases before 2.6, no digit values are returned for any
+ * Han characters because Han number characters are often used with a special
+ * Chinese-style number format (with characters for powers of 10 in between)
+ * instead of in decimal-positional notation.
+ * Unicode 4 explicitly assigns Han number characters the Numeric_Type
+ * Numeric instead of Decimal.
+ * See Jitterbug 1483 for more details.
+ *
+ * Use u_getIntPropertyValue(c, UCHAR_NUMERIC_TYPE) and u_getNumericValue()
+ * for complete numeric Unicode properties.
+ *
+ * @param c the code point for which to get the decimal digit value
+ * @return the decimal digit value of c,
+ *         or -1 if c is not a decimal digit character
+ *
+ * @see u_getNumericValue
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_charDigitValue</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns the Unicode allocation block that contains the character.
+ *
+ * @param c the code point to be tested
+ * @return the block value (UBlockCode) for c
+ *
+ * @see UBlockCode
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBlockCode U_EXPORT2
+<span class="enscript-function-name">ublock_getCode</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Retrieve the name of a Unicode character.
+ * Depending on &lt;code&gt;nameChoice&lt;/code&gt;, the character name written
+ * into the buffer is the &quot;modern&quot; name or the name that was defined
+ * in Unicode version 1.0.
+ * The name contains only &quot;invariant&quot; characters
+ * like A-Z, 0-9, space, and '-'.
+ * Unicode 1.0 names are only retrieved if they are different from the modern
+ * names and if the data file contains the data for them. gennames may or may
+ * not be called with a command line option to include 1.0 names in unames.dat.
+ *
+ * @param code The character (code point) for which to get the name.
+ *             It must be &lt;code&gt;0&lt;=code&lt;=0x10ffff&lt;/code&gt;.
+ * @param nameChoice Selector for which name to get.
+ * @param buffer Destination address for copying the name.
+ *               The name will always be zero-terminated.
+ *               If there is no name, then the buffer will be set to the empty string.
+ * @param bufferLength &lt;code&gt;==sizeof(buffer)&lt;/code&gt;
+ * @param pErrorCode Pointer to a UErrorCode variable;
+ *        check for &lt;code&gt;U_SUCCESS()&lt;/code&gt; after &lt;code&gt;u_charName()&lt;/code&gt;
+ *        returns.
+ * @return The length of the name, or 0 if there is no name for this character.
+ *         If the bufferLength is less than or equal to the length, then the buffer
+ *         contains the truncated name and the returned length indicates the full
+ *         length of the name.
+ *         The length does not include the zero-termination.
+ *
+ * @see UCharNameChoice
+ * @see u_charFromName
+ * @see u_enumCharNames
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_charName</span>(UChar32 code, UCharNameChoice nameChoice,
+           <span class="enscript-type">char</span> *buffer, int32_t bufferLength,
+           UErrorCode *pErrorCode);
+
+<span class="enscript-comment">/**
+ * Get the ISO 10646 comment for a character.
+ * The ISO 10646 comment is an informative field in the Unicode Character
+ * Database (UnicodeData.txt field 11) and is from the ISO 10646 names list.
+ *
+ * @param c The character (code point) for which to get the ISO comment.
+ *             It must be &lt;code&gt;0&lt;=c&lt;=0x10ffff&lt;/code&gt;.
+ * @param dest Destination address for copying the comment.
+ *             The comment will be zero-terminated if possible.
+ *             If there is no comment, then the buffer will be set to the empty string.
+ * @param destCapacity &lt;code&gt;==sizeof(dest)&lt;/code&gt;
+ * @param pErrorCode Pointer to a UErrorCode variable;
+ *        check for &lt;code&gt;U_SUCCESS()&lt;/code&gt; after &lt;code&gt;u_getISOComment()&lt;/code&gt;
+ *        returns.
+ * @return The length of the comment, or 0 if there is no comment for this character.
+ *         If the destCapacity is less than or equal to the length, then the buffer
+ *         contains the truncated name and the returned length indicates the full
+ *         length of the name.
+ *         The length does not include the zero-termination.
+ *
+ * @stable ICU 2.2
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_getISOComment</span>(UChar32 c,
+                <span class="enscript-type">char</span> *dest, int32_t destCapacity,
+                UErrorCode *pErrorCode);
+
+<span class="enscript-comment">/**
+ * Find a Unicode character by its name and return its code point value.
+ * The name is matched exactly and completely.
+ * If the name does not correspond to a code point, &lt;i&gt;pErrorCode&lt;/i&gt;
+ * is set to &lt;code&gt;U_INVALID_CHAR_FOUND&lt;/code&gt;.
+ * A Unicode 1.0 name is matched only if it differs from the modern name.
+ * Unicode names are all uppercase. Extended names are lowercase followed
+ * by an uppercase hexadecimal number, and within angle brackets.
+ *
+ * @param nameChoice Selector for which name to match.
+ * @param name The name to match.
+ * @param pErrorCode Pointer to a UErrorCode variable
+ * @return The Unicode value of the code point with the given name,
+ *         or an undefined value if there is no such code point.
+ *
+ * @see UCharNameChoice
+ * @see u_charName
+ * @see u_enumCharNames
+ * @stable ICU 1.7
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_charFromName</span>(UCharNameChoice nameChoice,
+               <span class="enscript-type">const</span> <span class="enscript-type">char</span> *name,
+               UErrorCode *pErrorCode);
+
+<span class="enscript-comment">/**
+ * Type of a callback function for u_enumCharNames() that gets called
+ * for each Unicode character with the code point value and
+ * the character name.
+ * If such a function returns FALSE, then the enumeration is stopped.
+ *
+ * @param context The context pointer that was passed to u_enumCharNames().
+ * @param code The Unicode code point for the character with this name.
+ * @param nameChoice Selector for which kind of names is enumerated.
+ * @param name The character's name, zero-terminated.
+ * @param length The length of the name.
+ * @return TRUE if the enumeration should continue, FALSE to stop it.
+ *
+ * @see UCharNameChoice
+ * @see u_enumCharNames
+ * @stable ICU 1.7
+ */</span>
+<span class="enscript-type">typedef</span> UBool <span class="enscript-function-name">UEnumCharNamesFn</span>(<span class="enscript-type">void</span> *context,
+                               UChar32 code,
+                               UCharNameChoice nameChoice,
+                               <span class="enscript-type">const</span> <span class="enscript-type">char</span> *name,
+                               int32_t length);
+
+<span class="enscript-comment">/**
+ * Enumerate all assigned Unicode characters between the start and limit
+ * code points (start inclusive, limit exclusive) and call a function
+ * for each, passing the code point value and the character name.
+ * For Unicode 1.0 names, only those are enumerated that differ from the
+ * modern names.
+ *
+ * @param start The first code point in the enumeration range.
+ * @param limit One more than the last code point in the enumeration range
+ *              (the first one after the range).
+ * @param fn The function that is to be called for each character name.
+ * @param context An arbitrary pointer that is passed to the function.
+ * @param nameChoice Selector for which kind of names to enumerate.
+ * @param pErrorCode Pointer to a UErrorCode variable
+ *
+ * @see UCharNameChoice
+ * @see UEnumCharNamesFn
+ * @see u_charName
+ * @see u_charFromName
+ * @stable ICU 1.7
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">u_enumCharNames</span>(UChar32 start, UChar32 limit,
+                UEnumCharNamesFn *fn,
+                <span class="enscript-type">void</span> *context,
+                UCharNameChoice nameChoice,
+                UErrorCode *pErrorCode);
+
+<span class="enscript-comment">/**
+ * Return the Unicode name for a given property, as given in the
+ * Unicode database file PropertyAliases.txt.
+ *
+ * In addition, this function maps the property
+ * UCHAR_GENERAL_CATEGORY_MASK to the synthetic names &quot;gcm&quot; /
+ * &quot;General_Category_Mask&quot;.  These names are not in
+ * PropertyAliases.txt.
+ *
+ * @param property UProperty selector other than UCHAR_INVALID_CODE.
+ *         If out of range, NULL is returned.
+ *
+ * @param nameChoice selector for which name to get.  If out of range,
+ *         NULL is returned.  All properties have a long name.  Most
+ *         have a short name, but some do not.  Unicode allows for
+ *         additional names; if present these will be returned by
+ *         U_LONG_PROPERTY_NAME + i, where i=1, 2,...
+ *
+ * @return a pointer to the name, or NULL if either the
+ *         property or the nameChoice is out of range.  If a given
+ *         nameChoice returns NULL, then all larger values of
+ *         nameChoice will return NULL, with one exception: if NULL is
+ *         returned for U_SHORT_PROPERTY_NAME, then
+ *         U_LONG_PROPERTY_NAME (and higher) may still return a
+ *         non-NULL value.  The returned pointer is valid until
+ *         u_cleanup() is called.
+ *
+ * @see UProperty
+ * @see UPropertyNameChoice
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2
+<span class="enscript-function-name">u_getPropertyName</span>(UProperty property,
+                  UPropertyNameChoice nameChoice);
+
+<span class="enscript-comment">/**
+ * Return the UProperty enum for a given property name, as specified
+ * in the Unicode database file PropertyAliases.txt.  Short, long, and
+ * any other variants are recognized.
+ *
+ * In addition, this function maps the synthetic names &quot;gcm&quot; /
+ * &quot;General_Category_Mask&quot; to the property
+ * UCHAR_GENERAL_CATEGORY_MASK.  These names are not in
+ * PropertyAliases.txt.
+ *
+ * @param alias the property name to be matched.  The name is compared
+ *         using &quot;loose matching&quot; as described in PropertyAliases.txt.
+ *
+ * @return a UProperty enum, or UCHAR_INVALID_CODE if the given name
+ *         does not match any property.
+ *
+ * @see UProperty
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UProperty U_EXPORT2
+<span class="enscript-function-name">u_getPropertyEnum</span>(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* alias);
+
+<span class="enscript-comment">/**
+ * Return the Unicode name for a given property value, as given in the
+ * Unicode database file PropertyValueAliases.txt.
+ *
+ * Note: Some of the names in PropertyValueAliases.txt can only be
+ * retrieved using UCHAR_GENERAL_CATEGORY_MASK, not
+ * UCHAR_GENERAL_CATEGORY.  These include: &quot;C&quot; / &quot;Other&quot;, &quot;L&quot; /
+ * &quot;Letter&quot;, &quot;LC&quot; / &quot;Cased_Letter&quot;, &quot;M&quot; / &quot;Mark&quot;, &quot;N&quot; / &quot;Number&quot;, &quot;P&quot;
+ * / &quot;Punctuation&quot;, &quot;S&quot; / &quot;Symbol&quot;, and &quot;Z&quot; / &quot;Separator&quot;.
+ *
+ * @param property UProperty selector constant.
+ *        Must be UCHAR_BINARY_START&lt;=which&lt;UCHAR_BINARY_LIMIT
+ *        or UCHAR_INT_START&lt;=which&lt;UCHAR_INT_LIMIT
+ *        or UCHAR_MASK_START&lt;=which&lt;UCHAR_MASK_LIMIT.
+ *        If out of range, NULL is returned.
+ *
+ * @param value selector for a value for the given property.  If out
+ *         of range, NULL is returned.  In general, valid values range
+ *         from 0 up to some maximum.  There are a few exceptions:
+ *         (1.) UCHAR_BLOCK values begin at the non-zero value
+ *         UBLOCK_BASIC_LATIN.  (2.)  UCHAR_CANONICAL_COMBINING_CLASS
+ *         values are not contiguous and range from 0..240.  (3.)
+ *         UCHAR_GENERAL_CATEGORY_MASK values are not values of
+ *         UCharCategory, but rather mask values produced by
+ *         U_GET_GC_MASK().  This allows grouped categories such as
+ *         [:L:] to be represented.  Mask values range
+ *         non-contiguously from 1..U_GC_P_MASK.
+ *
+ * @param nameChoice selector for which name to get.  If out of range,
+ *         NULL is returned.  All values have a long name.  Most have
+ *         a short name, but some do not.  Unicode allows for
+ *         additional names; if present these will be returned by
+ *         U_LONG_PROPERTY_NAME + i, where i=1, 2,...
+
+ * @return a pointer to the name, or NULL if either the
+ *         property or the nameChoice is out of range.  If a given
+ *         nameChoice returns NULL, then all larger values of
+ *         nameChoice will return NULL, with one exception: if NULL is
+ *         returned for U_SHORT_PROPERTY_NAME, then
+ *         U_LONG_PROPERTY_NAME (and higher) may still return a
+ *         non-NULL value.  The returned pointer is valid until
+ *         u_cleanup() is called.
+ *
+ * @see UProperty
+ * @see UPropertyNameChoice
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">const</span> <span class="enscript-type">char</span>* U_EXPORT2
+<span class="enscript-function-name">u_getPropertyValueName</span>(UProperty property,
+                       int32_t value,
+                       UPropertyNameChoice nameChoice);
+
+<span class="enscript-comment">/**
+ * Return the property value integer for a given value name, as
+ * specified in the Unicode database file PropertyValueAliases.txt.
+ * Short, long, and any other variants are recognized.
+ *
+ * Note: Some of the names in PropertyValueAliases.txt will only be
+ * recognized with UCHAR_GENERAL_CATEGORY_MASK, not
+ * UCHAR_GENERAL_CATEGORY.  These include: &quot;C&quot; / &quot;Other&quot;, &quot;L&quot; /
+ * &quot;Letter&quot;, &quot;LC&quot; / &quot;Cased_Letter&quot;, &quot;M&quot; / &quot;Mark&quot;, &quot;N&quot; / &quot;Number&quot;, &quot;P&quot;
+ * / &quot;Punctuation&quot;, &quot;S&quot; / &quot;Symbol&quot;, and &quot;Z&quot; / &quot;Separator&quot;.
+ *
+ * @param property UProperty selector constant.
+ *        Must be UCHAR_BINARY_START&lt;=which&lt;UCHAR_BINARY_LIMIT
+ *        or UCHAR_INT_START&lt;=which&lt;UCHAR_INT_LIMIT
+ *        or UCHAR_MASK_START&lt;=which&lt;UCHAR_MASK_LIMIT.
+ *        If out of range, UCHAR_INVALID_CODE is returned.
+ *
+ * @param alias the value name to be matched.  The name is compared
+ *         using &quot;loose matching&quot; as described in
+ *         PropertyValueAliases.txt.
+ *
+ * @return a value integer or UCHAR_INVALID_CODE if the given name
+ *         does not match any value of the given property, or if the
+ *         property is invalid.  Note: U CHAR_GENERAL_CATEGORY values
+ *         are not values of UCharCategory, but rather mask values
+ *         produced by U_GET_GC_MASK().  This allows grouped
+ *         categories such as [:L:] to be represented.
+ *
+ * @see UProperty
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_getPropertyValueEnum</span>(UProperty property,
+                       <span class="enscript-type">const</span> <span class="enscript-type">char</span>* alias);
+
+<span class="enscript-comment">/**
+ * Determines if the specified character is permissible as the
+ * first character in an identifier according to Unicode
+ * (The Unicode Standard, Version 3.0, chapter 5.16 Identifiers).
+ * True for characters with general categories &quot;L&quot; (letters) and &quot;Nl&quot; (letter numbers).
+ *
+ * Same as java.lang.Character.isUnicodeIdentifierStart().
+ * Same as UCHAR_ID_START
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point may start an identifier
+ *
+ * @see UCHAR_ID_START
+ * @see u_isalpha
+ * @see u_isIDPart
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isIDStart</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines if the specified character is permissible
+ * in an identifier according to Java.
+ * True for characters with general categories &quot;L&quot; (letters),
+ * &quot;Nl&quot; (letter numbers), &quot;Nd&quot; (decimal digits),
+ * &quot;Mc&quot; and &quot;Mn&quot; (combining marks), &quot;Pc&quot; (connecting punctuation), and
+ * u_isIDIgnorable(c).
+ *
+ * Same as java.lang.Character.isUnicodeIdentifierPart().
+ * Almost the same as Unicode's ID_Continue (UCHAR_ID_CONTINUE)
+ * except that Unicode recommends to ignore Cf which is less than
+ * u_isIDIgnorable(c).
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point may occur in an identifier according to Java
+ *
+ * @see UCHAR_ID_CONTINUE
+ * @see u_isIDStart
+ * @see u_isIDIgnorable
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isIDPart</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines if the specified character should be regarded
+ * as an ignorable character in an identifier,
+ * according to Java.
+ * True for characters with general category &quot;Cf&quot; (format controls) as well as
+ * non-whitespace ISO controls
+ * (U+0000..U+0008, U+000E..U+001B, U+007F..U+0084, U+0086..U+009F).
+ *
+ * Same as java.lang.Character.isIdentifierIgnorable()
+ * except that Java also returns TRUE for U+0085 Next Line
+ * (it omits U+0085 from whitespace ISO controls).
+ *
+ * Note that Unicode just recommends to ignore Cf (format controls).
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point is ignorable in identifiers according to Java
+ *
+ * @see UCHAR_DEFAULT_IGNORABLE_CODE_POINT
+ * @see u_isIDStart
+ * @see u_isIDPart
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isIDIgnorable</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines if the specified character is permissible as the
+ * first character in a Java identifier.
+ * In addition to u_isIDStart(c), true for characters with
+ * general categories &quot;Sc&quot; (currency symbols) and &quot;Pc&quot; (connecting punctuation).
+ *
+ * Same as java.lang.Character.isJavaIdentifierStart().
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point may start a Java identifier
+ *
+ * @see     u_isJavaIDPart
+ * @see     u_isalpha
+ * @see     u_isIDStart
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isJavaIDStart</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * Determines if the specified character is permissible
+ * in a Java identifier.
+ * In addition to u_isIDPart(c), true for characters with
+ * general category &quot;Sc&quot; (currency symbols).
+ *
+ * Same as java.lang.Character.isJavaIdentifierPart().
+ *
+ * @param c the code point to be tested
+ * @return TRUE if the code point may occur in a Java identifier
+ *
+ * @see     u_isIDIgnorable
+ * @see     u_isJavaIDStart
+ * @see     u_isalpha
+ * @see     u_isdigit
+ * @see     u_isIDPart
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">u_isJavaIDPart</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * The given character is mapped to its lowercase equivalent according to
+ * UnicodeData.txt; if the character has no lowercase equivalent, the character
+ * itself is returned.
+ *
+ * Same as java.lang.Character.toLowerCase().
+ *
+ * This function only returns the simple, single-code point case mapping.
+ * Full case mappings may result in zero, one or more code points and depend
+ * on context or language etc.
+ * Full case mappings are applied by the string case mapping functions,
+ * see ustring.h and the UnicodeString class.
+ *
+ * @param c the code point to be mapped
+ * @return the Simple_Lowercase_Mapping of the code point, if any;
+ *         otherwise the code point itself.
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_tolower</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * The given character is mapped to its uppercase equivalent according to UnicodeData.txt;
+ * if the character has no uppercase equivalent, the character itself is
+ * returned.
+ *
+ * Same as java.lang.Character.toUpperCase().
+ *
+ * This function only returns the simple, single-code point case mapping.
+ * Full case mappings may result in zero, one or more code points and depend
+ * on context or language etc.
+ * Full case mappings are applied by the string case mapping functions,
+ * see ustring.h and the UnicodeString class.
+ *
+ * @param c the code point to be mapped
+ * @return the Simple_Uppercase_Mapping of the code point, if any;
+ *         otherwise the code point itself.
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_toupper</span>(UChar32 c);
+
+<span class="enscript-comment">/**
+ * The given character is mapped to its titlecase equivalent
+ * according to UnicodeData.txt;
+ * if none is defined, the character itself is returned.
+ *
+ * Same as java.lang.Character.toTitleCase().
+ *
+ * This function only returns the simple, single-code point case mapping.
+ * Full case mappings may result in zero, one or more code points and depend
+ * on context or language etc.
+ * Full case mappings are applied by the string case mapping functions,
+ * see ustring.h and the UnicodeString class.
+ *
+ * @param c the code point to be mapped
+ * @return the Simple_Titlecase_Mapping of the code point, if any;
+ *         otherwise the code point itself.
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_totitle</span>(UChar32 c);
+
+<span class="enscript-comment">/** Option value for case folding: use default mappings defined in CaseFolding.txt. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FOLD_CASE_DEFAULT</span> 0
+
+<span class="enscript-comment">/**
+ * Option value for case folding:
+ *
+ * Use the modified set of mappings provided in CaseFolding.txt to handle dotted I
+ * and dotless i appropriately for Turkic languages (tr, az).
+ *
+ * Before Unicode 3.2, CaseFolding.txt contains mappings marked with 'I' that
+ * are to be included for default mappings and
+ * excluded for the Turkic-specific mappings.
+ *
+ * Unicode 3.2 CaseFolding.txt instead contains mappings marked with 'T' that
+ * are to be excluded for default mappings and
+ * included for the Turkic-specific mappings.
+ *
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_FOLD_CASE_EXCLUDE_SPECIAL_I</span> 1
+
+<span class="enscript-comment">/**
+ * The given character is mapped to its case folding equivalent according to
+ * UnicodeData.txt and CaseFolding.txt;
+ * if the character has no case folding equivalent, the character
+ * itself is returned.
+ *
+ * This function only returns the simple, single-code point case mapping.
+ * Full case mappings may result in zero, one or more code points and depend
+ * on context or language etc.
+ * Full case mappings are applied by the string case mapping functions,
+ * see ustring.h and the UnicodeString class.
+ *
+ * @param c the code point to be mapped
+ * @param options Either U_FOLD_CASE_DEFAULT or U_FOLD_CASE_EXCLUDE_SPECIAL_I
+ * @return the Simple_Case_Folding of the code point, if any;
+ *         otherwise the code point itself.
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_foldCase</span>(UChar32 c, uint32_t options);
+
+<span class="enscript-comment">/**
+ * Returns the decimal digit value of the code point in the
+ * specified radix.
+ *
+ * If the radix is not in the range &lt;code&gt;2&lt;=radix&lt;=36&lt;/code&gt; or if the
+ * value of &lt;code&gt;c&lt;/code&gt; is not a valid digit in the specified
+ * radix, &lt;code&gt;-1&lt;/code&gt; is returned. A character is a valid digit
+ * if at least one of the following is true:
+ * &lt;ul&gt;
+ * &lt;li&gt;The character has a decimal digit value.
+ *     Such characters have the general category &quot;Nd&quot; (decimal digit numbers)
+ *     and a Numeric_Type of Decimal.
+ *     In this case the value is the character's decimal digit value.&lt;/li&gt;
+ * &lt;li&gt;The character is one of the uppercase Latin letters
+ *     &lt;code&gt;'A'&lt;/code&gt; through &lt;code&gt;'Z'&lt;/code&gt;.
+ *     In this case the value is &lt;code&gt;c-'A'+10&lt;/code&gt;.&lt;/li&gt;
+ * &lt;li&gt;The character is one of the lowercase Latin letters
+ *     &lt;code&gt;'a'&lt;/code&gt; through &lt;code&gt;'z'&lt;/code&gt;.
+ *     In this case the value is &lt;code&gt;ch-'a'+10&lt;/code&gt;.&lt;/li&gt;
+ * &lt;li&gt;Latin letters from both the ASCII range (0061..007A, 0041..005A)
+ *     as well as from the Fullwidth ASCII range (FF41..FF5A, FF21..FF3A)
+ *     are recognized.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * Same as java.lang.Character.digit().
+ *
+ * @param   ch      the code point to be tested.
+ * @param   radix   the radix.
+ * @return  the numeric value represented by the character in the
+ *          specified radix,
+ *          or -1 if there is no value or if the value exceeds the radix.
+ *
+ * @see     UCHAR_NUMERIC_TYPE
+ * @see     u_forDigit
+ * @see     u_charDigitValue
+ * @see     u_isdigit
+ * @stable ICU 2.0
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_digit</span>(UChar32 ch, int8_t radix);
+
+<span class="enscript-comment">/**
+ * Determines the character representation for a specific digit in
+ * the specified radix. If the value of &lt;code&gt;radix&lt;/code&gt; is not a
+ * valid radix, or the value of &lt;code&gt;digit&lt;/code&gt; is not a valid
+ * digit in the specified radix, the null character
+ * (&lt;code&gt;U+0000&lt;/code&gt;) is returned.
+ * &lt;p&gt;
+ * The &lt;code&gt;radix&lt;/code&gt; argument is valid if it is greater than or
+ * equal to 2 and less than or equal to 36.
+ * The &lt;code&gt;digit&lt;/code&gt; argument is valid if
+ * &lt;code&gt;0 &lt;= digit &lt; radix&lt;/code&gt;.
+ * &lt;p&gt;
+ * If the digit is less than 10, then
+ * &lt;code&gt;'0' + digit&lt;/code&gt; is returned. Otherwise, the value
+ * &lt;code&gt;'a' + digit - 10&lt;/code&gt; is returned.
+ *
+ * Same as java.lang.Character.forDigit().
+ *
+ * @param   digit   the number to convert to a character.
+ * @param   radix   the radix.
+ * @return  the &lt;code&gt;char&lt;/code&gt; representation of the specified digit
+ *          in the specified radix.
+ *
+ * @see     u_digit
+ * @see     u_charDigitValue
+ * @see     u_isdigit
+ * @stable ICU 2.0
+ */</span>
+U_STABLE UChar32 U_EXPORT2
+<span class="enscript-function-name">u_forDigit</span>(int32_t digit, int8_t radix);
+
+<span class="enscript-comment">/**
+ * Get the &quot;age&quot; of the code point.
+ * The &quot;age&quot; is the Unicode version when the code point was first
+ * designated (as a non-character or for Private Use)
+ * or assigned a character.
+ * This can be useful to avoid emitting code points to receiving
+ * processes that do not accept newer characters.
+ * The data is from the UCD file DerivedAge.txt.
+ *
+ * @param c The code point.
+ * @param versionArray The Unicode version number array, to be filled in.
+ *
+ * @stable ICU 2.1
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">u_charAge</span>(UChar32 c, UVersionInfo versionArray);
+
+<span class="enscript-comment">/**
+ * Gets the Unicode version information.
+ * The version array is filled in with the version information
+ * for the Unicode standard that is currently used by ICU.
+ * For example, Unicode version 3.1.1 is represented as an array with
+ * the values { 3, 1, 1, 0 }.
+ *
+ * @param versionArray an output array that will be filled in with
+ *                     the Unicode version number
+ * @stable ICU 2.0
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">u_getUnicodeVersion</span>(UVersionInfo versionArray);
+
+<span class="enscript-comment">/**
+ * Get the FC_NFKC_Closure property string for a character.
+ * See Unicode Standard Annex #15 for details, search for &quot;FC_NFKC_Closure&quot;
+ * or for &quot;FNC&quot;: <a href="http://www.unicode.org/reports/tr15/">http://www.unicode.org/reports/tr15/</a>
+ *
+ * @param c The character (code point) for which to get the FC_NFKC_Closure string.
+ *             It must be &lt;code&gt;0&lt;=c&lt;=0x10ffff&lt;/code&gt;.
+ * @param dest Destination address for copying the string.
+ *             The string will be zero-terminated if possible.
+ *             If there is no FC_NFKC_Closure string,
+ *             then the buffer will be set to the empty string.
+ * @param destCapacity &lt;code&gt;==sizeof(dest)&lt;/code&gt;
+ * @param pErrorCode Pointer to a UErrorCode variable.
+ * @return The length of the string, or 0 if there is no FC_NFKC_Closure string for this character.
+ *         If the destCapacity is less than or equal to the length, then the buffer
+ *         contains the truncated name and the returned length indicates the full
+ *         length of the name.
+ *         The length does not include the zero-termination.
+ *
+ * @stable ICU 2.2
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">u_getFC_NFKC_Closure</span>(UChar32 c, UChar *dest, int32_t destCapacity, UErrorCode *pErrorCode);
+
+U_CDECL_END
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/*_UCHAR*/</span>
+<span class="enscript-comment">/*eof*/</span>
+</pre>
+<hr />
+</body></html>

@@ -526,7 +526,7 @@ void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, boo
         m_frame->script()->clearWindowShell(m_frame->document()->inPageCache());
     }
 
-    m_frame->selection()->clear();
+    m_frame->selection()->prepareForDestruction();
     m_frame->eventHandler()->clear();
     if (clearFrameView && m_frame->view())
         m_frame->view()->clear();
@@ -968,7 +968,7 @@ void FrameLoader::setFirstPartyForCookies(const KURL& url)
 
 // This does the same kind of work that didOpenURL does, except it relies on the fact
 // that a higher level already checked that the URLs match and the scrolling is the right thing to do.
-void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* stateObject, bool isNewNavigation)
+void FrameLoader::loadInSameDocument(const KURL& url, PassRefPtr<SerializedScriptValue> stateObject, bool isNewNavigation)
 {
     // If we have a state object, we cannot also be a new navigation.
     ASSERT(!stateObject || (stateObject && !isNewNavigation));
@@ -1021,7 +1021,7 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
 
     m_client->dispatchDidNavigateWithinPage();
 
-    m_frame->document()->statePopped(stateObject ? stateObject : SerializedScriptValue::nullValue());
+    m_frame->document()->statePopped(stateObject ? stateObject.get() : SerializedScriptValue::nullValue());
     m_client->dispatchDidPopStateWithinPage();
     
     if (hashChange) {
@@ -1628,6 +1628,7 @@ void FrameLoader::commitProvisionalLoad()
 {
     RefPtr<CachedPage> cachedPage = m_loadingFromCachedPage ? pageCache()->get(history()->provisionalItem()) : 0;
     RefPtr<DocumentLoader> pdl = m_provisionalDocumentLoader;
+    RefPtr<Frame> protect(m_frame);
 
     LOG(PageCache, "WebCoreLoading %s: About to commit provisional load from previous URL '%s' to new URL '%s'", m_frame->tree()->uniqueName().string().utf8().data(),
         m_frame->document() ? m_frame->document()->url().string().utf8().data() : "", 
@@ -1647,7 +1648,7 @@ void FrameLoader::commitProvisionalLoad()
 
     transitionToCommitted(cachedPage);
 
-    if (pdl) {
+    if (pdl && m_documentLoader) {
         // Check if the destination page is allowed to access the previous page's timing information.
         RefPtr<SecurityOrigin> securityOrigin = SecurityOrigin::create(pdl->request().url());
         m_documentLoader->timing()->setHasSameOriginAsPreviousDocument(securityOrigin->canRequest(m_previousUrl));

@@ -122,6 +122,7 @@ typedef struct syncinfo_s {
 	struct rewrite_info *si_rewrite;
 	struct berval	si_suffixm;
 #endif
+	int			si_updateCookie;
 	ldap_pvt_thread_mutex_t	si_mutex;
 } syncinfo_t;
 
@@ -612,7 +613,7 @@ do_syncrep1(
 	rc = slap_client_connect( &si->si_ld, &si->si_bindconf );
 	if ( rc != LDAP_SUCCESS ) {
 		static struct berval bv_GSSAPI = BER_BVC( "GSSAPI" );
-		Debug( LDAP_DEBUG_ANY, "do_syncrep1: client_connect failed (%d) - searchbase(%s)\n",rc, si->si_base.bv_val,0 );
+		Debug( LDAP_DEBUG_ANY, "do_syncrep1: client_connect failed (%d) - searchbase(%s) URI(%s)\n",rc, si->si_base.bv_val, si->si_bindconf.sb_uri.bv_val );
 		
 		if ((ber_bvcmp( &si->si_bindconf.sb_saslmech, &bv_GSSAPI ) == 0 && rc == LDAP_SERVER_DOWN))
 		{
@@ -662,6 +663,7 @@ do_syncrep1(
 		}
 		goto done;
 	}
+	Debug( LDAP_DEBUG_ANY, "do_syncrep1: CONNECTED(%p) searchbase(%s) URI(%s)\n", si->si_ld, si->si_base.bv_val, si->si_bindconf.sb_uri.bv_val );
 	op->o_protocol = LDAP_VERSION3;
 
 	/* Set SSF to strongest of TLS, SASL SSFs */
@@ -788,6 +790,9 @@ do_syncrep1(
 
 done:
 	if ( rc ) {
+#ifdef LDAP_DEBUG
+		Debug( LDAP_DEBUG_ANY, "do_syncrep1[done]: si_ld(%p) %s (%d)\n", si->si_ld, ldap_err2string( rc ), rc );
+#endif
 		if ( si->si_ld ) {
 			ldap_unbind_ext( si->si_ld, NULL, NULL );
 			si->si_ld = NULL;
@@ -1240,13 +1245,16 @@ do_syncrep2(
 						"do_syncrep2: %s NEW_COOKIE: %s\n",
 						si->si_ridtxt,
 						cookie.bv_val, 0);
-					if ( !BER_BVISNULL( &cookie ) ) {
-						ch_free( syncCookie.octet_str.bv_val );
-						ber_dupbv( &syncCookie.octet_str, &cookie );
-					}
-					if (!BER_BVISNULL( &syncCookie.octet_str ) ) {
-						slap_parse_sync_cookie( &syncCookie, NULL );
-						op->o_controls[slap_cids.sc_LDAPsync] = &syncCookie;
+					if (si->si_updateCookie)
+					{
+						if ( !BER_BVISNULL( &cookie ) ) {
+							ch_free( syncCookie.octet_str.bv_val );
+							ber_dupbv( &syncCookie.octet_str, &cookie );
+						}
+						if (!BER_BVISNULL( &syncCookie.octet_str ) ) {
+							slap_parse_sync_cookie( &syncCookie, NULL );
+							op->o_controls[slap_cids.sc_LDAPsync] = &syncCookie;
+						}
 					}
 					break;
 				case LDAP_TAG_SYNC_REFRESH_DELETE:
@@ -4611,6 +4619,7 @@ config_suffixm( ConfigArgs *c, syncinfo_t *si )
 /* FIXME: undocumented */
 #define EXATTRSSTR		"exattrs"
 #define MANAGEDSAITSTR		"manageDSAit"
+#define UPDATECOOKIESTR		"updateCookie"
 
 /* mandatory */
 enum {
@@ -5115,6 +5124,17 @@ parse_syncrepl_line(
 				"unable to parse \"%s\"\n", c->argv[ i ] );
 			Debug( LDAP_DEBUG_ANY, "%s: %s.\n", c->log, c->cr_msg, 0 );
 			return -1;
+		} else if ( !strncasecmp( c->argv[ i ], UPDATECOOKIESTR "=",
+					STRLENOF( UPDATECOOKIESTR "=" ) ) )
+		{
+			val = c->argv[ i ] + STRLENOF( UPDATECOOKIESTR "=" );
+			if ( !strncasecmp( val, "on", STRLENOF( "on" ) ) ) {
+				si->si_updateCookie = 1;
+			} else if ( !strncasecmp( val, "off", STRLENOF( "off" ) ) ) {
+				si->si_updateCookie = 0;
+			} else {
+				si->si_updateCookie = 1;
+			}
 		}
 		si->si_got |= GOT_BINDCONF;
 	}
@@ -5219,7 +5239,8 @@ add_syncrepl(
 	si->si_manageDSAit = 0;
 	si->si_tlimit = 0;
 	si->si_slimit = 0;
-
+	si->si_updateCookie = 0;
+	
 	si->si_presentlist = NULL;
 	LDAP_LIST_INIT( &si->si_nonpresentlist );
 	ldap_pvt_thread_mutex_init( &si->si_mutex );

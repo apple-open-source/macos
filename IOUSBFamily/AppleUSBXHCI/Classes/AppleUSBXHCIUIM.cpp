@@ -158,6 +158,7 @@ static ErrataListEntry  errataList[] = {
     {0x1b21, 0, 0, 0xffff,	kXHCIErrata_ASMedia},   // ASMedia XHCI
 	{0x1b73, 0,	0, 0xffff, kXHCIErrata_FrescoLogic},// Fresco Logic
 	{0x1b73, 0x1100, 0, 16, kXHCIErrata_FL1100_Ax},	// Fresco Logic FL1100-Ax
+	{0x1b6f, 0x7052, 1, 0xffff, kXHCIErrata_Etron7052}
 };
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))
@@ -3951,7 +3952,7 @@ IOReturn AppleUSBXHCI::UIMInitialize(IOService * provider)
 		_errataBits |= GetErrataBits(_vendorID, _deviceID, _revisionID);
 		USBLog(3, "AppleUSBXHCI[%p]::UIMInitialize - PCI Vendor:%x, device: %x, rev: %x, errata: %x", this,_vendorID, _deviceID, _revisionID, (unsigned int)_errataBits);
 
-		if( (_errataBits & (kXHCIErrataPPT | kXHCIErrata_FrescoLogic | kXHCIErrata_ASMedia)) == 0)
+		if( (_errataBits & (kXHCIErrataPPT | kXHCIErrata_FrescoLogic | kXHCIErrata_ASMedia |kXHCIErrata_Etron7052)) == 0)
 		{
 			// By default we will not support XHCI controllers other than PantherPoint and Fresco Logic and ASMedia.  However, we can override this with a boot-arg
 			// or with a property list in the driver's personality

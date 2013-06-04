@@ -203,6 +203,12 @@ void XMLDocumentParser::doEnd()
         document()->setTransformSource(adoptPtr(new TransformSource(m_originalSourceForTransform)));
         document()->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
         document()->styleResolverChanged(RecalcStyleImmediately);
+
+        // styleResolverChanged() call can detach the parser and null out its document.
+        // In that case, we just bail out.
+        if (isDetached())
+            return;
+
         document()->setParsing(true);
         DocumentParser::stopParsing();
     }
@@ -492,7 +498,7 @@ void XMLDocumentParser::parseEndElement()
     RefPtr<ContainerNode> n = m_currentNode;
     n->finishParsingChildren();
 
-    if (m_scriptingPermission == FragmentScriptingNotAllowed && n->isElementNode() && toScriptElement(static_cast<Element*>(n.get()))) {
+    if (!scriptingContentIsAllowed(m_scriptingPermission) && n->isElementNode() && toScriptElement(static_cast<Element*>(n.get()))) {
         popCurrentNode();
         ExceptionCode ec;
         n->remove(ec);

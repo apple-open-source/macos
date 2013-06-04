@@ -1,0 +1,292 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>platform.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">platform.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+******************************************************************************
+*
+*   Copyright (C) 1997-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+*
+******************************************************************************
+*
+*  FILE NAME : platform.h
+*
+*   Date        Name        Description
+*   05/13/98    nos         Creation (content moved here from ptypes.h).
+*   03/02/99    stephen     Added AS400 support.
+*   03/30/99    stephen     Added Linux support.
+*   04/13/99    stephen     Reworked for autoconf.
+******************************************************************************
+*/</span>
+
+<span class="enscript-comment">/* Define the platform we're on. */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_DARWIN</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_DARWIN</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Define whether inttypes.h is available */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_INTTYPES_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_INTTYPES_H</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*
+ * Define what support for C++ streams is available.
+ *     If U_IOSTREAM_SOURCE is set to 199711, then &lt;iostream&gt; is available
+ * (1997711 is the date the ISO/IEC C++ FDIS was published), and then
+ * one should qualify streams using the std namespace in ICU header
+ * files.
+ *     If U_IOSTREAM_SOURCE is set to 198506, then &lt;iostream.h&gt; is
+ * available instead (198506 is the date when Stroustrup published
+ * &quot;An Extensible I/O Facility for C++&quot; at the summer USENIX conference).
+ *     If U_IOSTREAM_SOURCE is 0, then C++ streams are not available and
+ * support for them will be silently suppressed in ICU.
+ *
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_IOSTREAM_SOURCE</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_IOSTREAM_SOURCE</span> 199711
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Determines whether specific types are available */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_INT8_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_INT8_T</span> 1
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_UINT8_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_UINT8_T</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_INT16_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_INT16_T</span> 1
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_UINT16_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_UINT16_T</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_INT32_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_INT32_T</span> 1
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_UINT32_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_UINT32_T</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_INT64_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_INT64_T</span> 1
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_UINT64_T</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_UINT64_T</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Generic data types                                                        */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/types.h&gt;</span>
+
+<span class="enscript-comment">/* If your platform does not have the &lt;inttypes.h&gt; header, you may
+   need to edit the typedefs below. */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">U_HAVE_INTTYPES_H</span>
+
+<span class="enscript-comment">/* autoconf 2.13 sometimes can't properly find the data types in &lt;inttypes.h&gt; */</span>
+<span class="enscript-comment">/* os/390 needs &lt;inttypes.h&gt;, but it doesn't have int8_t, and it sometimes */</span>
+<span class="enscript-comment">/* doesn't have uint8_t depending on the OS version. */</span>
+<span class="enscript-comment">/* So we have this work around. */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">OS390</span>
+<span class="enscript-comment">/* The features header is needed to get (u)int64_t sometimes. */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;features.h&gt;</span>
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_INT8_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">signed</span> <span class="enscript-type">char</span> int8_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__uint8_t</span>)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">__uint8_t</span> 1
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> uint8_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* OS390 */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;inttypes.h&gt;</span>
+
+#<span class="enscript-reference">else</span> <span class="enscript-comment">/* U_HAVE_INTTYPES_H */</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_INT8_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">signed</span> <span class="enscript-type">char</span> int8_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_UINT8_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> uint8_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_INT16_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">signed</span> <span class="enscript-type">short</span> int16_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_UINT16_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> uint16_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_INT32_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">signed</span> <span class="enscript-type">int</span> int32_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_UINT32_T</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> uint32_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_INT64_T</span>
+    <span class="enscript-type">typedef</span> <span class="enscript-type">signed</span> <span class="enscript-type">long</span> <span class="enscript-type">long</span> int64_t;
+<span class="enscript-comment">/* else we may not have a 64-bit type */</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> ! <span class="enscript-variable-name">U_HAVE_UINT64_T</span>
+    <span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> <span class="enscript-type">long</span> uint64_t;
+<span class="enscript-comment">/* else we may not have a 64-bit type */</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Compiler and environment features                                         */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+<span class="enscript-comment">/* Define whether namespace is supported */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_NAMESPACE</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_NAMESPACE</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Determines the endianness of the platform
+   It's done this way in case multiple architectures are being built at once.
+   For example, Darwin supports fat binaries, which can be both PPC and x86 based. */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">BYTE_ORDER</span>) &amp;&amp; <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">BIG_ENDIAN</span>)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_IS_BIG_ENDIAN</span> (BYTE_ORDER == BIG_ENDIAN)
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_IS_BIG_ENDIAN</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 1 or 0 to enable or disable threads.  If undefined, default is: enable threads. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ICU_USE_THREADS</span> 1
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_DEBUG</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_DEBUG</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_RELEASE</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_RELEASE</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Determine whether to disable renaming or not. This overrides the
+   setting in umachine.h which is for all platforms. */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_DISABLE_RENAMING</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_DISABLE_RENAMING</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Determine whether to override new and delete. */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_OVERRIDE_CXX_ALLOCATION</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_OVERRIDE_CXX_ALLOCATION</span> 1
+#<span class="enscript-reference">endif</span>
+<span class="enscript-comment">/* Determine whether to override placement new and delete for STL. */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_PLACEMENT_NEW</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_PLACEMENT_NEW</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Determine whether to enable tracing. */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_ENABLE_TRACING</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_ENABLE_TRACING</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Define the library suffix in a C syntax. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_LIB_SUFFIX</span> 0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_LIB_SUFFIX_C_NAME</span> 
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_LIB_SUFFIX_C_NAME_STRING</span> <span class="enscript-string">&quot;&quot;</span>
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Character data types                                                      */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">OS390</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">OS400</span>)
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CHARSET_FAMILY</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Information about wchar support                                           */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_WCHAR_H</span>      1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>    4
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_WCSCPY</span>       1
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Information about POSIX support                                           */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_NL_LANGINFO</span>          1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_NL_LANGINFO_CODESET</span>  1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NL_LANGINFO_CODESET</span>       CODESET
+
+#<span class="enscript-reference">if</span> 1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_TZSET</span>         tzset
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> 0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_TIMEZONE</span>      
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> 1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_TZNAME</span>        tzname
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_MMAP</span>     1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_POPEN</span>    1
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Symbol import-export control                                              */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_EXPORT</span>
+<span class="enscript-comment">/* U_CALLCONV is releated to U_EXPORT2 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_EXPORT2</span>
+
+<span class="enscript-comment">/* cygwin needs to export/import data */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">U_CYGWIN</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_IMPORT</span> __declspec(dllimport)
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_IMPORT</span> 
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Code alignment and C function inlining                                    */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_INLINE</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_INLINE</span> inline
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">U_ALIGN_CODE</span>(n) 
+
+<span class="enscript-comment">/*===========================================================================*/</span>
+<span class="enscript-comment">/* Programs used by ICU code                                                 */</span>
+<span class="enscript-comment">/*===========================================================================*/</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_MAKE</span>  <span class="enscript-string">&quot;/usr/bin/gnumake&quot;</span>
+</pre>
+<hr />
+</body></html>

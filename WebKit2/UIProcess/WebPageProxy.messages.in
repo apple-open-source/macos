@@ -30,7 +30,7 @@ messages -> WebPageProxy {
     RunJavaScriptPrompt(uint64_t frameID, WTF::String message, WTF::String defaultValue) -> (WTF::String result)
     ShouldInterruptJavaScript() -> (bool shouldInterupt)
     MouseDidMoveOverElement(WebKit::WebHitTestResult::Data hitTestResultData, uint32_t modifiers, WebKit::InjectedBundleUserMessageEncoder userData);
-    UnavailablePluginButtonClicked(uint32_t pluginUnavailabilityReason, WTF::String mimeType, WTF::String url, WTF::String pluginsPageURL)
+    UnavailablePluginButtonClicked(uint32_t pluginUnavailabilityReason, WTF::String mimeType, WTF::String pluginURLString, WTF::String pluginspageAttributeURLString, WTF::String frameURLString, WTF::String pageURLString)
     DidChangeViewportProperties(WebCore::ViewportAttributes attributes)
     DidReceiveEvent(uint32_t type, bool handled)
     StopResponsivenessTimer()
@@ -65,8 +65,8 @@ messages -> WebPageProxy {
     DidChangeScrollbarsForMainFrame(bool hasHorizontalScrollbar, bool hasVerticalScrollbar)
     DidChangeScrollOffsetPinningForMainFrame(bool hasHorizontalScrollbar, bool hasVerticalScrollbar)
     DidChangePageCount(unsigned pageCount);
-    DidFailToInitializePlugin(WTF::String mimeType)
-    DidBlockInsecurePluginVersion(WTF::String mimeType, WTF::String urlString)
+    DidFailToInitializePlugin(WTF::String mimeType, WTF::String frameURLString, WTF::String pageURLString)
+    DidBlockInsecurePluginVersion(WTF::String mimeType, WTF::String pluginURLString, WTF::String frameURLString, WTF::String pageURLString)
     SetCanShortCircuitHorizontalWheelEvents(bool canShortCircuitHorizontalWheelEvents)
 
 #if USE(TILED_BACKING_STORE)
@@ -304,3 +304,8 @@ messages -> WebPageProxy {
     SaveRecentSearches(WTF::String name, Vector<String> searchItems)
     LoadRecentSearches(WTF::String name) -> (Vector<String> result)
 }
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    GetPluginPath(WTF::String mimeType, WTF::String urlString, WTF::String frameURLString, WTF::String pageURLString) -> (WTF::String pluginPath, uint32_t pluginLoadPolicy)
+#endif
+

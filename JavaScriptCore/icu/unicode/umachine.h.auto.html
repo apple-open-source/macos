@@ -1,0 +1,396 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>umachine.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">umachine.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+******************************************************************************
+*
+*   Copyright (C) 1999-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+*
+******************************************************************************
+*   file name:  umachine.h
+*   encoding:   US-ASCII
+*   tab size:   8 (not used)
+*   indentation:4
+*
+*   created on: 1999sep13
+*   created by: Markus W. Scherer
+*
+*   This file defines basic types and constants for utf.h to be
+*   platform-independent. umachine.h and utf.h are included into
+*   utypes.h to provide all the general definitions for ICU.
+*   All of these definitions used to be in utypes.h before
+*   the UTF-handling macros made this unmaintainable.
+*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">__UMACHINE_H__</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">__UMACHINE_H__</span>
+
+
+<span class="enscript-comment">/**
+ * \file
+ * \brief Basic types and constants for UTF 
+ * 
+ * &lt;h2&gt; Basic types and constants for UTF &lt;/h2&gt;
+ *   This file defines basic types and constants for utf.h to be
+ *   platform-independent. umachine.h and utf.h are included into
+ *   utypes.h to provide all the general definitions for ICU.
+ *   All of these definitions used to be in utypes.h before
+ *   the UTF-handling macros made this unmaintainable.
+ * 
+ */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* Include platform-dependent definitions                                   */</span>
+<span class="enscript-comment">/* which are contained in the platform-specific file platform.h             */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WIN32</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_WIN32</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WIN64</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_WIN64</span>)
+#   <span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/pwin32.h&quot;</span>
+#<span class="enscript-reference">else</span>
+#   <span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/platform.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*
+ * ANSI C headers:
+ * stddef.h defines wchar_t
+ */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stddef.h&gt;</span>
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* XP_CPLUSPLUS is a cross-platform symbol which should be defined when     */</span>
+<span class="enscript-comment">/* using C++.  It should not be defined when compiling under C.             */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+#   <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">XP_CPLUSPLUS</span>
+#       <span class="enscript-reference">define</span> <span class="enscript-variable-name">XP_CPLUSPLUS</span>
+#   <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+#   <span class="enscript-reference">undef</span> <span class="enscript-variable-name">XP_CPLUSPLUS</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* For C wrappers, we use the symbol U_STABLE.                                */</span>
+<span class="enscript-comment">/* This works properly if the includer is C or C++.                         */</span>
+<span class="enscript-comment">/* Functions are declared   U_STABLE return-type U_EXPORT2 function-name()... */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+<span class="enscript-comment">/**
+ * \def U_CFUNC
+ * This is used in a declaration of a library private ICU C function.
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/**
+ * \def U_CDECL_BEGIN
+ * This is used to begin a declaration of a library private ICU C API.
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/**
+ * \def U_CDECL_END
+ * This is used to end a declaration of a library private ICU C API 
+ * @stable ICU 2.4
+ */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">XP_CPLUSPLUS</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CFUNC</span> extern <span class="enscript-string">&quot;C&quot;</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CDECL_BEGIN</span> extern <span class="enscript-string">&quot;C&quot;</span> {
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CDECL_END</span>   }
+#<span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CFUNC</span> extern
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CDECL_BEGIN</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CDECL_END</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def U_NAMESPACE_BEGIN
+ * This is used to begin a declaration of a public ICU C++ API.
+ * If the compiler doesn't support namespaces, this does nothing.
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/**
+ * \def U_NAMESPACE_END
+ * This is used to end a declaration of a public ICU C++ API 
+ * If the compiler doesn't support namespaces, this does nothing.
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/**
+ * \def U_NAMESPACE_USE
+ * This is used to specify that the rest of the code uses the
+ * public ICU C++ API namespace.
+ * If the compiler doesn't support namespaces, this does nothing.
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/**
+ * \def U_NAMESPACE_QUALIFIER
+ * This is used to qualify that a function or class is part of
+ * the public ICU C++ API namespace.
+ * If the compiler doesn't support namespaces, this does nothing.
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/* Define namespace symbols if the compiler supports it. */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">U_HAVE_NAMESPACE</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_BEGIN</span> namespace U_ICU_NAMESPACE {
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_END</span>  }
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_USE</span> using namespace U_ICU_NAMESPACE;
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_QUALIFIER</span> U_ICU_NAMESPACE::
+#<span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_BEGIN</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_END</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_USE</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_NAMESPACE_QUALIFIER</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/** This is used to declare a function as a public ICU C API @stable ICU 2.0*/</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_CAPI</span> U_CFUNC U_EXPORT
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_STABLE</span> U_CAPI
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_DRAFT</span>  U_CAPI
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_DEPRECATED</span> U_CAPI
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_OBSOLETE</span> U_CAPI
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_INTERNAL</span> U_CAPI
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* limits for int32_t etc., like in POSIX inttypes.h                        */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT8_MIN</span>
+<span class="enscript-comment">/** The smallest value an 8 bit signed integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT8_MIN</span>        ((int8_t)(-128))
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT16_MIN</span>
+<span class="enscript-comment">/** The smallest value a 16 bit signed integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT16_MIN</span>       ((int16_t)(-32767-1))
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT32_MIN</span>
+<span class="enscript-comment">/** The smallest value a 32 bit signed integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT32_MIN</span>       ((int32_t)(-2147483647-1))
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT8_MAX</span>
+<span class="enscript-comment">/** The largest value an 8 bit signed integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT8_MAX</span>        ((int8_t)(127))
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT16_MAX</span>
+<span class="enscript-comment">/** The largest value a 16 bit signed integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT16_MAX</span>       ((int16_t)(32767))
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT32_MAX</span>
+<span class="enscript-comment">/** The largest value a 32 bit signed integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT32_MAX</span>       ((int32_t)(2147483647))
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT8_MAX</span>
+<span class="enscript-comment">/** The largest value an 8 bit unsigned integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT8_MAX</span>       ((uint8_t)(255U))
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT16_MAX</span>
+<span class="enscript-comment">/** The largest value a 16 bit unsigned integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT16_MAX</span>      ((uint16_t)(65535U))
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT32_MAX</span>
+<span class="enscript-comment">/** The largest value a 32 bit unsigned integer can hold @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT32_MAX</span>      ((uint32_t)(4294967295U))
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">U_INT64_T_UNAVAILABLE</span>)
+# <span class="enscript-reference">error</span> <span class="enscript-variable-name">int64_t</span> <span class="enscript-variable-name">is</span> <span class="enscript-variable-name">required</span> <span class="enscript-variable-name">for</span> <span class="enscript-variable-name">decimal</span> <span class="enscript-variable-name">format</span> <span class="enscript-variable-name">and</span> <span class="enscript-variable-name">rule</span>-<span class="enscript-variable-name">based</span> <span class="enscript-variable-name">number</span> <span class="enscript-variable-name">format</span>.
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT64_C</span>
+<span class="enscript-comment">/**
+ * Provides a platform independent way to specify a signed 64-bit integer constant.
+ * note: may be wrong for some 64 bit platforms - ensure your compiler provides INT64_C
+ * @draft ICU 2.8
+ */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-function-name">INT64_C</span>(c) c ## LL
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT64_C</span>
+<span class="enscript-comment">/**
+ * Provides a platform independent way to specify an unsigned 64-bit integer constant.
+ * note: may be wrong for some 64 bit platforms - ensure your compiler provides UINT64_C
+ * @draft ICU 2.8
+ */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT64_C</span>(c) c ## ULL
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_INT64_MIN</span>
+<span class="enscript-comment">/** The smallest value a 64 bit signed integer can hold @stable ICU 2.8 */</span>
+#     <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_INT64_MIN</span>       ((int64_t)(INT64_C(-9223372036854775807)-1))
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_INT64_MAX</span>
+<span class="enscript-comment">/** The largest value a 64 bit signed integer can hold @stable ICU 2.8 */</span>
+#     <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_INT64_MAX</span>       ((int64_t)(INT64_C(9223372036854775807)))
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_UINT64_MAX</span>
+<span class="enscript-comment">/** The largest value a 64 bit unsigned integer can hold @stable ICU 2.8 */</span>
+#     <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_UINT64_MAX</span>      ((uint64_t)(UINT64_C(18446744073709551615)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* Boolean data type                                                        */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+<span class="enscript-comment">/** The ICU boolean type @stable ICU 2.0 */</span>
+<span class="enscript-type">typedef</span> int8_t UBool;
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">TRUE</span>
+<span class="enscript-comment">/** The TRUE value of a UBool @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">TRUE</span>  1
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">FALSE</span>
+<span class="enscript-comment">/** The FALSE value of a UBool @stable ICU 2.0 */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">FALSE</span> 0
+#<span class="enscript-reference">endif</span>
+
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* Unicode data types                                                       */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+<span class="enscript-comment">/* wchar_t-related definitions -------------------------------------------- */</span>
+
+<span class="enscript-comment">/**
+ * \def U_HAVE_WCHAR_H
+ * Indicates whether &lt;wchar.h&gt; is available (1) or not (0). Set to 1 by default.
+ *
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_HAVE_WCHAR_H</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_HAVE_WCHAR_H</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def U_SIZEOF_WCHAR_T
+ * U_SIZEOF_WCHAR_T==sizeof(wchar_t) (0 means it is not defined or autoconf could not set it)
+ *
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>==0
+#   <span class="enscript-reference">undef</span> <span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span> 4
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/*
+ * \def U_WCHAR_IS_UTF16
+ * Defined if wchar_t uses UTF-16.
+ *
+ * @stable ICU 2.0
+ */</span>
+<span class="enscript-comment">/*
+ * \def U_WCHAR_IS_UTF32
+ * Defined if wchar_t uses UTF-32.
+ *
+ * @stable ICU 2.0
+ */</span>
+#<span class="enscript-reference">if</span> !<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">U_WCHAR_IS_UTF16</span>) &amp;&amp; !<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">U_WCHAR_IS_UTF32</span>)
+#   <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__STDC_ISO_10646__</span> 
+#       <span class="enscript-reference">if</span> (<span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>==2)
+#           <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_WCHAR_IS_UTF16</span>
+#       <span class="enscript-reference">elif</span> (<span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>==4)
+#           <span class="enscript-reference">define</span>  <span class="enscript-variable-name">U_WCHAR_IS_UTF32</span>
+#       <span class="enscript-reference">endif</span>
+#   <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__UCS2__</span>
+#       <span class="enscript-reference">if</span> (<span class="enscript-variable-name">__OS390__</span> || <span class="enscript-variable-name">__OS400__</span>) &amp;&amp; (<span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>==2)
+#           <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_WCHAR_IS_UTF16</span>
+#       <span class="enscript-reference">endif</span>
+#   <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__UCS4__</span>
+#       <span class="enscript-reference">if</span> (<span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>==4)
+#           <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_WCHAR_IS_UTF32</span>
+#       <span class="enscript-reference">endif</span>
+#   <span class="enscript-reference">elif</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WIN32</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_WIN32</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WIN64</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_WIN64</span>)
+#       <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_WCHAR_IS_UTF16</span>    
+#   <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* UChar and UChar32 definitions -------------------------------------------- */</span>
+
+<span class="enscript-comment">/** Number of bytes in a UChar. @stable ICU 2.0 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">U_SIZEOF_UCHAR</span> 2
+
+<span class="enscript-comment">/**
+ * \var UChar
+ * Define UChar to be wchar_t if that is 16 bits wide; always assumed to be unsigned.
+ * If wchar_t is not 16 bits wide, then define UChar to be uint16_t.
+ * This makes the definition of UChar platform-dependent
+ * but allows direct string type compatibility with platforms with
+ * 16-bit wchar_t types.
+ *
+ * @stable ICU 2.0
+ */</span>
+
+<span class="enscript-comment">/* Define UChar to be compatible with wchar_t if possible. */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">U_SIZEOF_WCHAR_T</span>==2
+    <span class="enscript-type">typedef</span> wchar_t UChar;
+#<span class="enscript-reference">else</span>
+    <span class="enscript-type">typedef</span> uint16_t UChar;
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * Define UChar32 as a type for single Unicode code points.
+ * UChar32 is a signed 32-bit integer (same as int32_t).
+ *
+ * The Unicode code point range is 0..0x10ffff.
+ * All other values (negative or &gt;=0x110000) are illegal as Unicode code points.
+ * They may be used as sentinel values to indicate &quot;done&quot;, &quot;error&quot;
+ * or similar non-code point conditions.
+ *
+ * Before ICU 2.4 (Jitterbug 2146), UChar32 was defined
+ * to be wchar_t if that is 32 bits wide (wchar_t may be signed or unsigned)
+ * or else to be uint32_t.
+ * That is, the definition of UChar32 was platform-dependent.
+ *
+ * @see U_SENTINEL
+ * @stable ICU 2.4
+ */</span>
+<span class="enscript-type">typedef</span> int32_t UChar32;
+
+<span class="enscript-comment">/*==========================================================================*/</span>
+<span class="enscript-comment">/* U_INLINE and U_ALIGN_CODE   Set default values if these are not already  */</span>
+<span class="enscript-comment">/*                             defined.  Definitions normally are in        */</span>
+<span class="enscript-comment">/*                             platform.h or the corresponding file for     */</span>
+<span class="enscript-comment">/*                             the OS in use.                               */</span>
+<span class="enscript-comment">/*==========================================================================*/</span>
+
+<span class="enscript-comment">/**
+ * \def U_ALIGN_CODE
+ * This is used to align code fragments to a specific byte boundary.
+ * This is useful for getting consistent performance test results.
+ * @internal
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_ALIGN_CODE</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-function-name">U_ALIGN_CODE</span>(n)
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">U_INLINE</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">U_INLINE</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/urename.h&quot;</span>
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

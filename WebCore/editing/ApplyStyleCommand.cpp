@@ -538,8 +538,8 @@ static Node* highestEmbeddingAncestor(Node* startNode, Node* enclosingNode)
 
 void ApplyStyleCommand::applyInlineStyle(EditingStyle* style)
 {
-    Node* startDummySpanAncestor = 0;
-    Node* endDummySpanAncestor = 0;
+    RefPtr<Node> startDummySpanAncestor = 0;
+    RefPtr<Node> endDummySpanAncestor = 0;
 
     // update document layout once before removing styles
     // so that we avoid the expense of updating before each and every call
@@ -664,9 +664,9 @@ void ApplyStyleCommand::applyInlineStyle(EditingStyle* style)
     fixRangeAndApplyInlineStyle(styleToApply.get(), start, end);
 
     // Remove dummy style spans created by splitting text elements.
-    cleanupUnstyledAppleStyleSpans(startDummySpanAncestor);
+    cleanupUnstyledAppleStyleSpans(startDummySpanAncestor.get());
     if (endDummySpanAncestor != startDummySpanAncestor)
-        cleanupUnstyledAppleStyleSpans(endDummySpanAncestor);
+        cleanupUnstyledAppleStyleSpans(endDummySpanAncestor.get());
 }
 
 void ApplyStyleCommand::fixRangeAndApplyInlineStyle(EditingStyle* style, const Position& start, const Position& end)
@@ -970,30 +970,29 @@ void ApplyStyleCommand::pushDownInlineStyleAroundNode(EditingStyle* style, Node*
         return;
 
     // The outer loop is traversing the tree vertically from highestAncestor to targetNode
-    Node* current = highestAncestor;
+    RefPtr<Node> current = highestAncestor;
     // Along the way, styled elements that contain targetNode are removed and accumulated into elementsToPushDown.
     // Each child of the removed element, exclusing ancestors of targetNode, is then wrapped by clones of elements in elementsToPushDown.
     Vector<RefPtr<Element> > elementsToPushDown;
-    while (current != targetNode) {
-        ASSERT(current);
-        ASSERT(current->contains(targetNode));
-        Node* child = current->firstChild();
-        Node* lastChild = current->lastChild();
+    while (current && current != targetNode && current->contains(targetNode)) {
+        NodeVector currentChildren;
+        getChildNodes(current.get(), currentChildren);
         RefPtr<StyledElement> styledElement;
-        if (current->isStyledElement() && isStyledInlineElementToRemove(static_cast<Element*>(current))) {
-            styledElement = static_cast<StyledElement*>(current);
+        if (current->isStyledElement() && isStyledInlineElementToRemove(static_cast<Element*>(current.get()))) {
+            styledElement = static_cast<StyledElement*>(current.get());
             elementsToPushDown.append(styledElement);
         }
 
         RefPtr<EditingStyle> styleToPushDown = EditingStyle::create();
         if (current->isHTMLElement())
-            removeInlineStyleFromElement(style, toHTMLElement(current), RemoveIfNeeded, styleToPushDown.get());
+            removeInlineStyleFromElement(style, toHTMLElement(current.get()), RemoveIfNeeded, styleToPushDown.get());
 
         // The inner loop will go through children on each level
         // FIXME: we should aggregate inline child elements together so that we don't wrap each child separately.
-        while (child) {
-            Node* nextChild = child->nextSibling();
-
+        for (size_t i = 0; i < currentChildren.size(); ++i) {
+            Node* child = currentChildren[i].get();
+            if (!child->parentNode())
+                continue;
             if (!child->contains(targetNode) && elementsToPushDown.size()) {
                 for (size_t i = 0; i < elementsToPushDown.size(); i++) {
                     RefPtr<Element> wrapper = elementsToPushDown[i]->cloneElementWithoutChildren();
@@ -1011,10 +1010,6 @@ void ApplyStyleCommand::pushDownInlineStyleAroundNode(EditingStyle* style, Node*
             // When reached targetNode, stop the outer loop upon the completion of the current inner loop
             if (child == targetNode || child->contains(targetNode))
                 current = child;
-
-            if (child == lastChild || child->contains(lastChild))
-                break;
-            child = nextChild;
         }
     }
 }

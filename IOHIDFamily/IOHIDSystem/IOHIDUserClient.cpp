@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2013 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,7 +27,6 @@
  *
  */
 
-
 #include <IOKit/IOLib.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
 #include <libkern/c++/OSContainers.h>
@@ -36,7 +35,7 @@
 #include "IOHIDUserClient.h"
 #include "IOHIDParameter.h"
 #include "IOHIDPrivate.h"
-
+#include "IOHIDEventSystemQueue.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -505,7 +504,7 @@ IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,vo
             if (!userQueues)
                 userQueues = OSSet::withCapacity(4);
                 
-            eventQueue = IOSharedDataQueue::withCapacity(size);
+            eventQueue = IOHIDEventSystemQueue::withCapacity(size);
 			token = createIDForDataQueue(eventQueue);
 			if (eventQueue && userQueues) {
 				userQueues->setObject(eventQueue);

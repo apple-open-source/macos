@@ -1,0 +1,211 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>uconfig.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">uconfig.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*  
+**********************************************************************
+*   Copyright (C) 2002-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+**********************************************************************
+*   file name:  uconfig.h
+*   encoding:   US-ASCII
+*   tab size:   8 (not used)
+*   indentation:4
+*
+*   created on: 2002sep19
+*   created by: Markus W. Scherer
+*/</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">__UCONFIG_H__</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">__UCONFIG_H__</span>
+
+<span class="enscript-comment">/*!
+ * \file
+ * \brief Switches for excluding parts of ICU library code modules.
+ *
+ * Allows to build partial, smaller libraries for special purposes.
+ * By default, all modules are built.
+ * The switches are fairly coarse, controlling large modules.
+ * Basic services cannot be turned off.
+ *
+ * @stable ICU 2.4
+ */</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_ONLY_COLLATION
+ * This switch turns off modules that are not needed for collation.
+ *
+ * It does not turn off legacy conversion because that is necessary
+ * for ICU to work on EBCDIC platforms (for the default converter).
+ * If you want &quot;only collation&quot; and do not build for EBCDIC,
+ * then you can #define UCONFIG_NO_LEGACY_CONVERSION 1 as well.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_ONLY_COLLATION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_ONLY_COLLATION</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">UCONFIG_ONLY_COLLATION</span>
+    <span class="enscript-comment">/* common library */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_BREAK_ITERATION</span> 1
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_IDNA</span> 1
+
+    <span class="enscript-comment">/* i18n library */</span>
+#   <span class="enscript-reference">if</span> <span class="enscript-variable-name">UCONFIG_NO_COLLATION</span>
+#       <span class="enscript-reference">error</span> <span class="enscript-variable-name">Contradictory</span> <span class="enscript-variable-name">collation</span> <span class="enscript-variable-name">switches</span> <span class="enscript-variable-name">in</span> <span class="enscript-variable-name">uconfig</span>.<span class="enscript-variable-name">h</span>.
+#   <span class="enscript-reference">endif</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_FORMATTING</span> 1
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_TRANSLITERATION</span> 1
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_REGULAR_EXPRESSIONS</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* common library switches -------------------------------------------------- */</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_CONVERSION
+ * ICU will not completely build with this switch turned on.
+ * This switch turns off all converters.
+ *
+ * @draft ICU 3.2
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_CONVERSION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_CONVERSION</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">UCONFIG_NO_CONVERSION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_LEGACY_CONVERSION</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_LEGACY_CONVERSION
+ * This switch turns off all converters except for
+ * - Unicode charsets (UTF-7/8/16/32, CESU-8, SCSU, BOCU-1)
+ * - US-ASCII
+ * - ISO-8859-1
+ *
+ * Turning off legacy conversion is not possible on EBCDIC platforms
+ * because they need ibm-37 or ibm-1047 default converters.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_LEGACY_CONVERSION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_LEGACY_CONVERSION</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_NORMALIZATION
+ * This switch turns off normalization.
+ * It implies turning off several other services as well, for example
+ * collation and IDNA.
+ *
+ * @stable ICU 2.6
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_NORMALIZATION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_NORMALIZATION</span> 0
+#<span class="enscript-reference">elif</span> <span class="enscript-variable-name">UCONFIG_NO_NORMALIZATION</span>
+    <span class="enscript-comment">/* common library */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_IDNA</span> 1
+
+    <span class="enscript-comment">/* i18n library */</span>
+#   <span class="enscript-reference">if</span> <span class="enscript-variable-name">UCONFIG_ONLY_COLLATION</span>
+#       <span class="enscript-reference">error</span> <span class="enscript-variable-name">Contradictory</span> <span class="enscript-variable-name">collation</span> <span class="enscript-variable-name">switches</span> <span class="enscript-variable-name">in</span> <span class="enscript-variable-name">uconfig</span>.<span class="enscript-variable-name">h</span>.
+#   <span class="enscript-reference">endif</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_COLLATION</span> 1
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_TRANSLITERATION</span> 1
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_BREAK_ITERATION
+ * This switch turns off break iteration.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_BREAK_ITERATION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_BREAK_ITERATION</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_IDNA
+ * This switch turns off IDNA.
+ *
+ * @stable ICU 2.6
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_IDNA</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_IDNA</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* i18n library switches ---------------------------------------------------- */</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_COLLATION
+ * This switch turns off collation and collation-based string search.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_COLLATION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_COLLATION</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_FORMATTING
+ * This switch turns off formatting and calendar/timezone services.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_FORMATTING</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_FORMATTING</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_TRANSLITERATION
+ * This switch turns off transliteration.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_TRANSLITERATION</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_TRANSLITERATION</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_REGULAR_EXPRESSIONS
+ * This switch turns off regular expressions.
+ *
+ * @stable ICU 2.4
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_REGULAR_EXPRESSIONS</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_REGULAR_EXPRESSIONS</span> 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * \def UCONFIG_NO_SERVICE
+ * This switch turns off service registration.
+ *
+ * @draft ICU 3.2
+ */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCONFIG_NO_SERVICE</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UCONFIG_NO_SERVICE</span> 0
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

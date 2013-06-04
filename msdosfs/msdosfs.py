@@ -1132,6 +1132,7 @@ def info(argv):
 
 	print "bytesPerSector: ", v.bytesPerSector
 	print "totalSectors:   ", v.totalSectors
+	print "size in bytes:  ", v.bytesPerSector * v.totalSectors
 	print "reservedSectors:", v.reservedSectors
 	print "fatSectors:     ", v.fatSectors
 	print "rootSectors:    ", v.rootSectors

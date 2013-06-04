@@ -148,7 +148,6 @@ void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inl
 #else // SMB_DEBUG
 #define smb_hexdump(a,b,c,d)
 #endif // SMB_DEBUG
-int  smb_sigintr(vfs_context_t);
 char *smb_strndup(const char *s, size_t maxlen);
 void *smb_memdup(const void *umem, int len);
 void *smb_memdupin(user_addr_t umem, int len);

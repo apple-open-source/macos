@@ -1,0 +1,1080 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Parser.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Parser.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ *  Copyright (C) 1999-2001 Harri Porten (<a href="mailto:porten@kde.org">porten@kde.org</a>)
+ *  Copyright (C) 2001 Peter Kelly (<a href="mailto:pmk@post.com">pmk@post.com</a>)
+ *  Copyright (C) 2003, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Library General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public License
+ *  along with this library; see the file COPYING.LIB.  If not, write to
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
+ *
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">Parser_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">Parser_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Debugger.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ExceptionHelpers.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Executable.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;JSGlobalObject.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Lexer.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Nodes.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ParserArena.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ParserTokens.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;SourceProvider.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;SourceProviderCacheItem.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/Forward.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/Noncopyable.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/OwnPtr.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/RefPtr.h&gt;</span>
+namespace JSC {
+<span class="enscript-type">struct</span> Scope;
+}
+
+namespace WTF {
+template &lt;&gt; <span class="enscript-type">struct</span> VectorTraits&lt;JSC::Scope&gt; : SimpleClassVectorTraits {
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> bool canInitializeWithMemset = false; <span class="enscript-comment">// Not all Scope data members initialize to 0.
+</span>};
+}
+
+namespace JSC {
+
+class ExecState;
+class FunctionBodyNode;
+class FunctionParameters;
+class Identifier;
+class JSGlobalData;
+class ProgramNode;
+class SourceCode;
+class UString;
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">fail</span>() do { if (!m_error) updateErrorMessage(); return 0; } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failWithToken</span>(tok) do { if (!m_error) updateErrorMessage(tok); return 0; } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failWithMessage</span>(msg) do { if (!m_error) updateErrorMessage(msg); return 0; } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failWithNameAndMessage</span>(before, name, after) do { if (!m_error) updateErrorWithNameAndMessage(before, name, after); return 0; } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfFalse</span>(cond) do { if (!(cond)) fail(); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfFalseWithMessage</span>(cond, msg) do { if (!(cond)) failWithMessage(msg); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfFalseWithNameAndMessage</span>(cond, before, name, msg) do { if (!(cond)) failWithNameAndMessage(before, name, msg); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfTrue</span>(cond) do { if ((cond)) fail(); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfTrueWithMessage</span>(cond, msg) do { if ((cond)) failWithMessage(msg); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfTrueWithNameAndMessage</span>(cond, before, name, msg) do { if ((cond)) failWithNameAndMessage(before, name, msg); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfTrueIfStrict</span>(cond) do { if ((cond) &amp;&amp; strictMode()) fail(); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfTrueIfStrictWithMessage</span>(cond, msg) do { if ((cond) &amp;&amp; strictMode()) failWithMessage(msg); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfTrueIfStrictWithNameAndMessage</span>(cond, before, name, after) do { if ((cond) &amp;&amp; strictMode()) failWithNameAndMessage(before, name, after); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfFalseIfStrict</span>(cond) do { if ((!(cond)) &amp;&amp; strictMode()) fail(); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfFalseIfStrictWithMessage</span>(cond, msg) do { if ((!(cond)) &amp;&amp; strictMode()) failWithMessage(msg); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfFalseIfStrictWithNameAndMessage</span>(cond, before, name, after) do { if ((!(cond)) &amp;&amp; strictMode()) failWithNameAndMessage(before, name, after); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">consumeOrFail</span>(tokenType) do { if (!consume(tokenType)) failWithToken(tokenType); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">consumeOrFailWithFlags</span>(tokenType, flags) do { if (!consume(tokenType, flags)) failWithToken(tokenType); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">matchOrFail</span>(tokenType) do { if (!match(tokenType)) failWithToken(tokenType); } while (0)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">failIfStackOverflow</span>() do { failIfFalseWithMessage(canRecurse(), <span class="enscript-string">&quot;Code nested too deeply.&quot;</span>); } while (0)
+
+    <span class="enscript-comment">// Macros to make the more common TreeBuilder types a little less verbose
+</span>#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeStatement</span> typename TreeBuilder::Statement
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeExpression</span> typename TreeBuilder::Expression
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeFormalParameterList</span> typename TreeBuilder::FormalParameterList
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeSourceElements</span> typename TreeBuilder::SourceElements
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeClause</span> typename TreeBuilder::Clause
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeClauseList</span> typename TreeBuilder::ClauseList
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeConstDeclList</span> typename TreeBuilder::ConstDeclList
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeArguments</span> typename TreeBuilder::Arguments
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeArgumentsList</span> typename TreeBuilder::ArgumentsList
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeFunctionBody</span> typename TreeBuilder::FunctionBody
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreeProperty</span> typename TreeBuilder::Property
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">TreePropertyList</span> typename TreeBuilder::PropertyList
+
+<span class="enscript-function-name">COMPILE_ASSERT</span>(LastUntaggedToken &lt; 64, LessThan64UntaggedTokens);
+
+<span class="enscript-type">enum</span> SourceElementsMode { CheckForStrictMode, DontCheckForStrictMode };
+<span class="enscript-type">enum</span> FunctionRequirements { FunctionNoRequirements, FunctionNeedsName };
+
+template &lt;typename T&gt; inline bool isEvalNode() { <span class="enscript-keyword">return</span> false; }
+template &lt;&gt; inline bool isEvalNode&lt;EvalNode&gt;() { <span class="enscript-keyword">return</span> true; }
+
+<span class="enscript-type">struct</span> DepthManager {
+    DepthManager(<span class="enscript-type">int</span>* depth)
+        : m_originalDepth(*depth)
+        , m_depth(depth)
+    {
+    }
+
+    ~DepthManager()
+    {
+        *m_depth = m_originalDepth;
+    }
+
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">int</span> m_originalDepth;
+    <span class="enscript-type">int</span>* m_depth;
+};
+
+<span class="enscript-type">struct</span> ScopeLabelInfo {
+    ScopeLabelInfo(StringImpl* ident, bool isLoop)
+        : m_ident(ident)
+        , m_isLoop(isLoop)
+    {
+    }
+
+    StringImpl* m_ident;
+    bool m_isLoop;
+};
+
+<span class="enscript-type">struct</span> Scope {
+    Scope(<span class="enscript-type">const</span> JSGlobalData* globalData, bool isFunction, bool strictMode)
+        : m_globalData(globalData)
+        , m_shadowsArguments(false)
+        , m_usesEval(false)
+        , m_needsFullActivation(false)
+        , m_allowsNewDecls(true)
+        , m_strictMode(strictMode)
+        , m_isFunction(isFunction)
+        , m_isFunctionBoundary(false)
+        , m_isValidStrictMode(true)
+        , m_loopDepth(0)
+        , m_switchDepth(0)
+    {
+    }
+
+    Scope(<span class="enscript-type">const</span> Scope&amp; rhs)
+        : m_globalData(rhs.m_globalData)
+        , m_shadowsArguments(rhs.m_shadowsArguments)
+        , m_usesEval(rhs.m_usesEval)
+        , m_needsFullActivation(rhs.m_needsFullActivation)
+        , m_allowsNewDecls(rhs.m_allowsNewDecls)
+        , m_strictMode(rhs.m_strictMode)
+        , m_isFunction(rhs.m_isFunction)
+        , m_isFunctionBoundary(rhs.m_isFunctionBoundary)
+        , m_isValidStrictMode(rhs.m_isValidStrictMode)
+        , m_loopDepth(rhs.m_loopDepth)
+        , m_switchDepth(rhs.m_switchDepth)
+    {
+        <span class="enscript-keyword">if</span> (rhs.m_labels) {
+            m_labels = adoptPtr(new LabelStack);
+
+            <span class="enscript-type">typedef</span> LabelStack::const_iterator iterator;
+            iterator end = rhs.m_labels-&gt;end();
+            <span class="enscript-keyword">for</span> (iterator it = rhs.m_labels-&gt;begin(); it != end; ++it)
+                m_labels-&gt;append(ScopeLabelInfo(it-&gt;m_ident, it-&gt;m_isLoop));
+        }
+    }
+
+    <span class="enscript-type">void</span> startSwitch() { m_switchDepth++; }
+    <span class="enscript-type">void</span> endSwitch() { m_switchDepth--; }
+    <span class="enscript-type">void</span> startLoop() { m_loopDepth++; }
+    <span class="enscript-type">void</span> endLoop() { ASSERT(m_loopDepth); m_loopDepth--; }
+    bool inLoop() { <span class="enscript-keyword">return</span> !!m_loopDepth; }
+    bool breakIsValid() { <span class="enscript-keyword">return</span> m_loopDepth || m_switchDepth; }
+    bool continueIsValid() { <span class="enscript-keyword">return</span> m_loopDepth; }
+
+    <span class="enscript-type">void</span> pushLabel(<span class="enscript-type">const</span> Identifier* label, bool isLoop)
+    {
+        <span class="enscript-keyword">if</span> (!m_labels)
+            m_labels = adoptPtr(new LabelStack);
+        m_labels-&gt;append(ScopeLabelInfo(label-&gt;impl(), isLoop));
+    }
+
+    <span class="enscript-type">void</span> popLabel()
+    {
+        ASSERT(m_labels);
+        ASSERT(m_labels-&gt;size());
+        m_labels-&gt;removeLast();
+    }
+
+    ScopeLabelInfo* getLabel(<span class="enscript-type">const</span> Identifier* label)
+    {
+        <span class="enscript-keyword">if</span> (!m_labels)
+            <span class="enscript-keyword">return</span> 0;
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">int</span> i = m_labels-&gt;size(); i &gt; 0; i--) {
+            <span class="enscript-keyword">if</span> (m_labels-&gt;at(i - 1).m_ident == label-&gt;impl())
+                <span class="enscript-keyword">return</span> &amp;m_labels-&gt;at(i - 1);
+        }
+        <span class="enscript-keyword">return</span> 0;
+    }
+
+    <span class="enscript-type">void</span> setIsFunction()
+    {
+        m_isFunction = true;
+        m_isFunctionBoundary = true;
+    }
+    bool isFunction() { <span class="enscript-keyword">return</span> m_isFunction; }
+    bool isFunctionBoundary() { <span class="enscript-keyword">return</span> m_isFunctionBoundary; }
+
+    bool declareVariable(<span class="enscript-type">const</span> Identifier* ident)
+    {
+        bool isValidStrictMode = m_globalData-&gt;propertyNames-&gt;eval != *ident &amp;&amp; m_globalData-&gt;propertyNames-&gt;arguments != *ident;
+        m_isValidStrictMode = m_isValidStrictMode &amp;&amp; isValidStrictMode;
+        m_declaredVariables.add(ident-&gt;ustring().impl());
+        <span class="enscript-keyword">return</span> isValidStrictMode;
+    }
+
+    <span class="enscript-type">void</span> declareWrite(<span class="enscript-type">const</span> Identifier* ident)
+    {
+        ASSERT(m_strictMode);
+        m_writtenVariables.add(ident-&gt;impl());
+    }
+
+    <span class="enscript-type">void</span> preventNewDecls() { m_allowsNewDecls = false; }
+    bool allowsNewDecls() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_allowsNewDecls; }
+
+    bool declareParameter(<span class="enscript-type">const</span> Identifier* ident)
+    {
+        bool isArguments = m_globalData-&gt;propertyNames-&gt;arguments == *ident;
+        bool isValidStrictMode = m_declaredVariables.add(ident-&gt;ustring().impl()).isNewEntry &amp;&amp; m_globalData-&gt;propertyNames-&gt;eval != *ident &amp;&amp; !isArguments;
+        m_isValidStrictMode = m_isValidStrictMode &amp;&amp; isValidStrictMode;
+        <span class="enscript-keyword">if</span> (isArguments)
+            m_shadowsArguments = true;
+        <span class="enscript-keyword">return</span> isValidStrictMode;
+    }
+
+    <span class="enscript-type">void</span> useVariable(<span class="enscript-type">const</span> Identifier* ident, bool isEval)
+    {
+        m_usesEval |= isEval;
+        m_usedVariables.add(ident-&gt;ustring().impl());
+    }
+
+    <span class="enscript-type">void</span> setNeedsFullActivation() { m_needsFullActivation = true; }
+
+    bool collectFreeVariables(Scope* nestedScope, bool shouldTrackClosedVariables)
+    {
+        <span class="enscript-keyword">if</span> (nestedScope-&gt;m_usesEval)
+            m_usesEval = true;
+        <span class="enscript-reference">IdentifierSet</span>::iterator end = nestedScope-&gt;m_usedVariables.end();
+        <span class="enscript-keyword">for</span> (IdentifierSet::iterator ptr = nestedScope-&gt;m_usedVariables.begin(); ptr != end; ++ptr) {
+            <span class="enscript-keyword">if</span> (nestedScope-&gt;m_declaredVariables.contains(*ptr))
+                <span class="enscript-keyword">continue</span>;
+            m_usedVariables.add(*ptr);
+            <span class="enscript-keyword">if</span> (shouldTrackClosedVariables)
+                m_closedVariables.add(*ptr);
+        }
+        <span class="enscript-keyword">if</span> (nestedScope-&gt;m_writtenVariables.size()) {
+            <span class="enscript-reference">IdentifierSet</span>::iterator end = nestedScope-&gt;m_writtenVariables.end();
+            <span class="enscript-keyword">for</span> (IdentifierSet::iterator ptr = nestedScope-&gt;m_writtenVariables.begin(); ptr != end; ++ptr) {
+                <span class="enscript-keyword">if</span> (nestedScope-&gt;m_declaredVariables.contains(*ptr))
+                    <span class="enscript-keyword">continue</span>;
+                m_writtenVariables.add(*ptr);
+            }
+        }
+
+        <span class="enscript-keyword">return</span> true;
+    }
+
+    <span class="enscript-type">void</span> getUncapturedWrittenVariables(IdentifierSet&amp; writtenVariables)
+    {
+        <span class="enscript-reference">IdentifierSet</span>::iterator end = m_writtenVariables.end();
+        <span class="enscript-keyword">for</span> (IdentifierSet::iterator ptr = m_writtenVariables.begin(); ptr != end; ++ptr) {
+            <span class="enscript-keyword">if</span> (!m_declaredVariables.contains(*ptr))
+                writtenVariables.add(*ptr);
+        }
+    }
+
+    <span class="enscript-type">void</span> getCapturedVariables(IdentifierSet&amp; capturedVariables)
+    {
+        <span class="enscript-keyword">if</span> (m_needsFullActivation || m_usesEval) {
+            capturedVariables.swap(m_declaredVariables);
+            <span class="enscript-keyword">return</span>;
+        }
+        <span class="enscript-keyword">for</span> (IdentifierSet::iterator ptr = m_closedVariables.begin(); ptr != m_closedVariables.end(); ++ptr) {
+            <span class="enscript-keyword">if</span> (!m_declaredVariables.contains(*ptr))
+                <span class="enscript-keyword">continue</span>;
+            capturedVariables.add(*ptr);
+        }
+    }
+    <span class="enscript-type">void</span> setStrictMode() { m_strictMode = true; }
+    bool strictMode() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_strictMode; }
+    bool isValidStrictMode() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_isValidStrictMode; }
+    bool shadowsArguments() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_shadowsArguments; }
+
+    <span class="enscript-type">void</span> copyCapturedVariablesToVector(<span class="enscript-type">const</span> IdentifierSet&amp; capturedVariables, Vector&lt;RefPtr&lt;StringImpl&gt; &gt;&amp; vector)
+    {
+        <span class="enscript-reference">IdentifierSet</span>::iterator end = capturedVariables.end();
+        <span class="enscript-keyword">for</span> (IdentifierSet::iterator it = capturedVariables.begin(); it != end; ++it) {
+            <span class="enscript-keyword">if</span> (m_declaredVariables.contains(*it))
+                <span class="enscript-keyword">continue</span>;
+            vector.append(*it);
+        }
+        vector.shrinkToFit();
+    }
+
+    <span class="enscript-type">void</span> saveFunctionInfo(SourceProviderCacheItem* info)
+    {
+        ASSERT(m_isFunction);
+        info-&gt;usesEval = m_usesEval;
+        info-&gt;strictMode = m_strictMode;
+        info-&gt;needsFullActivation = m_needsFullActivation;
+        copyCapturedVariablesToVector(m_writtenVariables, info-&gt;writtenVariables);
+        copyCapturedVariablesToVector(m_usedVariables, info-&gt;usedVariables);
+    }
+
+    <span class="enscript-type">void</span> restoreFunctionInfo(<span class="enscript-type">const</span> SourceProviderCacheItem* info)
+    {
+        ASSERT(m_isFunction);
+        m_usesEval = info-&gt;usesEval;
+        m_strictMode = info-&gt;strictMode;
+        m_needsFullActivation = info-&gt;needsFullActivation;
+        <span class="enscript-type">unsigned</span> size = info-&gt;usedVariables.size();
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; size; ++i)
+            m_usedVariables.add(info-&gt;usedVariables[i]);
+        size = info-&gt;writtenVariables.size();
+        <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; size; ++i)
+            m_writtenVariables.add(info-&gt;writtenVariables[i]);
+    }
+
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">const</span> JSGlobalData* m_globalData;
+    bool m_shadowsArguments : 1;
+    bool m_usesEval : 1;
+    bool m_needsFullActivation : 1;
+    bool m_allowsNewDecls : 1;
+    bool m_strictMode : 1;
+    bool m_isFunction : 1;
+    bool m_isFunctionBoundary : 1;
+    bool m_isValidStrictMode : 1;
+    <span class="enscript-type">int</span> m_loopDepth;
+    <span class="enscript-type">int</span> m_switchDepth;
+
+    <span class="enscript-type">typedef</span> Vector&lt;ScopeLabelInfo, 2&gt; LabelStack;
+    OwnPtr&lt;LabelStack&gt; m_labels;
+    IdentifierSet m_declaredVariables;
+    IdentifierSet m_usedVariables;
+    IdentifierSet m_closedVariables;
+    IdentifierSet m_writtenVariables;
+};
+
+<span class="enscript-type">typedef</span> Vector&lt;Scope, 10&gt; ScopeStack;
+
+<span class="enscript-type">struct</span> ScopeRef {
+    ScopeRef(ScopeStack* scopeStack, <span class="enscript-type">unsigned</span> index)
+        : m_scopeStack(scopeStack)
+        , m_index(index)
+    {
+    }
+    Scope* operator-&gt;() { <span class="enscript-keyword">return</span> &amp;m_scopeStack-&gt;at(m_index); }
+    <span class="enscript-type">unsigned</span> index() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_index; }
+
+    bool hasContainingScope()
+    {
+        <span class="enscript-keyword">return</span> m_index &amp;&amp; !m_scopeStack-&gt;at(m_index).isFunctionBoundary();
+    }
+
+    ScopeRef containingScope()
+    {
+        ASSERT(hasContainingScope());
+        <span class="enscript-keyword">return</span> ScopeRef(m_scopeStack, m_index - 1);
+    }
+
+<span class="enscript-reference">private</span>:
+    ScopeStack* m_scopeStack;
+    <span class="enscript-type">unsigned</span> m_index;
+};
+
+template &lt;typename LexerType&gt;
+class Parser {
+    WTF_MAKE_NONCOPYABLE(Parser);
+    WTF_MAKE_FAST_ALLOCATED;
+
+<span class="enscript-reference">public</span>:
+    Parser(JSGlobalData*, <span class="enscript-type">const</span> SourceCode&amp;, FunctionParameters*, JSParserStrictness, JSParserMode);
+    ~Parser();
+
+    template &lt;class ParsedNode&gt;
+    PassRefPtr&lt;ParsedNode&gt; parse(JSGlobalObject* lexicalGlobalObject, Debugger*, ExecState*, JSObject**);
+
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">struct</span> AllowInOverride {
+        AllowInOverride(Parser* parser)
+            : m_parser(parser)
+            , m_oldAllowsIn(parser-&gt;m_allowsIn)
+        {
+            parser-&gt;m_allowsIn = true;
+        }
+        ~AllowInOverride()
+        {
+            m_parser-&gt;m_allowsIn = m_oldAllowsIn;
+        }
+        Parser* m_parser;
+        bool m_oldAllowsIn;
+    };
+
+    <span class="enscript-type">struct</span> AutoPopScopeRef : public ScopeRef {
+        AutoPopScopeRef(Parser* parser, ScopeRef scope)
+        : ScopeRef(scope)
+        , m_parser(parser)
+        {
+        }
+        
+        ~AutoPopScopeRef()
+        {
+            <span class="enscript-keyword">if</span> (m_parser)
+                m_parser-&gt;popScope(*this, false);
+        }
+        
+        <span class="enscript-type">void</span> setPopped()
+        {
+            m_parser = 0;
+        }
+        
+    <span class="enscript-reference">private</span>:
+        Parser* m_parser;
+    };
+
+    ScopeRef currentScope()
+    {
+        <span class="enscript-keyword">return</span> ScopeRef(&amp;m_scopeStack, m_scopeStack.size() - 1);
+    }
+    
+    ScopeRef pushScope()
+    {
+        bool isFunction = false;
+        bool isStrict = false;
+        <span class="enscript-keyword">if</span> (!m_scopeStack.isEmpty()) {
+            isStrict = m_scopeStack.last().strictMode();
+            isFunction = m_scopeStack.last().isFunction();
+        }
+        m_scopeStack.append(Scope(m_globalData, isFunction, isStrict));
+        <span class="enscript-keyword">return</span> currentScope();
+    }
+    
+    bool popScopeInternal(ScopeRef&amp; scope, bool shouldTrackClosedVariables)
+    {
+        ASSERT_UNUSED(scope, scope.index() == m_scopeStack.size() - 1);
+        ASSERT(m_scopeStack.size() &gt; 1);
+        bool result = m_scopeStack[m_scopeStack.size() - 2].collectFreeVariables(&amp;m_scopeStack.last(), shouldTrackClosedVariables);
+        m_scopeStack.removeLast();
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    bool popScope(ScopeRef&amp; scope, bool shouldTrackClosedVariables)
+    {
+        <span class="enscript-keyword">return</span> popScopeInternal(scope, shouldTrackClosedVariables);
+    }
+    
+    bool popScope(AutoPopScopeRef&amp; scope, bool shouldTrackClosedVariables)
+    {
+        scope.setPopped();
+        <span class="enscript-keyword">return</span> popScopeInternal(scope, shouldTrackClosedVariables);
+    }
+    
+    bool declareVariable(<span class="enscript-type">const</span> Identifier* ident)
+    {
+        <span class="enscript-type">unsigned</span> i = m_scopeStack.size() - 1;
+        ASSERT(i &lt; m_scopeStack.size());
+        <span class="enscript-keyword">while</span> (!m_scopeStack[i].allowsNewDecls()) {
+            i--;
+            ASSERT(i &lt; m_scopeStack.size());
+        }
+        <span class="enscript-keyword">return</span> m_scopeStack[i].declareVariable(ident);
+    }
+    
+    <span class="enscript-type">void</span> declareWrite(<span class="enscript-type">const</span> Identifier* ident)
+    {
+        <span class="enscript-keyword">if</span> (!m_syntaxAlreadyValidated)
+            m_scopeStack.last().declareWrite(ident);
+    }
+    
+    ScopeStack m_scopeStack;
+    
+    <span class="enscript-type">const</span> SourceProviderCacheItem* findCachedFunctionInfo(<span class="enscript-type">int</span> openBracePos) 
+    {
+        <span class="enscript-keyword">return</span> m_functionCache ? m_functionCache-&gt;get(openBracePos) : 0;
+    }
+
+    Parser();
+    UString parseInner();
+
+    <span class="enscript-type">void</span> didFinishParsing(SourceElements*, ParserArenaData&lt;DeclarationStacks::VarStack&gt;*, 
+                          ParserArenaData&lt;DeclarationStacks::FunctionStack&gt;*, CodeFeatures,
+                          <span class="enscript-type">int</span>, <span class="enscript-type">int</span>, IdentifierSet&amp;);
+
+    <span class="enscript-comment">// Used to determine type of error to report.
+</span>    bool isFunctionBodyNode(ScopeNode*) { <span class="enscript-keyword">return</span> false; }
+    bool isFunctionBodyNode(FunctionBodyNode*) { <span class="enscript-keyword">return</span> true; }
+
+
+    ALWAYS_INLINE <span class="enscript-type">void</span> next(<span class="enscript-type">unsigned</span> lexerFlags = 0)
+    {
+        m_lastLine = m_token.m_info.line;
+        m_lastTokenEnd = m_token.m_info.endOffset;
+        m_lexer-&gt;setLastLineNumber(m_lastLine);
+        m_token.m_type = m_lexer-&gt;lex(&amp;m_token.m_data, &amp;m_token.m_info, lexerFlags, strictMode());
+    }
+
+    ALWAYS_INLINE <span class="enscript-type">void</span> nextExpectIdentifier(<span class="enscript-type">unsigned</span> lexerFlags = 0)
+    {
+        m_lastLine = m_token.m_info.line;
+        m_lastTokenEnd = m_token.m_info.endOffset;
+        m_lexer-&gt;setLastLineNumber(m_lastLine);
+        m_token.m_type = m_lexer-&gt;lexExpectIdentifier(&amp;m_token.m_data, &amp;m_token.m_info, lexerFlags, strictMode());
+    }
+
+    ALWAYS_INLINE bool nextTokenIsColon()
+    {
+        <span class="enscript-keyword">return</span> m_lexer-&gt;nextTokenIsColon();
+    }
+
+    ALWAYS_INLINE bool consume(JSTokenType expected, <span class="enscript-type">unsigned</span> flags = 0)
+    {
+        bool result = m_token.m_type == expected;
+        <span class="enscript-keyword">if</span> (result)
+            next(flags);
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    ALWAYS_INLINE UString getToken() {
+        SourceProvider* sourceProvider = m_source-&gt;provider();
+        <span class="enscript-keyword">return</span> UString(sourceProvider-&gt;getRange(tokenStart(), tokenEnd()).impl());
+    }
+    
+    ALWAYS_INLINE bool match(JSTokenType expected)
+    {
+        <span class="enscript-keyword">return</span> m_token.m_type == expected;
+    }
+    
+    ALWAYS_INLINE <span class="enscript-type">int</span> tokenStart()
+    {
+        <span class="enscript-keyword">return</span> m_token.m_info.startOffset;
+    }
+    
+    ALWAYS_INLINE <span class="enscript-type">int</span> tokenLine()
+    {
+        <span class="enscript-keyword">return</span> m_token.m_info.line;
+    }
+    
+    ALWAYS_INLINE <span class="enscript-type">int</span> tokenEnd()
+    {
+        <span class="enscript-keyword">return</span> m_token.m_info.endOffset;
+    }
+    
+    <span class="enscript-type">const</span> <span class="enscript-type">char</span>* getTokenName(JSTokenType tok) 
+    {
+        <span class="enscript-keyword">switch</span> (tok) {
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">NULLTOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;null&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">TRUETOKEN</span>:
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;true&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">FALSETOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;false&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">BREAK</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;break&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CASE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;case&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DEFAULT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;default&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">FOR</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;for&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">NEW</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;new&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">VAR</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;var&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CONSTTOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;const&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CONTINUE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;continue&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">FUNCTION</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;function&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">IF</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;if&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">THISTOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;this&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DO</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;do&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">WHILE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;while&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">SWITCH</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;switch&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">WITH</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;with&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">THROW</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;throw&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">TRY</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;try&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CATCH</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;catch&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">FINALLY</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;finally&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DEBUGGER</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;debugger&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">ELSE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;else&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">OPENBRACE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;{&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CLOSEBRACE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;}&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">OPENPAREN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;(&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CLOSEPAREN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;)&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">OPENBRACKET</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;[&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">CLOSEBRACKET</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;]&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">COMMA</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;,&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QUESTION</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;?&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">SEMICOLON</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">COLON</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;:&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DOT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;.&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">EQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PLUSEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;+=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">MINUSEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;-=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">MULTEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;*=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DIVEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;/=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">LSHIFTEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&lt;&lt;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RSHIFTEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&gt;&gt;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">URSHIFTEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&gt;&gt;&gt;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">ANDEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&amp;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">MODEQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;%=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">XOREQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;^=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">OREQUAL</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;|=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">AUTOPLUSPLUS</span>: 
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PLUSPLUS</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;++&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">AUTOMINUSMINUS</span>: 
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">MINUSMINUS</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;--&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">EXCLAMATION</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;!&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">TILDE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;~&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">TYPEOF</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;typeof&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">VOIDTOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;void&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DELETETOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;delete&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">OR</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;||&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">AND</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&amp;&amp;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">BITOR</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;|&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">BITXOR</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;^&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">BITAND</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&amp;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">EQEQ</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;==&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">NE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;!=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">STREQ</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;===&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">STRNEQ</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;!==&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">LT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&lt;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">GT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&gt;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">LE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&lt;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">GE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&gt;=&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">INSTANCEOF</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;instanceof&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">INTOKEN</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;in&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">LSHIFT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&lt;&lt;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RSHIFT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&gt;&gt;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">URSHIFT</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;&gt;&gt;&gt;&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">PLUS</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;+&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">MINUS</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;-&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">TIMES</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;*&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">DIVIDE</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;/&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">MOD</span>: 
+            <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;%&quot;</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RETURN</span>: 
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RESERVED_IF_STRICT</span>:
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RESERVED</span>: 
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">NUMBER</span>:
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">IDENT</span>: 
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">STRING</span>: 
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">ERRORTOK</span>:
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">EOFTOK</span>: 
+            <span class="enscript-keyword">return</span> 0;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">LastUntaggedToken</span>: 
+            <span class="enscript-keyword">break</span>;
+        }
+        ASSERT_NOT_REACHED();
+        <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;internal error&quot;</span>;
+    }
+    
+    ALWAYS_INLINE <span class="enscript-type">void</span> updateErrorMessageSpecialCase(JSTokenType expectedToken) 
+    {
+        String errorMessage;
+        <span class="enscript-keyword">switch</span> (expectedToken) {
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RESERVED_IF_STRICT</span>:
+            errorMessage = <span class="enscript-string">&quot;Use of reserved word '&quot;</span>;
+            errorMessage += getToken().impl();
+            errorMessage += <span class="enscript-string">&quot;' in strict mode&quot;</span>;
+            m_errorMessage = errorMessage.impl();
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RESERVED</span>:
+            errorMessage = <span class="enscript-string">&quot;Use of reserved word '&quot;</span>;
+            errorMessage += getToken().impl();
+            errorMessage += <span class="enscript-string">&quot;'&quot;</span>;
+            m_errorMessage = errorMessage.impl();
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">NUMBER</span>: 
+            errorMessage = <span class="enscript-string">&quot;Unexpected number '&quot;</span>;
+            errorMessage += getToken().impl();
+            errorMessage += <span class="enscript-string">&quot;'&quot;</span>;
+            m_errorMessage = errorMessage.impl();
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">IDENT</span>: 
+            errorMessage = <span class="enscript-string">&quot;Expected an identifier but found '&quot;</span>;
+            errorMessage += getToken().impl();
+            errorMessage += <span class="enscript-string">&quot;' instead&quot;</span>;
+            m_errorMessage = errorMessage.impl();
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">STRING</span>: 
+            errorMessage = <span class="enscript-string">&quot;Unexpected string &quot;</span>;
+            errorMessage += getToken().impl();
+            m_errorMessage = errorMessage.impl();
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">ERRORTOK</span>: 
+            errorMessage = <span class="enscript-string">&quot;Unrecognized token '&quot;</span>;
+            errorMessage += getToken().impl();
+            errorMessage += <span class="enscript-string">&quot;'&quot;</span>;
+            m_errorMessage = errorMessage.impl();
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">EOFTOK</span>:  
+            m_errorMessage = <span class="enscript-string">&quot;Unexpected EOF&quot;</span>;
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">RETURN</span>:
+            m_errorMessage = <span class="enscript-string">&quot;Return statements are only valid inside functions&quot;</span>;
+            <span class="enscript-keyword">return</span>;
+        <span class="enscript-reference">default</span>:
+            ASSERT_NOT_REACHED();
+            m_errorMessage = <span class="enscript-string">&quot;internal error&quot;</span>;
+            <span class="enscript-keyword">return</span>;
+        }
+    }
+    
+    NEVER_INLINE <span class="enscript-type">void</span> updateErrorMessage() 
+    {
+        m_error = true;
+        <span class="enscript-type">const</span> <span class="enscript-type">char</span>* name = getTokenName(m_token.m_type);
+        <span class="enscript-keyword">if</span> (!name) 
+            updateErrorMessageSpecialCase(m_token.m_type);
+        <span class="enscript-keyword">else</span> 
+            m_errorMessage = UString(String::format(<span class="enscript-string">&quot;Unexpected token '%s'&quot;</span>, name).impl());
+    }
+    
+    NEVER_INLINE <span class="enscript-type">void</span> updateErrorMessage(JSTokenType expectedToken) 
+    {
+        m_error = true;
+        <span class="enscript-type">const</span> <span class="enscript-type">char</span>* name = getTokenName(expectedToken);
+        <span class="enscript-keyword">if</span> (name)
+            m_errorMessage = UString(String::format(<span class="enscript-string">&quot;Expected token '%s'&quot;</span>, name).impl());
+        <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">if</span> (!getTokenName(m_token.m_type))
+                updateErrorMessageSpecialCase(m_token.m_type);
+            <span class="enscript-keyword">else</span>
+                updateErrorMessageSpecialCase(expectedToken);
+        } 
+    }
+    
+    NEVER_INLINE <span class="enscript-type">void</span> updateErrorWithNameAndMessage(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* beforeMsg, UString name, <span class="enscript-type">const</span> <span class="enscript-type">char</span>* afterMsg) 
+    {
+        m_error = true;
+        String prefix(beforeMsg);
+        String postfix(afterMsg);
+        prefix += <span class="enscript-string">&quot; '&quot;</span>;
+        prefix += name.impl();
+        prefix += <span class="enscript-string">&quot;' &quot;</span>;
+        prefix += postfix;
+        m_errorMessage = prefix.impl();
+    }
+    
+    NEVER_INLINE <span class="enscript-type">void</span> updateErrorMessage(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* msg) 
+    {   
+        m_error = true;
+        m_errorMessage = UString(msg);
+    }
+    
+    <span class="enscript-type">void</span> startLoop() { currentScope()-&gt;startLoop(); }
+    <span class="enscript-type">void</span> endLoop() { currentScope()-&gt;endLoop(); }
+    <span class="enscript-type">void</span> startSwitch() { currentScope()-&gt;startSwitch(); }
+    <span class="enscript-type">void</span> endSwitch() { currentScope()-&gt;endSwitch(); }
+    <span class="enscript-type">void</span> setStrictMode() { currentScope()-&gt;setStrictMode(); }
+    bool strictMode() { <span class="enscript-keyword">return</span> currentScope()-&gt;strictMode(); }
+    bool isValidStrictMode() { <span class="enscript-keyword">return</span> currentScope()-&gt;isValidStrictMode(); }
+    bool declareParameter(<span class="enscript-type">const</span> Identifier* ident) { <span class="enscript-keyword">return</span> currentScope()-&gt;declareParameter(ident); }
+    bool breakIsValid()
+    {
+        ScopeRef current = currentScope();
+        <span class="enscript-keyword">while</span> (!current-&gt;breakIsValid()) {
+            <span class="enscript-keyword">if</span> (!current.hasContainingScope())
+                <span class="enscript-keyword">return</span> false;
+            current = current.containingScope();
+        }
+        <span class="enscript-keyword">return</span> true;
+    }
+    bool continueIsValid()
+    {
+        ScopeRef current = currentScope();
+        <span class="enscript-keyword">while</span> (!current-&gt;continueIsValid()) {
+            <span class="enscript-keyword">if</span> (!current.hasContainingScope())
+                <span class="enscript-keyword">return</span> false;
+            current = current.containingScope();
+        }
+        <span class="enscript-keyword">return</span> true;
+    }
+    <span class="enscript-type">void</span> pushLabel(<span class="enscript-type">const</span> Identifier* label, bool isLoop) { currentScope()-&gt;pushLabel(label, isLoop); }
+    <span class="enscript-type">void</span> popLabel() { currentScope()-&gt;popLabel(); }
+    ScopeLabelInfo* getLabel(<span class="enscript-type">const</span> Identifier* label)
+    {
+        ScopeRef current = currentScope();
+        ScopeLabelInfo* result = 0;
+        <span class="enscript-keyword">while</span> (!(result = current-&gt;getLabel(label))) {
+            <span class="enscript-keyword">if</span> (!current.hasContainingScope())
+                <span class="enscript-keyword">return</span> 0;
+            current = current.containingScope();
+        }
+        <span class="enscript-keyword">return</span> result;
+    }
+    
+    template &lt;SourceElementsMode mode, class TreeBuilder&gt; TreeSourceElements parseSourceElements(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseStatement(TreeBuilder&amp;, <span class="enscript-type">const</span> Identifier*&amp; directive, <span class="enscript-type">unsigned</span>* directiveLiteralLength = 0);
+    template &lt;class TreeBuilder&gt; TreeStatement parseFunctionDeclaration(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseVarDeclaration(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseConstDeclaration(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseDoWhileStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseWhileStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseForStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseBreakStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseContinueStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseReturnStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseThrowStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseWithStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseSwitchStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeClauseList parseSwitchClauses(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeClause parseSwitchDefaultClause(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseTryStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseDebuggerStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseExpressionStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseExpressionOrLabelStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeStatement parseIfStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeStatement parseBlockStatement(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeExpression parseExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeExpression parseAssignmentExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseConditionalExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseBinaryExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseUnaryExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; TreeExpression parseMemberExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parsePrimaryExpression(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseArrayLiteral(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseObjectLiteral(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseStrictObjectLiteral(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeArguments parseArguments(TreeBuilder&amp;);
+    template &lt;bool strict, class TreeBuilder&gt; ALWAYS_INLINE TreeProperty parseProperty(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeFunctionBody parseFunctionBody(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeFormalParameterList parseFormalParameters(TreeBuilder&amp;);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeExpression parseVarDeclarationList(TreeBuilder&amp;, <span class="enscript-type">int</span>&amp; declarations, <span class="enscript-type">const</span> Identifier*&amp; lastIdent, TreeExpression&amp; lastInitializer, <span class="enscript-type">int</span>&amp; identStart, <span class="enscript-type">int</span>&amp; initStart, <span class="enscript-type">int</span>&amp; initEnd);
+    template &lt;class TreeBuilder&gt; ALWAYS_INLINE TreeConstDeclList parseConstDeclarationList(TreeBuilder&amp; context);
+    template &lt;FunctionRequirements, bool nameIsInContainingScope, class TreeBuilder&gt; bool parseFunctionInfo(TreeBuilder&amp;, <span class="enscript-type">const</span> Identifier*&amp;, TreeFormalParameterList&amp;, TreeFunctionBody&amp;, <span class="enscript-type">int</span>&amp; openBrace, <span class="enscript-type">int</span>&amp; closeBrace, <span class="enscript-type">int</span>&amp; bodyStartLine);
+    ALWAYS_INLINE <span class="enscript-type">int</span> isBinaryOperator(JSTokenType);
+    bool allowAutomaticSemicolon();
+    
+    bool autoSemiColon()
+    {
+        <span class="enscript-keyword">if</span> (m_token.m_type == SEMICOLON) {
+            next();
+            <span class="enscript-keyword">return</span> true;
+        }
+        <span class="enscript-keyword">return</span> allowAutomaticSemicolon();
+    }
+    
+    bool canRecurse()
+    {
+        <span class="enscript-keyword">return</span> m_stack.recursionCheck();
+    }
+    
+    <span class="enscript-type">int</span> lastTokenEnd() <span class="enscript-type">const</span>
+    {
+        <span class="enscript-keyword">return</span> m_lastTokenEnd;
+    }
+
+    mutable <span class="enscript-type">const</span> JSGlobalData* m_globalData;
+    <span class="enscript-type">const</span> SourceCode* m_source;
+    ParserArena* m_arena;
+    OwnPtr&lt;LexerType&gt; m_lexer;
+    
+    StackBounds m_stack;
+    bool m_error;
+    UString m_errorMessage;
+    JSToken m_token;
+    bool m_allowsIn;
+    <span class="enscript-type">int</span> m_lastLine;
+    <span class="enscript-type">int</span> m_lastTokenEnd;
+    <span class="enscript-type">int</span> m_assignmentCount;
+    <span class="enscript-type">int</span> m_nonLHSCount;
+    bool m_syntaxAlreadyValidated;
+    <span class="enscript-type">int</span> m_statementDepth;
+    <span class="enscript-type">int</span> m_nonTrivialExpressionCount;
+    <span class="enscript-type">const</span> Identifier* m_lastIdentifier;
+    SourceProviderCache* m_functionCache;
+    SourceElements* m_sourceElements;
+    ParserArenaData&lt;DeclarationStacks::VarStack&gt;* m_varDeclarations;
+    ParserArenaData&lt;DeclarationStacks::FunctionStack&gt;* m_funcDeclarations;
+    IdentifierSet m_capturedVariables;
+    CodeFeatures m_features;
+    <span class="enscript-type">int</span> m_numConstants;
+    
+    <span class="enscript-type">struct</span> DepthManager {
+        DepthManager(<span class="enscript-type">int</span>* depth)
+        : m_originalDepth(*depth)
+        , m_depth(depth)
+        {
+        }
+        
+        ~DepthManager()
+        {
+            *m_depth = m_originalDepth;
+        }
+        
+    <span class="enscript-reference">private</span>:
+        <span class="enscript-type">int</span> m_originalDepth;
+        <span class="enscript-type">int</span>* m_depth;
+    };
+};
+
+template &lt;typename LexerType&gt;
+template &lt;class ParsedNode&gt;
+PassRefPtr&lt;ParsedNode&gt; Parser&lt;LexerType&gt;::parse(JSGlobalObject* lexicalGlobalObject, Debugger* debugger, ExecState* debuggerExecState, JSObject** exception)
+{
+    ASSERT(lexicalGlobalObject);
+    ASSERT(exception &amp;&amp; !*exception);
+    <span class="enscript-type">int</span> errLine;
+    UString errMsg;
+
+    <span class="enscript-keyword">if</span> (ParsedNode::scopeIsFunction)
+        m_lexer-&gt;setIsReparsing();
+
+    m_sourceElements = 0;
+
+    errLine = -1;
+    errMsg = UString();
+
+    UString parseError = parseInner();
+
+    <span class="enscript-type">int</span> lineNumber = m_lexer-&gt;lineNumber();
+    bool lexError = m_lexer-&gt;sawError();
+    UString lexErrorMessage = lexError ? m_lexer-&gt;getErrorMessage() : UString();
+    ASSERT(lexErrorMessage.isNull() != lexError);
+    m_lexer-&gt;clear();
+
+    <span class="enscript-keyword">if</span> (!parseError.isNull() || lexError) {
+        errLine = lineNumber;
+        errMsg = !lexErrorMessage.isNull() ? lexErrorMessage : parseError;
+        m_sourceElements = 0;
+    }
+
+    RefPtr&lt;ParsedNode&gt; result;
+    <span class="enscript-keyword">if</span> (m_sourceElements) {
+        result = ParsedNode::create(&amp;lexicalGlobalObject-&gt;globalData(),
+                                    m_lexer-&gt;lastLineNumber(),
+                                    m_sourceElements,
+                                    m_varDeclarations ? &amp;m_varDeclarations-&gt;data : 0,
+                                    m_funcDeclarations ? &amp;m_funcDeclarations-&gt;data : 0,
+                                    m_capturedVariables,
+                                    *m_source,
+                                    m_features,
+                                    m_numConstants);
+        result-&gt;setLoc(m_source-&gt;firstLine(), m_lastLine);
+    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (lexicalGlobalObject) {
+        <span class="enscript-comment">// We can never see a syntax error when reparsing a function, since we should have
+</span>        <span class="enscript-comment">// reported the error when parsing the containing program or eval code. So if we're
+</span>        <span class="enscript-comment">// parsing a function body node, we assume that what actually happened here is that
+</span>        <span class="enscript-comment">// we ran out of stack while parsing. If we see an error while parsing eval or program
+</span>        <span class="enscript-comment">// code we assume that it was a syntax error since running out of stack is much less
+</span>        <span class="enscript-comment">// likely, and we are currently unable to distinguish between the two cases.
+</span>        <span class="enscript-keyword">if</span> (isFunctionBodyNode(static_cast&lt;ParsedNode*&gt;(0)))
+            *exception = createStackOverflowError(lexicalGlobalObject);
+        <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (isEvalNode&lt;ParsedNode&gt;())
+            *exception = createSyntaxError(lexicalGlobalObject, errMsg);
+        <span class="enscript-keyword">else</span>
+            *exception = addErrorInfo(lexicalGlobalObject-&gt;globalExec(), createSyntaxError(lexicalGlobalObject, errMsg), errLine, *m_source);
+    }
+
+    <span class="enscript-keyword">if</span> (debugger &amp;&amp; !ParsedNode::scopeIsFunction)
+        debugger-&gt;sourceParsed(debuggerExecState, m_source-&gt;provider(), errLine, errMsg);
+
+    m_arena-&gt;reset();
+
+    <span class="enscript-keyword">return</span> result.release();
+}
+
+template &lt;class ParsedNode&gt;
+PassRefPtr&lt;ParsedNode&gt; parse(JSGlobalData* globalData, JSGlobalObject* lexicalGlobalObject, <span class="enscript-type">const</span> SourceCode&amp; source, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode parserMode, Debugger* debugger, ExecState* execState, JSObject** exception)
+{
+    SamplingRegion samplingRegion(<span class="enscript-string">&quot;Parsing&quot;</span>);
+
+    ASSERT(source.provider()-&gt;data());
+
+    <span class="enscript-keyword">if</span> (source.provider()-&gt;data()-&gt;is8Bit()) {
+        Parser&lt; Lexer&lt;LChar&gt; &gt; parser(globalData, source, parameters, strictness, parserMode);
+        <span class="enscript-keyword">return</span> parser.parse&lt;ParsedNode&gt;(lexicalGlobalObject, debugger, execState, exception);
+    }
+    Parser&lt; Lexer&lt;UChar&gt; &gt; parser(globalData, source, parameters, strictness, parserMode);
+    <span class="enscript-keyword">return</span> parser.parse&lt;ParsedNode&gt;(lexicalGlobalObject, debugger, execState, exception);
+}
+
+} <span class="enscript-comment">// namespace 
+</span>#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

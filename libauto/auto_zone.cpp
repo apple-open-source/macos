@@ -35,11 +35,15 @@
 #include "auto_tester/auto_tester.h"
 #include "BlockIterator.h"
 
+#include <crt_externs.h>
+#include <mach-o/dyld.h>
 #include <stdlib.h>
 #include <libc.h>
+#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
+#include <msgtracer_client.h>
 
 #ifdef __BLOCKS__
 #include <Block.h>
@@ -711,10 +715,23 @@ static void * volatile compaction_timers[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK
 
 // there can be several autonomous auto_zone's running, in theory at least.
 auto_zone_t *auto_zone_create(const char *name) {
+    char exec_path[PATH_MAX];
+    uint32_t exec_path_sz = PATH_MAX;
+
     aux_init();
     pthread_key_t key = Zone::allocate_thread_key();
     if (key == 0) return NULL;
-    
+
+#define STRNEQ(x, y) (strncmp((x), (y), strlen(y)) == 0)
+    if (_NSGetExecutablePath(exec_path, &exec_path_sz) == 0 && strstr(exec_path, ".app/")) {
+        if (STRNEQ(exec_path, "/System/Library/Extensions/")
+                || (!STRNEQ(exec_path, "/System/") && !STRNEQ(exec_path, "/Applications/Xcode.app/")))
+        {
+            msgtracer_log_with_keys("com.apple.runtime.gcusage", ASL_LEVEL_NOTICE,
+                                    "com.apple.message.summarize", "YES", NULL);
+        }
+    }
+
     Zone  *azone = new Zone(key);
     azone->basic_zone.size = auto_zone_size;
     azone->basic_zone.malloc = auto_malloc;

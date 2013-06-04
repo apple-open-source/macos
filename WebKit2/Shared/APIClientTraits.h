@@ -27,6 +27,7 @@
 #define APIClientTraits_h
 
 #include "WKBundlePage.h"
+#include "WKContext.h"
 #include "WKPage.h"
 
 namespace WebKit {
@@ -53,14 +54,18 @@ template<> struct APIClientTraits<WKPageContextMenuClient> {
 };
 
 template<> struct APIClientTraits<WKPageLoaderClient> {
-    static const size_t interfaceSizesByVersion[2];
+    static const size_t interfaceSizesByVersion[3];
 };
 
 template<> struct APIClientTraits<WKPageUIClient> {
-    static const size_t interfaceSizesByVersion[2];
+    static const size_t interfaceSizesByVersion[3];
 };
 
 template<> struct APIClientTraits<WKBundlePageFormClient> {
+    static const size_t interfaceSizesByVersion[2];
+};
+
+template<> struct APIClientTraits<WKContextClient> {
     static const size_t interfaceSizesByVersion[2];
 };
 

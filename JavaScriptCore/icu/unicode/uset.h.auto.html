@@ -1,0 +1,770 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>uset.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">uset.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+*******************************************************************************
+*
+*   Copyright (C) 2002-2004, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+*
+*******************************************************************************
+*   file name:  uset.h
+*   encoding:   US-ASCII
+*   tab size:   8 (not used)
+*   indentation:4
+*
+*   created on: 2002mar07
+*   created by: Markus W. Scherer
+*
+*   C version of UnicodeSet.
+*/</span>
+
+
+<span class="enscript-comment">/**
+ * \file
+ * \brief C API: Unicode Set
+ *
+ * &lt;p&gt;This is a C wrapper around the C++ UnicodeSet class.&lt;/p&gt;
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">__USET_H__</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">__USET_H__</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/utypes.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;unicode/uchar.h&quot;</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UCNV_H</span>
+<span class="enscript-type">struct</span> USet;
+<span class="enscript-comment">/**
+ * A UnicodeSet.  Use the uset_* API to manipulate.  Create with
+ * uset_open*, and destroy with uset_close.
+ * @stable ICU 2.4
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">struct</span> USet USet;
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/**
+ * Bitmask values to be passed to uset_openPatternOptions() or
+ * uset_applyPattern() taking an option parameter.
+ * @stable ICU 2.4
+ */</span>
+<span class="enscript-type">enum</span> {
+    <span class="enscript-comment">/**
+     * Ignore white space within patterns unless quoted or escaped.
+     * @stable ICU 2.4
+     */</span>
+    USET_IGNORE_SPACE = 1,  
+
+    <span class="enscript-comment">/**
+     * Enable case insensitive matching.  E.g., &quot;[ab]&quot; with this flag
+     * will match 'a', 'A', 'b', and 'B'.  &quot;[^ab]&quot; with this flag will
+     * match all except 'a', 'A', 'b', and 'B'. This performs a full
+     * closure over case mappings, e.g. U+017F for s.
+     * @stable ICU 2.4
+     */</span>
+    USET_CASE_INSENSITIVE = 2,  
+
+    <span class="enscript-comment">/**
+     * Bitmask for UnicodeSet::closeOver() indicating letter case.
+     * This may be ORed together with other selectors.
+     * @internal
+     */</span>
+    USET_CASE = 2,
+
+    <span class="enscript-comment">/**
+     * Enable case insensitive matching.  E.g., &quot;[ab]&quot; with this flag
+     * will match 'a', 'A', 'b', and 'B'.  &quot;[^ab]&quot; with this flag will
+     * match all except 'a', 'A', 'b', and 'B'. This adds the lower-,
+     * title-, and uppercase mappings as well as the case folding
+     * of each existing element in the set.
+     * @draft ICU 3.2
+     */</span>
+    USET_ADD_CASE_MAPPINGS = 4,
+
+    <span class="enscript-comment">/**
+     * Enough for any single-code point set
+     * @internal
+     */</span>
+    USET_SERIALIZED_STATIC_ARRAY_CAPACITY=8
+};
+
+<span class="enscript-comment">/**
+ * A serialized form of a Unicode set.  Limited manipulations are
+ * possible directly on a serialized set.  See below.
+ * @stable ICU 2.4
+ */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">struct</span> USerializedSet {
+    <span class="enscript-comment">/**
+     * The serialized Unicode Set.
+     * @stable ICU 2.4
+     */</span>
+    <span class="enscript-type">const</span> uint16_t *array;
+    <span class="enscript-comment">/**
+     * The length of the array that contains BMP characters.
+     * @stable ICU 2.4
+     */</span>
+    int32_t bmpLength;
+    <span class="enscript-comment">/**
+     * The total length of the array.
+     * @stable ICU 2.4
+     */</span>
+    int32_t length;
+    <span class="enscript-comment">/**
+     * A small buffer for the array to reduce memory allocations.
+     * @stable ICU 2.4
+     */</span>
+    uint16_t staticArray[USET_SERIALIZED_STATIC_ARRAY_CAPACITY];
+} USerializedSet;
+
+<span class="enscript-comment">/*********************************************************************
+ * USet API
+ *********************************************************************/</span>
+
+<span class="enscript-comment">/**
+ * Creates a USet object that contains the range of characters
+ * start..end, inclusive.
+ * @param start first character of the range, inclusive
+ * @param end last character of the range, inclusive
+ * @return a newly created USet.  The caller must call uset_close() on
+ * it when done.
+ * @stable ICU 2.4
+ */</span>
+U_STABLE USet* U_EXPORT2
+<span class="enscript-function-name">uset_open</span>(UChar32 start, UChar32 end);
+
+<span class="enscript-comment">/**
+ * Creates a set from the given pattern.  See the UnicodeSet class
+ * description for the syntax of the pattern language.
+ * @param pattern a string specifying what characters are in the set
+ * @param patternLength the length of the pattern, or -1 if null
+ * terminated
+ * @param ec the error code
+ * @stable ICU 2.4
+ */</span>
+U_STABLE USet* U_EXPORT2
+<span class="enscript-function-name">uset_openPattern</span>(<span class="enscript-type">const</span> UChar* pattern, int32_t patternLength,
+                 UErrorCode* ec);
+
+<span class="enscript-comment">/**
+ * Creates a set from the given pattern.  See the UnicodeSet class
+ * description for the syntax of the pattern language.
+ * @param pattern a string specifying what characters are in the set
+ * @param patternLength the length of the pattern, or -1 if null
+ * terminated
+ * @param options bitmask for options to apply to the pattern.
+ * Valid options are USET_IGNORE_SPACE and USET_CASE_INSENSITIVE.
+ * @param ec the error code
+ * @stable ICU 2.4
+ */</span>
+U_STABLE USet* U_EXPORT2
+<span class="enscript-function-name">uset_openPatternOptions</span>(<span class="enscript-type">const</span> UChar* pattern, int32_t patternLength,
+                 uint32_t options,
+                 UErrorCode* ec);
+
+<span class="enscript-comment">/**
+ * Disposes of the storage used by a USet object.  This function should
+ * be called exactly once for objects returned by uset_open().
+ * @param set the object to dispose of
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_close</span>(USet* set);
+
+<span class="enscript-comment">/**
+ * Causes the USet object to represent the range &lt;code&gt;start - end&lt;/code&gt;.
+ * If &lt;code&gt;start &gt; end&lt;/code&gt; then this USet is set to an empty range.
+ * @param set the object to set to the given range
+ * @param start first character in the set, inclusive
+ * @param end last character in the set, inclusive
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_set</span>(USet* set,
+         UChar32 start, UChar32 end);
+
+<span class="enscript-comment">/**
+ * Modifies the set to represent the set specified by the given
+ * pattern. See the UnicodeSet class description for the syntax of 
+ * the pattern language. See also the User Guide chapter about UnicodeSet.
+ * &lt;em&gt;Empties the set passed before applying the pattern.&lt;/em&gt;
+ * @param set               The set to which the pattern is to be applied. 
+ * @param pattern           A pointer to UChar string specifying what characters are in the set.
+ *                          The character at pattern[0] must be a '['.
+ * @param patternLength     The length of the UChar string. -1 if NUL terminated.
+ * @param options           A bitmask for options to apply to the pattern.
+ *                          Valid options are USET_IGNORE_SPACE and USET_CASE_INSENSITIVE.
+ * @param status            Returns an error if the pattern cannot be parsed.
+ * @return                  Upon successful parse, the value is either
+ *                          the index of the character after the closing ']' 
+ *                          of the parsed pattern.
+ *                          If the status code indicates failure, then the return value 
+ *                          is the index of the error in the source.
+ *                                  
+ * @draft ICU 2.8
+ */</span>
+U_DRAFT int32_t U_EXPORT2 
+<span class="enscript-function-name">uset_applyPattern</span>(USet *set,
+                  <span class="enscript-type">const</span> UChar *pattern, int32_t patternLength,
+                  uint32_t options,
+                  UErrorCode *status);
+
+<span class="enscript-comment">/**
+ * Modifies the set to contain those code points which have the given value
+ * for the given binary or enumerated property, as returned by
+ * u_getIntPropertyValue.  Prior contents of this set are lost.
+ *
+ * @param set the object to contain the code points defined by the property
+ *
+ * @param prop a property in the range UCHAR_BIN_START..UCHAR_BIN_LIMIT-1
+ * or UCHAR_INT_START..UCHAR_INT_LIMIT-1
+ * or UCHAR_MASK_START..UCHAR_MASK_LIMIT-1.
+ *
+ * @param value a value in the range u_getIntPropertyMinValue(prop)..
+ * u_getIntPropertyMaxValue(prop), with one exception.  If prop is
+ * UCHAR_GENERAL_CATEGORY_MASK, then value should not be a UCharCategory, but
+ * rather a mask value produced by U_GET_GC_MASK().  This allows grouped
+ * categories such as [:L:] to be represented.
+ *
+ * @param ec error code input/output parameter
+ *
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_applyIntPropertyValue</span>(USet* set,
+                           UProperty prop, int32_t value, UErrorCode* ec);
+
+<span class="enscript-comment">/**
+ * Modifies the set to contain those code points which have the
+ * given value for the given property.  Prior contents of this
+ * set are lost.
+ *
+ * @param set the object to contain the code points defined by the given
+ * property and value alias
+ *
+ * @param prop a string specifying a property alias, either short or long.
+ * The name is matched loosely.  See PropertyAliases.txt for names and a
+ * description of loose matching.  If the value string is empty, then this
+ * string is interpreted as either a General_Category value alias, a Script
+ * value alias, a binary property alias, or a special ID.  Special IDs are
+ * matched loosely and correspond to the following sets:
+ *
+ * &quot;ANY&quot; = [\\u0000-\\U0010FFFF],
+ * &quot;ASCII&quot; = [\\u0000-\\u007F].
+ *
+ * @param propLength the length of the prop, or -1 if NULL
+ *
+ * @param value a string specifying a value alias, either short or long.
+ * The name is matched loosely.  See PropertyValueAliases.txt for names
+ * and a description of loose matching.  In addition to aliases listed,
+ * numeric values and canonical combining classes may be expressed
+ * numerically, e.g., (&quot;nv&quot;, &quot;0.5&quot;) or (&quot;ccc&quot;, &quot;220&quot;).  The value string
+ * may also be empty.
+ *
+ * @param valueLength the length of the value, or -1 if NULL
+ *
+ * @param ec error code input/output parameter
+ *
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_applyPropertyAlias</span>(USet* set,
+                        <span class="enscript-type">const</span> UChar *prop, int32_t propLength,
+                        <span class="enscript-type">const</span> UChar *value, int32_t valueLength,
+                        UErrorCode* ec);
+
+<span class="enscript-comment">/**
+ * Return true if the given position, in the given pattern, appears
+ * to be the start of a UnicodeSet pattern.
+ *
+ * @param pattern a string specifying the pattern
+ * @param patternLength the length of the pattern, or -1 if NULL
+ * @param pos the given position
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT UBool U_EXPORT2
+<span class="enscript-function-name">uset_resemblesPattern</span>(<span class="enscript-type">const</span> UChar *pattern, int32_t patternLength,
+                      int32_t pos);
+
+<span class="enscript-comment">/**
+ * Returns a string representation of this set.  If the result of
+ * calling this function is passed to a uset_openPattern(), it
+ * will produce another set that is equal to this one.
+ * @param set the set
+ * @param result the string to receive the rules, may be NULL
+ * @param resultCapacity the capacity of result, may be 0 if result is NULL
+ * @param escapeUnprintable if TRUE then convert unprintable
+ * character to their hex escape representations, \\uxxxx or
+ * \\Uxxxxxxxx.  Unprintable characters are those other than
+ * U+000A, U+0020..U+007E.
+ * @param ec error code.
+ * @return length of string, possibly larger than resultCapacity
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uset_toPattern</span>(<span class="enscript-type">const</span> USet* set,
+               UChar* result, int32_t resultCapacity,
+               UBool escapeUnprintable,
+               UErrorCode* ec);
+
+<span class="enscript-comment">/**
+ * Adds the given character to the given USet.  After this call,
+ * uset_contains(set, c) will return TRUE.
+ * @param set the object to which to add the character
+ * @param c the character to add
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_add</span>(USet* set, UChar32 c);
+
+<span class="enscript-comment">/**
+ * Adds all of the elements in the specified set to this set if
+ * they're not already present.  This operation effectively
+ * modifies this set so that its value is the &lt;i&gt;union&lt;/i&gt; of the two
+ * sets.  The behavior of this operation is unspecified if the specified
+ * collection is modified while the operation is in progress.
+ *
+ * @param set the object to which to add the set
+ * @param additionalSet the source set whose elements are to be added to this set.
+ * @stable ICU 2.6
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_addAll</span>(USet* set, <span class="enscript-type">const</span> USet *additionalSet);
+
+<span class="enscript-comment">/**
+ * Adds the given range of characters to the given USet.  After this call,
+ * uset_contains(set, start, end) will return TRUE.
+ * @param set the object to which to add the character
+ * @param start the first character of the range to add, inclusive
+ * @param end the last character of the range to add, inclusive
+ * @stable ICU 2.2
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_addRange</span>(USet* set, UChar32 start, UChar32 end);
+
+<span class="enscript-comment">/**
+ * Adds the given string to the given USet.  After this call,
+ * uset_containsString(set, str, strLen) will return TRUE.
+ * @param set the object to which to add the character
+ * @param str the string to add
+ * @param strLen the length of the string or -1 if null terminated.
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_addString</span>(USet* set, <span class="enscript-type">const</span> UChar* str, int32_t strLen);
+
+<span class="enscript-comment">/**
+ * Removes the given character from the given USet.  After this call,
+ * uset_contains(set, c) will return FALSE.
+ * @param set the object from which to remove the character
+ * @param c the character to remove
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_remove</span>(USet* set, UChar32 c);
+
+<span class="enscript-comment">/**
+ * Removes the given range of characters from the given USet.  After this call,
+ * uset_contains(set, start, end) will return FALSE.
+ * @param set the object to which to add the character
+ * @param start the first character of the range to remove, inclusive
+ * @param end the last character of the range to remove, inclusive
+ * @stable ICU 2.2
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_removeRange</span>(USet* set, UChar32 start, UChar32 end);
+
+<span class="enscript-comment">/**
+ * Removes the given string to the given USet.  After this call,
+ * uset_containsString(set, str, strLen) will return FALSE.
+ * @param set the object to which to add the character
+ * @param str the string to remove
+ * @param strLen the length of the string or -1 if null terminated.
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_removeString</span>(USet* set, <span class="enscript-type">const</span> UChar* str, int32_t strLen);
+
+<span class="enscript-comment">/**
+ * Removes from this set all of its elements that are contained in the
+ * specified set.  This operation effectively modifies this
+ * set so that its value is the &lt;i&gt;asymmetric set difference&lt;/i&gt; of
+ * the two sets.
+ * @param set the object from which the elements are to be removed
+ * @param removeSet the object that defines which elements will be
+ * removed from this set
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_removeAll</span>(USet* set, <span class="enscript-type">const</span> USet* removeSet);
+
+<span class="enscript-comment">/**
+ * Retain only the elements in this set that are contained in the
+ * specified range.  If &lt;code&gt;start &gt; end&lt;/code&gt; then an empty range is
+ * retained, leaving the set empty.  This is equivalent to
+ * a boolean logic AND, or a set INTERSECTION.
+ *
+ * @param set the object for which to retain only the specified range
+ * @param start first character, inclusive, of range to be retained
+ * to this set.
+ * @param end last character, inclusive, of range to be retained
+ * to this set.
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_retain</span>(USet* set, UChar32 start, UChar32 end);
+
+<span class="enscript-comment">/**
+ * Retains only the elements in this set that are contained in the
+ * specified set.  In other words, removes from this set all of
+ * its elements that are not contained in the specified set.  This
+ * operation effectively modifies this set so that its value is
+ * the &lt;i&gt;intersection&lt;/i&gt; of the two sets.
+ *
+ * @param set the object on which to perform the retain
+ * @param retain set that defines which elements this set will retain
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_retainAll</span>(USet* set, <span class="enscript-type">const</span> USet* retain);
+
+<span class="enscript-comment">/**
+ * Reallocate this objects internal structures to take up the least
+ * possible space, without changing this object's value.
+ *
+ * @param set the object on which to perfrom the compact
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_compact</span>(USet* set);
+
+<span class="enscript-comment">/**
+ * Inverts this set.  This operation modifies this set so that
+ * its value is its complement.  This operation does not affect
+ * the multicharacter strings, if any.
+ * @param set the set
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_complement</span>(USet* set);
+
+<span class="enscript-comment">/**
+ * Complements in this set all elements contained in the specified
+ * set.  Any character in the other set will be removed if it is
+ * in this set, or will be added if it is not in this set.
+ *
+ * @param set the set with which to complement
+ * @param complement set that defines which elements will be xor'ed
+ * from this set.
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_complementAll</span>(USet* set, <span class="enscript-type">const</span> USet* complement);
+
+<span class="enscript-comment">/**
+ * Removes all of the elements from this set.  This set will be
+ * empty after this call returns.
+ * @param set the set
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_clear</span>(USet* set);
+
+<span class="enscript-comment">/**
+ * Returns TRUE if the given USet contains no characters and no
+ * strings.
+ * @param set the set
+ * @return true if set is empty
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_isEmpty</span>(<span class="enscript-type">const</span> USet* set);
+
+<span class="enscript-comment">/**
+ * Returns TRUE if the given USet contains the given character.
+ * @param set the set
+ * @param c The codepoint to check for within the set
+ * @return true if set contains c
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_contains</span>(<span class="enscript-type">const</span> USet* set, UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns TRUE if the given USet contains all characters c
+ * where start &lt;= c &amp;&amp; c &lt;= end.
+ * @param set the set
+ * @param start the first character of the range to test, inclusive
+ * @param end the last character of the range to test, inclusive
+ * @return TRUE if set contains the range
+ * @stable ICU 2.2
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_containsRange</span>(<span class="enscript-type">const</span> USet* set, UChar32 start, UChar32 end);
+
+<span class="enscript-comment">/**
+ * Returns TRUE if the given USet contains the given string.
+ * @param set the set
+ * @param str the string
+ * @param strLen the length of the string or -1 if null terminated.
+ * @return true if set contains str
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_containsString</span>(<span class="enscript-type">const</span> USet* set, <span class="enscript-type">const</span> UChar* str, int32_t strLen);
+
+<span class="enscript-comment">/**
+ * Returns the index of the given character within this set, where
+ * the set is ordered by ascending code point.  If the character
+ * is not in this set, return -1.  The inverse of this method is
+ * &lt;code&gt;charAt()&lt;/code&gt;.
+ * @param set the set
+ * @param c the character to obtain the index for
+ * @return an index from 0..size()-1, or -1
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT int32_t U_EXPORT2
+<span class="enscript-function-name">uset_indexOf</span>(<span class="enscript-type">const</span> USet* set, UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns the character at the given index within this set, where
+ * the set is ordered by ascending code point.  If the index is
+ * out of range, return (UChar32)-1.  The inverse of this method is
+ * &lt;code&gt;indexOf()&lt;/code&gt;.
+ * @param set the set
+ * @param index an index from 0..size()-1 to obtain the char for
+ * @return the character at the given index, or (UChar32)-1.
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT UChar32 U_EXPORT2
+<span class="enscript-function-name">uset_charAt</span>(<span class="enscript-type">const</span> USet* set, int32_t index);
+
+<span class="enscript-comment">/**
+ * Returns the number of characters and strings contained in the given
+ * USet.
+ * @param set the set
+ * @return a non-negative integer counting the characters and strings
+ * contained in set
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uset_size</span>(<span class="enscript-type">const</span> USet* set);
+
+<span class="enscript-comment">/**
+ * Returns the number of items in this set.  An item is either a range
+ * of characters or a single multicharacter string.
+ * @param set the set
+ * @return a non-negative integer counting the character ranges
+ * and/or strings contained in set
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uset_getItemCount</span>(<span class="enscript-type">const</span> USet* set);
+
+<span class="enscript-comment">/**
+ * Returns an item of this set.  An item is either a range of
+ * characters or a single multicharacter string.
+ * @param set the set
+ * @param itemIndex a non-negative integer in the range 0..
+ * uset_getItemCount(set)-1
+ * @param start pointer to variable to receive first character
+ * in range, inclusive
+ * @param end pointer to variable to receive last character in range,
+ * inclusive
+ * @param str buffer to receive the string, may be NULL
+ * @param strCapacity capacity of str, or 0 if str is NULL
+ * @param ec error code
+ * @return the length of the string (&gt;= 2), or 0 if the item is a
+ * range, in which case it is the range *start..*end, or -1 if
+ * itemIndex is out of range
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uset_getItem</span>(<span class="enscript-type">const</span> USet* set, int32_t itemIndex,
+             UChar32* start, UChar32* end,
+             UChar* str, int32_t strCapacity,
+             UErrorCode* ec);
+
+<span class="enscript-comment">/**
+ * Returns true if set1 contains all the characters and strings
+ * of set2. It answers the question, 'Is set1 a subset of set2?'
+ * @param set1 set to be checked for containment
+ * @param set2 set to be checked for containment
+ * @return true if the test condition is met
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT UBool U_EXPORT2
+<span class="enscript-function-name">uset_containsAll</span>(<span class="enscript-type">const</span> USet* set1, <span class="enscript-type">const</span> USet* set2);
+
+<span class="enscript-comment">/**
+ * Returns true if set1 contains none of the characters and strings
+ * of set2. It answers the question, 'Is set1 a disjoint set of set2?'
+ * @param set1 set to be checked for containment
+ * @param set2 set to be checked for containment
+ * @return true if the test condition is met
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT UBool U_EXPORT2
+<span class="enscript-function-name">uset_containsNone</span>(<span class="enscript-type">const</span> USet* set1, <span class="enscript-type">const</span> USet* set2);
+
+<span class="enscript-comment">/**
+ * Returns true if set1 contains some of the characters and strings
+ * of set2. It answers the question, 'Does set1 and set2 have an intersection?'
+ * @param set1 set to be checked for containment
+ * @param set2 set to be checked for containment
+ * @return true if the test condition is met
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT UBool U_EXPORT2
+<span class="enscript-function-name">uset_containsSome</span>(<span class="enscript-type">const</span> USet* set1, <span class="enscript-type">const</span> USet* set2);
+
+<span class="enscript-comment">/**
+ * Returns true if set1 contains all of the characters and strings
+ * of set2, and vis versa. It answers the question, 'Is set1 equal to set2?'
+ * @param set1 set to be checked for containment
+ * @param set2 set to be checked for containment
+ * @return true if the test condition is met
+ * @draft ICU 3.2
+ */</span>
+U_DRAFT UBool U_EXPORT2
+<span class="enscript-function-name">uset_equals</span>(<span class="enscript-type">const</span> USet* set1, <span class="enscript-type">const</span> USet* set2);
+
+<span class="enscript-comment">/*********************************************************************
+ * Serialized set API
+ *********************************************************************/</span>
+
+<span class="enscript-comment">/**
+ * Serializes this set into an array of 16-bit integers.  Serialization
+ * (currently) only records the characters in the set; multicharacter
+ * strings are ignored.
+ *
+ * The array
+ * has following format (each line is one 16-bit integer):
+ *
+ *  length     = (n+2*m) | (m!=0?0x8000:0)
+ *  bmpLength  = n; present if m!=0
+ *  bmp[0]
+ *  bmp[1]
+ *  ...
+ *  bmp[n-1]
+ *  supp-high[0]
+ *  supp-low[0]
+ *  supp-high[1]
+ *  supp-low[1]
+ *  ...
+ *  supp-high[m-1]
+ *  supp-low[m-1]
+ *
+ * The array starts with a header.  After the header are n bmp
+ * code points, then m supplementary code points.  Either n or m
+ * or both may be zero.  n+2*m is always &lt;= 0x7FFF.
+ *
+ * If there are no supplementary characters (if m==0) then the
+ * header is one 16-bit integer, 'length', with value n.
+ *
+ * If there are supplementary characters (if m!=0) then the header
+ * is two 16-bit integers.  The first, 'length', has value
+ * (n+2*m)|0x8000.  The second, 'bmpLength', has value n.
+ *
+ * After the header the code points are stored in ascending order.
+ * Supplementary code points are stored as most significant 16
+ * bits followed by least significant 16 bits.
+ *
+ * @param set the set
+ * @param dest pointer to buffer of destCapacity 16-bit integers.
+ * May be NULL only if destCapacity is zero.
+ * @param destCapacity size of dest, or zero.  Must not be negative.
+ * @param pErrorCode pointer to the error code.  Will be set to
+ * U_INDEX_OUTOFBOUNDS_ERROR if n+2*m &gt; 0x7FFF.  Will be set to
+ * U_BUFFER_OVERFLOW_ERROR if n+2*m+(m!=0?2:1) &gt; destCapacity.
+ * @return the total length of the serialized format, including
+ * the header, that is, n+2*m+(m!=0?2:1), or 0 on error other
+ * than U_BUFFER_OVERFLOW_ERROR.
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uset_serialize</span>(<span class="enscript-type">const</span> USet* set, uint16_t* dest, int32_t destCapacity, UErrorCode* pErrorCode);
+
+<span class="enscript-comment">/**
+ * Given a serialized array, fill in the given serialized set object.
+ * @param fillSet pointer to result
+ * @param src pointer to start of array
+ * @param srcLength length of array
+ * @return true if the given array is valid, otherwise false
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_getSerializedSet</span>(USerializedSet* fillSet, <span class="enscript-type">const</span> uint16_t* src, int32_t srcLength);
+
+<span class="enscript-comment">/**
+ * Set the USerializedSet to contain the given character (and nothing
+ * else).
+ * @param fillSet pointer to result
+ * @param c The codepoint to set
+ * @stable ICU 2.4
+ */</span>
+U_STABLE <span class="enscript-type">void</span> U_EXPORT2
+<span class="enscript-function-name">uset_setSerializedToOne</span>(USerializedSet* fillSet, UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns TRUE if the given USerializedSet contains the given
+ * character.
+ * @param set the serialized set
+ * @param c The codepoint to check for within the set
+ * @return true if set contains c
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_serializedContains</span>(<span class="enscript-type">const</span> USerializedSet* set, UChar32 c);
+
+<span class="enscript-comment">/**
+ * Returns the number of disjoint ranges of characters contained in
+ * the given serialized set.  Ignores any strings contained in the
+ * set.
+ * @param set the serialized set
+ * @return a non-negative integer counting the character ranges
+ * contained in set
+ * @stable ICU 2.4
+ */</span>
+U_STABLE int32_t U_EXPORT2
+<span class="enscript-function-name">uset_getSerializedRangeCount</span>(<span class="enscript-type">const</span> USerializedSet* set);
+
+<span class="enscript-comment">/**
+ * Returns a range of characters contained in the given serialized
+ * set.
+ * @param set the serialized set
+ * @param rangeIndex a non-negative integer in the range 0..
+ * uset_getSerializedRangeCount(set)-1
+ * @param pStart pointer to variable to receive first character
+ * in range, inclusive
+ * @param pEnd pointer to variable to receive last character in range,
+ * inclusive
+ * @return true if rangeIndex is valid, otherwise false
+ * @stable ICU 2.4
+ */</span>
+U_STABLE UBool U_EXPORT2
+<span class="enscript-function-name">uset_getSerializedRange</span>(<span class="enscript-type">const</span> USerializedSet* set, int32_t rangeIndex,
+                        UChar32* pStart, UChar32* pEnd);
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

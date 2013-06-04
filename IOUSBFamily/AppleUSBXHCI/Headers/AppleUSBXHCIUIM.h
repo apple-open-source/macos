@@ -137,6 +137,8 @@ enum
 	kXHCIErrata_FL1100_Ax = kXHCIBit9,
 	    
 	kXHCIErrata_ASMedia = kXHCIBit10,
+	
+	kXHCIErrata_Etron7052 = kXHCIBit11,
     
     kXHCI_MIN_NEC = 0x3028,
 	

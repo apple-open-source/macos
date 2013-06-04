@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -582,15 +582,6 @@ smb_iod_recvall(struct smbiod *iod)
 				SMBWARNING("drop resp: mid %d, cmd %d\n", (unsigned)mid, cmd);	
 			mbuf_freem(m);
 		}
-	}
-
-	if ((iod->iod_flags & SMBIOD_RECONNECT) != SMBIOD_RECONNECT) {
-		SMB_IOD_RQLOCK(iod);	/* check for interrupts */
-		TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
-			if (smb_sigintr(rqp->sr_context))
-				rqp->sr_timo = SMBIOD_INTR_TIMO;	/* Wait a little longer before timing out */
-		}
-		SMB_IOD_RQUNLOCK(iod);
 	}
 	return 0;
 }

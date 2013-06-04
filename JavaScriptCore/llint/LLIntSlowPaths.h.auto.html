@@ -1,0 +1,224 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>LLIntSlowPaths.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">LLIntSlowPaths.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">LLIntSlowPaths_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">LLIntSlowPaths_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/Platform.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/StdLibExtras.h&gt;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">LLINT</span>)
+
+namespace JSC {
+
+class ExecState;
+<span class="enscript-type">struct</span> Instruction;
+
+namespace LLInt {
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">USE</span>(<span class="enscript-variable-name">JSVALUE64</span>)
+<span class="enscript-comment">// According to C++ rules, a type used for the return signature of function with C linkage (i.e.
+</span><span class="enscript-comment">// 'extern &quot;C&quot;') needs to be POD; hence putting any constructors into it could cause either compiler
+</span><span class="enscript-comment">// warnings, or worse, a change in the ABI used to return these types.
+</span><span class="enscript-type">struct</span> SlowPathReturnType {
+    <span class="enscript-type">void</span>* a;
+    <span class="enscript-type">void</span>* b;
+};
+
+inline SlowPathReturnType <span class="enscript-function-name">encodeResult</span>(<span class="enscript-type">void</span>* a, <span class="enscript-type">void</span>* b)
+{
+    SlowPathReturnType result;
+    result.a = a;
+    result.b = b;
+    <span class="enscript-keyword">return</span> result;
+}
+#<span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> int64_t SlowPathReturnType;
+
+inline SlowPathReturnType <span class="enscript-function-name">encodeResult</span>(<span class="enscript-type">void</span>* a, <span class="enscript-type">void</span>* b)
+{
+    <span class="enscript-type">union</span> {
+        <span class="enscript-type">struct</span> {
+            <span class="enscript-type">void</span>* a;
+            <span class="enscript-type">void</span>* b;
+        } pair;
+        int64_t i;
+    } u;
+    u.pair.a = a;
+    u.pair.b = b;
+    <span class="enscript-keyword">return</span> u.i;
+}
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> SlowPathReturnType llint_trace_operand(ExecState*, Instruction*, <span class="enscript-type">int</span> fromWhere, <span class="enscript-type">int</span> operand);
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> SlowPathReturnType llint_trace_value(ExecState*, Instruction*, <span class="enscript-type">int</span> fromWhere, <span class="enscript-type">int</span> operand);
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(name) \
+    <span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> SlowPathReturnType llint_##name(ExecState* exec, Instruction* pc)
+
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_prologue);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_prologue_function_for_call);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_prologue_function_for_construct);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_arityCheck_for_call);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace_arityCheck_for_construct);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(trace);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(special_trace);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_call);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_construct);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_call_arityCheck);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(entry_osr_function_for_construct_arityCheck);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(loop_osr);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(replace);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(register_file_check);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call_arityCheck);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_construct_arityCheck);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_create_activation);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_create_arguments);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_create_this);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_convert_this);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_object);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_array);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_array_buffer);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_regexp);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_not);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_eq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_neq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_stricteq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_nstricteq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_less);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_lesseq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_greater);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_greatereq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_pre_inc);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_pre_dec);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_post_inc);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_post_dec);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_to_jsnumber);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_negate);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_add);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_mul);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_sub);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_div);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_mod);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_lshift);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_rshift);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_urshift);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_bitand);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_bitor);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_bitxor);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_check_has_instance);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_instanceof);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_typeof);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_is_object);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_is_function);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_in);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_skip);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_global);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_global_dynamic);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_for_resolve_global_dynamic);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_base);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_ensure_property_exists);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_with_base);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_resolve_with_this);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_by_id);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_arguments_length);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_by_id);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_del_by_id);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_by_val);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_argument_by_val);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_by_pname);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_by_val);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_del_by_val);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_by_index);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_put_getter_setter);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jmp_scopes);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jtrue);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jfalse);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jless);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jnless);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jgreater);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jngreater);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jlesseq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jnlesseq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jgreatereq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_jngreatereq);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_switch_imm);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_switch_char);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_switch_string);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_func);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_new_func_exp);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_construct);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call_varargs);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_call_eval);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_tear_off_activation);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_tear_off_arguments);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_strcat);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_to_primitive);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_get_pnames);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_next_pname);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_push_scope);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_pop_scope);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_push_new_scope);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_throw);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_throw_reference_error);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_debug);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_profile_will_call);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(slow_path_profile_did_call);
+<span class="enscript-function-name">LLINT_SLOW_PATH_DECL</span>(throw_from_native_call);
+
+} } <span class="enscript-comment">// namespace JSC::LLInt
+</span>
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">ENABLE</span>(<span class="enscript-variable-name">LLINT</span>)
+
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">LLIntSlowPaths_h</span>
+
+</pre>
+<hr />
+</body></html>

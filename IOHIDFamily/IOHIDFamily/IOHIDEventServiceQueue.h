@@ -31,7 +31,7 @@ class IOHIDEvent;
 //---------------------------------------------------------------------------
 // IOHIDEventSeviceQueue class.
 //
-// IOHIDEventServiceQueue is a subclass of IODataQueue.
+// IOHIDEventServiceQueue is a subclass of IOSharedDataQueue.
 
 class IOHIDEventServiceQueue: public IOSharedDataQueue
 {

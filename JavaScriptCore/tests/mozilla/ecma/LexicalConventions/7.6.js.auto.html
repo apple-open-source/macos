@@ -1,0 +1,334 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>7.6.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">7.6.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* The contents of this file are subject to the Netscape Public
+ * License Version 1.1 (the &quot;License&quot;); you may not use this file
+ * except in compliance with the License. You may obtain a copy of
+ * the License at <a href="http://www.mozilla.org/NPL/">http://www.mozilla.org/NPL/</a>
+ *
+ * Software distributed under the License is distributed on an &quot;AS
+ * IS&quot; basis, WITHOUT WARRANTY OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * rights and limitations under the License.
+ *
+ * The Original Code is Mozilla Communicator client code, released March
+ * 31, 1998.
+ *
+ * The Initial Developer of the Original Code is Netscape Communications
+ * Corporation. Portions created by Netscape are
+ * Copyright (C) 1998 Netscape Communications Corporation. All
+ * Rights Reserved.
+ *
+ * Contributor(s): 
+ * 
+ */</span>
+<span class="enscript-comment">/**
+    File Name:          7.6.js
+    ECMA Section:       Punctuators
+    Description:
+
+    This tests verifies that all ECMA punctutors are recognized as a
+    token separator, but does not attempt to verify the functionality
+    of any punctuator.
+
+    Author:             <a href="mailto:christine@netscape.com">christine@netscape.com</a>
+    Date:               12 november 1997
+*/</span>
+
+    <span class="enscript-keyword">var</span> SECTION = <span class="enscript-string">&quot;7.6&quot;</span>;
+    <span class="enscript-keyword">var</span> VERSION = <span class="enscript-string">&quot;ECMA_1&quot;</span>;
+    startTest();
+    <span class="enscript-keyword">var</span> TITLE   = <span class="enscript-string">&quot;Punctuators&quot;</span>;
+
+    writeHeaderToLog( SECTION + <span class="enscript-string">&quot; &quot;</span>+ TITLE);
+
+    <span class="enscript-keyword">var</span> testcases = <span class="enscript-keyword">new</span> Array();
+
+    <span class="enscript-comment">// ==
+</span>    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var c,d;c==d&quot;</span>,
+                                    <span class="enscript-keyword">true</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var c,d;c==d&quot;</span>) );
+
+    <span class="enscript-comment">// =
+</span>
+    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true;a&quot;</span>,
+                                    <span class="enscript-keyword">true</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true;a&quot;</span>) );
+
+    <span class="enscript-comment">// &gt;
+</span>    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true,b=false;a&gt;b&quot;</span>,
+                                    <span class="enscript-keyword">true</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=false;a&gt;b&quot;</span>) );
+
+    <span class="enscript-comment">// &lt;
+</span>    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true,b=false;a&lt;b&quot;</span>,
+                                    <span class="enscript-keyword">false</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=false;a&lt;b&quot;</span>) );
+
+    <span class="enscript-comment">// &lt;=
+</span>    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=0xFFFF,b=0X0FFF;a&lt;=b&quot;</span>,
+                                    <span class="enscript-keyword">false</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=0xFFFF,b=0X0FFF;a&lt;=b&quot;</span>) );
+
+    <span class="enscript-comment">// &gt;=
+</span>    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=0xFFFF,b=0XFFFE;a&gt;=b&quot;</span>,
+                                    <span class="enscript-keyword">true</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=0xFFFF,b=0XFFFE;a&gt;=b&quot;</span>) );
+
+    <span class="enscript-comment">// !=
+</span>    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true,b=false;a!=b&quot;</span>,
+                                    <span class="enscript-keyword">true</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=false;a!=b&quot;</span>) );
+
+    testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=false,b=false;a!=b&quot;</span>,
+                                    <span class="enscript-keyword">false</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=false,b=false;a!=b&quot;</span>) );
+    <span class="enscript-comment">// ,
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true,b=false;a,b&quot;</span>,
+                                    <span class="enscript-keyword">false</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=false;a,b&quot;</span>) );
+    <span class="enscript-comment">// !
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true,b=false;!a&quot;</span>,
+                                    <span class="enscript-keyword">false</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=false;!a&quot;</span>) );
+
+    <span class="enscript-comment">// ~
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true;~a&quot;</span>,
+                                    -2,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true;~a&quot;</span>) );
+    <span class="enscript-comment">// ?
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=true; (a ? 'PASS' : '')&quot;</span>,
+                                    <span class="enscript-string">&quot;PASS&quot;</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true; (a ? 'PASS' : '')&quot;</span>) );
+
+    <span class="enscript-comment">// :
+</span>
+        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                    <span class="enscript-string">&quot;var a=false; (a ? 'FAIL' : 'PASS')&quot;</span>,
+                                    <span class="enscript-string">&quot;PASS&quot;</span>,
+                                    <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=false; (a ? 'FAIL' : 'PASS')&quot;</span>) );
+    <span class="enscript-comment">// .
+</span>
+        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=Number;a.NaN&quot;</span>,
+                                        NaN,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=Number;a.NaN&quot;</span>) );
+
+    <span class="enscript-comment">// &amp;&amp;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=true,b=true;if(a&amp;&amp;b)'PASS';else'FAIL'&quot;</span>,
+                                        <span class="enscript-string">&quot;PASS&quot;</span>,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=true;if(a&amp;&amp;b)'PASS';else'FAIL'&quot;</span>) );
+
+    <span class="enscript-comment">// ||
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=false,b=false;if(a||b)'FAIL';else'PASS'&quot;</span>,
+                                        <span class="enscript-string">&quot;PASS&quot;</span>,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=false,b=false;if(a||b)'FAIL';else'PASS'&quot;</span>) );
+    <span class="enscript-comment">// ++
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=false,b=false;++a&quot;</span>,
+                                        1,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=false,b=false;++a&quot;</span>) );
+    <span class="enscript-comment">// --
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=true,b=false--a&quot;</span>,
+                                        0,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=false;--a&quot;</span>) );
+    <span class="enscript-comment">// +
+</span>
+        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=true,b=true;a+b&quot;</span>,
+                                        2,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=true;a+b&quot;</span>) );
+    <span class="enscript-comment">// -
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=true,b=true;a-b&quot;</span>,
+                                        0,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=true;a-b&quot;</span>) );
+    <span class="enscript-comment">// *
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=true,b=true;a*b&quot;</span>,
+                                        1,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=true;a*b&quot;</span>) );
+    <span class="enscript-comment">// /
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=true,b=true;a/b&quot;</span>,
+                                        1,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=true,b=true;a/b&quot;</span>) );
+    <span class="enscript-comment">// &amp;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=3,b=2;a&amp;b&quot;</span>,
+                                        2,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=3,b=2;a&amp;b&quot;</span>) );
+    <span class="enscript-comment">// |
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a|b&quot;</span>,
+                                        7,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a|b&quot;</span>) );
+
+    <span class="enscript-comment">// |
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a^b&quot;</span>,
+                                        7,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a^b&quot;</span>) );
+
+    <span class="enscript-comment">// %
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a|b&quot;</span>,
+                                        1,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a%b&quot;</span>) );
+
+    <span class="enscript-comment">// &lt;&lt;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a&lt;&lt;b&quot;</span>,
+                                        32,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a&lt;&lt;b&quot;</span>) );
+
+    <span class="enscript-comment">//  &gt;&gt;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=1;a&gt;&gt;b&quot;</span>,
+                                        2,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=1;a&gt;&gt;b&quot;</span>) );
+
+    <span class="enscript-comment">//  &gt;&gt;&gt;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=1,b=1;a&gt;&gt;&gt;b&quot;</span>,
+                                        0,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=1,b=1;a&gt;&gt;&gt;b&quot;</span>) );
+    <span class="enscript-comment">//  +=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a+=b;a&quot;</span>,
+                                        7,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a+=b;a&quot;</span>) );
+
+    <span class="enscript-comment">//  -=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a-=b;a&quot;</span>,
+                                        1,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a-=b;a&quot;</span>) );
+    <span class="enscript-comment">//  *=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a*=b;a&quot;</span>,
+                                        12,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a*=b;a&quot;</span>) );
+    <span class="enscript-comment">//  +=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a+=b;a&quot;</span>,
+                                        7,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a+=b;a&quot;</span>) );
+    <span class="enscript-comment">//  /=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=12,b=3;a/=b;a&quot;</span>,
+                                        4,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=12,b=3;a/=b;a&quot;</span>) );
+
+    <span class="enscript-comment">//  &amp;=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=5;a&amp;=b;a&quot;</span>,
+                                        4,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=5;a&amp;=b;a&quot;</span>) );
+
+    <span class="enscript-comment">// |=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=5;a&amp;=b;a&quot;</span>,
+                                        5,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=5;a|=b;a&quot;</span>) );
+    <span class="enscript-comment">//  ^=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=5;a^=b;a&quot;</span>,
+                                        1,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=5;a^=b;a&quot;</span>) );
+    <span class="enscript-comment">// %=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=12,b=5;a%=b;a&quot;</span>,
+                                        2,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=12,b=5;a%=b;a&quot;</span>) );
+    <span class="enscript-comment">// &lt;&lt;=
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;a&lt;&lt;=b;a&quot;</span>,
+                                        32,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;a&lt;&lt;=b;a&quot;</span>) );
+
+    <span class="enscript-comment">//  &gt;&gt;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=1;a&gt;&gt;=b;a&quot;</span>,
+                                        2,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=1;a&gt;&gt;=b;a&quot;</span>) );
+
+    <span class="enscript-comment">//  &gt;&gt;&gt;
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=1,b=1;a&gt;&gt;&gt;=b;a&quot;</span>,
+                                        0,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=1,b=1;a&gt;&gt;&gt;=b;a&quot;</span>) );
+
+    <span class="enscript-comment">// ()
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;(a)&quot;</span>,
+                                        4,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;(a)&quot;</span>) );
+    <span class="enscript-comment">// {}
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=4,b=3;{b}&quot;</span>,
+                                        3,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=4,b=3;{b}&quot;</span>) );
+
+    <span class="enscript-comment">// []
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;var a=new Array('hi');a[0]&quot;</span>,
+                                        <span class="enscript-string">&quot;hi&quot;</span>,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;var a=new Array('hi');a[0]&quot;</span>) );
+    <span class="enscript-comment">// []
+</span>        testcases[tc++] = <span class="enscript-keyword">new</span> TestCase( SECTION,
+                                        <span class="enscript-string">&quot;;&quot;</span>,
+                                        <span class="enscript-keyword">void</span> 0,
+                                        <span class="enscript-builtin">eval</span>(<span class="enscript-string">&quot;;&quot;</span>) );
+    test();
+
+<span class="enscript-keyword">function</span> <span class="enscript-function-name">test</span>() {
+    <span class="enscript-keyword">for</span> ( tc=0; tc &lt; testcases.length; tc++ ) {
+        testcases[tc].passed = writeTestCaseResult(
+                            testcases[tc].expect,
+                            testcases[tc].actual,
+                            testcases[tc].description +<span class="enscript-string">&quot; = &quot;</span>+
+                            testcases[tc].actual );
+
+        testcases[tc].reason += ( testcases[tc].passed ) ? <span class="enscript-string">&quot;&quot;</span> : <span class="enscript-string">&quot;wrong value &quot;</span>;
+    }
+    stopTest();
+    <span class="enscript-keyword">return</span> ( testcases );
+}
+</pre>
+<hr />
+</body></html>

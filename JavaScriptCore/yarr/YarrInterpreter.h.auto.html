@@ -1,0 +1,410 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>YarrInterpreter.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">YarrInterpreter.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">YarrInterpreter_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">YarrInterpreter_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;YarrPattern.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/PassOwnPtr.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/unicode/Unicode.h&gt;</span>
+
+namespace WTF {
+class BumpPointerAllocator;
+}
+using WTF::BumpPointerAllocator;
+
+namespace JSC { namespace Yarr {
+
+class ByteDisjunction;
+
+<span class="enscript-type">struct</span> ByteTerm {
+    <span class="enscript-type">enum</span> Type {
+        TypeBodyAlternativeBegin,
+        TypeBodyAlternativeDisjunction,
+        TypeBodyAlternativeEnd,
+        TypeAlternativeBegin,
+        TypeAlternativeDisjunction,
+        TypeAlternativeEnd,
+        TypeSubpatternBegin,
+        TypeSubpatternEnd,
+        TypeAssertionBOL,
+        TypeAssertionEOL,
+        TypeAssertionWordBoundary,
+        TypePatternCharacterOnce,
+        TypePatternCharacterFixed,
+        TypePatternCharacterGreedy,
+        TypePatternCharacterNonGreedy,
+        TypePatternCasedCharacterOnce,
+        TypePatternCasedCharacterFixed,
+        TypePatternCasedCharacterGreedy,
+        TypePatternCasedCharacterNonGreedy,
+        TypeCharacterClass,
+        TypeBackReference,
+        TypeParenthesesSubpattern,
+        TypeParenthesesSubpatternOnceBegin,
+        TypeParenthesesSubpatternOnceEnd,
+        TypeParenthesesSubpatternTerminalBegin,
+        TypeParenthesesSubpatternTerminalEnd,
+        TypeParentheticalAssertionBegin,
+        TypeParentheticalAssertionEnd,
+        TypeCheckInput,
+        TypeUncheckInput,
+        TypeDotStarEnclosure,
+    } type;
+    <span class="enscript-type">union</span> {
+        <span class="enscript-type">struct</span> {
+            <span class="enscript-type">union</span> {
+                UChar patternCharacter;
+                <span class="enscript-type">struct</span> {
+                    UChar lo;
+                    UChar hi;
+                } casedCharacter;
+                CharacterClass* characterClass;
+                <span class="enscript-type">unsigned</span> subpatternId;
+            };
+            <span class="enscript-type">union</span> {
+                ByteDisjunction* parenthesesDisjunction;
+                <span class="enscript-type">unsigned</span> parenthesesWidth;
+            };
+            QuantifierType quantityType;
+            <span class="enscript-type">unsigned</span> quantityCount;
+        } atom;
+        <span class="enscript-type">struct</span> {
+            <span class="enscript-type">int</span> next;
+            <span class="enscript-type">int</span> end;
+            bool onceThrough;
+        } alternative;
+        <span class="enscript-type">struct</span> {
+            bool m_bol : 1;
+            bool m_eol : 1;
+        } anchors;
+        <span class="enscript-type">unsigned</span> checkInputCount;
+    };
+    <span class="enscript-type">unsigned</span> frameLocation;
+    bool m_capture : 1;
+    bool m_invert : 1;
+    <span class="enscript-type">unsigned</span> inputPosition;
+
+    ByteTerm(UChar ch, <span class="enscript-type">int</span> inputPos, <span class="enscript-type">unsigned</span> frameLocation, Checked&lt;<span class="enscript-type">unsigned</span>&gt; quantityCount, QuantifierType quantityType)
+        : frameLocation(frameLocation)
+        , m_capture(false)
+        , m_invert(false)
+    {
+        <span class="enscript-keyword">switch</span> (quantityType) {
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierFixedCount</span>:
+            type = (quantityCount == 1) ? ByteTerm::TypePatternCharacterOnce : ByteTerm::TypePatternCharacterFixed;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierGreedy</span>:
+            type = ByteTerm::TypePatternCharacterGreedy;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierNonGreedy</span>:
+            type = ByteTerm::TypePatternCharacterNonGreedy;
+            <span class="enscript-keyword">break</span>;
+        }
+
+        atom.patternCharacter = ch;
+        atom.quantityType = quantityType;
+        atom.quantityCount = quantityCount.unsafeGet();
+        inputPosition = inputPos;
+    }
+
+    ByteTerm(UChar lo, UChar hi, <span class="enscript-type">int</span> inputPos, <span class="enscript-type">unsigned</span> frameLocation, Checked&lt;<span class="enscript-type">unsigned</span>&gt; quantityCount, QuantifierType quantityType)
+        : frameLocation(frameLocation)
+        , m_capture(false)
+        , m_invert(false)
+    {
+        <span class="enscript-keyword">switch</span> (quantityType) {
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierFixedCount</span>:
+            type = (quantityCount == 1) ? ByteTerm::TypePatternCasedCharacterOnce : ByteTerm::TypePatternCasedCharacterFixed;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierGreedy</span>:
+            type = ByteTerm::TypePatternCasedCharacterGreedy;
+            <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">case</span> <span class="enscript-reference">QuantifierNonGreedy</span>:
+            type = ByteTerm::TypePatternCasedCharacterNonGreedy;
+            <span class="enscript-keyword">break</span>;
+        }
+
+        atom.casedCharacter.lo = lo;
+        atom.casedCharacter.hi = hi;
+        atom.quantityType = quantityType;
+        atom.quantityCount = quantityCount.unsafeGet();
+        inputPosition = inputPos;
+    }
+
+    ByteTerm(CharacterClass* characterClass, bool invert, <span class="enscript-type">int</span> inputPos)
+        : type(ByteTerm::TypeCharacterClass)
+        , m_capture(false)
+        , m_invert(invert)
+    {
+        atom.characterClass = characterClass;
+        atom.quantityType = QuantifierFixedCount;
+        atom.quantityCount = 1;
+        inputPosition = inputPos;
+    }
+
+    ByteTerm(Type type, <span class="enscript-type">unsigned</span> subpatternId, ByteDisjunction* parenthesesInfo, bool capture, <span class="enscript-type">int</span> inputPos)
+        : type(type)
+        , m_capture(capture)
+        , m_invert(false)
+    {
+        atom.subpatternId = subpatternId;
+        atom.parenthesesDisjunction = parenthesesInfo;
+        atom.quantityType = QuantifierFixedCount;
+        atom.quantityCount = 1;
+        inputPosition = inputPos;
+    }
+    
+    ByteTerm(Type type, bool invert = false)
+        : type(type)
+        , m_capture(false)
+        , m_invert(invert)
+    {
+        atom.quantityType = QuantifierFixedCount;
+        atom.quantityCount = 1;
+    }
+
+    ByteTerm(Type type, <span class="enscript-type">unsigned</span> subpatternId, bool capture, bool invert, <span class="enscript-type">int</span> inputPos)
+        : type(type)
+        , m_capture(capture)
+        , m_invert(invert)
+    {
+        atom.subpatternId = subpatternId;
+        atom.quantityType = QuantifierFixedCount;
+        atom.quantityCount = 1;
+        inputPosition = inputPos;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm BOL(<span class="enscript-type">int</span> inputPos)
+    {
+        ByteTerm term(TypeAssertionBOL);
+        term.inputPosition = inputPos;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm CheckInput(Checked&lt;<span class="enscript-type">unsigned</span>&gt; count)
+    {
+        ByteTerm term(TypeCheckInput);
+        term.checkInputCount = count.unsafeGet();
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm UncheckInput(Checked&lt;<span class="enscript-type">unsigned</span>&gt; count)
+    {
+        ByteTerm term(TypeUncheckInput);
+        term.checkInputCount = count.unsafeGet();
+        <span class="enscript-keyword">return</span> term;
+    }
+    
+    <span class="enscript-type">static</span> ByteTerm EOL(<span class="enscript-type">int</span> inputPos)
+    {
+        ByteTerm term(TypeAssertionEOL);
+        term.inputPosition = inputPos;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm WordBoundary(bool invert, <span class="enscript-type">int</span> inputPos)
+    {
+        ByteTerm term(TypeAssertionWordBoundary, invert);
+        term.inputPosition = inputPos;
+        <span class="enscript-keyword">return</span> term;
+    }
+    
+    <span class="enscript-type">static</span> ByteTerm BackReference(<span class="enscript-type">unsigned</span> subpatternId, <span class="enscript-type">int</span> inputPos)
+    {
+        <span class="enscript-keyword">return</span> ByteTerm(TypeBackReference, subpatternId, false, false, inputPos);
+    }
+
+    <span class="enscript-type">static</span> ByteTerm BodyAlternativeBegin(bool onceThrough)
+    {
+        ByteTerm term(TypeBodyAlternativeBegin);
+        term.alternative.next = 0;
+        term.alternative.end = 0;
+        term.alternative.onceThrough = onceThrough;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm BodyAlternativeDisjunction(bool onceThrough)
+    {
+        ByteTerm term(TypeBodyAlternativeDisjunction);
+        term.alternative.next = 0;
+        term.alternative.end = 0;
+        term.alternative.onceThrough = onceThrough;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm BodyAlternativeEnd()
+    {
+        ByteTerm term(TypeBodyAlternativeEnd);
+        term.alternative.next = 0;
+        term.alternative.end = 0;
+        term.alternative.onceThrough = false;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm AlternativeBegin()
+    {
+        ByteTerm term(TypeAlternativeBegin);
+        term.alternative.next = 0;
+        term.alternative.end = 0;
+        term.alternative.onceThrough = false;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm AlternativeDisjunction()
+    {
+        ByteTerm term(TypeAlternativeDisjunction);
+        term.alternative.next = 0;
+        term.alternative.end = 0;
+        term.alternative.onceThrough = false;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm AlternativeEnd()
+    {
+        ByteTerm term(TypeAlternativeEnd);
+        term.alternative.next = 0;
+        term.alternative.end = 0;
+        term.alternative.onceThrough = false;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    <span class="enscript-type">static</span> ByteTerm SubpatternBegin()
+    {
+        <span class="enscript-keyword">return</span> ByteTerm(TypeSubpatternBegin);
+    }
+
+    <span class="enscript-type">static</span> ByteTerm SubpatternEnd()
+    {
+        <span class="enscript-keyword">return</span> ByteTerm(TypeSubpatternEnd);
+    }
+    
+    <span class="enscript-type">static</span> ByteTerm DotStarEnclosure(bool bolAnchor, bool eolAnchor)
+    {
+        ByteTerm term(TypeDotStarEnclosure);
+        term.anchors.m_bol = bolAnchor;
+        term.anchors.m_eol = eolAnchor;
+        <span class="enscript-keyword">return</span> term;
+    }
+
+    bool invert()
+    {
+        <span class="enscript-keyword">return</span> m_invert;
+    }
+
+    bool capture()
+    {
+        <span class="enscript-keyword">return</span> m_capture;
+    }
+};
+
+class ByteDisjunction {
+    WTF_MAKE_FAST_ALLOCATED;
+<span class="enscript-reference">public</span>:
+    ByteDisjunction(<span class="enscript-type">unsigned</span> numSubpatterns, <span class="enscript-type">unsigned</span> frameSize)
+        : m_numSubpatterns(numSubpatterns)
+        , m_frameSize(frameSize)
+    {
+    }
+
+    Vector&lt;ByteTerm&gt; terms;
+    <span class="enscript-type">unsigned</span> m_numSubpatterns;
+    <span class="enscript-type">unsigned</span> m_frameSize;
+};
+
+<span class="enscript-type">struct</span> BytecodePattern {
+    WTF_MAKE_FAST_ALLOCATED;
+<span class="enscript-reference">public</span>:
+    BytecodePattern(PassOwnPtr&lt;ByteDisjunction&gt; body, Vector&lt;ByteDisjunction*&gt; allParenthesesInfo, YarrPattern&amp; pattern, BumpPointerAllocator* allocator)
+        : m_body(body)
+        , m_ignoreCase(pattern.m_ignoreCase)
+        , m_multiline(pattern.m_multiline)
+        , m_allocator(allocator)
+    {
+        newlineCharacterClass = pattern.newlineCharacterClass();
+        wordcharCharacterClass = pattern.wordcharCharacterClass();
+
+        m_allParenthesesInfo.append(allParenthesesInfo);
+        m_userCharacterClasses.append(pattern.m_userCharacterClasses);
+        <span class="enscript-comment">// 'Steal' the YarrPattern's CharacterClasses!  We clear its
+</span>        <span class="enscript-comment">// array, so that it won't delete them on destruction.  We'll
+</span>        <span class="enscript-comment">// take responsibility for that.
+</span>        pattern.m_userCharacterClasses.clear();
+    }
+
+    ~BytecodePattern()
+    {
+        deleteAllValues(m_allParenthesesInfo);
+        deleteAllValues(m_userCharacterClasses);
+    }
+
+    OwnPtr&lt;ByteDisjunction&gt; m_body;
+    bool m_ignoreCase;
+    bool m_multiline;
+    <span class="enscript-comment">// Each BytecodePattern is associated with a RegExp, each RegExp is associated
+</span>    <span class="enscript-comment">// with a JSGlobalData.  Cache a pointer to out JSGlobalData's m_regExpAllocator.
+</span>    BumpPointerAllocator* m_allocator;
+
+    CharacterClass* newlineCharacterClass;
+    CharacterClass* wordcharCharacterClass;
+
+<span class="enscript-reference">private</span>:
+    Vector&lt;ByteDisjunction*&gt; m_allParenthesesInfo;
+    Vector&lt;CharacterClass*&gt; m_userCharacterClasses;
+};
+
+JS_EXPORT_PRIVATE PassOwnPtr&lt;BytecodePattern&gt; byteCompile(YarrPattern&amp;, BumpPointerAllocator*);
+JS_EXPORT_PRIVATE <span class="enscript-type">unsigned</span> <span class="enscript-function-name">interpret</span>(BytecodePattern*, <span class="enscript-type">const</span> UString&amp; input, <span class="enscript-type">unsigned</span> start, <span class="enscript-type">unsigned</span>* output);
+<span class="enscript-type">unsigned</span> <span class="enscript-function-name">interpret</span>(BytecodePattern*, <span class="enscript-type">const</span> LChar* input, <span class="enscript-type">unsigned</span> length, <span class="enscript-type">unsigned</span> start, <span class="enscript-type">unsigned</span>* output);
+<span class="enscript-type">unsigned</span> <span class="enscript-function-name">interpret</span>(BytecodePattern*, <span class="enscript-type">const</span> UChar* input, <span class="enscript-type">unsigned</span> length, <span class="enscript-type">unsigned</span> start, <span class="enscript-type">unsigned</span>* output);
+
+} } <span class="enscript-comment">// namespace JSC::Yarr
+</span>
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">YarrInterpreter_h</span>
+</pre>
+<hr />
+</body></html>

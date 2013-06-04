@@ -1158,7 +1158,7 @@ KeyItem::generate(Keychain keychain,
 void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCredentials *credentials, CSSM_DATA& signature)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
-	if (baseAlg != CSSM_ALGID_RSA)
+	if ((baseAlg != CSSM_ALGID_RSA) && (baseAlg != CSSM_ALGID_ECDSA))
 	{
 		MacOSError::throwMe(paramErr);
 	}
@@ -1216,7 +1216,7 @@ void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCred
 void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, const AccessCredentials *credentials, CSSM_DATA sig)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
-	if (baseAlg != CSSM_ALGID_RSA)
+	if ((baseAlg != CSSM_ALGID_RSA) && (baseAlg != CSSM_ALGID_ECDSA))
 	{
 		MacOSError::throwMe(paramErr);
 	}

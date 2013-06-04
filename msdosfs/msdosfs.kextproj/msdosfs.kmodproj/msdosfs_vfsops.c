@@ -558,15 +558,11 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 		}
 		if (total_sectors < 0x10000 && getuint16(b50->bpbSectors) == 0)
 		{
-			printf("msdosfs_mount: FAT12/16 total sectors (%u) fit in 16 bits, but stored in 32 bits\n", total_sectors);
-			error = EINVAL;
-			goto error_exit;
+			printf("msdosfs_mount: Warning: FAT12/16 total sectors (%u) fit in 16 bits, but stored in 32 bits\n", total_sectors);
 		}
 		if (getuint16(b50->bpbFATsecs) == 0)
 		{
-			printf("msdosfs_mount: FAT12/16 has 32-bit FAT sectors\n");
-			error = EINVAL;
-			goto error_exit;
+			printf("msdosfs_mount: Warning: FAT12/16 has 32-bit FAT sectors\n");
 		}
 	}
 	

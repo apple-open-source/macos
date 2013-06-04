@@ -657,6 +657,16 @@ public:
     void setSuppressVisibilityUpdates(bool flag) { m_suppressVisibilityUpdates = flag; }
     bool suppressVisibilityUpdates() { return m_suppressVisibilityUpdates; }
 
+    static String pluginInformationBundleIdentifierKey();
+    static String pluginInformationBundleVersionKey();
+    static String pluginInformationDisplayNameKey();
+    static String pluginInformationFrameURLKey();
+    static String pluginInformationMIMETypeKey();
+    static String pluginInformationPageURLKey();
+    static String pluginInformationPluginspageAttributeURLKey();
+    static String pluginInformationPluginURLKey();
+    static PassRefPtr<ImmutableDictionary> pluginInformationDictionary(const String& bundleIdentifier, const String& bundleVersion, const String& displayName, const String& frameURLString, const String& mimeType, const String& pageURLString, const String& pluginspageAttributeURLString, const String& pluginURLString);
+
 private:
     WebPageProxy(PageClient*, PassRefPtr<WebProcessProxy>, WebPageGroup*, uint64_t pageID);
 
@@ -724,7 +734,7 @@ private:
     void shouldInterruptJavaScript(bool& result);
     void setStatusText(const String&);
     void mouseDidMoveOverElement(const WebHitTestResult::Data& hitTestResultData, uint32_t modifiers, CoreIPC::ArgumentDecoder*);
-    void unavailablePluginButtonClicked(uint32_t opaquePluginUnavailabilityReason, const String& mimeType, const String& url, const String& pluginsPageURL);
+    void unavailablePluginButtonClicked(uint32_t opaquePluginUnavailabilityReason, const String& mimeType, const String& pluginURLString, const String& pluginsPageURLString, const String& frameURLString, const String& pageURLString);
     void setToolbarsAreVisible(bool toolbarsAreVisible);
     void getToolbarsAreVisible(bool& toolbarsAreVisible);
     void setMenuBarIsVisible(bool menuBarIsVisible);
@@ -750,8 +760,8 @@ private:
     void didChangeScrollbarsForMainFrame(bool hasHorizontalScrollbar, bool hasVerticalScrollbar);
     void didChangeScrollOffsetPinningForMainFrame(bool pinnedToLeftSide, bool pinnedToRightSide);
     void didChangePageCount(unsigned);
-    void didFailToInitializePlugin(const String& mimeType);
-    void didBlockInsecurePluginVersion(const String& mimeType, const String& urlString);
+    void didFailToInitializePlugin(const String& mimeType, const String& frameURLString, const String& pageURLString);
+    void didBlockInsecurePluginVersion(const String& mimeType, const String& pluginURLString, const String& frameURLString, const String& pageURLString);
     void setCanShortCircuitHorizontalWheelEvents(bool canShortCircuitHorizontalWheelEvents) { m_canShortCircuitHorizontalWheelEvents = canShortCircuitHorizontalWheelEvents; }
 
     void reattachToWebProcess();
@@ -919,6 +929,10 @@ private:
 
     void processNextQueuedWheelEvent();
     void sendWheelEvent(const WebWheelEvent&);
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    void getPluginPath(const String& mimeType, const String& urlString, const String& frameURLString, const String& pageURLString, String& pluginPath, uint32_t& pluginLoadPolicy);
+#endif
 
     PageClient* m_pageClient;
     WebLoaderClient m_loaderClient;

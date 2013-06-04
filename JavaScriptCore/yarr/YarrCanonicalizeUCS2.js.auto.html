@@ -1,0 +1,244 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>YarrCanonicalizeUCS2.js</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">YarrCanonicalizeUCS2.js&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2012 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+<span class="enscript-comment">// See ES 5.1, 15.10.2.8
+</span><span class="enscript-keyword">function</span> <span class="enscript-function-name">canonicalize</span>(ch)
+{
+    <span class="enscript-keyword">var</span> u = String.fromCharCode(ch).toUpperCase();
+    <span class="enscript-keyword">if</span> (u.length &gt; 1)
+        <span class="enscript-keyword">return</span> ch;
+    <span class="enscript-keyword">var</span> cu = u.charCodeAt(0);
+    <span class="enscript-keyword">if</span> (ch &gt;= 128 &amp;&amp; cu &lt; 128)
+        <span class="enscript-keyword">return</span> ch;
+    <span class="enscript-keyword">return</span> cu;
+}
+
+<span class="enscript-keyword">var</span> MAX_UCS2 = 0xFFFF;
+<span class="enscript-keyword">var</span> MAX_LATIN = 0xFF;
+
+<span class="enscript-keyword">var</span> groupedCanonically = [];
+<span class="enscript-comment">// Pass 1: populate groupedCanonically - this is mapping from canonicalized
+</span><span class="enscript-comment">// values back to the set of character code that canonicalize to them.
+</span><span class="enscript-keyword">for</span> (<span class="enscript-keyword">var</span> i = 0; i &lt;= MAX_UCS2; ++i) {
+    <span class="enscript-keyword">var</span> ch = canonicalize(i);
+    <span class="enscript-keyword">if</span> (!groupedCanonically[ch])
+        groupedCanonically[ch] = [];
+    groupedCanonically[ch].push(i);
+}
+
+<span class="enscript-keyword">var</span> typeInfo = [];
+<span class="enscript-keyword">var</span> latinTypeInfo = [];
+<span class="enscript-keyword">var</span> characterSetInfo = [];
+<span class="enscript-comment">// Pass 2: populate typeInfo &amp; characterSetInfo. For every character calculate
+</span><span class="enscript-comment">// a typeInfo value, described by the types above, and a value payload.
+</span><span class="enscript-keyword">for</span> (cu <span class="enscript-keyword">in</span> groupedCanonically) {
+    <span class="enscript-comment">// The set of characters that canonicalize to cu
+</span>    <span class="enscript-keyword">var</span> characters = groupedCanonically[cu];
+
+    <span class="enscript-comment">// If there is only one, it is unique.
+</span>    <span class="enscript-keyword">if</span> (characters.length == 1) {
+        typeInfo[characters[0]] = <span class="enscript-string">&quot;CanonicalizeUnique:0&quot;</span>;
+        latinTypeInfo[characters[0]] = characters[0] &lt;= MAX_LATIN ? <span class="enscript-string">&quot;CanonicalizeLatinSelf:0&quot;</span> : <span class="enscript-string">&quot;CanonicalizeLatinInvalid:0&quot;</span>;
+        <span class="enscript-keyword">continue</span>;
+    }
+
+    <span class="enscript-comment">// Sort the array.
+</span>    characters.sort(<span class="enscript-keyword">function</span>(x,y){<span class="enscript-keyword">return</span> x-y;});
+
+    <span class="enscript-comment">// If there are more than two characters, create an entry in characterSetInfo.
+</span>    <span class="enscript-keyword">if</span> (characters.length &gt; 2) {
+        <span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> characters)
+            typeInfo[characters[i]] = <span class="enscript-string">&quot;CanonicalizeSet:&quot;</span> + characterSetInfo.length;
+        characterSetInfo.push(characters);
+
+        <span class="enscript-keyword">if</span> (characters[1] &lt;= MAX_LATIN)
+            <span class="enscript-keyword">throw</span> <span class="enscript-keyword">new</span> Error(<span class="enscript-string">&quot;sets with more than one latin character not supported!&quot;</span>);
+        <span class="enscript-keyword">if</span> (characters[0] &lt;= MAX_LATIN) {
+            <span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> characters)
+                latinTypeInfo[characters[i]] = <span class="enscript-string">&quot;CanonicalizeLatinOther:&quot;</span> + characters[0];
+            latinTypeInfo[characters[0]] = <span class="enscript-string">&quot;CanonicalizeLatinSelf:0&quot;</span>;
+        } <span class="enscript-keyword">else</span> {
+            <span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> characters)
+                latinTypeInfo[characters[i]] = <span class="enscript-string">&quot;CanonicalizeLatinInvalid:0&quot;</span>;
+        }
+
+        <span class="enscript-keyword">continue</span>;
+    }
+
+    <span class="enscript-comment">// We have a pair, mark alternating ranges, otherwise track whether this is the low or high partner.
+</span>    <span class="enscript-keyword">var</span> lo = characters[0];
+    <span class="enscript-keyword">var</span> hi = characters[1];
+    <span class="enscript-keyword">var</span> delta = hi - lo;
+    <span class="enscript-keyword">if</span> (delta == 1) {
+        <span class="enscript-keyword">var</span> type = lo &amp; 1 ? <span class="enscript-string">&quot;CanonicalizeAlternatingUnaligned:0&quot;</span> : <span class="enscript-string">&quot;CanonicalizeAlternatingAligned:0&quot;</span>;
+        typeInfo[lo] = type;
+        typeInfo[hi] = type;
+    } <span class="enscript-keyword">else</span> {
+        typeInfo[lo] = <span class="enscript-string">&quot;CanonicalizeRangeLo:&quot;</span> + delta;
+        typeInfo[hi] = <span class="enscript-string">&quot;CanonicalizeRangeHi:&quot;</span> + delta;
+    }
+
+    <span class="enscript-keyword">if</span> (lo &gt; MAX_LATIN) {
+        latinTypeInfo[lo] = <span class="enscript-string">&quot;CanonicalizeLatinInvalid:0&quot;</span>; 
+        latinTypeInfo[hi] = <span class="enscript-string">&quot;CanonicalizeLatinInvalid:0&quot;</span>;
+    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (hi &gt; MAX_LATIN) {
+        latinTypeInfo[lo] = <span class="enscript-string">&quot;CanonicalizeLatinSelf:0&quot;</span>; 
+        latinTypeInfo[hi] = <span class="enscript-string">&quot;CanonicalizeLatinOther:&quot;</span> + lo;
+    } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">if</span> (delta != 0x20 || lo &amp; 0x20)
+            <span class="enscript-keyword">throw</span> <span class="enscript-keyword">new</span> Error(<span class="enscript-string">&quot;pairs of latin characters that don't mask with 0x20 not supported!&quot;</span>);
+        latinTypeInfo[lo] = <span class="enscript-string">&quot;CanonicalizeLatinMask0x20:0&quot;</span>;
+        latinTypeInfo[hi] = <span class="enscript-string">&quot;CanonicalizeLatinMask0x20:0&quot;</span>;
+    }
+}
+
+<span class="enscript-keyword">var</span> rangeInfo = [];
+<span class="enscript-comment">// Pass 3: coallesce types into ranges.
+</span><span class="enscript-keyword">for</span> (<span class="enscript-keyword">var</span> end = 0; end &lt;= MAX_UCS2; ++end) {
+    <span class="enscript-keyword">var</span> begin = end;
+    <span class="enscript-keyword">var</span> type = typeInfo[end];
+    <span class="enscript-keyword">while</span> (end &lt; MAX_UCS2 &amp;&amp; typeInfo[end + 1] == type)
+        ++end;
+    rangeInfo.push({begin:begin, end:end, type:type});
+}
+
+<span class="enscript-keyword">var</span> latinRangeInfo = [];
+<span class="enscript-comment">// Pass 4: coallesce latin-1 types into ranges.
+</span><span class="enscript-keyword">for</span> (<span class="enscript-keyword">var</span> end = 0; end &lt;= MAX_UCS2; ++end) {
+    <span class="enscript-keyword">var</span> begin = end;
+    <span class="enscript-keyword">var</span> type = latinTypeInfo[end];
+    <span class="enscript-keyword">while</span> (end &lt; MAX_UCS2 &amp;&amp; latinTypeInfo[end + 1] == type)
+        ++end;
+    latinRangeInfo.push({begin:begin, end:end, type:type});
+}
+
+
+<span class="enscript-comment">// Helper function to convert a number to a fixed width hex representation of a C uint16_t.
+</span><span class="enscript-keyword">function</span> <span class="enscript-function-name">hex</span>(x)
+{
+    <span class="enscript-keyword">var</span> s = Number(x).toString(16);
+    <span class="enscript-keyword">while</span> (s.length &lt; 4)
+        s = 0 + s;
+    <span class="enscript-keyword">return</span> <span class="enscript-string">&quot;0x&quot;</span> + s + <span class="enscript-string">&quot;u&quot;</span>;
+}
+
+<span class="enscript-keyword">var</span> copyright = (
+    <span class="enscript-string">&quot;/*&quot;</span>                                                                            + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * Copyright (C) 2012 Apple Inc. All rights reserved.&quot;</span>                         + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; *&quot;</span>                                                                            + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * Redistribution and use in source and binary forms, with or without&quot;</span>         + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * modification, are permitted provided that the following conditions&quot;</span>         + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * are met:&quot;</span>                                                                   + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * 1. Redistributions of source code must retain the above copyright&quot;</span>          + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; *    notice, this list of conditions and the following disclaimer.&quot;</span>           + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * 2. Redistributions in binary form must reproduce the above copyright&quot;</span>       + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; *    notice, this list of conditions and the following disclaimer in the&quot;</span>     + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; *    documentation and/or other materials provided with the distribution.&quot;</span>    + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; *&quot;</span>                                                                            + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY&quot;</span>                  + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE&quot;</span>          + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR&quot;</span>         + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR&quot;</span>                   + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,&quot;</span>      + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,&quot;</span>        + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR&quot;</span>         + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY&quot;</span>        + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT&quot;</span>               + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE&quot;</span>      + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. &quot;</span>      + <span class="enscript-string">&quot;\n&quot;</span> +
+    <span class="enscript-string">&quot; */&quot;</span>);
+
+print(copyright);
+print();
+print(<span class="enscript-string">&quot;// DO NOT EDIT! - this file autogenerated by YarrCanonicalizeUCS2.js&quot;</span>);
+print();
+print(<span class="enscript-string">'#include &quot;config.h&quot;'</span>);
+print(<span class="enscript-string">'#include &quot;YarrCanonicalizeUCS2.h&quot;'</span>);
+print();
+print(<span class="enscript-string">&quot;namespace JSC { namespace Yarr {&quot;</span>);
+print();
+print(<span class="enscript-string">&quot;#include &lt;stdint.h&gt;&quot;</span>);
+print();
+
+<span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> characterSetInfo) {
+    <span class="enscript-keyword">var</span> characters = <span class="enscript-string">&quot;&quot;</span>
+    <span class="enscript-keyword">var</span> set = characterSetInfo[i];
+    <span class="enscript-keyword">for</span> (<span class="enscript-keyword">var</span> j <span class="enscript-keyword">in</span> set)
+        characters += hex(set[j]) + <span class="enscript-string">&quot;, &quot;</span>;
+    print(<span class="enscript-string">&quot;uint16_t ucs2CharacterSet&quot;</span> + i + <span class="enscript-string">&quot;[] = { &quot;</span> + characters + <span class="enscript-string">&quot;0 };&quot;</span>);
+}
+print();
+print(<span class="enscript-string">&quot;static const size_t UCS2_CANONICALIZATION_SETS = &quot;</span> + characterSetInfo.length + <span class="enscript-string">&quot;;&quot;</span>);
+print(<span class="enscript-string">&quot;uint16_t* characterSetInfo[UCS2_CANONICALIZATION_SETS] = {&quot;</span>);
+<span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> characterSetInfo)
+print(<span class="enscript-string">&quot;    ucs2CharacterSet&quot;</span> + i + <span class="enscript-string">&quot;,&quot;</span>);
+print(<span class="enscript-string">&quot;};&quot;</span>);
+print();
+print(<span class="enscript-string">&quot;const size_t UCS2_CANONICALIZATION_RANGES = &quot;</span> + rangeInfo.length + <span class="enscript-string">&quot;;&quot;</span>);
+print(<span class="enscript-string">&quot;UCS2CanonicalizationRange rangeInfo[UCS2_CANONICALIZATION_RANGES] = {&quot;</span>);
+<span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> rangeInfo) {
+    <span class="enscript-keyword">var</span> info = rangeInfo[i];
+    <span class="enscript-keyword">var</span> typeAndValue = info.type.split(<span class="enscript-string">':'</span>);
+    print(<span class="enscript-string">&quot;    { &quot;</span> + hex(info.begin) + <span class="enscript-string">&quot;, &quot;</span> + hex(info.end) + <span class="enscript-string">&quot;, &quot;</span> + hex(typeAndValue[1]) + <span class="enscript-string">&quot;, &quot;</span> + typeAndValue[0] + <span class="enscript-string">&quot; },&quot;</span>);
+}
+print(<span class="enscript-string">&quot;};&quot;</span>);
+print();
+print(<span class="enscript-string">&quot;const size_t LATIN_CANONICALIZATION_RANGES = &quot;</span> + latinRangeInfo.length + <span class="enscript-string">&quot;;&quot;</span>);
+print(<span class="enscript-string">&quot;LatinCanonicalizationRange latinRangeInfo[LATIN_CANONICALIZATION_RANGES] = {&quot;</span>);
+<span class="enscript-keyword">for</span> (i <span class="enscript-keyword">in</span> latinRangeInfo) {
+    <span class="enscript-keyword">var</span> info = latinRangeInfo[i];
+    <span class="enscript-keyword">var</span> typeAndValue = info.type.split(<span class="enscript-string">':'</span>);
+    print(<span class="enscript-string">&quot;    { &quot;</span> + hex(info.begin) + <span class="enscript-string">&quot;, &quot;</span> + hex(info.end) + <span class="enscript-string">&quot;, &quot;</span> + hex(typeAndValue[1]) + <span class="enscript-string">&quot;, &quot;</span> + typeAndValue[0] + <span class="enscript-string">&quot; },&quot;</span>);
+}
+print(<span class="enscript-string">&quot;};&quot;</span>);
+print();
+print(<span class="enscript-string">&quot;} } // JSC::Yarr&quot;</span>);
+print();
+
+</pre>
+<hr />
+</body></html>

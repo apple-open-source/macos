@@ -1,0 +1,331 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Lexer.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Lexer.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ *  Copyright (C) 1999-2000 Harri Porten (<a href="mailto:porten@kde.org">porten@kde.org</a>)
+ *  Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2011, 2012 Apple Inc. All rights reserved.
+ *  Copyright (C) 2010 Zoltan Herczeg (<a href="mailto:zherczeg@inf.u-szeged.hu">zherczeg@inf.u-szeged.hu</a>)
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Library General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public License
+ *  along with this library; see the file COPYING.LIB.  If not, write to
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
+ *
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">Lexer_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">Lexer_h</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;Lookup.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ParserArena.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ParserTokens.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;SourceCode.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/ASCIICType.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/AlwaysInline.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/SegmentedVector.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/Vector.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;wtf/unicode/Unicode.h&gt;</span>
+
+namespace JSC {
+
+class Keywords {
+<span class="enscript-reference">public</span>:
+    bool isKeyword(<span class="enscript-type">const</span> Identifier&amp; ident) <span class="enscript-type">const</span>
+    {
+        <span class="enscript-keyword">return</span> m_keywordTable.entry(m_globalData, ident);
+    }
+    
+    <span class="enscript-type">const</span> HashEntry* getKeyword(<span class="enscript-type">const</span> Identifier&amp; ident) <span class="enscript-type">const</span>
+    {
+        <span class="enscript-keyword">return</span> m_keywordTable.entry(m_globalData, ident);
+    }
+    
+    ~Keywords()
+    {
+        m_keywordTable.deleteTable();
+    }
+    
+<span class="enscript-reference">private</span>:
+    friend class JSGlobalData;
+    
+    Keywords(JSGlobalData*);
+    
+    JSGlobalData* m_globalData;
+    <span class="enscript-type">const</span> HashTable m_keywordTable;
+};
+
+<span class="enscript-type">enum</span> LexerFlags {
+    LexerFlagsIgnoreReservedWords = 1, 
+    LexerFlagsDontBuildStrings = 2,
+    LexexFlagsDontBuildKeywords = 4
+};
+
+template &lt;typename T&gt;
+class Lexer {
+    WTF_MAKE_NONCOPYABLE(Lexer);
+    WTF_MAKE_FAST_ALLOCATED;
+
+<span class="enscript-reference">public</span>:
+    Lexer(JSGlobalData*);
+    ~Lexer();
+
+    <span class="enscript-comment">// Character manipulation functions.
+</span>    <span class="enscript-type">static</span> bool isWhiteSpace(T character);
+    <span class="enscript-type">static</span> bool isLineTerminator(T character);
+    <span class="enscript-type">static</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> convertHex(<span class="enscript-type">int</span> c1, <span class="enscript-type">int</span> c2);
+    <span class="enscript-type">static</span> UChar convertUnicode(<span class="enscript-type">int</span> c1, <span class="enscript-type">int</span> c2, <span class="enscript-type">int</span> c3, <span class="enscript-type">int</span> c4);
+
+    <span class="enscript-comment">// Functions to set up parsing.
+</span>    <span class="enscript-type">void</span> setCode(<span class="enscript-type">const</span> SourceCode&amp;, ParserArena*);
+    <span class="enscript-type">void</span> setIsReparsing() { m_isReparsing = true; }
+    bool isReparsing() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_isReparsing; }
+
+    JSTokenType lex(JSTokenData*, JSTokenInfo*, <span class="enscript-type">unsigned</span>, bool strictMode);
+    bool nextTokenIsColon();
+    <span class="enscript-type">int</span> lineNumber() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_lineNumber; }
+    <span class="enscript-type">void</span> setLastLineNumber(<span class="enscript-type">int</span> lastLineNumber) { m_lastLineNumber = lastLineNumber; }
+    <span class="enscript-type">int</span> lastLineNumber() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_lastLineNumber; }
+    bool prevTerminator() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_terminator; }
+    SourceCode sourceCode(<span class="enscript-type">int</span> openBrace, <span class="enscript-type">int</span> closeBrace, <span class="enscript-type">int</span> firstLine);
+    bool scanRegExp(<span class="enscript-type">const</span> Identifier*&amp; pattern, <span class="enscript-type">const</span> Identifier*&amp; flags, UChar patternPrefix = 0);
+    bool skipRegExp();
+
+    <span class="enscript-comment">// Functions for use after parsing.
+</span>    bool sawError() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_error; }
+    UString getErrorMessage() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_lexErrorMessage; }
+    <span class="enscript-type">void</span> clear();
+    <span class="enscript-type">void</span> setOffset(<span class="enscript-type">int</span> offset)
+    {
+        m_error = 0;
+        m_lexErrorMessage = UString();
+        m_code = m_codeStart + offset;
+        m_buffer8.resize(0);
+        m_buffer16.resize(0);
+        <span class="enscript-keyword">if</span> (LIKELY(m_code &lt; m_codeEnd))
+            m_current = *m_code;
+        <span class="enscript-keyword">else</span>
+            m_current = 0;
+    }
+    <span class="enscript-type">void</span> setLineNumber(<span class="enscript-type">int</span> line)
+    {
+        m_lineNumber = line;
+    }
+
+    SourceProvider* sourceProvider() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_source-&gt;provider(); }
+
+    JSTokenType lexExpectIdentifier(JSTokenData*, JSTokenInfo*, <span class="enscript-type">unsigned</span>, bool strictMode);
+
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">void</span> record8(<span class="enscript-type">int</span>);
+    <span class="enscript-type">void</span> append8(<span class="enscript-type">const</span> T*, size_t);
+    <span class="enscript-type">void</span> record16(<span class="enscript-type">int</span>);
+    <span class="enscript-type">void</span> record16(T);
+    <span class="enscript-type">void</span> append16(<span class="enscript-type">const</span> LChar*, size_t);
+    <span class="enscript-type">void</span> append16(<span class="enscript-type">const</span> UChar* characters, size_t length) { m_buffer16.append(characters, length); }
+
+    ALWAYS_INLINE <span class="enscript-type">void</span> shift();
+    ALWAYS_INLINE bool atEnd() <span class="enscript-type">const</span>;
+    ALWAYS_INLINE T peek(<span class="enscript-type">int</span> offset) <span class="enscript-type">const</span>;
+    <span class="enscript-type">int</span> parseFourDigitUnicodeHex();
+    <span class="enscript-type">void</span> shiftLineTerminator();
+
+    UString invalidCharacterMessage() <span class="enscript-type">const</span>;
+    ALWAYS_INLINE <span class="enscript-type">const</span> T* currentCharacter() <span class="enscript-type">const</span>;
+    ALWAYS_INLINE <span class="enscript-type">int</span> currentOffset() <span class="enscript-type">const</span> { <span class="enscript-keyword">return</span> m_code - m_codeStart; }
+    ALWAYS_INLINE <span class="enscript-type">void</span> setOffsetFromCharOffset(<span class="enscript-type">const</span> T* charOffset) { setOffset(charOffset - m_codeStart); }
+
+    ALWAYS_INLINE <span class="enscript-type">void</span> setCodeStart(<span class="enscript-type">const</span> StringImpl*);
+
+    ALWAYS_INLINE <span class="enscript-type">const</span> Identifier* makeIdentifier(<span class="enscript-type">const</span> LChar* characters, size_t length);
+    ALWAYS_INLINE <span class="enscript-type">const</span> Identifier* makeIdentifier(<span class="enscript-type">const</span> UChar* characters, size_t length);
+    ALWAYS_INLINE <span class="enscript-type">const</span> Identifier* makeIdentifierLCharFromUChar(<span class="enscript-type">const</span> UChar* characters, size_t length);
+
+    ALWAYS_INLINE bool lastTokenWasRestrKeyword() <span class="enscript-type">const</span>;
+
+    template &lt;<span class="enscript-type">int</span> shiftAmount&gt; <span class="enscript-type">void</span> internalShift();
+    template &lt;bool shouldCreateIdentifier&gt; ALWAYS_INLINE JSTokenType parseKeyword(JSTokenData*);
+    template &lt;bool shouldBuildIdentifiers&gt; ALWAYS_INLINE JSTokenType parseIdentifier(JSTokenData*, <span class="enscript-type">unsigned</span> lexerFlags, bool strictMode);
+    template &lt;bool shouldBuildIdentifiers&gt; NEVER_INLINE JSTokenType parseIdentifierSlowCase(JSTokenData*, <span class="enscript-type">unsigned</span> lexerFlags, bool strictMode);
+    template &lt;bool shouldBuildStrings&gt; ALWAYS_INLINE bool parseString(JSTokenData*, bool strictMode);
+    template &lt;bool shouldBuildStrings&gt; NEVER_INLINE bool parseStringSlowCase(JSTokenData*, bool strictMode);
+    ALWAYS_INLINE <span class="enscript-type">void</span> parseHex(<span class="enscript-type">double</span>&amp; returnValue);
+    ALWAYS_INLINE bool parseOctal(<span class="enscript-type">double</span>&amp; returnValue);
+    ALWAYS_INLINE bool parseDecimal(<span class="enscript-type">double</span>&amp; returnValue);
+    ALWAYS_INLINE <span class="enscript-type">void</span> parseNumberAfterDecimalPoint();
+    ALWAYS_INLINE bool parseNumberAfterExponentIndicator();
+    ALWAYS_INLINE bool parseMultilineComment();
+
+    <span class="enscript-type">static</span> <span class="enscript-type">const</span> size_t initialReadBufferCapacity = 32;
+
+    <span class="enscript-type">int</span> m_lineNumber;
+    <span class="enscript-type">int</span> m_lastLineNumber;
+
+    Vector&lt;LChar&gt; m_buffer8;
+    Vector&lt;UChar&gt; m_buffer16;
+    bool m_terminator;
+    <span class="enscript-type">int</span> m_lastToken;
+
+    <span class="enscript-type">const</span> SourceCode* m_source;
+    <span class="enscript-type">const</span> T* m_code;
+    <span class="enscript-type">const</span> T* m_codeStart;
+    <span class="enscript-type">const</span> T* m_codeEnd;
+    bool m_isReparsing;
+    bool m_atLineStart;
+    bool m_error;
+    UString m_lexErrorMessage;
+
+    T m_current;
+
+    IdentifierArena* m_arena;
+
+    JSGlobalData* m_globalData;
+};
+
+template &lt;&gt;
+ALWAYS_INLINE bool Lexer&lt;LChar&gt;::isWhiteSpace(LChar ch)
+{
+    <span class="enscript-keyword">return</span> ch == <span class="enscript-string">' '</span> || ch == <span class="enscript-string">'\t'</span> || ch == 0xB || ch == 0xC || ch == 0xA0;
+}
+
+template &lt;&gt;
+ALWAYS_INLINE bool Lexer&lt;UChar&gt;::isWhiteSpace(UChar ch)
+{
+    <span class="enscript-keyword">return</span> (ch &lt; 256) ? Lexer&lt;LChar&gt;::isWhiteSpace(static_cast&lt;LChar&gt;(ch)) : (WTF::Unicode::isSeparatorSpace(ch) || ch == 0xFEFF);
+}
+
+template &lt;&gt;
+ALWAYS_INLINE bool Lexer&lt;LChar&gt;::isLineTerminator(LChar ch)
+{
+    <span class="enscript-keyword">return</span> ch == <span class="enscript-string">'\r'</span> || ch == <span class="enscript-string">'\n'</span>;
+}
+
+template &lt;&gt;
+ALWAYS_INLINE bool Lexer&lt;UChar&gt;::isLineTerminator(UChar ch)
+{
+    <span class="enscript-keyword">return</span> ch == <span class="enscript-string">'\r'</span> || ch == <span class="enscript-string">'\n'</span> || (ch &amp; ~1) == 0x2028;
+}
+
+template &lt;typename T&gt;
+inline <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> Lexer&lt;T&gt;::convertHex(<span class="enscript-type">int</span> c1, <span class="enscript-type">int</span> c2)
+{
+    <span class="enscript-keyword">return</span> (toASCIIHexValue(c1) &lt;&lt; 4) | toASCIIHexValue(c2);
+}
+
+template &lt;typename T&gt;
+inline UChar Lexer&lt;T&gt;::convertUnicode(<span class="enscript-type">int</span> c1, <span class="enscript-type">int</span> c2, <span class="enscript-type">int</span> c3, <span class="enscript-type">int</span> c4)
+{
+    <span class="enscript-keyword">return</span> (convertHex(c1, c2) &lt;&lt; 8) | convertHex(c3, c4);
+}
+
+template &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">const</span> Identifier* Lexer&lt;T&gt;::makeIdentifier(<span class="enscript-type">const</span> LChar* characters, size_t length)
+{
+    <span class="enscript-keyword">return</span> &amp;m_arena-&gt;makeIdentifier(m_globalData, characters, length);
+}
+
+template &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">const</span> Identifier* Lexer&lt;T&gt;::makeIdentifier(<span class="enscript-type">const</span> UChar* characters, size_t length)
+{
+    <span class="enscript-keyword">return</span> &amp;m_arena-&gt;makeIdentifier(m_globalData, characters, length);
+}
+
+template &lt;&gt;
+ALWAYS_INLINE <span class="enscript-type">void</span> Lexer&lt;LChar&gt;::setCodeStart(<span class="enscript-type">const</span> StringImpl* sourceString)
+{
+    ASSERT(sourceString-&gt;is8Bit());
+    m_codeStart = sourceString-&gt;characters8();
+}
+
+template &lt;&gt;
+ALWAYS_INLINE <span class="enscript-type">void</span> Lexer&lt;UChar&gt;::setCodeStart(<span class="enscript-type">const</span> StringImpl* sourceString)
+{
+    ASSERT(!sourceString-&gt;is8Bit());
+    m_codeStart = sourceString-&gt;characters16();
+}
+
+template &lt;typename T&gt;
+ALWAYS_INLINE <span class="enscript-type">const</span> Identifier* Lexer&lt;T&gt;::makeIdentifierLCharFromUChar(<span class="enscript-type">const</span> UChar* characters, size_t length)
+{
+    <span class="enscript-keyword">return</span> &amp;m_arena-&gt;makeIdentifierLCharFromUChar(m_globalData, characters, length);
+}
+
+template &lt;typename T&gt;
+ALWAYS_INLINE JSTokenType Lexer&lt;T&gt;::lexExpectIdentifier(JSTokenData* tokenData, JSTokenInfo* tokenInfo, <span class="enscript-type">unsigned</span> lexerFlags, bool strictMode)
+{
+    ASSERT((lexerFlags &amp; LexerFlagsIgnoreReservedWords));
+    <span class="enscript-type">const</span> T* start = m_code;
+    <span class="enscript-type">const</span> T* ptr = start;
+    <span class="enscript-type">const</span> T* end = m_codeEnd;
+    <span class="enscript-keyword">if</span> (ptr &gt;= end) {
+        ASSERT(ptr == end);
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">slowCase</span>;
+    }
+    <span class="enscript-keyword">if</span> (!WTF::isASCIIAlpha(*ptr))
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">slowCase</span>;
+    ++ptr;
+    <span class="enscript-keyword">while</span> (ptr &lt; end) {
+        <span class="enscript-keyword">if</span> (!WTF::isASCIIAlphanumeric(*ptr))
+            <span class="enscript-keyword">break</span>;
+        ++ptr;
+    }
+
+    <span class="enscript-comment">// Here's the shift
+</span>    <span class="enscript-keyword">if</span> (ptr &lt; end) {
+        <span class="enscript-keyword">if</span> ((!WTF::isASCII(*ptr)) || (*ptr == <span class="enscript-string">'\\'</span>) || (*ptr == <span class="enscript-string">'_'</span>) || (*ptr == <span class="enscript-string">'$'</span>))
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">slowCase</span>;
+        m_current = *ptr;
+    } <span class="enscript-keyword">else</span>
+        m_current = 0;
+
+    m_code = ptr;
+
+    <span class="enscript-comment">// Create the identifier if needed
+</span>    <span class="enscript-keyword">if</span> (lexerFlags &amp; LexexFlagsDontBuildKeywords)
+        tokenData-&gt;ident = 0;
+    <span class="enscript-keyword">else</span>
+        tokenData-&gt;ident = makeIdentifier(start, ptr - start);
+    tokenInfo-&gt;line = m_lineNumber;
+    tokenInfo-&gt;startOffset = start - m_codeStart;
+    tokenInfo-&gt;endOffset = currentOffset();
+    m_lastToken = IDENT;
+    <span class="enscript-keyword">return</span> IDENT;
+    
+<span class="enscript-reference">slowCase</span>:
+    <span class="enscript-keyword">return</span> lex(tokenData, tokenInfo, lexerFlags, strictMode);
+}
+
+} <span class="enscript-comment">// namespace JSC
+</span>
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">Lexer_h</span>
+</pre>
+<hr />
+</body></html>

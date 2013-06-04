@@ -167,7 +167,6 @@ void smb_rq_wstart(struct smb_rq *rqp);
 void smb_rq_wend(struct smb_rq *rqp);
 void smb_rq_bstart(struct smb_rq *rqp);
 void smb_rq_bend(struct smb_rq *rqp);
-int  smb_rq_intr(struct smb_rq *rqp);
 int  smb_rq_simple(struct smb_rq *rqp);
 int  smb_rq_simple_timed(struct smb_rq *rqp, int timo);
 

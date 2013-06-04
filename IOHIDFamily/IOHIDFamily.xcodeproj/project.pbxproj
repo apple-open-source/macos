@@ -606,6 +606,8 @@
 		84F53AA90C42CD1A00436775 /* com.apple.hidd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84F53AA50C42CCB000436775 /* com.apple.hidd.plist */; };
 		B9004A8612E9149900669C25 /* IOHIDSystemCursorHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B9004A8412E9149900669C25 /* IOHIDSystemCursorHelper.cpp */; };
 		B9004A8712E9149900669C25 /* IOHIDSystemCursorHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B9004A8512E9149900669C25 /* IOHIDSystemCursorHelper.h */; };
+		B9239DDE16DC2C1300C297EF /* IOHIDEventSystemQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B9239DDC16DC2BE200C297EF /* IOHIDEventSystemQueue.cpp */; };
+		B9239DDF16DC2C1400C297EF /* IOHIDEventSystemQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B9239DDC16DC2BE200C297EF /* IOHIDEventSystemQueue.cpp */; };
 		B939FE62131B81BD00FA1175 /* IOHIDResourceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84B95A7C0E872A7A00F19A68 /* IOHIDResourceUserClient.cpp */; };
 		B939FE64131B81C100FA1175 /* IOHIDResourceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 84B95A7D0E872A7A00F19A68 /* IOHIDResourceUserClient.h */; };
 		B939FE65131B81CA00FA1175 /* IOHIDResource.h in Headers */ = {isa = PBXBuildFile; fileRef = 84302F3E0E8490BD0045CFDF /* IOHIDResource.h */; };
@@ -1316,7 +1318,7 @@
 		848E577F0CC55F2D00D5BE22 /* Info-IOHIDFamily.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOHIDFamily.plist"; sourceTree = "<group>"; };
 		848E57880CC55F3F00D5BE22 /* Info-IOHIDTestDriver.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOHIDTestDriver.plist"; sourceTree = "<group>"; };
 		848E578A0CC55F5800D5BE22 /* Info-IOHIDUserClient.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOHIDUserClient.plist"; sourceTree = "<group>"; };
-		848E73F41506913C006AE483 /* IOHIDFamily-Embedded copy.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IOHIDFamily-Embedded copy.kext"; sourceTree = BUILT_PRODUCTS_DIR; };
+		848E73F41506913C006AE483 /* IOHIDFamily-Embedded copy.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = "IOHIDFamily-Embedded copy.kext"; path = IOHIDFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		848E744B15069163006AE483 /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
 		8490F4AC0CFE61EC006AE621 /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
 		8490F4C10CFE6279006AE621 /* HIDMacTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDMacTypes.h; sourceTree = "<group>"; };
@@ -1343,6 +1345,8 @@
 		B30C5190133D2D9300A4FA0F /* IOHIDReportTest-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "IOHIDReportTest-Entitlements.plist"; path = "tools/IOHIDReportTest-Entitlements.plist"; sourceTree = "<group>"; };
 		B9004A8412E9149900669C25 /* IOHIDSystemCursorHelper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDSystemCursorHelper.cpp; sourceTree = "<group>"; };
 		B9004A8512E9149900669C25 /* IOHIDSystemCursorHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDSystemCursorHelper.h; sourceTree = "<group>"; };
+		B9239DDC16DC2BE200C297EF /* IOHIDEventSystemQueue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventSystemQueue.cpp; sourceTree = "<group>"; };
+		B9239DDD16DC2BE200C297EF /* IOHIDEventSystemQueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystemQueue.h; sourceTree = "<group>"; };
 		B963F4B700BC660708CA29FD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		B9768E88128A72D800155C03 /* IOHIDWorkLoop.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDWorkLoop.cpp; sourceTree = "<group>"; };
 		B9768E89128A72D800155C03 /* IOHIDWorkLoop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDWorkLoop.h; sourceTree = "<group>"; };
@@ -1650,6 +1654,8 @@
 		843C202A0C0795FB0009057F /* Kernel */ = {
 			isa = PBXGroup;
 			children = (
+				B9239DDC16DC2BE200C297EF /* IOHIDEventSystemQueue.cpp */,
+				B9239DDD16DC2BE200C297EF /* IOHIDEventSystemQueue.h */,
 				84EC18AD08D8FB1200E9F643 /* IOHIDEventSystem.cpp */,
 				84EC18AE08D8FB1200E9F643 /* IOHIDEventSystem.h */,
 				843C24420C07AE970009057F /* IOHIDEventTypes.h */,
@@ -2900,6 +2906,7 @@
 				848E56590CC55C7800D5BE22 /* HIDProcessReportItem.c in Sources */,
 				848E56610CC55C7800D5BE22 /* HIDUsageInRange.c in Sources */,
 				848E56630CC55C7800D5BE22 /* PoolAlloc.c in Sources */,
+				B9239DDE16DC2C1300C297EF /* IOHIDEventSystemQueue.cpp in Sources */,
 				848E56640CC55C7800D5BE22 /* IOHIDevice.cpp in Sources */,
 				848E56650CC55C7800D5BE22 /* IOHIDIO.cpp in Sources */,
 				848E566F0CC55C7800D5BE22 /* IOHIDElementPrivate.cpp in Sources */,
@@ -3056,6 +3063,7 @@
 				84D292430CC90C8E00698218 /* HIDProcessReportItem.c in Sources */,
 				84D292440CC90C8E00698218 /* HIDUsageInRange.c in Sources */,
 				84D292450CC90C8E00698218 /* PoolAlloc.c in Sources */,
+				B9239DDF16DC2C1400C297EF /* IOHIDEventSystemQueue.cpp in Sources */,
 				84D292470CC90C8E00698218 /* IOHIDIO.cpp in Sources */,
 				84D292480CC90C8E00698218 /* IOHIDElementPrivate.cpp in Sources */,
 				84D292490CC90C8E00698218 /* IOHIDInterface.cpp in Sources */,

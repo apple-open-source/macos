@@ -391,9 +391,11 @@ PassRefPtr<Plugin> WebPage::createPlugin(WebFrame* frame, HTMLPlugInElement* plu
 {
     String pluginPath;
     uint32_t pluginLoadPolicy;
-    if (!WebProcess::shared().connection()->sendSync(
-            Messages::WebContext::GetPluginPath(parameters.mimeType, parameters.url.string()), 
-            Messages::WebContext::GetPluginPath::Reply(pluginPath, pluginLoadPolicy), 0)) {
+
+    String frameURLString = frame->coreFrame()->loader()->documentLoader()->responseURL().string();
+    String pageURLString = m_page->mainFrame()->loader()->documentLoader()->responseURL().string();
+
+    if (!sendSync(Messages::WebPageProxy::GetPluginPath(parameters.mimeType, parameters.url.string(), frameURLString, pageURLString), Messages::WebPageProxy::GetPluginPath::Reply(pluginPath, pluginLoadPolicy))) {
         return 0;
     }
 
@@ -405,7 +407,7 @@ PassRefPtr<Plugin> WebPage::createPlugin(WebFrame* frame, HTMLPlugInElement* plu
         if (pluginElement->renderer()->isEmbeddedObject())
             toRenderEmbeddedObject(pluginElement->renderer())->setPluginUnavailabilityReason(RenderEmbeddedObject::InsecurePluginVersion);
 
-        send(Messages::WebPageProxy::DidBlockInsecurePluginVersion(parameters.mimeType, parameters.url.string()));
+        send(Messages::WebPageProxy::DidBlockInsecurePluginVersion(parameters.mimeType, parameters.url.string(), frameURLString, pageURLString));
         return 0;
 
     case PluginModuleInactive:

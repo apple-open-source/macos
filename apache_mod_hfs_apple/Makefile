@@ -1,4 +1,4 @@
-# Copyright (c) 2000-2011 Apple Inc. All Rights Reserved.
+# Copyright (c) 2000-2013 Apple Inc. All Rights Reserved.
 #
 # This file contains Original Code and/or Modifications of Original Code
 # as defined in and that are subject to the Apple Public Source License
@@ -26,7 +26,7 @@ SRCFILES = Makefile $(MODULE_SRC) $(MODULE_SRC2) $(OTHER_SRC) $(HEADERS)
 INSTALLDIR2 := $(shell $(APXS2) -q LIBEXECDIR)
 
 MORE_FLAGS = -Wc,"$(RC_CFLAGS) -Wall -Wextra -Os -g"
-MORE_FLAGS += -Wl,"$(RC_CFLAGS)"
+MORE_FLAGS += -Wl,"$(RC_CFLAGS) -framework CoreFoundation"
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 include $(MAKEFILEDIR)/platform.make

@@ -29,8 +29,8 @@
 #include "IOHIDEventServiceQueue.h"
 #include "IOHIDEvent.h"
 
-#define super IODataQueue
-OSDefineMetaClassAndStructors( IOHIDEventServiceQueue, IOSharedDataQueue )
+#define super IOSharedDataQueue
+OSDefineMetaClassAndStructors( IOHIDEventServiceQueue, super )
 
 IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size)
 {

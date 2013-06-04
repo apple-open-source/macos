@@ -121,12 +121,8 @@ static CFComparisonResult compareEvDates(CFDictionaryRef,
                                              CFDictionaryRef, void *);
 
 void poweronScheduleCallout(CFDictionaryRef);
-void wakeScheduleCallout(CFDictionaryRef);
-
-void wakeNoScheduledEventCallout(CFDictionaryRef);
 
 void wakeTimerExpiredCallout(CFDictionaryRef);
-void poweronTimerExpiredCallout(CFDictionaryRef);
 void sleepTimerExpiredCallout(CFDictionaryRef);
 void shutdownTimerExpiredCallout(CFDictionaryRef);
 void restartTimerExpiredCallout(CFDictionaryRef);
@@ -171,7 +167,7 @@ void restartTimerExpiredCallout(CFDictionaryRef);
  *
  * The event array pointer gets modified. 
  */
-void
+static void
 removeEventsByAppName(PowerEventBehavior *behave, CFStringRef appName)
 {
     int                 count, j;
@@ -225,14 +221,11 @@ AutoWake_prime(void)
     // Initialize powerevent callouts per-behavior    
     // note: wakeorpoweronBehavior does not have callouts of its own, by design
     wakeBehavior.timerExpirationCallout     = wakeTimerExpiredCallout;
-    poweronBehavior.timerExpirationCallout  = poweronTimerExpiredCallout;
     sleepBehavior.timerExpirationCallout    = sleepTimerExpiredCallout;
     shutdownBehavior.timerExpirationCallout = shutdownTimerExpiredCallout;
     restartBehavior.timerExpirationCallout  = restartTimerExpiredCallout;
     
     // schedulePowerEvent callouts
-    wakeBehavior.scheduleNextCallout     = wakeScheduleCallout;
-    wakeBehavior.noScheduledEventCallout     = wakeScheduleCallout;
     poweronBehavior.scheduleNextCallout     = poweronScheduleCallout;
     poweronBehavior.noScheduledEventCallout = poweronScheduleCallout;
 
@@ -301,6 +294,24 @@ __private_extern__ void AutoWakeCapabilitiesNotification(
     }
 }
 
+__private_extern__ void AutoWakeCalendarChange(void)
+{
+    /*The time has changed, so lets assume that all of our previously scheduled 
+     * sleep & wake events are invalid.
+     */
+    PowerEventBehavior      *this_behavior;
+    int i;
+    
+    for(i=0; i<kBehaviorsCount; i++)
+    {
+        this_behavior = behaviors[i];
+        if (this_behavior
+            && !CFEqual(this_behavior->title, CFSTR(kIOPMAutoWakeOrPowerOn)))
+        {
+            schedulePowerEvent(this_behavior);
+        }
+    }
+}
 
 /*
  * Required behaviors at timer expiration:
@@ -473,11 +484,6 @@ void poweronScheduleCallout(CFDictionaryRef event)
     return;
 }
 
-void poweronTimerExpiredCallout(CFDictionaryRef event __unused)
-{
-    // Do nothing
-    return;
-}
 
 
 /*
@@ -486,12 +492,6 @@ void poweronTimerExpiredCallout(CFDictionaryRef event __unused)
 #pragma mark -
 #pragma mark Wake
 
-void wakeScheduleCallout(CFDictionaryRef event)
-{    
-   // Nothing to do here. 'kIOPMUserWakeAlarmScheduledKey'  property is set/unset 
-   // before system goes to sleep
-    return;
-}
 
 
 void wakeTimerExpiredCallout(CFDictionaryRef event __unused)

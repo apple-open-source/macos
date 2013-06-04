@@ -428,14 +428,6 @@ smb_rq_bend(struct smb_rq *rqp)
 }
 
 int
-smb_rq_intr(struct smb_rq *rqp)
-{
-	if (rqp->sr_flags & SMBR_INTR)
-		return EINTR;
-	return (smb_sigintr(rqp->sr_context));
-}
-
-int
 smb_rq_getrequest(struct smb_rq *rqp, struct mbchain **mbpp)
 {
 	*mbpp = &rqp->sr_rq;

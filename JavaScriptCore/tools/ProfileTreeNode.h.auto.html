@@ -1,0 +1,148 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>ProfileTreeNode.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">ProfileTreeNode.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 2012 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">ProfileTreeNode_h</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ProfileTreeNode_h</span>
+
+namespace JSC {
+
+class ProfileTreeNode {
+    <span class="enscript-type">typedef</span> HashMap&lt;String, ProfileTreeNode&gt; Map;
+    <span class="enscript-type">typedef</span> std::pair&lt;String, ProfileTreeNode&gt; MapEntry;
+
+<span class="enscript-reference">public</span>:
+    ProfileTreeNode()
+        : m_count(0)
+        , m_children(0)
+    {
+    }
+
+    ~ProfileTreeNode()
+    {
+        delete m_children;
+    }
+
+    ProfileTreeNode* sampleChild(<span class="enscript-type">const</span> <span class="enscript-type">char</span>* name)
+    {
+        <span class="enscript-keyword">if</span> (!m_children)
+            m_children = new Map();
+    
+        ProfileTreeNode newEntry;
+        <span class="enscript-reference">Map</span>::AddResult result = m_children-&gt;add(String(name), newEntry);
+        ProfileTreeNode* childInMap = &amp;result.iterator-&gt;second;
+        ++childInMap-&gt;m_count;
+        <span class="enscript-keyword">return</span> childInMap;
+    }
+
+    <span class="enscript-type">void</span> dump()
+    {
+        dumpInternal(0);
+    }
+
+    uint64_t count()
+    {
+        <span class="enscript-keyword">return</span> m_count;
+    }
+
+    uint64_t childCount()
+    {
+        <span class="enscript-keyword">if</span> (!m_children)
+            <span class="enscript-keyword">return</span> 0;
+        uint64_t childCount = 0;
+        <span class="enscript-keyword">for</span> (Map::iterator it = m_children-&gt;begin(); it != m_children-&gt;end(); ++it)
+            childCount += it-&gt;second.count();
+        <span class="enscript-keyword">return</span> childCount;
+    }
+    
+<span class="enscript-reference">private</span>:
+    <span class="enscript-type">void</span> dumpInternal(<span class="enscript-type">unsigned</span> indent)
+    {
+        <span class="enscript-keyword">if</span> (!m_children)
+            <span class="enscript-keyword">return</span>;
+
+        <span class="enscript-comment">// Copy pointers to all children into a vector, and sort the vector by sample count.
+</span>        Vector&lt;MapEntry*&gt; entries;
+        <span class="enscript-keyword">for</span> (Map::iterator it = m_children-&gt;begin(); it != m_children-&gt;end(); ++it)
+            entries.append(&amp;*it);
+        qsort(entries.begin(), entries.size(), <span class="enscript-keyword">sizeof</span>(MapEntry*), compareEntries);
+
+        <span class="enscript-comment">// Iterate over the children in sample-frequency order.
+</span>        <span class="enscript-keyword">for</span> (size_t e = 0; e &lt; entries.size(); ++e) {
+            MapEntry* entry = entries[e];
+
+            <span class="enscript-comment">// Print the number of samples, the name of this node, and the number of samples that are stack-top
+</span>            <span class="enscript-comment">// in this node (samples directly within this node, excluding samples in children.
+</span>            <span class="enscript-keyword">for</span> (<span class="enscript-type">unsigned</span> i = 0; i &lt; indent; ++i)
+                dataLog(<span class="enscript-string">&quot;    &quot;</span>);
+            dataLog(<span class="enscript-string">&quot;% 8lld: %s (%lld stack top)\n&quot;</span>,
+                static_cast&lt;<span class="enscript-type">long</span> <span class="enscript-type">long</span>&gt;(entry-&gt;second.count()),
+                entry-&gt;first.utf8().data(),
+                static_cast&lt;<span class="enscript-type">long</span> <span class="enscript-type">long</span>&gt;(entry-&gt;second.count() - entry-&gt;second.childCount()));
+
+            <span class="enscript-comment">// Recursively dump the child nodes.
+</span>            entry-&gt;second.dumpInternal(indent + 1);
+        }
+    }
+
+    <span class="enscript-type">static</span> <span class="enscript-type">int</span> compareEntries(<span class="enscript-type">const</span> <span class="enscript-type">void</span>* a, <span class="enscript-type">const</span> <span class="enscript-type">void</span>* b)
+    {
+        uint64_t da = (*static_cast&lt;MapEntry* <span class="enscript-type">const</span> *&gt;(a))-&gt;second.count();
+        uint64_t db = (*static_cast&lt;MapEntry* <span class="enscript-type">const</span> *&gt;(b))-&gt;second.count();
+        <span class="enscript-keyword">return</span> (da &lt; db) - (da &gt; db);
+    }
+
+    uint64_t m_count;
+    Map* m_children;
+};
+
+}
+
+#<span class="enscript-reference">endif</span> // <span class="enscript-variable-name">ProfileTreeNode_h</span>
+
+</pre>
+<hr />
+</body></html>

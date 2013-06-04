@@ -1,5 +1,5 @@
 /*
- * "$Id: colorman.c 3972 2012-10-24 11:59:21Z msweet $"
+ * "$Id: colorman.c 4188 2013-02-20 02:30:47Z msweet $"
  *
  *   Color management routines for the CUPS scheduler.
  *
@@ -1128,14 +1128,14 @@ colord_delete_device(
   message = COLORD_DBUS_MSG(COLORD_DBUS_PATH, "DeleteDevice");
 
   dbus_message_iter_init_append(message, &args);
-  dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &device_id);
+  dbus_message_iter_append_basic(&args, DBUS_TYPE_OBJECT_PATH, &device_path);
 
  /*
   * Send the DeleteDevice request synchronously...
   */
 
   dbus_error_init(&error);
-  cupsdLogMessage(CUPSD_LOG_DEBUG, "Calling DeleteDevice(%s)", device_id);
+  cupsdLogMessage(CUPSD_LOG_DEBUG, "Calling DeleteDevice(%s)", device_path);
   reply = dbus_connection_send_with_reply_and_block(colord_con, message,
                                                     COLORD_DBUS_TIMEOUT,
                                                     &error);
@@ -1505,5 +1505,5 @@ colord_unregister_printer(
 
 
 /*
- * End of "$Id: colorman.c 3972 2012-10-24 11:59:21Z msweet $".
+ * End of "$Id: colorman.c 4188 2013-02-20 02:30:47Z msweet $".
  */

@@ -54,17 +54,24 @@ const size_t APIClientTraits<WKPageContextMenuClient>::interfaceSizesByVersion[]
 
 const size_t APIClientTraits<WKPageLoaderClient>::interfaceSizesByVersion[] = {
     offsetof(WKPageLoaderClient, didFailToInitializePlugin_deprecatedForUseWithV0),
+    offsetof(WKPageLoaderClient, didReceiveIntentForFrame_unavailable),
     sizeof(WKPageLoaderClient)
 };
 
 const size_t APIClientTraits<WKPageUIClient>::interfaceSizesByVersion[] = {
     offsetof(WKPageUIClient, createNewPage),
+    offsetof(WKPageUIClient, unused2),
     sizeof(WKPageUIClient)
 };
     
 const size_t APIClientTraits<WKBundlePageFormClient>::interfaceSizesByVersion[] = {
     offsetof(WKBundlePageFormClient, willSendSubmitEvent),
     sizeof(WKBundlePageFormClient)
+};
+
+const size_t APIClientTraits<WKContextClient>::interfaceSizesByVersion[] = {
+    offsetof(WKContextClient, plugInInformationBecameAvailable),
+    sizeof(WKContextClient)
 };
 
 } // namespace WebKit
