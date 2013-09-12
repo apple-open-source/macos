@@ -8,11 +8,14 @@
 <title>mod_proxy_ajp - Apache HTTP Server</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -61,7 +64,7 @@
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></li>
 <li><a href="../env.html">Environment Variable documentation</a></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="usage" id="usage">Usage</a></h2>
@@ -130,10 +133,10 @@
     the connection can be in one of the following states:</p>
     <ul>
     <li> Idle <br /> No request is being handled over this connection. </li>
-    <li> Assigned <br /> The connecton is handling a specific request.</li>
+    <li> Assigned <br /> The connection is handling a specific request.</li>
     </ul>
     <p>Once a connection is assigned to handle a particular request, the basic
-    request informaton (e.g. HTTP headers, etc) is sent over the connection in
+    request information (e.g. HTTP headers, etc) is sent over the connection in
     a highly condensed form (e.g. common strings are encoded as integers).
     Details of that format are below in Request Packet Structure. If there is a
     body to the request <code>(content-length &gt; 0)</code>, that is sent in a
@@ -149,7 +152,7 @@
     been transferred yet.  This is necessary because the packets have a fixed
     maximum size and arbitrary amounts of data can be included the body of a
     request (for uploaded files, for example).  (Note: this is unrelated to
-    HTTP chunked tranfer).</li>
+    HTTP chunked transfer).</li>
     <li>END_RESPONSE <br /> Finish the request-handling cycle.</li>
     </ul>
     <p>Each message is accompanied by a differently formatted packet of data.
@@ -287,7 +290,7 @@
     <p>To ensure some basic security, the container will only actually do the
     <code>Shutdown</code> if the request comes from the same machine on which
     it's hosted.</p>
-    <p>The first <code>Data</code> packet is send immediatly after the
+    <p>The first <code>Data</code> packet is send immediately after the
     <code>Forward Request</code> by the web server.</p>
     <p>The servlet container can send the following types of messages to the
     webserver:</p>
@@ -588,7 +591,7 @@ AJP13_GET_BODY_CHUNK :=
   <h3>Get Body Chunk</h3>
     <p>The container asks for more data from the request (If the body was
     too large to fit in the first packet sent over or when the request is
-    chuncked). The server will send a body packet back with an amount of data
+    chunked). The server will send a body packet back with an amount of data
     which is the minimum of the <code>request_length</code>, the maximum send
     body size <code>(8186 (8 Kbytes - 6))</code>, and the number of bytes
     actually left to send from the request body.<br />
@@ -602,7 +605,28 @@ AJP13_GET_BODY_CHUNK :=
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_proxy_ajp.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../ja/mod/mod_proxy_ajp.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_proxy_ajp.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

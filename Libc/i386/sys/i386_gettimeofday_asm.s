@@ -28,7 +28,6 @@
 
 #include <sys/appleapiopts.h>
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
 
 #define NSEC_PER_SEC	1000*1000*1000
 #define NSEC_PER_USEC	1000
@@ -46,7 +45,7 @@ ___commpage_gettimeofday:
 	testl	%esi,%esi			/* disabled? */
 	jz	4f
 
-	call	_mach_absolute_time_direct
+	call	_mach_absolute_time		/* get nanotime in %edx:%eax */
 	
 	sub	_COMM_PAGE_GTOD_NS_BASE,%eax
 	sbb	_COMM_PAGE_GTOD_NS_BASE+4,%edx

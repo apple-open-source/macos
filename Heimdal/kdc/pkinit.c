@@ -211,7 +211,8 @@ generate_dh_keyblock(krb5_context context,
     unsigned char *dh_gen_key = NULL;
     krb5_keyblock key;
     krb5_error_code ret;
-    size_t dh_gen_keylen, size;
+    int dh_gen_keylen;
+    size_t size;
 
     memset(&key, 0, sizeof(key));
 
@@ -239,17 +240,19 @@ generate_dh_keyblock(krb5_context context,
 	    goto out;
 	}
 
-	dh_gen_keylen = DH_compute_key(dh_gen_key,client_params->u.dh.public_key, client_params->u.dh.key);
-	if (dh_gen_keylen == (size_t)-1) {
+	dh_gen_keylen = DH_compute_key(dh_gen_key, client_params->u.dh.public_key, client_params->u.dh.key);
+	if (dh_gen_keylen <= 0 || dh_gen_keylen < size / 2) {
 	    ret = KRB5KRB_ERR_GENERIC;
 	    krb5_set_error_message(context, ret,
 				   "Can't compute Diffie-Hellman key");
 	    goto out;
 	}
+
 	if (dh_gen_keylen < size) {
-	    size -= dh_gen_keylen;
-	    memmove(dh_gen_key + size, dh_gen_key, dh_gen_keylen);
-	    memset(dh_gen_key, 0, size);
+	    size_t diff = size - dh_gen_keylen;
+	    memmove(dh_gen_key + diff, dh_gen_key, dh_gen_keylen);
+	    memset(dh_gen_key, 0, diff);
+	    dh_gen_keylen = (int)size;
 	}
 
 #ifdef HAVE_OPENSSL

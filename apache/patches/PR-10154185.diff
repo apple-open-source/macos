@@ -10,9 +10,9 @@
      SSL_CMD_ALL(CipherSuite, TAKE1,
                  "Colon-delimited list of permitted SSL Ciphers "
                  "(`XXX:...:XXX' - see manual)")
---- modules/ssl/ssl_engine_config.c.orig	2011-04-14 08:56:17.000000000 -0500
-+++ modules/ssl/ssl_engine_config.c	2011-10-26 19:56:17.000000000 -0500
-@@ -178,6 +178,7 @@
+--- modules/ssl/ssl_engine_config.c.orig	2013-01-17 05:41:50.000000000 -0800
++++ modules/ssl/ssl_engine_config.c	2013-01-17 05:18:44.000000000 -0800
+@@ -180,6 +180,7 @@
  #ifdef HAVE_FIPS
      sc->fips                   = UNSET;
  #endif
@@ -20,7 +20,7 @@
  
      modssl_ctx_init_proxy(sc, p);
  
-@@ -275,6 +276,7 @@
+@@ -278,6 +279,7 @@
  #ifdef HAVE_FIPS
      cfgMergeBool(fips);
  #endif
@@ -28,7 +28,7 @@
  
      modssl_ctx_cfg_merge_proxy(base->proxy, add->proxy, mrg->proxy);
  
-@@ -664,6 +666,22 @@
+@@ -667,6 +669,22 @@
      return NULL;
  }
  
@@ -51,18 +51,19 @@
  const char *ssl_cmd_SSLCipherSuite(cmd_parms *cmd,
                                     void *dcfg,
                                     const char *arg)
---- modules/ssl/ssl_engine_init.c.orig	2011-04-14 08:56:17.000000000 -0500
-+++ modules/ssl/ssl_engine_init.c	2011-10-26 21:15:31.000000000 -0500
-@@ -238,6 +238,8 @@
+--- modules/ssl/ssl_engine_init.c,orig	2013-01-17 05:32:12.000000000 -0800
++++ modules/ssl/ssl_engine_init.c	2013-01-17 05:22:40.000000000 -0800
+@@ -238,6 +238,9 @@
              sc->fips = FALSE;
          }
  #endif
 +        if (sc->allow_empty_fragments == UNSET)
 +            sc->allow_empty_fragments = TRUE;
++
      }
  
  #if APR_HAS_THREADS
-@@ -485,6 +487,10 @@
+@@ -503,6 +506,10 @@
  
      SSL_CTX_set_options(ctx, SSL_OP_ALL);
  
@@ -70,12 +71,12 @@
 +        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
 +    }
 +
+ #ifndef OPENSSL_NO_SSL2
      if (!(protocol & SSL_PROTOCOL_SSLV2)) {
          SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
-     }
---- modules/ssl/ssl_private.h.orig	2011-04-14 08:56:17.000000000 -0500
-+++ modules/ssl/ssl_private.h	2011-10-26 20:00:14.000000000 -0500
-@@ -486,6 +486,7 @@
+--- modules/ssl/ssl_private.h.orig	2013-01-17 05:38:04.000000000 -0800
++++ modules/ssl/ssl_private.h	2013-01-17 05:24:41.000000000 -0800
+@@ -504,6 +504,7 @@
  #ifdef HAVE_FIPS
      BOOL             fips;
  #endif
@@ -83,7 +84,7 @@
  };
  
  /**
-@@ -570,6 +571,7 @@
+@@ -589,6 +590,7 @@
  const char  *ssl_cmd_SSLProxyCheckPeerCN(cmd_parms *cmd, void *dcfg, int flag);
  
  const char *ssl_cmd_SSLFIPS(cmd_parms *cmd, void *dcfg, int flag);

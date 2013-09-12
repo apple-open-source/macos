@@ -286,8 +286,10 @@ change_hold(OM_uint32 *minor_status, gsskrb5_cred cred,
 {
     krb5_error_code ret;
     krb5_context context;
+    krb5_data data;
 
     *minor_status = 0;
+    krb5_data_zero(&data);
 
     GSSAPI_KRB5_INIT (&context);
 
@@ -298,6 +300,14 @@ change_hold(OM_uint32 *minor_status, gsskrb5_cred cred,
 	*minor_status = GSS_KRB5_S_G_BAD_USAGE;
 	return GSS_S_FAILURE;
     }
+
+    /* XXX only refcount nah-created credentials */
+    ret = krb5_cc_get_config(context, cred->ccache, NULL, "nah-created", &data);
+    if (ret) {
+	*minor_status = ret;
+	return GSS_S_FAILURE;
+    }
+    krb5_data_free(&data);
 
     ret = func(context, cred->ccache);
 

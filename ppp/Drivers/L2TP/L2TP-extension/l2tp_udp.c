@@ -32,7 +32,6 @@
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
-#include <netinet/in_pcb.h>
 #include <netinet/in_systm.h>
 #include <netinet/in_var.h>
 #include <netinet/udp.h>
@@ -521,12 +520,10 @@ int l2tp_udp_detach(socket_t so, int thread)
 ----------------------------------------------------------------------------- */
 void l2tp_udp_clear_INP_INADDR_ANY(socket_t so)
 {
-	struct inpcb *inp;
-	
 	if (so) {
 
 		lck_mtx_unlock(ppp_domain_mutex);
-		inp_clear_INP_INADDR_ANY(so);
+		inp_clear_INP_INADDR_ANY((struct socket *)so);
 		lck_mtx_lock(ppp_domain_mutex);
     }
 	

@@ -27,6 +27,12 @@
 
 #include <IOKit/hidevent/IOHIDEventDriver.h>
 
+// Moved up to allow subclasses to use the same keys
+#define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
+#define kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
+#define kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
+#define kKeyboardUsageMapKey        "KeyboardUsageMap"
+
 enum {
     kSecondaryKeyFnFunction         = 0x01,
     kSecondaryKeyFnKeyboard         = 0x02,

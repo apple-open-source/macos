@@ -23,6 +23,7 @@
         	<string>Allow admin group by default.</string>
         	<string>Friendlier warning on first usage.</string>
         	<string>Clean the environment.</string>
+		<string>Apply fix for CVE-2013-1775.</string>
         </array>
         <key>OpenSourceLicense</key>
         <string>other|bsd</string>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,6 +31,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/pwr_mgt/RootDomain.h>					// <rdar://13220155>
 
 #include <libkern/c++/OSArray.h>
 #include <libkern/c++/OSNumber.h>
@@ -39,6 +40,7 @@
 #include <kern/clock.h>
 
 #define WATCHDOG_THREAD_LATENCY_PADDING_NS	(125000)	// 125us
+#define DEFAULT_MIX_CLIP_OVERHEAD			10			// <rdar://12188841>
 
 // <rdar://8518215>
 enum
@@ -404,13 +406,13 @@ bool IOAudioEngine::init(OSDictionary *properties)
 			reserved->pauseCount = 0;
 			reserved->bytesInInputBufferArrayDescriptor = NULL;
 			reserved->bytesInOutputBufferArrayDescriptor = NULL;
-			reserved->mixClipOverhead = 10;		// The default value is 10%
+			reserved->mixClipOverhead = DEFAULT_MIX_CLIP_OVERHEAD;		// <rdar://12188841>
 			reserved->streams = NULL;
 			reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
 			reserved->commandGateUsage = 0;								// <rdar://8518215>
 
 			reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page_32(sizeof(IOAudioEngineStatus)), page_size);
-		//	reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page(sizeof(IOAudioEngineStatus)), page_size);
+
 			if ( reserved->statusDescriptor)
 			{
 				status = (IOAudioEngineStatus *)reserved->statusDescriptor->getBytesNoCopy();
@@ -456,31 +458,36 @@ bool IOAudioEngine::init(OSDictionary *properties)
     return result;
 }
 
+// <rdar://12188841>
 void IOAudioEngine::free()
 {
     audioDebugIOLog(3, "+ IOAudioEngine[%p]::free()\n", this);
 
-	if (reserved->statusDescriptor) {
-		reserved->statusDescriptor->release();
-		reserved->statusDescriptor = NULL;
-		status = NULL;
+	if (reserved) {
+		if (reserved->statusDescriptor) {
+			reserved->statusDescriptor->release();
+			reserved->statusDescriptor = NULL;
+			status = NULL;
+		}
+
+		if (reserved->bytesInInputBufferArrayDescriptor) {
+			reserved->bytesInInputBufferArrayDescriptor->release();
+			reserved->bytesInInputBufferArrayDescriptor = NULL;
+		}
+
+		if (reserved->bytesInOutputBufferArrayDescriptor) {
+			reserved->bytesInOutputBufferArrayDescriptor->release();
+			reserved->bytesInOutputBufferArrayDescriptor = NULL;
+		}
+
+		if (reserved->streams) {
+			reserved->streams->release();
+			reserved->streams = NULL;
+		}
+		
+		IOFree (reserved, sizeof(struct ExpansionData));
 	}
 
-	if (reserved->bytesInInputBufferArrayDescriptor) {
-		reserved->bytesInInputBufferArrayDescriptor->release();
-		reserved->bytesInInputBufferArrayDescriptor = NULL;
-	}
-
-	if (reserved->bytesInOutputBufferArrayDescriptor) {
-		reserved->bytesInOutputBufferArrayDescriptor->release();
-		reserved->bytesInOutputBufferArrayDescriptor = NULL;
-	}
-
-	if (reserved->streams) {
-		reserved->streams->release();
-		reserved->streams = NULL;
-	}
-	
     if (outputStreams) {
         outputStreams->release();
         outputStreams = NULL;
@@ -515,10 +522,6 @@ void IOAudioEngine::free()
         workLoop->release();
         workLoop = NULL;
     }
-
-	if (reserved) {
-		IOFree (reserved, sizeof(struct ExpansionData));
-	}
 
     super::free();
 	
@@ -1149,6 +1152,24 @@ IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
 	{
 		retain();
 		
+		// <rdar://13220155>
+		// Check the SystemCapabilities in IOPMrootDomain to determine if the system current power state supports audio.
+		// When in dark wake, the system is not capable of audio streaming, so return kIOReturnOffline status when asked 
+		// to start.
+        IOPMrootDomain * pmRootDomain = getPMRootDomain ();
+        if ( pmRootDomain )
+        {
+            OSNumber * capabilities = OSDynamicCast(OSNumber, pmRootDomain->getProperty("System Capabilities"));
+            if (capabilities)
+            {
+                if (0 == (capabilities->unsigned8BitValue() & kIOPMSystemCapabilityAudio))
+                {
+                    release();
+                    return kIOReturnOffline;
+                }
+            }
+        }
+
 		//  <rdar://10885615> Make sure the command gate remains valid while it is being used.
 		if (commandGate) {
 			IOReturn err;
@@ -2034,6 +2055,7 @@ void IOAudioEngine::timerFired()
 	return;
 }
 
+// <rdar://12188841>
 void IOAudioEngine::performErase()
 {
     audioDebugIOLog(7, "+ IOAudioEngine[%p]::performErase()\n", this);
@@ -2041,34 +2063,35 @@ void IOAudioEngine::performErase()
     assert(status);
     
     if (getRunEraseHead() && getState() == kIOAudioEngineRunning) {
-        OSCollectionIterator *outputIterator;
+		UInt32 streamIndex;
         IOAudioStream *outputStream;
-        
-        assert(outputStreams);
-        
-        outputIterator = OSCollectionIterator::withCollection(outputStreams);
-        if (outputIterator) {
-            UInt32 currentSampleFrame, eraseHeadSampleFrame;
-            
-            currentSampleFrame = getCurrentSampleFrame();
-            eraseHeadSampleFrame = status->fEraseHeadSampleFrame;
-                
-            while ( (outputStream = (IOAudioStream *)outputIterator->getNextObject()) ) {
-                char *sampleBuf, *mixBuf;
-                UInt32 sampleBufferFrameSize, mixBufferFrameSize;
-                
+		UInt32 currentSampleFrame, eraseHeadSampleFrame;
+		
+		assert(outputStreams);
+		
+		currentSampleFrame = getCurrentSampleFrame();
+		eraseHeadSampleFrame = status->fEraseHeadSampleFrame;
+		
+		//	<rdar://12188841> Modified code to remove OSCollectionIterator allocation on every call
+		outputStreams->retain();
+		for ( streamIndex = 0; streamIndex < outputStreams->getCount(); streamIndex++) {
+			char *sampleBuf, *mixBuf;
+			UInt32 sampleBufferFrameSize, mixBufferFrameSize;
+
+			outputStream = (IOAudioStream *)outputStreams->getObject(streamIndex);
+			if ( outputStream ) {
 				outputStream->lockStreamForIO();
 
-                sampleBuf = (char *)outputStream->getSampleBuffer();
-                mixBuf = (char *)outputStream->getMixBuffer();
-                
-                sampleBufferFrameSize = outputStream->format.fNumChannels * outputStream->format.fBitWidth / 8;
-                mixBufferFrameSize = outputStream->format.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize;
-                
-                if (currentSampleFrame < eraseHeadSampleFrame) {
+				sampleBuf = (char *)outputStream->getSampleBuffer();
+				mixBuf = (char *)outputStream->getMixBuffer();
+				
+				sampleBufferFrameSize = outputStream->format.fNumChannels * outputStream->format.fBitWidth / 8;
+				mixBufferFrameSize = outputStream->format.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize;
+				
+				if (currentSampleFrame < eraseHeadSampleFrame) {
 					// <rdar://problem/10040608> Add additional checks to ensure buffer is still of the appropriate length
 					if (	(outputStream->getSampleBufferSize() == 0) ||                      									  	//  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
-                            ((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
+							((currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
 							((currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) || !mixBuf ) &&			//	<rdar://10866244> Don't check mix buffer if it's not in use (eg. !fIsMixable)
 							(numSampleFramesPerBuffer * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
 							((numSampleFramesPerBuffer * mixBufferFrameSize <= outputStream->getMixBufferSize() ) || !mixBuf ) &&	//	<rdar://10866244> Don't check mix buffer if it's not in use (eg. !fIsMixable)
@@ -2078,23 +2101,22 @@ void IOAudioEngine::performErase()
 						eraseOutputSamples(mixBuf, sampleBuf, 0, currentSampleFrame, &outputStream->format, outputStream);
 						eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, numSampleFramesPerBuffer - eraseHeadSampleFrame, &outputStream->format, outputStream);
 					}
-                } else {
+				} else {
 					// <rdar://problem/10040608> Add additional checks to ensure buffer is still of the appropriate length
 					if (	(outputStream->getSampleBufferSize() == 0) ||                       									//  <rdar://10905878> Don't use more stringent test if a driver is incorrectly reporting buffer size
-                            ( (currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
+							( (currentSampleFrame * sampleBufferFrameSize <= outputStream->getSampleBufferSize() ) &&
 							( (currentSampleFrame * mixBufferFrameSize <= outputStream->getMixBufferSize() ) || !mixBuf ) ) ) {		//	<rdar://10866244> Don't check mix buffer if it's not in use (eg. !fIsMixable)
 						audioDebugIOLog(7, "IOAudioEngine[%p]::performErase() - erasing from frame: 0x%lx to 0x%lx\n", this, (long unsigned int)eraseHeadSampleFrame, (long unsigned int)currentSampleFrame);
 						eraseOutputSamples(mixBuf, sampleBuf, eraseHeadSampleFrame, currentSampleFrame - eraseHeadSampleFrame, &outputStream->format, outputStream);
 					}
-                }
+				}
 
 				outputStream->unlockStreamForIO();
-            }
-            
-            status->fEraseHeadSampleFrame = currentSampleFrame;
-            
-            outputIterator->release();
-        }
+			}
+		}
+		outputStreams->release();
+		
+		status->fEraseHeadSampleFrame = currentSampleFrame;
     }
 
     audioDebugIOLog(7, "- IOAudioEngine[%p]::performErase()\n", this);

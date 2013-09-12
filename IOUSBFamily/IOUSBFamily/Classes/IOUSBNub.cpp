@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBPipe.h>
+#include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBLog.h>
 
@@ -260,29 +261,20 @@ IOUSBNub::USBComparePropertyWithMask( OSDictionary *matching, const char *key, c
 void
 IOUSBNub::joinPMtree ( IOService * driver )
 {
-	const IORegistryPlane		*usbPlane = NULL;
-	IOUSBHubDevice				*hubDevice = NULL;
 	IOUSBHubPolicyMaker			*hubPolicyMaker = NULL;
+	IOUSBDevice					*device = OSDynamicCast(IOUSBDevice, this);
+	IOUSBInterface				*interface = NULL;
 	
 	
-	usbPlane = getPlane(kIOUSBPlane);
-	if (usbPlane)
+	// we should be either an IOUSBDevice or an IOUSBInterface
+	if (device)
+		hubPolicyMaker = device->GetHubParent();
+	else
 	{
-		// This call will retrieve the IOUSBHubDevice in the case that we are an IOUSBDevice nub
-		hubDevice = OSDynamicCast(IOUSBHubDevice, getParentEntry(usbPlane));
-		if (!hubDevice && getProvider())
-		{
-			// This call will retrieve the IOUSBHubDevice in the case that we are an IOUSBInterface nub
-			hubDevice = OSDynamicCast(IOUSBHubDevice, getProvider()->getParentEntry(usbPlane));
-		}
-		if (hubDevice)
-		{
-			hubPolicyMaker = hubDevice->GetPolicyMaker();
-		}
-		else
-		{
-			USBError(1, "%s[%p]::joinPMtree - could not find the hub device", getName(), this);
-		}
+		interface = OSDynamicCast(IOUSBInterface, this);
+
+		if (interface && interface->GetDevice())
+			hubPolicyMaker = interface->GetDevice()->GetHubParent();
 	}
 
 	if (hubPolicyMaker)

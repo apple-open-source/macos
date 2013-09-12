@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -362,7 +362,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
 		if ( _workLoop->onThread() )
 		{
-            USBError(1,"IOUSBController(%s)[%p]::Read sync request on workloop thread.  Use async!", getName(), this);
+            USBError(1,"IOUSBController(%s)::Read sync request on workloop thread.  Use async!", getName());
             return kIOUSBSyncRequestOnWLThread;
 		}
 	}
@@ -547,7 +547,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
 		if ( _workLoop->onThread() )
 		{
-            USBError(1,"IOUSBController(%s)[%p]::Write sync request on workloop thread.  Use async!", getName(), this);
+            USBError(1,"IOUSBController(%s)::Write sync request on workloop thread.  Use async!", getName());
             return kIOUSBSyncRequestOnWLThread;
 		}
 	}
@@ -717,7 +717,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 		syncTransfer = true;
         if ( _workLoop->onThread() )
         {
-            USBError(1,"IOUSBController(%s)[%p]::DoIsocTransfer sync request on workloop thread.  Use async!", getName(), this);
+            USBError(1,"IOUSBController(%s)::DoIsocTransfer sync request on workloop thread.  Use async!", getName());
             return kIOUSBSyncRequestOnWLThread;
         }
 		
@@ -866,7 +866,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 		syncTransfer = true;
         if ( _workLoop->onThread() )
         {
-            USBError(1,"IOUSBController(%s)[%p]::DoIsocTransfer sync request on workloop thread.  Use async!", getName(), this);
+            USBError(1,"IOUSBController(%s)::DoIsocTransfer sync request on workloop thread.  Use async!", getName());
             return kIOUSBSyncRequestOnWLThread;
         }
 		

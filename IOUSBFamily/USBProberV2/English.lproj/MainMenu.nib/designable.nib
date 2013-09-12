@@ -2,13 +2,13 @@
 <archive type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="7.10">
 	<data>
 		<int key="IBDocument.SystemTarget">1030</int>
-		<string key="IBDocument.SystemVersion">12A269</string>
-		<string key="IBDocument.InterfaceBuilderVersion">2549</string>
-		<string key="IBDocument.AppKitVersion">1187</string>
-		<string key="IBDocument.HIToolboxVersion">624.00</string>
+		<string key="IBDocument.SystemVersion">12C54</string>
+		<string key="IBDocument.InterfaceBuilderVersion">2840</string>
+		<string key="IBDocument.AppKitVersion">1187.34</string>
+		<string key="IBDocument.HIToolboxVersion">625.00</string>
 		<object class="NSMutableDictionary" key="IBDocument.PluginVersions">
 			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin</string>
-			<string key="NS.object.0">2549</string>
+			<string key="NS.object.0">2840</string>
 		</object>
 		<object class="NSArray" key="IBDocument.IntegratedClassDependencies">
 			<bool key="EncodedWithXMLCoder">YES</bool>
@@ -82,7 +82,6 @@
 							<string key="NSFrame">{{3, 10}, {746, 461}}</string>
 							<reference key="NSSuperview" ref="759710219"/>
 							<reference key="NSWindow"/>
-							<reference key="NSNextKeyView" ref="878058026"/>
 							<object class="NSMutableArray" key="NSTabViewItems">
 								<bool key="EncodedWithXMLCoder">YES</bool>
 								<object class="NSTabViewItem" id="574730612">
@@ -1320,7 +1319,7 @@
 																<string key="NSFrameSize">{711, 343}</string>
 																<reference key="NSSuperview" ref="268657614"/>
 																<reference key="NSWindow"/>
-																<reference key="NSNextKeyView" ref="263332094"/>
+																<reference key="NSNextKeyView" ref="19265497"/>
 																<object class="NSTextContainer" key="NSTextContainer" id="971072048">
 																	<object class="NSLayoutManager" key="NSLayoutManager">
 																		<object class="NSTextStorage" key="NSTextStorage">
@@ -1463,7 +1462,7 @@ AAEAAQAAAT0AAwAAAAEAAgAAAVIAAwAAAAEAAQAAAVMAAwAAAAIAAQABAAAAAA</bytes>
 												<string key="NSFrame">{{-2, 1}, {728, 345}}</string>
 												<reference key="NSSuperview" ref="878058026"/>
 												<reference key="NSWindow"/>
-												<reference key="NSNextKeyView" ref="19265497"/>
+												<reference key="NSNextKeyView" ref="268657614"/>
 												<int key="NSsFlags">133138</int>
 												<reference key="NSVScroller" ref="263332094"/>
 												<reference key="NSHScroller" ref="19265497"/>

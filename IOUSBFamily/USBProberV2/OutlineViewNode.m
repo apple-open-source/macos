@@ -126,7 +126,7 @@
     [walker addChild:aNode];
 }
 
-- (NSString*)stringRepresentation:(NSString*)name:(int)startingLevel
+- (NSString*)stringRepresentation:(NSString*)name startingLevel:(int)startingLevel
 {
     int i;
     NSMutableString *finalText = [[NSMutableString alloc] init];
@@ -142,7 +142,7 @@
 		}
         
         if ([childNode isExpandable]) {
-            [finalText appendString:[childNode stringRepresentation:name:startingLevel+1]];
+            [finalText appendString:[childNode stringRepresentation:name startingLevel:startingLevel+1]];
         }
     }
     return [finalText autorelease];

@@ -312,22 +312,18 @@ sdlzh_build_querystring(isc_mem_t *mctx, query_list_t *querylist)
 	if (qs == NULL)
 		return NULL;
 
+	*qs = 0;
 	/* start at the top of the list again */
 	tseg = ISC_LIST_HEAD(*querylist);
-	/* copy the first item in the list to the query string */
-	if (tseg->direct == isc_boolean_true)	/* query segment */
-		strcpy(qs, tseg->sql);
-	else
-		strcpy(qs, * (char**) tseg->sql); /* dynamic segment */
-
-	/* concatonate the rest of the segments */
-	while ((tseg = ISC_LIST_NEXT(tseg, link)) != NULL) {
+	while (tseg != NULL) {
 		if (tseg->direct == isc_boolean_true)
 			/* query segments */
 			strcat(qs, tseg->sql);
 		else
 			/* dynamic segments */
 			strcat(qs, * (char**) tseg->sql);
+		/* get the next segment */
+		tseg = ISC_LIST_NEXT(tseg, link);
 	}
 
 	return qs;
@@ -485,7 +481,7 @@ sdlzh_destroy_sqldbinstance(dbinstance_t *dbi)
 	destroy_querylist(mctx, &dbi->lookup_q);
 
 	/* get rid of the mutex */
-	isc_mutex_destroy(&dbi->instance_lock);
+	(void) isc_mutex_destroy(&dbi->instance_lock);
 
 	/* return, and detach the memory */
 	isc_mem_put(mctx, dbi, sizeof(dbinstance_t));

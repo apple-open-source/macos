@@ -161,6 +161,16 @@ enum {
 };
 
     /*!
+	 @enum Miscellaneous bits and masks
+	 */
+	enum {
+		kUSBFunctionRemoteWakeCapableBit	=	0,		//  GET_STATUS
+		kUSBFunctionRemoteWakeupBit			=	1,		//  GET_STATUS
+		kUSBLowPowerSuspendStateBit			=	0,		//  SET_FEATURE(FUNCTION_SUSPEND)
+		kUSBFunctionRemoteWakeEnableBit		=	1		//  SET_FEATURE(FUNCTION_SUSPEND)
+		};
+	
+    /*!
     @enum USB Power constants
     @discussion Constants relating to USB Power.
     */

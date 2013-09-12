@@ -223,6 +223,14 @@ std::string sys::getHostCPUName() {
       case 45:
         return "corei7-avx";
 
+      // Spoof Ivy Bridge as Sandy Bridge.
+      case 58:
+        return "corei7-avx";
+
+      // Spoof Haswell as Sandy Bridge.
+      case 69:
+        return "corei7-avx";
+
       case 28: // Intel Atom processor. All processors are manufactured using
                // the 45 nm process
         return "atom";

@@ -22,6 +22,7 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOPlatformExpert.h>
 #include <IOKit/pci/IOPCIPrivate.h>
 #include <IOKit/pci/IOPCIConfigurator.h>
 #if ACPI_SUPPORT
@@ -77,6 +78,17 @@ static const char * gPCIResourceTypeName[kIOPCIResourceTypeCount] =
 #define BRN(type)      ((type) + kIOPCIRangeBridgeMemory)
 
 
+#define D() "%u:%u:%u(0x%x:0x%x)"
+#define DEVICE_IDENT(device)				\
+		PCI_ADDRESS_TUPLE(device),			\
+		(device->vendorProduct & 0xffff), 	\
+		(device->vendorProduct >> 16)
+
+#define B() "%u:%u:%u(%u:%u)"
+#define BRIDGE_IDENT(bridge)	\
+		PCI_ADDRESS_TUPLE(bridge), bridge->secBusNum, bridge->subBusNum
+
+
 static const IOPCIScalar minBridgeAlignments[kIOPCIResourceTypeCount] = {
     kPCIBridgeMemoryAlignment, kPCIBridgeMemoryAlignment, 
     kPCIBridgeIOAlignment, kPCIBridgeBusNumberAlignment
@@ -94,15 +106,29 @@ static const IOPCIScalar minBARAddressDefault[kIOPCIResourceTypeCount] = {
     0x400, 0
 };
 
-static const IOPCIScalar maxiRangeSizes[kIOPCIResourceTypeCount] = {
-    1024*1024*1024, 1024*1024*1024, 
-    0x8000, 0xC0
-};
-
 static UInt8 IOPCIIsHotplugPort(IORegistryEntry * bridgeDevice);
 #if ACPI_SUPPORT
 static IOACPIPlatformDevice * IOPCICopyACPIDevice(IORegistryEntry * device);
 #endif
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+// Force reloc testing
+
+static void SwizzleRange(IOPCIRange * range)
+{
+	if (!range) return;
+	range->flags |= kIOPCIRangeFlagForceReloc
+				 | kIOPCIRangeFlagNoCollapse;
+	range->flags ^= kIOPCIRangeFlagRelocHalf;
+}
+
+static void UnswizzleRange(IOPCIRange * range)
+{
+	if (!range) return;
+	range->flags &= ~(kIOPCIRangeFlagForceReloc
+				      | kIOPCIRangeFlagNoCollapse);
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -121,8 +147,7 @@ bool CLASS::init(IOWorkLoop * wl, uint32_t flags)
     fFlags = flags;
 
     // Fetch global resources
-    if (!createRoot())
-        return false;
+    if (!createRoot()) return false;
 
     return (true);
 }
@@ -134,7 +159,7 @@ IOWorkLoop * CLASS::getWorkLoop() const
 
 IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 {
-    IOReturn ret = kIOReturnUnsupported;
+    IOReturn           ret = kIOReturnUnsupported;
     IOPCIConfigEntry * entry = NULL;
     IOPCIDevice *      pciDevice;
 
@@ -149,7 +174,11 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
             break;
 
         case kConfigOpGetState:
-			*((uint32_t *) result) = entry ? entry->deviceState : kPCIDeviceStateDead;
+			if (!entry) *((uint32_t *) result) = kPCIDeviceStateDead;
+			else
+			{
+				*((uint32_t *) result) = entry->deviceState;
+			}
 			ret = kIOReturnSuccess;
 			return (ret);
             break;
@@ -159,31 +188,107 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 
 	switch (op)
     {
-
         case kConfigOpNeedsScan:
 			entry->deviceState &= ~kPCIDeviceStateScanned;
-			entry->rangeBaseChanges |= ((1 << kIOPCIRangeBridgeMemory)
-									  |  (1 << kIOPCIRangeBridgePFMemory));
 			ret = kIOReturnSuccess;
             break;
+
+        case kConfigOpPaused:
+			DLOG("kConfigOpPaused at "D()"\n", DEVICE_IDENT(entry));
+
+			if (kPCIDeviceStateRequestPause & entry->deviceState)
+			{
+				entry->deviceState &= ~kPCIDeviceStateRequestPause;
+				fWaitingPause--;
+			}
+			if (!(kPCIDeviceStatePaused & entry->deviceState))
+			{
+				uint32_t reg32;
+#if 0
+				reg32 = entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
+				reg32 &= ~(kIOPCICommandIOSpace
+					     | kIOPCICommandMemorySpace
+					     | kIOPCICommandBusMaster);
+				reg32  |= kIOPCICommandInterruptDisable;
+				configWrite16(entry, kIOPCIConfigCommand, reg32);
+#endif
+				if (entry->isBridge)
+				{
+					entry->rangeBaseChanges |= (1 << kIOPCIRangeBridgeBusNumber);
+					reg32 = configRead32(entry, kPCI2PCIPrimaryBus);
+					reg32 &= ~0x00ffffff;
+					configWrite32(entry, kPCI2PCIPrimaryBus, reg32);
+				}
+
+				if (kPCIDeviceStateSwizzled & entry->deviceState)
+				{
+					// force relocations
+					SwizzleRange(entry->ranges[kIOPCIRangeBridgeMemory]);
+					SwizzleRange(entry->ranges[kIOPCIRangeBridgePFMemory]);
+					SwizzleRange(entry->ranges[kIOPCIRangeBridgeBusNumber]);
+				}
+				entry->deviceState |= kPCIDeviceStatePaused;
+			}
+			ret = kIOReturnSuccess;
+            break;
+
+        case kConfigOpUnpaused:
+			if (kPCIDeviceStatePaused & entry->deviceState)
+			{
+				DLOG("kConfigOpUnpaused at "D()"\n", DEVICE_IDENT(entry));
+
+				if (kPCIDeviceStateSwizzled & entry->deviceState)
+				{
+					UnswizzleRange(entry->ranges[kIOPCIRangeBridgeMemory]);
+					UnswizzleRange(entry->ranges[kIOPCIRangeBridgePFMemory]);
+					UnswizzleRange(entry->ranges[kIOPCIRangeBridgeBusNumber]);
+					entry->deviceState &= ~kPCIDeviceStateSwizzled;
+				}
+
+//				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand);
+				entry->deviceState &= ~kPCIDeviceStatePaused;
+			}
+			ret = kIOReturnSuccess;
+            break;
+
+        case kConfigOpTestPause:
+			entry->deviceState |= kPCIDeviceStateSwizzled;
+			ret = kIOReturnSuccess;
+            break;
+
 
         case kConfigOpScan:
 			if (kPCIDeviceStateScanned & entry->deviceState)
 			{
 				*((void **)result) = NULL;
+				ret = kIOReturnSuccess;
+				return (ret);
+				break;
+			}
+
+			// always reset regs due to hotp interrupt clearing memory ranges
+			entry->rangeBaseChanges |= ((1 << kIOPCIRangeBridgeMemory)
+									  |  (1 << kIOPCIRangeBridgePFMemory));
+
+			// fall thru
+
+        case kConfigOpRealloc:
+
+			DLOG("[ PCI configuration begin ]\n");
+			fChangedServices = OSSet::withCapacity(8);
+			configure(0);
+			DLOG("[ PCI configuration end, changed %d, bridges %d, devices %d, waiting %d ]\n", 
+				  fChangedServices->getCount(), fBridgeCount, fDeviceCount, fWaitingPause);
+
+			if (result)
+			{
+				*((void **)result) = fChangedServices;
 			}
 			else
-        	{
-				DLOG("[ PCI configuration begin ]\n");
-		
-				fChangedServices = OSSet::withCapacity(8);
-		
-				configure(0);
-				DLOG("[ PCI configuration end, bridges %d devices %d]\n", fBridgeCount, fDeviceCount);
-		
-				*((void **)result) = fChangedServices;
-				fChangedServices = 0;
+			{
+				fChangedServices->release();
 			}
+			fChangedServices = 0;
 			ret = kIOReturnSuccess;
 			return (ret);
             break;
@@ -200,8 +305,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
             break;
 
         case kConfigOpTerminated:
-			DLOG("kConfigOpTerminated at %u:%u:%u vendor/product 0x%08x\n",
-				 PCI_ADDRESS_TUPLE(entry), entry->vendorProduct);
+			DLOG("kConfigOpTerminated at "D()"\n", DEVICE_IDENT(entry));
 
 //			if (0x590111c1 != entry->vendorProduct)
 //          if (!(kPCIDeviceStateEjected & entry->deviceState))
@@ -215,8 +319,8 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 		case kConfigOpProtect:
 			entry->deviceState = (entry->deviceState & ~(kPCIDeviceStateConfigRProtect|kPCIDeviceStateConfigWProtect))
 								| (*((uint32_t *) result));
-			DLOG("kConfigOpProtect at %u:%u:%u vendor/product 0x%08x prot %x\n",
-				 PCI_ADDRESS_TUPLE(entry), entry->vendorProduct, *((uint32_t *) result));
+			DLOG("kConfigOpProtect at "D()" prot %x\n",
+				 DEVICE_IDENT(entry), *((uint32_t *) result));
 
 			ret = kIOReturnSuccess;
             break;
@@ -305,14 +409,20 @@ bool CLASS::createRoot(void)
 
     root->secBusNum    = 0xff;
 
+#if defined(__i386__) || defined(__x86_64__)
 	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
+    size  = PFM64_SIZE;
 	if (cpuPhysBits > 44) cpuPhysBits = 44;
 	start = (1ULL << cpuPhysBits);
 //	if (start > PFM64_MAX) start = PFM64_MAX;
-
-	start -= PFM64_SIZE;
-    size   = PFM64_SIZE;
-	IOLog("PFM64 (%d cpu) 0x%llx, 0x%llx\n", cpuPhysBits, start, size);
+#if PLX8680
+	if (cpuPhysBits >= 36) size *= 16; // 32GB
+#endif
+	start -= size;
+	IOLog("pci build %s %s, flags 0x%x, pfm64 (%d cpu) 0x%llx, 0x%llx\n",
+			__DATE__, __TIME__, gIOPCIFlags, cpuPhysBits, start, size);
+	kprintf("pci build %s %s, flags 0x%x, pfm64 (%d cpu) 0x%llx, 0x%llx\n",
+			__DATE__, __TIME__, gIOPCIFlags, cpuPhysBits, start, size);
 	if (cpuPhysBits > 32)
 	{
 		range = IOPCIRangeAlloc();
@@ -320,11 +430,12 @@ bool CLASS::createRoot(void)
 		range->size = range->proposedSize;
 		root->ranges[kIOPCIRangeBridgeMemory] = range;
 	}
-    root->deviceState |= kPCIDeviceStateScanned | kPCIDeviceStateConfigurationDone;
+#endif /* defined(__i386__) || defined(__x86_64__) */
 
+    root->deviceState |= kPCIDeviceStateScanned | kPCIDeviceStateConfigurationDone;
     fRoot = root;
 
-    return true;
+    return (true);
 }
 
 IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
@@ -360,10 +471,12 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
         fHostBridge = hostBridge;
 		space.bits = 0;
         fRootVendorProduct = configRead32(space, kIOPCIConfigVendorID);
+#if defined(__i386__) || defined(__x86_64__)
 		if ( (0x27A08086 == fRootVendorProduct)
 		  || (0x27AC8086 == fRootVendorProduct)
 		  || (0x25C08086 == fRootVendorProduct)
 	      || (CPUID_FEATURE_VMM & cpuid_features()))
+#endif
 			fFlags &= ~kIOPCIConfiguratorPFM64;
 		DLOG("root id 0x%x, flags 0x%x\n", fRootVendorProduct, (int) fFlags);
 	}
@@ -522,8 +635,7 @@ void CLASS::constructAddressingProperties(IOPCIConfigEntry * device, OSDictionar
             regData.physHi.s.functionNum = 0;
             regData.physHi.s.registerNum = 0;
             rangeProp->appendBytes(&regData, sizeof(regData.physHi) + sizeof(regData.physMid) + sizeof(regData.physLo));
-            rangeProp->appendBytes(&regData, sizeof(regData.physHi) + sizeof(regData.physMid) + sizeof(regData.physLo));
-            rangeProp->appendBytes(&regData.lengthHi, sizeof(regData.lengthHi) + sizeof(regData.lengthLo));
+            rangeProp->appendBytes(&regData, sizeof(regData));
         }
     }
     propTable->setObject("reg", regProp);
@@ -666,6 +778,12 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
     out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", vendor, product) + 1;
     out += snprintf(out, sizeof("pciclass,cccccc"), "pciclass,%06x", classCode) + 1;
 
+    if (device->dtNub && ((nameProp = device->dtNub->copyName())))
+	{
+		out += strlcpy(out, nameProp->getCStringNoCopy(), 31) + 1;
+		nameProp->release();
+	}
+
     prop = OSData::withBytes( compatBuf, out - compatBuf );
     if (prop)
     {
@@ -676,10 +794,21 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
     nameProp = OSSymbol::withCString( name );
     if (nameProp)
     {
+#if !_IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
         propTable->setObject( "name", (OSSymbol *) nameProp);
+#endif
         propTable->setObject( gIONameKey, (OSSymbol *) nameProp);
         nameProp->release();
     }
+
+#if _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
+    prop = OSData::withBytes( name, strlen(name) + 1 );
+    if (prop)
+    {
+        propTable->setObject("name", prop );
+        prop->release();
+    }
+#endif
 
 #ifdef kIOMemoryDescriptorOptionsKey
     OSNumber * num;
@@ -712,6 +841,15 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 		else if (!(kPCIDeviceStateNoLink & device->deviceState))
 			propTable->setObject(kIOPCIOnlineKey, kOSBooleanTrue);
 	}
+
+#if PLX8680
+    if (device->plxAperture
+        && (num = OSNumber::withNumber(device->plxAperture, 64)))
+	{
+		propTable->setObject("IODMAAddressAperture", num);
+		num->release();
+	}
+#endif /* PLX8680 */
 
     return (propTable);
 }
@@ -844,14 +982,14 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
         if (!match->dtNub)
         {
             match->dtNub = dtEntry;
-            DLOGC(context->me, "Found PCI device for DT entry [%s] %u:%u:%u\n",
-                 dtEntry->getName(), PCI_ADDRESS_TUPLE(match));
+            DLOGC(context->me, "Found PCI device for DT entry [%s] "D()"\n",
+                 dtEntry->getName(), DEVICE_IDENT(match));
         }
     }
     else
     {
-        DLOGC(context->me, "NOT FOUND: PCI device for DT entry [%s] %u:%u:%u\n", 
-                dtEntry->getName(), bridge->secBusNum, deviceNum, functionNum);
+        DLOGC(context->me, "NOT FOUND: PCI device for DT entry [%s] "D()"\n", 
+                dtEntry->getName(), bridge->secBusNum, deviceNum, functionNum, 0, 0);
     }
 
     if (location)
@@ -897,14 +1035,14 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
         if (!match->acpiDevice)
         {
             match->acpiDevice = dtEntry;
-            DLOGC(context->me, "Found PCI device for ACPI entry [%s] %u:%u:%u\n",
-                 dtEntry->getName(), PCI_ADDRESS_TUPLE(match));
+            DLOGC(context->me, "Found PCI device for ACPI entry [%s] "D()"\n",
+                 dtEntry->getName(), DEVICE_IDENT(match));
         }
     }
     else
     {
-        DLOGC(context->me, "NOT FOUND: PCI device for ACPI entry [%s] %u:%u:%u\n",
-                dtEntry->getName(), bridge->secBusNum, deviceNum, functionNum);
+        DLOGC(context->me, "NOT FOUND: PCI device for ACPI entry [%s] "D()"\n",
+                dtEntry->getName(), bridge->secBusNum, deviceNum, functionNum, 0, 0);
     }
 }
 
@@ -919,6 +1057,7 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
     MatchDTEntryContext context;
 	IOPCIRange *        childRange;
 	bool				oneChild;
+	bool				tbok = (0 == (kIOPCIConfiguratorNoTB & gIOPCIFlags));
 
 	if ((kPCIHotPlugTunnel != bridge->supportsHotPlug)
 	 || (kPCIHotPlugTunnelRoot == bridge->parent->supportsHotPlug))
@@ -941,8 +1080,9 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 
     FOREACH_CHILD(bridge, child)
     {
-        if (!child->isBridge)
-            continue;
+        if (!child->isBridge) continue;
+		if (kPCIDeviceStateTreeConnected & child->deviceState) continue;
+        child->deviceState |= kPCIDeviceStateTreeConnected;
 		do
 		{
 			if ((kPCIHotPlugTunnelRoot == bridge->supportsHotPlug)
@@ -951,14 +1091,24 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				// assume the first DSB of the TB root is for NHI
 				bridge->child->supportsHotPlug = kPCIStatic;
 				bridge->child->linkInterrupts  = false;
-				DLOG("tunnel controller %u:%u:%u\n", PCI_ADDRESS_TUPLE(bridge->child));
+				DLOG("tunnel controller "D()"\n", DEVICE_IDENT(bridge->child));
 				continue;
 			}
 
-			if (kPCIHotPlugTunnelRootParent == bridge->supportsHotPlug)
+			if (tbok && child->dtNub)
 			{
-				child->supportsHotPlug = kPCIHotPlugTunnelRoot;
-				continue;
+			    if (child->dtNub->getProperty(gIOPCIThunderboltKey))
+			    {
+					child->supportsHotPlug = kPCIHotPlugTunnelRoot;
+					continue;
+				}
+				if ((obj = child->dtNub->copyProperty(gIOPCIThunderboltKey, gIODTPlane, 
+													   kIORegistryIterateRecursively)))
+				{
+					obj->release();
+					child->supportsHotPlug = kPCIHotPlugTunnelRootParent;
+					continue;
+				}
 			}
 
 			if ((kPCIHotPlugTunnelRoot == bridge->supportsHotPlug)
@@ -975,16 +1125,6 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				continue;
 			}
 
-			if ((kPCIStatic == bridge->supportsHotPlug)
-			    && child->dtNub 
-				&& ((obj = child->dtNub->copyProperty("PCI-Thunderbolt", gIODTPlane, 
-													   kIORegistryIterateRecursively))))
-			{
-				obj->release();
-				child->supportsHotPlug = kPCIHotPlugTunnelRootParent;
-				continue;
-			}
-
 			if (child->headerType == kPCIHeaderType2)
 				child->supportsHotPlug = kPCIHotPlugRoot;
 			else if (child->dtNub)
@@ -996,8 +1136,8 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 		}
 		while (false);
 
-		DLOG("bridge %u:%u:%u supportsHotPlug %d, linkInterrupts %d\n",
-			  PCI_ADDRESS_TUPLE(child),
+		DLOG("bridge "D()" supportsHotPlug %d, linkInterrupts %d\n",
+			  DEVICE_IDENT(child),
 			  child->supportsHotPlug, child->linkInterrupts);
 
         for (int i = kIOPCIRangeBridgeMemory; i < kIOPCIRangeCount; i++)
@@ -1006,17 +1146,18 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
             if (!childRange)
                 continue;
 
-			if ((kPCIHotPlugTunnelRoot == child->supportsHotPlug)
-			 || (kPCIHotPlugTunnelRootParent == child->supportsHotPlug))
+			if (kPCIHotPlugTunnelRootParent == child->supportsHotPlug)
 			{
 				childRange->flags |= kIOPCIRangeFlagMaximizeFlags;
-				childRange->proposedSize = maxiRangeSizes[childRange->type];
-				if ((kIOPCIRangeBridgeBusNumber == i) 
-					&& (kPCIHotPlugTunnelRootParent != child->supportsHotPlug))
-					childRange->proposedSize--;
 				child->rangeSizeChanges |= (1 << BRN(childRange->type));
 			}
-			if (child->linkInterrupts)
+			else if (kPCIHotPlugTunnelRoot == child->supportsHotPlug)
+			{
+				if (!(kIOPCIConfiguratorNoSplay & fFlags)) childRange->flags |= kIOPCIRangeFlagMaximizeFlags;
+				childRange->start = 0;
+				child->rangeSizeChanges |= (1 << BRN(childRange->type));
+			}
+			else if (child->linkInterrupts && (kPCIStatic != child->supportsHotPlug))
 			{
 				childRange->flags |= kIOPCIRangeFlagSplay;
 			}
@@ -1034,8 +1175,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
     IOPCIDevice *       nub;
 
 //    DLOG("bridgeConstructDeviceTree(%p)\n", bridge);
-    if (!dtBridge)
-        return (ok);
+    if (!dtBridge) return (ok);
 
     int32 = 3;
     dtBridge->setProperty("#address-cells", &int32, sizeof(int32));
@@ -1050,16 +1190,13 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
         OSObject *         obj;
         const OSSymbol *   sym;
 
-        if (kPCIDeviceStatePropertiesDone & child->deviceState)
-            continue;
+        if (kPCIDeviceStatePropertiesDone & child->deviceState) continue;
         child->deviceState |= kPCIDeviceStatePropertiesDone;
 
-        DLOG("bridgeConstructDeviceTree at %u:%u:%u vendor/product 0x%08x\n",
-             PCI_ADDRESS_TUPLE(child), child->vendorProduct);
+        DLOG("bridgeConstructDeviceTree at "D()"\n", DEVICE_IDENT(child));
 
         propTable = constructProperties(child);
-        if (!propTable)
-            continue;
+        if (!propTable) continue;
 
         if (!child->dtNub)
         {
@@ -1138,7 +1275,16 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
                 nub->reserved->configEntry = child;
                 child->dtNub = nub;
             }
-//
+			// reloc
+			{
+				IOPCIDevice * pciDevice;
+				if ((pciDevice = OSDynamicCast(IOPCIDevice, child->dtNub))
+				 && pciDevice->getProperty(kIOPCIResourcedKey))
+				{
+					DLOG("IOPCIDevice::relocate at "D()"\n", DEVICE_IDENT(child));
+					pciDevice->relocate(true);
+				}
+			}
         }
         propTable->release();
     }
@@ -1154,7 +1300,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
+void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t resetMask)
 {
     IOPCIAddressSpace   space;
     IOPCIConfigEntry *  child;
@@ -1193,8 +1339,10 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 									  |  (1 << kIOPCIRangeBridgePFMemory));
 		}
 
-		DLOG("bridge %u:%u:%u %s linkStatus 0x%04x, linkCaps 0x%04x\n",
-			 PCI_ADDRESS_TUPLE(bridge), noLink ? "(nolink) " : "",
+		DLOG("bridge "D()" %s%s linkStatus 0x%04x, linkCaps 0x%04x\n",
+			 DEVICE_IDENT(bridge), 
+			 resetMask ? "reset " : "",
+			 noLink    ? "nolink " : "",
 			 linkStatus, bridge->linkCaps);
 
 		if (noLink)
@@ -1231,7 +1379,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 				space.s.deviceNum   = scanDevice; // deviceMap[scanDevice];
 				space.s.functionNum = scanFunction;
 	
-				bridgeProbeChild(bridge, space);
+				bridgeProbeChild(bridge, space, resetMask);
 	
 				// look in function 0 for multi function flag
 				if (0 == scanFunction)
@@ -1245,6 +1393,17 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 			}
 		}
 	}
+}
+
+//---------------------------------------------------------------------------
+
+void CLASS::markChanged(IOPCIConfigEntry * entry)
+{
+    if (fChangedServices)
+    {
+        if (entry->dtNub && entry->dtNub->inPlane(gIOServicePlane))
+            fChangedServices->setObject(entry->dtNub);
+    }
 }
 
 //---------------------------------------------------------------------------
@@ -1267,11 +1426,7 @@ void CLASS::bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child)
     else
         fDeviceCount++;
 
-    if (fChangedServices)
-    {
-        if (bridge->dtNub && bridge->dtNub->inPlane(gIOServicePlane))
-            fChangedServices->setObject(bridge->dtNub);
-    }
+	bridge->deviceState |= kPCIDeviceStateChildChanged;
 }
 
 bool CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
@@ -1338,8 +1493,14 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
         bridgeRemoveChild(dead, child, deallocTypes, freeTypes, childList);
     }
 
-    DLOG("bridge %p removing child %p at %u:%u:%u vendor/product 0x%08x\n",
-         bridge, dead, PCI_ADDRESS_TUPLE(dead), dead->vendorProduct);
+    DLOG("bridge %p removing child %p at "D()"\n",
+         bridge, dead, DEVICE_IDENT(dead));
+
+	if (kPCIDeviceStateRequestPause & dead->deviceState)
+	{
+		dead->deviceState &= ~kPCIDeviceStateRequestPause;
+		fWaitingPause--;
+	}
 
 	prev = &bridge->child;
 	while ((child = *prev))
@@ -1384,6 +1545,13 @@ void CLASS::bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list)
 	IOPCIRange *       childRange;
 	bool		       ok;
 
+	if (kPCIDeviceStatePaused & to->deviceState)
+	{
+		UnswizzleRange(to->ranges[kIOPCIRangeBridgeMemory]);
+		UnswizzleRange(to->ranges[kIOPCIRangeBridgePFMemory]);
+		UnswizzleRange(to->ranges[kIOPCIRangeBridgeBusNumber]);
+	}
+
 	while (list)
 	{
 		dead = list;
@@ -1408,8 +1576,8 @@ void CLASS::bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list)
 				dead->parent = to;
 				dead->peer   = to->child;
 				to->child  = dead;
-				DLOG("Reserves on (%u:%u:%u) for (%u:%u:%u):\n",
-						PCI_ADDRESS_TUPLE(to), PCI_ADDRESS_TUPLE(dead));
+				DLOG("Reserves on ("D()") for ("D()"):\n",
+						DEVICE_IDENT(to), DEVICE_IDENT(dead));
 			}
 			DLOG("  %s: 0x%llx reserve 0x%llx\n",
 					gPCIResourceTypeName[childRange->type], 
@@ -1427,14 +1595,9 @@ void CLASS::bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
     if (kPCIDeviceStateDead & dead->deviceState)
         return;
 
-    DLOG("bridge %p dead child at %u:%u:%u vendor/product 0x%08x\n",
-         bridge, PCI_ADDRESS_TUPLE(dead), dead->vendorProduct);
+    DLOG("bridge %p dead child at "D()"\n", bridge, DEVICE_IDENT(dead));
 
-    if (fChangedServices)
-    {
-        if (dead->dtNub && dead->dtNub->inPlane(gIOServicePlane))
-            fChangedServices->setObject(dead->dtNub);
-    }
+	markChanged(dead);
 
 	bridgeRemoveChild(bridge, dead,
                         kIOPCIRangeAllMask, kIOPCIRangeAllBridgeMask,
@@ -1446,18 +1609,15 @@ void CLASS::bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
     }
 }
 
-void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space )
+void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space, uint32_t resetMask )
 {
     IOPCIConfigEntry * child = NULL;
     bool      ok = true;
     uint32_t  vendorProduct;
-	uint8_t   reset;
-
-	reset = (kPCIStatic != bridge->supportsHotPlug);
 
     vendorProduct = configRead32(space, kIOPCIConfigVendorID);
 
-    if (reset
+    if ((kPCIStatic != bridge->supportsHotPlug)
     	&& ((0 == (vendorProduct & 0xffff)) || (0xffff == (vendorProduct & 0xffff))))
 	{
         configWrite32(space, kIOPCIConfigVendorID, 0);
@@ -1470,8 +1630,8 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
             continue;
         if (space.bits == child->space.bits)
         {
-            DLOG("bridge %p scan existing child at %u:%u:%u vendor/product 0x%08x state 0x%x\n",
-                 bridge, PCI_ADDRESS_TUPLE(child), child->vendorProduct, child->deviceState);
+            DLOG("bridge %p scan existing child at "D()" state 0x%x\n",
+                 bridge, DEVICE_IDENT(child), child->deviceState);
 
             // check bars?
 
@@ -1503,7 +1663,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     {
         if (!--retries)
             return;
-//        vendorProduct = configRead32(space, kIOPCIConfigVendorID);
+        vendorProduct = configRead32(space, kIOPCIConfigVendorID);
     }
 
     child = IONew(IOPCIConfigEntry, 1);
@@ -1515,9 +1675,9 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     child->classCode     = configRead32(child, kIOPCIConfigRevisionID) >> 8;
     child->vendorProduct = vendorProduct;
 
-    DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at %u:%u:%u [state 0x%x]\n",
+    DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at "D()" [state 0x%x]\n",
          child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
-         PCI_ADDRESS_TUPLE(child),
+         DEVICE_IDENT(child),
          child->deviceState);
 
     switch (child->headerType)
@@ -1527,17 +1687,17 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
             if ((child->classCode & 0xFFFFFF) == 0x060000)
                 break;
 
-            deviceProbeRanges(child, reset);
+            deviceProbeRanges(child, resetMask);
             break;
 
         case kPCIHeaderType1:
             child->isBridge = true;
-            bridgeProbeRanges(child, reset);
+            bridgeProbeRanges(child, resetMask);
             break;
 
         case kPCIHeaderType2:
             child->isBridge = true;
-            cardbusProbeRanges(child, reset);
+            cardbusProbeRanges(child, resetMask);
             break;
 
         default:
@@ -1665,7 +1825,7 @@ struct BARProbeParam {
     CLASS *            target;
     IOPCIConfigEntry * device;
     uint32_t           lastBarNum;
-    uint8_t            reset;
+    uint32_t           resetMask;
 };
 
 void CLASS::safeProbeCallback( void * refcon )
@@ -1676,7 +1836,7 @@ void CLASS::safeProbeCallback( void * refcon )
     if (cpu_number() == 0)
     {
         param->target->probeBaseAddressRegister(
-            param->device, param->lastBarNum, param->reset );
+            param->device, param->lastBarNum, param->resetMask );
     }
     if (cpu_number() == 99)
     {
@@ -1685,7 +1845,7 @@ void CLASS::safeProbeCallback( void * refcon )
 }
 
 void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device, 
-										 uint32_t lastBarNum, uint8_t reset)
+										 uint32_t lastBarNum, uint32_t resetMask)
 {
     uint32_t barNum;
 
@@ -1699,7 +1859,7 @@ void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device,
 #if NO_RENDEZVOUS_KERNEL
         boolean_t       istate;
         istate = ml_set_interrupts_enabled(FALSE);
-        pciProbeBaseAddressRegister(device, lastBarNum, reset);
+        probeBaseAddressRegister(device, lastBarNum, resetMask);
         ml_set_interrupts_enabled(istate);
 #else
         BARProbeParam param;
@@ -1707,11 +1867,88 @@ void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device,
         param.target     = this;
         param.device     = device;
         param.lastBarNum = lastBarNum;
-        param.reset      = reset;
+        param.resetMask  = resetMask;
 
         mp_rendezvous_no_intrs(&safeProbeCallback, &param);
 #endif
     }
+
+#if PLX8680
+	do
+	{
+		IOPCIRange *        range;
+		uint16_t            command;
+		volatile uint32_t * regs;
+		uint32_t            reg32, lut;
+		IOPCIConfigEntry *  parent;
+	
+		if (0x868010b5 != device->vendorProduct) break;
+	
+		command = configRead16(device, kIOPCIConfigCommand);
+		configWrite16(device, kIOPCIConfigCommand, (command | kIOPCICommandMemorySpace | kIOPCICommandBusMaster));
+	
+		range = device->ranges[kIOPCIRangeBAR0];
+		if (!range) break;
+		if (0x40000 != range->proposedSize) break;
+		if (kIOPCIResourceTypeMemory != range->type) break;
+		if (kPCIHeaderType1 != device->headerType) break;
+	
+		parent = device;
+		do { regs = parent->plx; } while (!regs && (parent = parent->parent));
+		if (regs) break;
+	
+		IOMemoryDescriptor *
+		md = IOMemoryDescriptor::withAddressRange(range->start, range->proposedSize, kIODirectionOutIn | kIOMemoryMapperNone, TASK_NULL);
+		if (!md) break;
+		IOMemoryMap *
+		map = md->map();
+		if (!map) break;
+		regs = (uint32_t *) map->getAddress();
+		
+		reg32 = regs[0];
+		IOLog("PLX regs 0x%x, 0x%x\n", (int) range->start, reg32);
+		if (0x868010b5 != reg32) break;
+	
+		reg32 = regs[(0x3e000 + 0xd4) / 4];
+		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
+		reg32 = regs[(0x3e000 + 0xd8) / 4];
+		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
+	   
+		for (lut = 0; lut < 8; lut++) regs[((0x3e000 + 0xd94) / 4) + lut] = 0;
+		
+		regs[(0x3e000 + 0xd4) / 4] = 0x0000000c;
+		regs[(0x3e000 + 0xd8) / 4] = 0xfffffffc;
+	
+		regs[(0x3e000 + 0xc3c) / 4] = 0x00000000;
+		regs[(0x3e000 + 0xc40) / 4] = 0x00000000;
+	
+		reg32 = regs[(0x3e000 + 0xd4) / 4];
+		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
+		reg32 = regs[(0x3e000 + 0xd8) / 4];
+		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
+	
+		for (barNum = 0; barNum <= lastBarNum; barNum++)
+		{
+			IOPCIRangeInit(device->ranges[barNum], 0, 0, 0);
+		}
+	
+		{
+			BARProbeParam param;
+			param.target     = this;
+			param.device     = device;
+			param.lastBarNum = lastBarNum;
+			param.resetMask  = resetMask;
+			mp_rendezvous_no_intrs(&safeProbeCallback, &param);
+		}
+	
+		reg32 = regs[(0x3e000 + 0xd4) / 4];
+		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
+		reg32 = regs[(0x3e000 + 0xd8) / 4];
+		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
+		device->plx = regs;
+	}
+	while (false);
+#endif /* PLX8680 */
 
     for (barNum = 0; barNum <= lastBarNum; barNum++)
     {
@@ -1723,12 +1960,12 @@ void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device,
     }
 }
 
-void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint8_t reset)
+void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask)
 {
     IOPCIRange *    range;
     uint32_t        barNum, nextBarNum;
     uint32_t        value;
-    uint64_t        saved, upper, barMask;
+    uint64_t        value64, saved, upper, barMask;
     uint64_t        start, size;
     uint32_t        type;
     uint16_t        command;
@@ -1750,11 +1987,10 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         configWrite32(device, barOffset, saved);
 
         // unimplemented BARs are hardwired to zero
-        if (value == 0)
-            continue;
+        if (value == 0) continue;
 
         range = device->ranges[kIOPCIRangeExpansionROM];
-        start = reset ? 0 : (saved & ~barMask);
+        start = (resetMask & (1 << kIOPCIResourceTypeMemory)) ? 0 : (saved & ~barMask);
         value &= ~barMask;
         size  = -value;
         IOPCIRangeInit(range, kIOPCIResourceTypeMemory, start, size, size);
@@ -1763,8 +1999,9 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
 
     for (barNum = 0; barNum <= lastBarNum; barNum = nextBarNum)
     {
-        barOffset = kIOPCIConfigBaseAddress0 + barNum * 4;
+        barOffset  = kIOPCIConfigBaseAddress0 + barNum * 4;
         nextBarNum = barNum + 1;
+        value64    = (-1LL << 32);
 
         saved = configRead32(device, barOffset);
         configWrite32(device, barOffset, 0xFFFFFFFF);
@@ -1772,8 +2009,7 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         configWrite32(device, barOffset, saved);
 
         // unimplemented BARs are hardwired to zero
-        if (value == 0)
-            continue;
+        if (value == 0) continue;
 
         clean64 = false;
         if (value & 1)
@@ -1783,10 +2019,7 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
 
             // If the upper 16 bits for I/O space
             // are all 0, then we should ignore them.
-            if ((value & 0xFFFF0000) == 0)
-            {
-                value |= 0xFFFF0000;
-            }
+            if ((value & 0xFFFF0000) == 0) value |= 0xFFFF0000;
         }
         else
         {
@@ -1804,21 +2037,27 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
                     break;
 
                 case 4: /* 64-bit mem */
-                    clean64 = (kIOPCIResourceTypePrefetchMemory == type);
+                    clean64 = (kIOPCIResourceTypePrefetchMemory == type) 
+                    		&& (kIOPCIConfiguratorPFM64 & fFlags);
                     if (clean64)
                     {
                         upper = configRead32(device, barOffset + 4);
                         saved |= (upper << 32);
+                        configWrite32(device, barOffset + 4, 0xFFFFFFFF);
+                        value64 = configRead32(device, barOffset + 4);
+						value64 <<= 32;
+                        configWrite32(device, barOffset + 4, upper);
                     }
                     nextBarNum = barNum + 2;
                     break;
             }
         }
 
-        start = reset ? 0 : (saved & ~barMask);
-        value &= ~barMask;
-        size  = -value;
-        if (start == value) 
+        start    = (resetMask & (1 << type)) ? 0 : (saved & ~barMask);
+        value   &= ~barMask;
+		value64 |= value;
+        size     = -value64;
+        if (start == value64) 
         {
             DLOG("  [0x%x] can't probe\n", barOffset);
             continue;
@@ -1827,10 +2066,18 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         range = device->ranges[barNum];
 
 #if 0
-		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID))
-		 && (0x24 == barOffset))
+		if ((0x95881002 == configRead32(device->space, kIOPCIConfigVendorID))
+		 && (0x10 == barOffset))
 		{
-			size = 0x00400000;
+			size = 32ULL*1024*1024*1024;
+		}
+#endif
+
+#if 0
+		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID))
+		 && (0x18 == barOffset))
+		{
+			size = 0xf000;
 		}
 #endif
 #if 0
@@ -1853,13 +2100,13 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
 
 //---------------------------------------------------------------------------
 
-void CLASS::deviceProbeRanges( IOPCIConfigEntry * device, uint8_t reset )
+void CLASS::deviceProbeRanges( IOPCIConfigEntry * device, uint32_t resetMask )
 {
     uint32_t     idx;
     IOPCIRange * range;
 
     // Probe BAR 0 through 5 and ROM
-    safeProbeBaseAddressRegister(device, kIOPCIRangeExpansionROM, reset);
+    safeProbeBaseAddressRegister(device, kIOPCIRangeExpansionROM, resetMask);
 
     for (idx = kIOPCIRangeBAR0; idx <= kIOPCIRangeExpansionROM; idx++)
     {
@@ -1875,37 +2122,54 @@ void CLASS::deviceProbeRanges( IOPCIConfigEntry * device, uint8_t reset )
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint8_t reset)
+void CLASS::bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint32_t resetMask)
 {
     IOPCIRange *    range;
     uint64_t        start, size;
 
     // Record the bridge secondary and subordinate bus numbers
-	if (!reset)
+	if (resetMask & (1 << kIOPCIResourceTypeBusNumber))
+	{
+		bridge->secBusNum = 0;
+		bridge->subBusNum = 0;
+	}
+	else
 	{
 		bridge->secBusNum = configRead8(bridge, kPCI2PCISecondaryBus);
 		bridge->subBusNum = configRead8(bridge, kPCI2PCISubordinateBus);
 	}
+
     range = IOPCIRangeAlloc();
     start = bridge->secBusNum;
     size  = bridge->subBusNum - bridge->secBusNum + 1;
-	if (reset) start = 0;
     IOPCIRangeInit(range, kIOPCIResourceTypeBusNumber, start, size, kPCIBridgeBusNumberAlignment);
     bridge->ranges[kIOPCIRangeBridgeBusNumber] = range;
 }
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
+void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint32_t resetMask )
 {
     IOPCIRange *    range;
     IOPCIScalar     start, end, upper, size;
 
-    bridgeProbeBusRange(bridge, reset);
+    bridgeProbeBusRange(bridge, resetMask);
 
     // Probe bridge BAR0 and BAR1
+	safeProbeBaseAddressRegister(bridge, kIOPCIRangeBAR1, resetMask);
 
-	safeProbeBaseAddressRegister(bridge, kIOPCIRangeBAR1, reset);
+#if 0
+	// test bridge BARs
+	if ((5 == bridge->space.s.busNum) && (0 == bridge->space.s.deviceNum) && (0 == bridge->space.s.functionNum))
+	{
+		for (int barNum = 0; barNum <= kIOPCIRangeBAR1; barNum++)
+		{
+			bridge->ranges[barNum] = IOPCIRangeAlloc();
+			IOPCIRangeInit(bridge->ranges[barNum], kIOPCIResourceTypeMemory, 0, 0x40000, 0x40000);
+		}
+	}
+#endif
+
 	DLOG_RANGE("  bridge BAR0", bridge->ranges[kIOPCIRangeBAR0]);
 	DLOG_RANGE("  bridge BAR1", bridge->ranges[kIOPCIRangeBAR1]);
 
@@ -1919,7 +2183,7 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
         size = end - start + 1;
     else
         size = start = 0;
-	if (reset) start = 0;
+	if (resetMask & (1 << kIOPCIResourceTypeMemory)) start = 0;
 
     range = IOPCIRangeAlloc();
     IOPCIRangeInit(range, kIOPCIResourceTypeMemory, start, size,
@@ -1932,7 +2196,8 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
 
     if (true /* should check r/w */)
     {
-        bridge->clean64 = (0x1 == (end & 0xf));
+        bridge->clean64 = (0x1 == (end & 0xf))
+                         && (kIOPCIConfiguratorPFM64 & fFlags);
         if (bridge->clean64)
         {
             upper  = configRead32(bridge, kPCI2PCIPrefetchUpperBase);
@@ -1947,7 +2212,7 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
             size = end - start + 1;
         else
             size = start = 0;
-		if (reset) start = 0;
+		if (resetMask & (1 << kIOPCIResourceTypePrefetchMemory)) start = 0;
 
         range = IOPCIRangeAlloc();
         IOPCIRangeInit(range, kIOPCIResourceTypePrefetchMemory, start, size,
@@ -1995,7 +2260,7 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
             size = end - start + 1;
         else
             size = start = 0;
-		if (reset) start = 0;
+		if (resetMask & (1 << kIOPCIResourceTypeIO)) start = 0;
 
         range = IOPCIRangeAlloc();
         IOPCIRangeInit(range, kIOPCIResourceTypeIO, start, size,
@@ -2011,11 +2276,11 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint8_t reset )
 
 //---------------------------------------------------------------------------
 
-void CLASS::cardbusProbeRanges(IOPCIConfigEntry * bridge, uint8_t reset)
+void CLASS::cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask)
 {
     IOPCIRange * range;
 
-    bridgeProbeBusRange(bridge, reset);
+    bridgeProbeBusRange(bridge, resetMask);
 
     // Maximal bus range.
 
@@ -2041,53 +2306,90 @@ void CLASS::cardbusProbeRanges(IOPCIConfigEntry * bridge, uint8_t reset)
     bridge->ranges[kIOPCIRangeBridgeMemory] = range;
 }
 
+
 //---------------------------------------------------------------------------
 
-bool CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
+int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 {
-    bool ok = true;
-    IOPCIConfigEntry * child;
+    int32_t            ok = true;
+    bool			   bootScan = (NULL != ref);
+    bool 			   haveBus;
+	uint32_t           resetMask;
 
-    if (kPCIDeviceStateDead & bridge->deviceState)
-        return (ok);
+    if (kPCIDeviceStateDead & bridge->deviceState) return (ok);
+
+	bridge->deviceState &= ~(kPCIDeviceStateAllocatedBus | kPCIDeviceStateAllocated);
 
     if (!(kPCIDeviceStateScanned & bridge->deviceState))
     {
-		if (bridge->ranges[kIOPCIRangeBridgeBusNumber]->size)
+		haveBus = ((bridge->secBusNum || bridge->isHostBridge)
+			    && ((bootScan && bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize)
+				   || ((!bootScan) && bridge->ranges[kIOPCIRangeBridgeBusNumber]->size)));
+		if (haveBus)
 		{
-			DLOG("scan (bus %u)\n", bridge->secBusNum);
-			bridgeScanBus(bridge, bridge->secBusNum);
+			DLOG("scan %s"B()"\n", bootScan ? "(boot) " : "", BRIDGE_IDENT(bridge));
+			resetMask = 0;	
+			if (kPCIStatic != bridge->supportsHotPlug)
+			{
+				resetMask = ((1 << kIOPCIResourceTypeMemory)
+						   | (1 << kIOPCIResourceTypePrefetchMemory)
+						   | (1 << kIOPCIResourceTypeIO));
+				if (!bootScan) resetMask |= (1 << kIOPCIResourceTypeBusNumber);
+			}
+			bridgeScanBus(bridge, bridge->secBusNum, resetMask);
+			bridge->deviceState |= kPCIDeviceStateScanned;
 		}
-        bridge->deviceState |= kPCIDeviceStateScanned;
         
         // Associate bootrom devices.
         bridgeConnectDeviceTree(bridge);
-        
-        for (child = bridge->child; child; child = child->peer)
-        {
-            child->deviceState &= ~kPCIDeviceStateScanned;
-            child->deviceState &= ~kPCIDeviceStateAllocatedBus;
-            child->deviceState &= ~kPCIDeviceStateAllocated;
-        }          
     }
-//    if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)
-    {
-        ok = bridgeTotalResources(bridge, (1 << kIOPCIResourceTypeBusNumber));
+    if (!bootScan)
+	{
+		ok = bridgeTotalResources(bridge, (1 << kIOPCIResourceTypeBusNumber));
 		if (ok)
 		{
 			ok = bridgeAllocateResources(bridge, (1 << kIOPCIResourceTypeBusNumber));
-			DLOG("bus alloc done (bus %u, state 0x%x, %s)\n", 
-					bridge->secBusNum, bridge->iterator, ok ? "ok" : "moretodo");
+			DLOG("bus alloc done (bridge "B()", state 0x%x, ok %d)\n", 
+					BRIDGE_IDENT(bridge), bridge->iterator, ok);
 		}
-        if (ok)
-            bridge->deviceState |= kPCIDeviceStateAllocatedBus;
+		if (ok > 0)	bridge->deviceState |= kPCIDeviceStateAllocatedBus;
+	}
+    return (ok);
+}
+
+
+int32_t CLASS::bootResetProc(void * ref, IOPCIConfigEntry * bridge)
+{
+    bool     ok = true;
+    uint32_t reg32;
+
+	if (kPCIStatic != bridge->supportsHotPlug)
+	{
+		if (bridge->ranges[kIOPCIRangeBridgeBusNumber])
+//		 && !(kIOPCIRangeFlagMaximizeSize & bridge->ranges[kIOPCIRangeBridgeBusNumber]->flags))
+		{
+			bridge->ranges[kIOPCIRangeBridgeBusNumber]->start        = 0;
+			bridge->ranges[kIOPCIRangeBridgeBusNumber]->size         = 0;
+			bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize = 1;
+		}
+		if (kPCIHotPlugTunnelRootParent != bridge->supportsHotPlug)
+		{
+			DLOG("boot reset "B()"\n", BRIDGE_IDENT(bridge));
+			reg32 = configRead32(bridge, kPCI2PCIPrimaryBus);
+			reg32 &= ~0x00ffffff;
+			configWrite32(bridge, kPCI2PCIPrimaryBus, reg32);
+	    }
     }
     return (ok);
 }
 
-bool CLASS::totalProc(void * ref, IOPCIConfigEntry * bridge)
+int32_t CLASS::totalProc(void * ref, IOPCIConfigEntry * bridge)
 {
     bool ok = true;
+
+    if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)) return (ok);
+
+    if (kPCIDeviceStateAllocated & bridge->deviceState) return (ok);
 
     bridgeTotalResources(bridge, 
                           (1 << kIOPCIResourceTypeMemory)
@@ -2096,32 +2398,40 @@ bool CLASS::totalProc(void * ref, IOPCIConfigEntry * bridge)
     return (ok);
 }
 
+//---------------------------------------------------------------------------
 
-bool CLASS::allocateProc(void * ref, IOPCIConfigEntry * bridge)
+int32_t CLASS::allocateProc(void * ref, IOPCIConfigEntry * bridge)
 {
     bool ok = true;
 
-//    if (!(kPCIDeviceStateAllocated & bridge->deviceState)
-    {
-        ok = bridgeAllocateResources(bridge, 
-                          (1 << kIOPCIResourceTypeMemory)
-                        | (1 << kIOPCIResourceTypePrefetchMemory)
-                        | (1 << kIOPCIResourceTypeIO));
-        DLOG("alloc done (bus %u, state 0x%x, %s)\n", 
-                bridge->secBusNum, bridge->iterator, ok ? "ok" : "moretodo");
-        if (ok)
-            bridge->deviceState |= kPCIDeviceStateAllocated;
-    }
+    if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)) return (ok);
+
+	bridge->deviceState &= ~kPCIDeviceStateAllocated;
+
+	ok = bridgeAllocateResources(bridge, 
+					  (1 << kIOPCIResourceTypeMemory)
+					| (1 << kIOPCIResourceTypePrefetchMemory)
+					| (1 << kIOPCIResourceTypeIO));
+	DLOG("alloc done (bridge "B()", state 0x%x, %s)\n", 
+			BRIDGE_IDENT(bridge), bridge->iterator, ok ? "ok" : "moretodo");
+
+	if (ok) bridge->deviceState |= kPCIDeviceStateAllocated;
+
     return (ok);
 }
 
+//---------------------------------------------------------------------------
+
 void CLASS::doConfigure(uint32_t options)
 {
+    bool bootConfig = (kIOPCIConfiguratorBoot & options);
+
 	fMaxPayload = 5;
 
-    iterate(0, &CLASS::scanProc,             &CLASS::totalProc);
-    iterate(1, &CLASS::allocateProc,         NULL);
-    iterate(2, &CLASS::bridgeFinalizeConfig, NULL);
+    if (bootConfig) iterate(0, &CLASS::scanProc,                 &CLASS::bootResetProc, this);
+					iterate(1, &CLASS::scanProc,                 &CLASS::totalProc,     NULL);
+					iterate(2, &CLASS::allocateProc,             NULL, 				    NULL);
+					iterate(3, &CLASS::bridgeFinalizeConfigProc, NULL,                  NULL);
 }
 
 //---------------------------------------------------------------------------
@@ -2138,7 +2448,8 @@ void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomPro
 {
     IOPCIConfigEntry * device;
     IOPCIConfigEntry * parent;
-    bool      ok, didCheck;
+    int32_t			   ok;
+    bool               didCheck;
 
     device = fRoot;
     device->iterator = kIteratorCheck;
@@ -2147,7 +2458,7 @@ void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomPro
     do
     {
         parent = device->parent;
-//        DLOG("iterate(bus %u, state 0x%x, parent 0x%x)\n", device->secBusNum, device->iterator, parent ? parent->iterator : 0);
+//        DLOG("iterate(bridge "B()", state 0x%x, parent 0x%x)\n", BRIDGE_IDENT(device), device->iterator, parent ? parent->iterator : 0);
         ok = true;
         didCheck = false;
 
@@ -2160,6 +2471,8 @@ void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomPro
             }
             device->iterator = kIteratorDidCheck;
         }
+
+		if (ok < 0) break;
 
         if (parent && !ok)
         {
@@ -2186,7 +2499,6 @@ void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomPro
             else
             {
                 device->iterator = kIteratorDoneCheck;
-//                DLOG("bus done (bus %u, state 0x%x)\n", device->secBusNum, device->iterator);
                 if (bottomProc)
                 {
                     (void) (this->*bottomProc)(ref, device);
@@ -2211,6 +2523,7 @@ void CLASS::configure(uint32_t options)
 
 	fFlags |= options;
 
+#if defined(__i386__) || defined(__x86_64__)
     if (bootConfig)
     {
         if (!fPFMConsole)
@@ -2226,8 +2539,11 @@ void CLASS::configure(uint32_t options)
         fConsoleRange = NULL;
         getPlatform()->setConsoleInfo(0, kPEDisableScreen);
     }
+#endif
 
     doConfigure(options);
+
+#if defined(__i386__) || defined(__x86_64__)
     if (bootConfig)
     {
         if (fConsoleRange)
@@ -2261,15 +2577,11 @@ void CLASS::configure(uint32_t options)
                 IOLog("console relocated to 0x%llx\n", fPFMConsole);
         }
     }
+#endif
 
 	fFlags &= ~options;
 
-    if (fBridgeConfigCount || fDeviceConfigCount || fCardBusConfigCount)
-    {
-        IOLog("PCI configuration changed (bridge=%d device=%d cardbus=%d)\n",
-              fBridgeConfigCount, fDeviceConfigCount, fCardBusConfigCount);
-    }
-    IOLog("[ PCI configuration end, bridges %d devices %d ]\n", fBridgeCount, fDeviceCount);
+    IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
 }
 
 //---------------------------------------------------------------------------
@@ -2315,20 +2627,21 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 	IOPCIRange *       range;
     IOPCIRange *       childRange;
     uint32_t           type;
+    bool               expressCards = false;
 	bool		       ok = true;
 
     IOPCIScalar		   totalSize[kIOPCIResourceTypeCount];
     IOPCIScalar        maxAlignment[kIOPCIResourceTypeCount];
     IOPCIScalar        minAddress[kIOPCIResourceTypeCount];
     IOPCIScalar        maxAddress[kIOPCIResourceTypeCount];
+    IOPCIScalar        countMaximize[kIOPCIResourceTypeCount];
 
-    if (bridge->isHostBridge)
-        return (ok);
+	if (bridge == fRoot) return (ok);
     if (kPCIDeviceStateDead & bridge->deviceState)
         return (ok);
 
-    DLOG("bridgeTotalResources(bus %u, iter 0x%x, state 0x%x)\n", 
-            bridge->secBusNum, bridge->iterator, bridge->deviceState);
+    DLOG("bridgeTotalResources(bridge "B()", iter 0x%x, state 0x%x)\n", 
+            BRIDGE_IDENT(bridge), bridge->iterator, bridge->deviceState);
 
     bzero(&totalSize[0], sizeof(totalSize));
     if (bridge != fRoot)
@@ -2340,6 +2653,7 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
     bcopy(&maxBridgeAddressDefault[0], &maxAddress[0], sizeof(maxAddress));
     if (bridge->clean64)
         maxAddress[kIOPCIResourceTypePrefetchMemory] = 0xFFFFFFFFFFFFFFFFULL;
+    bzero(&countMaximize[0], sizeof(countMaximize));
 
 	if ( ((1 << kIOPCIResourceTypeMemory)
 		| (1 << kIOPCIResourceTypePrefetchMemory)
@@ -2347,15 +2661,12 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 		& typeMask)
 	do
 	{
-		if (!bridge->child)
-			break;
+		if (!bridge->child) break;
 		for (child = bridge->child; child; child = child->peer)
 		{
-			if (!(kPCIDeviceStateDead & child->deviceState))
-				break;
+			if (!(kPCIDeviceStateDead & child->deviceState)) break;
 		}
-		if (child)
-			break;
+		if (child) break;
 		// all children are dead, move reserved allocs to parent & free bridge ranges
 		IOPCIConfigEntry * pendingList = NULL;
 		IOPCIConfigEntry * next;
@@ -2373,6 +2684,7 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
 	for (child = bridge->child; child; child = child->peer)
     {
+		expressCards |= (kPCIHotPlugRoot == child->supportsHotPlug);
         for (int i = 0; i < kIOPCIRangeCount; i++)
         {
             childRange = child->ranges[i];
@@ -2380,9 +2692,11 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
                 continue;
             if (!((1 << childRange->type) & typeMask))
                 continue;
+            range = bridgeGetRange(bridge, childRange->type);
+            if (kIOPCIRangeFlagMaximizeSize & childRange->flags) 
+                countMaximize[range->type]++;
             if (!childRange->proposedSize)
                 continue;
-            range = bridgeGetRange(bridge, childRange->type);
             if (kIOPCIRangeExpansionROM == i)
             { /* Don't allocate for a ROM */ }
             else
@@ -2395,9 +2709,9 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
                 minAddress[range->type] = childRange->minAddress;
             if (childRange->maxAddress < maxAddress[range->type])
             {
-                DLOG("  %s: maxAddr change 0x%llx -> 0x%llx (at %u:%u:%u)\n",
+                DLOG("  %s: maxAddr change 0x%llx -> 0x%llx (at "D()")\n",
                         gPCIResourceTypeName[range->type], 
-                        maxAddress[range->type], childRange->maxAddress, PCI_ADDRESS_TUPLE(child));
+                        maxAddress[range->type], childRange->maxAddress, DEVICE_IDENT(child));
                 maxAddress[range->type] = childRange->maxAddress;
 			}
 
@@ -2421,34 +2735,52 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
         totalSize[type] = IOPCIScalarAlign(totalSize[type], minBridgeAlignments[type]);
         range = bridgeGetRange(bridge, type);
-        if (range)
+        if (range) do
         {
-            if ((totalSize[type] != range->proposedSize)
-             && ((!totalSize[type] && !(kIOPCIRangeFlagMaximizeSize & range->flags))
-             	|| (totalSize[type] > range->proposedSize)))
-            {
-                DLOG("  %s: 0x%llx: size change 0x%llx -> 0x%llx\n",
-                        gPCIResourceTypeName[type], 
-                        range->start, range->proposedSize, totalSize[type]);
-                range->proposedSize          = totalSize[type];
-                bridge->rangeSizeChanges    |= (1 << BRN(type));
-                bridge->rangeRequestChanges |= (1 << type);
-				ok = false;
-            }
-            range->alignment  = maxAlignment[type];
-            range->minAddress = minAddress[type];
-            range->maxAddress = maxAddress[type];
-        }
+			if (bridge->isHostBridge)
+			{
+				if (expressCards && (kIOPCIResourceTypeBusNumber == type))
+				{
+					// max ratio to give maximized allocs
+					range->pri   = 240;
+					range->count = 255;
+				}
+				continue;
+			}
 
-        DLOG("  %s: total child reqs 0x%llx of 0x%llx maxalign 0x%llx\n",
-                gPCIResourceTypeName[type], 
-                totalSize[type], range->proposedSize, range->alignment);
+			if (kIOPCIRangeFlagForceReloc & range->flags) totalSize[type] += totalSize[type] + maxAlignment[type];
+
+			if (countMaximize[type]) 
+			{
+				range->pri   = 1;
+				range->count = countMaximize[type];
+			}
+			if ((totalSize[type] != range->proposedSize)
+			 && ((!totalSize[type])	|| (totalSize[type] > range->proposedSize)))
+			{
+				DLOG("  %s: 0x%llx: size change 0x%llx -> 0x%llx\n",
+						gPCIResourceTypeName[type], 
+						range->start, range->proposedSize, totalSize[type]);
+				range->proposedSize          = totalSize[type];
+				bridge->rangeSizeChanges    |= (1 << BRN(type));
+				bridge->rangeRequestChanges |= (1 << type);
+				ok = false;
+			}
+			range->alignment  = maxAlignment[type];
+			range->minAddress = minAddress[type];
+			range->maxAddress = maxAddress[type];
+
+			DLOG("  %s: total child reqs 0x%llx of 0x%llx maxalign 0x%llx\n",
+					gPCIResourceTypeName[type], 
+					totalSize[type], range->proposedSize, range->alignment);
+        }
+		while (false);
     }
 
 	return (ok);
 }
 
-bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
+int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 {
     IOPCIRange * requests[kIOPCIResourceTypeCount];
     IOPCIScalar  shortage[kIOPCIResourceTypeCount];
@@ -2457,152 +2789,223 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
     IOPCIRange * childRange;
     IOPCIScalar  shrink;
     uint32_t     type;
+    uint32_t     haveAllocs = 0;
+    uint32_t     haveRelocs = 0;
+    uint32_t     failTypes  = 0;
+    int32_t      result;
     int          phase;
     bool         ok;
+    bool         hotp;
 	bool         canRelocate;
-    bool         moretodo = false;
+	bool         resize;
 
-    DLOG("bridgeAllocateResources(bus %u, iter 0x%x, state 0x%x)\n", 
-            bridge->secBusNum, bridge->iterator, bridge->deviceState);
+    DLOG("bridgeAllocateResources(bridge "B()", iter 0x%x, state 0x%x)\n", 
+            BRIDGE_IDENT(bridge), bridge->iterator, bridge->deviceState);
 
-    if (bridge == fRoot)
-        return (true);
-    if (kPCIDeviceStateDead & bridge->deviceState)
-        return (true);
+    if (bridge == fRoot)                           return (true);
+    if (kPCIDeviceStateDead & bridge->deviceState) return (true);
 
     bzero(requests, sizeof(requests));
     bzero(shortage, sizeof(shortage));
     bzero(shortageAlignments, sizeof(shortageAlignments));
 
-	if (((1 << kIOPCIResourceTypeBusNumber) & typeMask)
-	 && (range = bridgeGetRange(bridge, kIOPCIResourceTypeBusNumber)))
+	hotp = (kPCIStatic != bridge->supportsHotPlug);
+	if (hotp)
 	{
-		if (!bridge->busResv.nextSubRange)
-		{
-			IOPCIRangeInit(&bridge->busResv, kIOPCIResourceTypeBusNumber,
-							bridge->secBusNum, 1, kPCIBridgeBusNumberAlignment);
-			ok = IOPCIRangeListAllocateSubRange(range, &bridge->busResv); 
-			DLOG("  BUS: reserved(%sok) 0x%llx\n", ok ? "" : "!", bridge->busResv.start);
-		}
-
-		bool allReloc = (kPCIStatic != bridge->supportsHotPlug);
+		// determine kIOPCIRangeFlagRelocatable
 		FOREACH_CHILD(bridge, child)
 		{
-			childRange = bridgeGetRange(child, kIOPCIResourceTypeBusNumber);
-			if (!childRange)
-				continue;
-			if ((!child->ranges[kIOPCIRangeBridgeMemory]
-					|| !child->ranges[kIOPCIRangeBridgeMemory]->nextSubRange)
-				&& (!child->ranges[kIOPCIRangeBridgePFMemory]
-					|| !child->ranges[kIOPCIRangeBridgePFMemory]->nextSubRange)
-				&& (!child->ranges[kIOPCIRangeBridgeIO]
-					|| !child->ranges[kIOPCIRangeBridgeIO]->nextSubRange))
+			for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
 			{
-				childRange->flags |= kIOPCIRangeFlagRelocatable;
+				childRange = child->ranges[rangeIndex];
+				if (!childRange)                           continue;
+				if (!((1 << childRange->type) & typeMask)) continue;
+
+				canRelocate = (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) & childRange->flags)
+							 && (kIOPCIConfiguratorBoot & fFlags));
+				canRelocate |= (0 != (kPCIDeviceStatePaused & child->deviceState));
+
+				if ((rangeIndex == kIOPCIRangeBridgeBusNumber) && !canRelocate)
+				{
+					// bridges with no i/o allocations are bus relocatable
+					canRelocate |= 
+						((!child->ranges[kIOPCIRangeBridgeMemory]
+							|| !child->ranges[kIOPCIRangeBridgeMemory]->nextSubRange)
+						&& (!child->ranges[kIOPCIRangeBridgePFMemory]
+							|| !child->ranges[kIOPCIRangeBridgePFMemory]->nextSubRange)
+						&& (!child->ranges[kIOPCIRangeBridgeIO]
+							|| !child->ranges[kIOPCIRangeBridgeIO]->nextSubRange));
+				}
+				if (canRelocate)
+				{
+					childRange->flags |= kIOPCIRangeFlagRelocatable;
+				}
+				else
+				{
+					childRange->flags &= ~kIOPCIRangeFlagRelocatable;
+				}
 			}
-			else
-			{
-				childRange->flags &= ~kIOPCIRangeFlagRelocatable;
-				allReloc = false;
-			}
-		}
-		if (allReloc) FOREACH_CHILD(bridge, child)
-		{
-			childRange = bridgeGetRange(child, kIOPCIResourceTypeBusNumber);
-			if (!childRange)
-				continue;
-			if (childRange->nextSubRange)
-			{
-				child->rangeBaseChanges |= (1 << kIOPCIRangeBridgeBusNumber);
-				ok = IOPCIRangeListDeallocateSubRange(range, childRange);
-				if (!ok) panic("IOPCIRangeListDeallocateSubRange");
-			}
-			childRange->start = 0;
-			childRange->size  = 0;
 		}
 	}
 
-    // Try placed allocations - free relocations
+	if (((1 << kIOPCIResourceTypeBusNumber) & typeMask)
+	 && (range = bridgeGetRange(bridge, kIOPCIResourceTypeBusNumber))
+	 && !bridge->busResv.nextSubRange)
+	{
+		IOPCIRangeInit(&bridge->busResv, kIOPCIResourceTypeBusNumber,
+						bridge->secBusNum, 1, kPCIBridgeBusNumberAlignment);
+		bridge->busResv.flags |= kIOPCIRangeFlagRelocHalf;
+		ok = IOPCIRangeListAllocateSubRange(range, &bridge->busResv);
+		DLOG("  BUS: reserved(%sok) 0x%llx\n", ok ? "" : "!", bridge->busResv.start);
+	}
+
+    // Do any frees, look for relocs, look for new allocs
+
+	FOREACH_CHILD(bridge, child)
+	{
+		for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
+		{
+			childRange = child->ranges[rangeIndex];
+			if (!childRange)                           continue;
+			if (!((1 << childRange->type) & typeMask)) continue;
+
+			DLOG("  %s: 0x%llx:0x%llx,0x%llx (at "D()") %s%s%s%s\n",
+					gPCIResourceTypeName[childRange->type], 
+					childRange->start, childRange->size, childRange->proposedSize,
+					DEVICE_IDENT(child),
+					(NULL != childRange->nextSubRange)                ? "A" : "",
+					(kIOPCIRangeFlagRelocatable  & childRange->flags) ? "R" : "",
+					(kIOPCIRangeFlagSplay        & childRange->flags) ? "S" : "",
+					(kIOPCIRangeFlagMaximizeSize & childRange->flags) ? "M" : "");
+
+			if (bridge->isHostBridge 
+				&& !childRange->nextSubRange
+				&& (kIOPCIResourceTypeMemory == type)
+				&& (childRange->maxAddress > 0xFFFFFFFFULL))
+			{
+				childRange->minAddress = (1ULL << 32);
+				if (!fConsoleRange && fPFMConsole 
+					&& (fPFMConsole >= childRange->start) 
+					&& (fPFMConsole < childRange->end))
+				{
+					DLOG("  hit console\n");
+					fPFMConsole -= childRange->start;
+					fConsoleRange = childRange;
+				}
+				childRange->start = 0;
+			}
+
+			range = bridgeGetRange(bridge, childRange->type);
+			if (!range) continue;
+			type = range->type;
+
+			if (!childRange->proposedSize)
+			{
+				if (childRange->nextSubRange)
+				{
+					child->rangeBaseChanges |= (1 << rangeIndex);
+					ok = IOPCIRangeListDeallocateSubRange(range, childRange);
+					if (!ok) panic("IOPCIRangeListDeallocateSubRange");
+					haveAllocs |= (1 << type);
+				}
+				childRange->start = 0;
+				childRange->size  = 0;
+				continue;
+			}
+			if (kIOPCIRangeFlagRelocatable & childRange->flags) haveRelocs |= (1 << type);
+			if (!childRange->nextSubRange)						haveAllocs |= (1 << type);
+			if (childRange->proposedSize != childRange->size)	haveAllocs |= (1 << type);
+		}
+	}
+
+	// Free anything relocatable if new allocs needed
+
+	if (haveAllocs & haveRelocs)
+	{
+		FOREACH_CHILD(bridge, child)
+		{
+			for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
+			{
+				childRange = child->ranges[rangeIndex];
+				if (!childRange)                           continue;
+				if (!((1 << childRange->type) & typeMask)) continue;
+
+				if ((kIOPCIRangeFlagRelocatable & childRange->flags) && childRange->nextSubRange)
+				{
+					range = bridgeGetRange(bridge, childRange->type);
+					if (!range) continue;
+					type = range->type;
+
+					DLOG("  %s:    free reloc 0x%llx:0x%llx (at "D()")\n",
+							gPCIResourceTypeName[childRange->type],
+							childRange->start, childRange->size,
+							DEVICE_IDENT(child));
+
+					child->rangeBaseChanges |= (1 << rangeIndex);
+					if (!(kIOPCIConfiguratorNoSplay & fFlags)) childRange->start = 0;
+					childRange->size  = 0;
+
+					ok = IOPCIRangeListDeallocateSubRange(range, childRange);
+					if (!ok) panic("IOPCIRangeListDeallocateSubRange");
+				}
+			}
+		}
+	}
+
+	// Apply configuration changes to all children.
+	FOREACH_CHILD(bridge, child)
+	{
+		applyConfiguration(child, typeMask);
+	}
+
+    // Try placed allocations
 
     for (phase = 0; phase <= 2; phase++)
     {
+		// 0 - others, 1 - resize, 2 - maximise
         FOREACH_CHILD(bridge, child)
         {
             for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
             {
-                int resize;
-    
                 childRange = child->ranges[rangeIndex];
-                if (!childRange)
-                    continue;
-                if (!((1 << childRange->type) & typeMask))
-                    continue;
+                if (!childRange)                           continue;
+                if (!((1 << childRange->type) & typeMask)) continue;
    
                 resize = (childRange->proposedSize && 
                 		 (childRange->proposedSize != childRange->size));
-
+                		 	
 				if ((((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) & childRange->flags)
 						? 2 : resize) != phase)
                     continue;
 
-                DLOG("  %s: 0x%llx new 0x%llx current 0x%llx (at %u:%u:%u) [p%d] %s%s%s\n",
-                        gPCIResourceTypeName[childRange->type], 
-                        childRange->start, childRange->proposedSize, childRange->size,
-                        PCI_ADDRESS_TUPLE(child),
-                        phase,
-                        (kIOPCIRangeFlagRelocatable  & childRange->flags) ? "R" : "",
-                        (kIOPCIRangeFlagSplay        & childRange->flags) ? "S" : "",
-                        (kIOPCIRangeFlagMaximizeSize & childRange->flags) ? "M" : "");
-
                 range = bridgeGetRange(bridge, childRange->type);
-                if (!range)
-                    continue;
+                if (!range) continue;
 				type = range->type;
 
-                if (bridge->isHostBridge 
-                    && !childRange->nextSubRange
-                	&& (kIOPCIConfiguratorPFM64 & fFlags) 
-                	&& (kIOPCIResourceTypeMemory == type)
-            		&& (childRange->maxAddress > 0xFFFFFFFFULL))
-				{
-//					childRange->minAddress = (1ULL << 32);
-					if (!fConsoleRange && fPFMConsole 
-						&& (fPFMConsole >= childRange->start) 
-						&& (fPFMConsole < childRange->end))
-					{
-						DLOG("  hit console\n");
-						fPFMConsole -= childRange->start;
-						fConsoleRange = childRange;
-					}
-					childRange->start = 0;
-				}
-
-                if (!childRange->proposedSize)
-                {
-                    if (childRange->nextSubRange)
-                    {
-                        child->rangeBaseChanges |= (1 << rangeIndex);
-						ok = IOPCIRangeListDeallocateSubRange(range, childRange);
-						if (!ok) panic("IOPCIRangeListDeallocateSubRange");
-					}
-                    childRange->start = 0;
-                    childRange->size  = 0;
-                    continue;
-                }
-				if (!childRange->start)
-					continue;
-				if (childRange->nextSubRange && !resize)
+				if (!childRange->start) continue;
+				if (childRange->nextSubRange 
+				  && !resize 
+				  && !(kIOPCIRangeFlagForceReloc & range->flags))
 					continue;
 
 				// try the placed alloc
 				ok = IOPCIRangeListAllocateSubRange(range, childRange);
-				if (ok)
+                DLOG("  %s: %sok allocated 0x%llx:0x%llx,0x%llx (at "D()")\n",
+                        gPCIResourceTypeName[childRange->type], ok ? " " : "!",
+                        childRange->start, childRange->size, childRange->proposedSize,
+                        DEVICE_IDENT(child));
+				if (ok) 
+				{
+					child->rangeBaseChanges |= (1 << rangeIndex);
 					continue;
+				}
 
-				canRelocate = (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) & childRange->flags)
-							 && (kIOPCIConfiguratorBoot & fFlags));
-				canRelocate |= (0 != (kIOPCIRangeFlagRelocatable & childRange->flags));
+//				canRelocate = (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) & childRange->flags)
+//							 && (kIOPCIConfiguratorBoot & fFlags));
+				canRelocate = (0 != (kIOPCIConfiguratorBoot & fFlags));
 				canRelocate |= (!childRange->nextSubRange);
+//				canRelocate |= (0 != (kPCIDeviceStatePaused & child->deviceState));
+				canRelocate |= (0 != (kIOPCIRangeFlagRelocatable & childRange->flags));
 
 				enum { kBridgeMemIO = (1 << kIOPCIRangeBridgeMemory)
 									| (1 << kIOPCIRangeBridgePFMemory)
@@ -2621,10 +3024,6 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 					}
 				}
 
-				DLOG("  %s: 0x%llx:0x%llx inplace alloc failed\n",
-							gPCIResourceTypeName[type], 
-							childRange->start, childRange->proposedSize);
-
 				if (!canRelocate)
 				{
 					if (childRange->nextSubRange)
@@ -2640,9 +3039,10 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 				{
 					if (childRange->nextSubRange)
 					{
-						DLOG("  %s: 0x%llx:0x%llx freed\n",
+						DLOG("  %s: free 0x%llx:0x%llx\n",
 									gPCIResourceTypeName[type], 
 									childRange->start, childRange->size);
+						child->rangeBaseChanges |= (1 << rangeIndex);
 						ok = IOPCIRangeListDeallocateSubRange(range, childRange);
 						if (!ok) panic("IOPCIRangeListDeallocateSubRange");
 					}
@@ -2660,16 +3060,13 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 		for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
 		{
 			childRange = child->ranges[rangeIndex];
-			if (!childRange)
-				continue;
-			if (!((1 << childRange->type) & typeMask))
-				continue;
+			if (!childRange)                           continue;
+			if (!((1 << childRange->type) & typeMask)) continue;
 
 			if (childRange->proposedSize && !childRange->nextSubRange)
 			{
                 range = bridgeGetRange(bridge, childRange->type);
-                if (!range)
-                    continue;
+                if (!range) continue;
 				type = range->type;
 
 				// Link child ranges to form dependency chain, and sort this
@@ -2691,8 +3088,7 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 
     for (type = 0; type < kIOPCIResourceTypeCount; type++)
     {
-        if (!((1 << type) & typeMask))
-            continue;
+        if (!((1 << type) & typeMask)) continue;
         range = bridgeGetRange(bridge, type);
         while ((childRange = requests[type]))
         {
@@ -2700,9 +3096,9 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 			childRange->nextSubRange = NULL;
 
             ok = IOPCIRangeListAllocateSubRange(range, childRange);
-            DLOG("  %s: %s allocated block 0x%llx:0x%llx\n",
+            DLOG("  %s: %sok allocated 0x%llx:0x%llx\n",
                  gPCIResourceTypeName[childRange->type],
-                 ok ? "ok" : "NOT",
+                 ok ? " " : "!",
                  childRange->start, childRange->proposedSize);
 
             if (!ok)
@@ -2736,7 +3132,7 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
 					bridge->rangeSizeChanges |= (1 << BRN(type));
 					bridge->rangeRequestChanges |= (1 << type);
 				}
-                moretodo = true;
+                failTypes |= (1 << type);
             }
             else if (range && !(kIOPCIRangeFlagNoCollapse & range->flags))
             {
@@ -2747,32 +3143,49 @@ bool CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask
                            gPCIResourceTypeName[type], range->size, range->proposedSize);
                     bridge->rangeSizeChanges    |= (1 << BRN(type));
                     bridge->rangeRequestChanges |= (1 << type);
-                    moretodo = true;
+                    failTypes |= (1 << type);
                 }
             }
         }
     }
 
-    if (moretodo && !(bridge->rangeRequestChanges & typeMask))
+	result = (0 == failTypes);
+
+    if (failTypes && !(bridge->rangeRequestChanges & typeMask))
     {
         DLOG("  exhausted\n");
-        moretodo = false;
+        result = true;
+
+		FOREACH_CHILD(bridge, child)
+		{
+			if (!(kIOPCIConfiguratorUsePause & fFlags))   continue;
+
+			if ((1 << kIOPCIResourceTypeIO) == failTypes) continue;	// no pause for i/o
+
+			if ((kPCIDeviceStateRequestPause | kPCIDeviceStatePaused) & child->deviceState) continue;
+
+			if (child->supportsHotPlug < kPCIHotPlug) continue;     // nhi
+
+			DLOG("Request pause for "D()"\n", DEVICE_IDENT(child));
+			child->deviceState |= kPCIDeviceStateRequestPause;
+			markChanged(child);
+			fWaitingPause++;
+			result = -1;
+		}
     }
 
-    if (moretodo)
+    if (!result)
     {
         bridge->rangeRequestChanges &= ~typeMask;
     }
-    else
-    {
-        // Apply configuration changes to all children.
-        FOREACH_CHILD(bridge, child)
-        {
-            applyConfiguration(child, typeMask);
-        }
-    }
 
-    return (!moretodo);
+	// Apply configuration changes to all children.
+	FOREACH_CHILD(bridge, child)
+	{
+		applyConfiguration(child, typeMask);
+	}
+
+    return (result);
 }
 
 //---------------------------------------------------------------------------
@@ -2828,10 +3241,9 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
     IOPCIRange * range;
     uint16_t     reg16;
 
-    DLOG("Applying config (bm 0x%x, sm 0x%x) for device %u:%u:%u\n", 
+    DLOG("Applying config (bm 0x%x, sm 0x%x) for device "D()"\n", 
             device->rangeBaseChanges, device->rangeSizeChanges,
-            PCI_ADDRESS_TUPLE(device));
-    fDeviceConfigCount++;
+            DEVICE_IDENT(device));
 
     reg16 = disableAccess(device, true);
 
@@ -2900,23 +3312,9 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
 
     do
     {
-		if (bridge->ranges[kIOPCIRangeBridgeBusNumber]->start
-			&& bridge->ranges[kIOPCIRangeBridgeBusNumber]->size)
-		{
-			bridge->secBusNum = bridge->ranges[kIOPCIRangeBridgeBusNumber]->start;
-			bridge->subBusNum = bridge->secBusNum
-							  + bridge->ranges[kIOPCIRangeBridgeBusNumber]->size - 1;
-		}
-		else
-		{
-			bridge->secBusNum = bridge->subBusNum = 0;
-		}
-
-        accessDisabled = (0 != bridge->rangeBaseChanges);
-accessDisabled = false;
-        DLOG("Applying config for bridge serving bus %u (disabled %d) %s\n",
-                bridge->secBusNum, accessDisabled,
-                (!bridge->secBusNum) ? "(dead)" : "");
+        accessDisabled = false;
+        DLOG("Applying config for bridge "B()" (disabled %d)\n",
+                BRIDGE_IDENT(bridge), accessDisabled);
 
         commandReg = disableAccess(bridge, accessDisabled);
 
@@ -2932,13 +3330,22 @@ accessDisabled = false;
                 continue;
             if ((1 << rangeIndex) & bridge->rangeBaseChanges)
             {
+				uint32_t bar;
                 start = range->start;
-                configWrite32(bridge, kIOPCIConfigBaseAddress0 + rangeIndex * 4, start);
+                bar = kIOPCIConfigBaseAddress0 + (rangeIndex * 4);
+                configWrite32(bridge, bar, start);
+				DLOG("  [0x%x %s] 0x%llx, read 0x%x\n", 
+					bar, gPCIResourceTypeName[range->type],
+					start & 0xFFFFFFFF, configRead32(bridge, bar));
                 start >>= 32;
                 if (start)
                 {
                     rangeIndex++;
-                    configWrite32(bridge, kIOPCIConfigBaseAddress0 + rangeIndex * 4, start);
+                    bar += 4;
+                    configWrite32(bridge, bar, start);
+                    DLOG("  [0x%x %s] 0x%llx, read 0x%x\n", 
+                        bar, gPCIResourceTypeName[range->type],
+                        start, configRead32(bridge, bar));
                 }
             }
             bridge->rangeBaseChanges &= ~(1 << thisIndex);
@@ -2948,14 +3355,29 @@ accessDisabled = false;
         if (((1 << kIOPCIResourceTypeBusNumber) & typeMask)
           && ((1 << kIOPCIRangeBridgeBusNumber) & (bridge->rangeBaseChanges | bridge->rangeSizeChanges)))
         {
-            DLOG_RANGE("  BUS", bridge->ranges[kIOPCIRangeBridgeBusNumber]);
+			range = bridge->ranges[kIOPCIRangeBridgeBusNumber];
+            DLOG_RANGE("  BUS", range);
+			if (range->start && range->size)
+			{
+				bridge->secBusNum = range->start;
+				bridge->subBusNum = range->start + range->size - 1;
+			}
+			else
+			{
+				bridge->secBusNum = bridge->subBusNum = 0;
+			}
 
             // Give children the correct bus
-    
+
             FOREACH_CHILD(bridge, child)
             {
                 child->space.s.busNum = bridge->secBusNum;
             }
+
+            DLOG("  OLD: prim/sec/sub = 0x%02x:0x%02x:0x%02x\n",
+                 configRead8(bridge, kPCI2PCIPrimaryBus),
+                 configRead8(bridge, kPCI2PCISecondaryBus),
+                 configRead8(bridge, kPCI2PCISubordinateBus));
     
             // Program bridge bus numbers
     
@@ -2974,12 +3396,7 @@ accessDisabled = false;
         }
 
         // That's it for cardbus
-
-        if (kPCIHeaderType2 == bridge->headerType)
-        {
-            fCardBusConfigCount++;
-            break;
-        }
+        if (kPCIHeaderType2 == bridge->headerType) break;
 
         if (((1 << kIOPCIResourceTypeIO) & typeMask)
           && ((1 << kIOPCIRangeBridgeIO) & (bridge->rangeBaseChanges | bridge->rangeSizeChanges)))
@@ -3049,6 +3466,13 @@ accessDisabled = false;
             baselim32 = 0x0000FFF0; // closed range
             start     = 0;
             end       = 0;
+
+            if ((1 << kIOPCIRangeBridgePFMemory) & bridge->rangeBaseChanges)
+			{
+				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  -1U);
+				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit, -1U);
+				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, baselim32);
+			}
             range = bridge->ranges[kIOPCIRangeBridgePFMemory];
             if (range && range->size && !(kPCIDeviceStateNoLink & bridge->deviceState))
             {
@@ -3061,8 +3485,8 @@ accessDisabled = false;
                 baselim32 = ((start >> 16) & 0xFFF0) | (end & 0xFFF00000);
             }
             configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, baselim32);
-            configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  (start >> 32));
             configWrite32(bridge, kPCI2PCIPrefetchUpperLimit, (end   >> 32));
+            configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  (start >> 32));
 
             DLOG("  PFM: base/limit   = 0x%08x, 0x%08x, 0x%08x\n",  
                  (uint32_t)configRead32(bridge, kPCI2PCIPrefetchMemoryRange),
@@ -3072,13 +3496,12 @@ accessDisabled = false;
             bridge->rangeBaseChanges &= ~(1 << kIOPCIRangeBridgePFMemory);
             bridge->rangeSizeChanges &= ~(1 << kIOPCIRangeBridgePFMemory);
         }
-        fBridgeConfigCount++;
     }
     while (false);
 
     // Set IOSE, memory enable, Bus Master transaction forwarding
 
-    DLOG("Enabling bridge serving bus %u\n", bridge->secBusNum);
+    DLOG("Enabling bridge "B()"\n", BRIDGE_IDENT(bridge));
 
     if (kPCIHeaderType2 == bridge->headerType)
     {
@@ -3189,9 +3612,11 @@ void CLASS::writeLatencyTimer(IOPCIConfigEntry * device)
 
 //---------------------------------------------------------------------------
 
-bool CLASS::bridgeFinalizeConfig(void * unused, IOPCIConfigEntry * bridge)
+int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge)
 {
 	uint32_t deviceControl, newControl;
+
+    if (!(kPCIDeviceStateAllocated & bridge->deviceState)) return (true);
 
 	if (bridge->supportsHotPlug >= kPCIHotPlug)
 	{
@@ -3209,12 +3634,57 @@ bool CLASS::bridgeFinalizeConfig(void * unused, IOPCIConfigEntry * bridge)
 			if (newControl != deviceControl)
 			{
 				configWrite16(child, child->expressCapBlock + 0x08, deviceControl);
-				DLOG("payload set 0x%08x -> 0x%08x (at %u:%u:%u), fMaxPayload 0x%x\n",
+				DLOG("payload set 0x%08x -> 0x%08x (at "D()"), fMaxPayload 0x%x\n",
 					  deviceControl, newControl,
-					  PCI_ADDRESS_TUPLE(child), fMaxPayload);
+					  DEVICE_IDENT(child), fMaxPayload);
 			}
 		}
 	}
+
+	if (kPCIDeviceStateChildChanged & bridge->deviceState)
+	{
+		bridge->deviceState &= ~kPCIDeviceStateChildChanged;
+		markChanged(bridge);
+	}
+
+#if PLX8680
+	do
+	{
+		volatile uint32_t * regs;
+		uint32_t            reg32, lut;
+		IOPCIConfigEntry *  parent;
+	
+		parent = bridge;
+		do { regs = parent->plx; } while (!regs && (parent = parent->parent));
+		if (!regs) break;
+
+		FOREACH_CHILD(bridge, child)
+		{
+		    if (kPCIHeaderType0 != child->headerType) continue;
+            if (0x868010b5 == child->vendorProduct)   continue;
+
+			reg32 = (child->space.s.busNum << 8);
+//			reg32 |= (child->space.s.deviceNum << 3);
+//			reg32 |= (child->space.s.functionNum << 0);
+			reg32 |= 0x80000000;
+
+            regs += ((0x3e000 + 0xd98) / 4);
+			for (lut = 0; lut < 7; lut++)
+			{
+				if (reg32 == regs[lut]) break;
+				if (0x80000000 & regs[lut]) continue;
+                regs[lut] = reg32;
+                DLOG("PLX LUT[0x%x] == 0x%x\n", &regs[lut], reg32);
+                if (lut && parent->ranges[kIOPCIRangeBridgePFMemory])
+                {
+                    child->plxAperture = parent->ranges[kIOPCIRangeBridgePFMemory]->start;
+                }
+                break;
+			}
+		}
+	}
+	while (false);
+#endif /* PLX8680 */
 
 	return (bridgeConstructDeviceTree(unused, bridge));
 }
@@ -3232,9 +3702,9 @@ bool CLASS::configAccess(IOPCIConfigEntry * device, bool write)
 			& device->deviceState));
 	if (!ok)
 	{
-		DLOG("config protect fail(1) for device %u:%u:%u\n", PCI_ADDRESS_TUPLE(device));
-		OSReportWithBacktrace("config protect fail(1) for device %u:%u:%u\n", 
-								PCI_ADDRESS_TUPLE(device));
+		DLOG("config protect fail(1) for device "D()"\n", DEVICE_IDENT(device));
+		OSReportWithBacktrace("config protect fail(1) for device "D()"\n", 
+								DEVICE_IDENT(device));
 	}
 	return (ok);
 }

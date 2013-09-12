@@ -30,6 +30,8 @@
 			<string>IOHIDSystem</string>
 			<key>IOMatchCategory</key>
 			<string>IOHID</string>
+			<key>HIDPowerOnDelayNS</key>
+			<string>500000000</string>
 			<key>IOProviderClass</key>
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>

@@ -45,10 +45,10 @@ enum {
 
 #define kIOUSBHubPowerStateStable	-1
 
-/*!
- @class IOUSBHubPolicyMaker
- @abstract Super class for Hub drivers to incorporate common Power Management code.
- */
+/*
+ class IOUSBHubPolicyMaker
+ Super class for Hub drivers to incorporate common Power Management code.
+*/
 class IOUSBHubPolicyMaker : public IOService
 {
 	OSDeclareAbstractStructors(IOUSBHubPolicyMaker)
@@ -74,6 +74,7 @@ protected:
 public:
 	// IOService methods
     virtual bool						start(IOService * provider);
+	virtual void						stop( IOService * provider );
 	virtual IOReturn					powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
 	virtual unsigned long				powerStateForDomainState ( IOPMPowerFlags domainState );
 	virtual IOReturn					setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009-2013  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,7 +20,6 @@
 
 #include <config.h>
 
-#include <libgen.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
@@ -38,6 +37,7 @@
 
 #include <dns/keyvalues.h>
 #include <dns/result.h>
+#include <dns/log.h>
 
 #include <dst/dst.h>
 
@@ -139,6 +139,7 @@ main(int argc, char **argv) {
 	int		prepub = -1;
 	isc_stdtime_t	now;
 	isc_stdtime_t	pub = 0, act = 0, rev = 0, inact = 0, del = 0;
+	isc_stdtime_t	prevact = 0, previnact = 0, prevdel = 0;
 	isc_boolean_t	setpub = ISC_FALSE, setact = ISC_FALSE;
 	isc_boolean_t	setrev = ISC_FALSE, setinact = ISC_FALSE;
 	isc_boolean_t	setdel = ISC_FALSE;
@@ -151,6 +152,7 @@ main(int argc, char **argv) {
 	isc_boolean_t	force = ISC_FALSE;
 	isc_boolean_t   epoch = ISC_FALSE;
 	isc_boolean_t   changed = ISC_FALSE;
+	isc_log_t       *log = NULL;
 
 	if (argc == 1)
 		usage();
@@ -158,6 +160,8 @@ main(int argc, char **argv) {
 	result = isc_mem_create(0, 0, &mctx);
 	if (result != ISC_R_SUCCESS)
 		fatal("Out of memory");
+
+	setup_logging(verbose, mctx, &log);
 
 	dns_result_register();
 
@@ -340,7 +344,6 @@ main(int argc, char **argv) {
 
 	if (predecessor != NULL) {
 		char keystr[DST_KEY_FORMATSIZE];
-		isc_stdtime_t when;
 		int major, minor;
 
 		if (prepub == -1)
@@ -372,19 +375,20 @@ main(int argc, char **argv) {
 			fatal("Predecessor has incompatible format "
 			      "version %d.%d\n\t", major, minor);
 
-		result = dst_key_gettime(prevkey, DST_TIME_ACTIVATE, &when);
+		result = dst_key_gettime(prevkey, DST_TIME_ACTIVATE, &prevact);
 		if (result != ISC_R_SUCCESS)
 			fatal("Predecessor has no activation date. "
 			      "You must set one before\n\t"
 			      "generating a successor.");
 
-		result = dst_key_gettime(prevkey, DST_TIME_INACTIVE, &act);
+		result = dst_key_gettime(prevkey, DST_TIME_INACTIVE,
+					 &previnact);
 		if (result != ISC_R_SUCCESS)
 			fatal("Predecessor has no inactivation date. "
 			      "You must set one before\n\t"
 			      "generating a successor.");
 
-		pub = act - prepub;
+		pub = prevact - prepub;
 		if (pub < now && prepub != 0)
 			fatal("Predecessor will become inactive before the\n\t"
 			      "prepublication period ends.  Either change "
@@ -392,13 +396,18 @@ main(int argc, char **argv) {
 			      "or use the -i option to set a shorter "
 			      "prepublication interval.");
 
-		result = dst_key_gettime(prevkey, DST_TIME_DELETE, &when);
+		result = dst_key_gettime(prevkey, DST_TIME_DELETE, &prevdel);
 		if (result != ISC_R_SUCCESS)
-			fprintf(stderr, "%s: WARNING: Predecessor has no "
+			fprintf(stderr, "%s: warning: Predecessor has no "
 					"removal date;\n\t"
 					"it will remain in the zone "
 					"indefinitely after rollover.\n",
 					program);
+		else if (prevdel < previnact)
+			fprintf(stderr, "%s: warning: Predecessor is "
+					"scheduled to be deleted\n\t"
+					"before it is scheduled to be "
+					"inactive.\n", program);
 
 		changed = setpub = setact = ISC_TRUE;
 		dst_key_free(&prevkey);
@@ -459,6 +468,20 @@ main(int argc, char **argv) {
 		if (flags != dst_key_flags(key))
 			fatal("Key flags mismatch");
 	}
+
+	prevdel = previnact = 0;
+	if ((setdel && setinact && del < inact) ||
+	    (dst_key_gettime(key, DST_TIME_INACTIVE,
+			     &previnact) == ISC_R_SUCCESS &&
+	     setdel && !setinact && del < previnact) ||
+	    (dst_key_gettime(key, DST_TIME_DELETE,
+			     &prevdel) == ISC_R_SUCCESS &&
+	     setinact && !setdel && prevdel < inact) ||
+	    (!setdel && !setinact && prevdel < previnact))
+		fprintf(stderr, "%s: warning: Key is scheduled to "
+				"be deleted before it is\n\t"
+				"scheduled to be inactive.\n",
+			program);
 
 	if (force)
 		set_keyversion(key);
@@ -578,6 +601,7 @@ main(int argc, char **argv) {
 	cleanup_entropy(&ectx);
 	if (verbose > 10)
 		isc_mem_stats(mctx, stdout);
+	cleanup_logging(&log);
 	isc_mem_free(mctx, directory);
 	isc_mem_destroy(&mctx);
 

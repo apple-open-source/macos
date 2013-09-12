@@ -122,6 +122,9 @@ enum
 	kUSBDeviceResetReturned				= 0x13,
 	kAbortCurrentSCSITask				= 0x14,
 	kCompletingCommandWithError			= 0x15,
+    kDeviceInformation                  = 0x16,
+    kSuspendPort                        = 0x17,
+    kSubclassUse                        = 0x18,
 
 	// CBI Tracepoints					0x05278900 - 0x0527897C
 	kCBIProtocolDeviceDetected			= 0x40,
@@ -144,10 +147,54 @@ enum
 	kBOCompletion						= 0x89
 	
 };
-
+    
+// SubclassCodes                    
+enum
+{
+    
+    kSubclassCode_AppleUSBODD           = 0x00,
+    kSubclassCode_AppleUSBCardReaderUMC = 0x01
+    
+};
+    
+// SubclassCodes for AppleUSBODD
+enum
+{
+    
+    kAppleUSBODD_probe                              = 0x00,
+    kAppleUSBODD_start                              = 0x01,
+    kAppleUSBODD_requestedExtraPower                = 0x02,
+    kAppleUSBODD_isMacModelSupported                = 0x03,
+    kAppleUSBODD_FindACPIPlatformDevice             = 0x04,
+    kAppleUSBODD_CheckForACPIFlags                  = 0x05
+    
+};
+    
+// SubclassCodes for AppleUSBCardReaderUMC
+enum
+{
+    
+    kAppleUSBCardReaderUMC_start                    = 0x00,
+    kAppleUSBCardReaderUMC_stop                     = 0x01,
+    kAppleUSBCardReaderUMC_HandlePowerChange        = 0x02,
+    kAppleUSBCardReaderUMC_message                  = 0x03,
+    kAppleUSBCardReaderUMC_setProperty              = 0x04,
+    kAppleUSBCardReaderUMC_gpioMediaDetectFired     = 0x05,
+    kAppleUSBCardReaderUMC_gpioMediaDetectEnable    = 0x06,
+    kAppleUSBCardReaderUMC_controllerReset          = 0x07,
+    kAppleUSBCardReaderUMC_powerControl             = 0x08,
+    kAppleUSBCardReaderUMC_waitForReconnect         = 0x09,
+    kAppleUSBCardReaderUMC_systemWillShutdown       = 0x0A,
+    kAppleUSBCardReaderUMC_generalPurpose           = 0x0B,
+    kAppleUSBCardReaderUMC_stop_2                   = 0x0C
+    
+};
+    
 // Tracepoint macros.                                          
-#define UMC_TRACE( code )	( ( ( DBG_IOKIT & 0xFF ) << 24) | ( ( DBG_IOSAM & 0xFF ) << 16 ) | ( ( kSAMClassUSB & 0x3F ) << 10 ) | ( ( code & 0xFF ) << 2 ) )
-
+#define UMC_TRACE( code )           ( ( ( DBG_IOKIT & 0xFF ) << 24 ) | ( ( DBG_IOSAM & 0xFF ) << 16 ) | ( ( kSAMClassUSB & 0x3F ) << 10 ) | ( ( code & 0xFF ) << 2 ) )
+#define USBODD_TRACE( code )        ( ( ( kSubclassCode_AppleUSBODD & 0xFF ) << 24 ) | ( code & 0xFFFFFF ) )
+#define USBCARDREADER_TRACE( code )	( ( ( kSubclassCode_AppleUSBCardReaderUMC & 0xFF ) << 24 ) | ( code & 0xFFFFFF ) )
+    
 #ifdef __cplusplus
 }
 #endif

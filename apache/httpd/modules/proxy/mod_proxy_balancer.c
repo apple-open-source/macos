@@ -417,7 +417,7 @@ static void force_recovery(proxy_balancer *balancer, server_rec *s)
             }
         }
     }
-    if (!ok) {
+    if (!ok && balancer->forcerecovery) {
         /* If all workers are in error state force the recovery.
          */
         worker = (proxy_worker *)balancer->workers->elts;
@@ -429,6 +429,17 @@ static void force_recovery(proxy_balancer *balancer, server_rec *s)
                          balancer->name, worker->hostname);
         }
     }
+}
+
+static apr_status_t decrement_busy_count(void *worker_)
+{
+    proxy_worker *worker = worker_;
+    
+    if (worker->s->busy) {
+        worker->s->busy--;
+    }
+
+    return APR_SUCCESS;
 }
 
 static int proxy_balancer_pre_request(proxy_worker **worker,
@@ -552,6 +563,8 @@ static int proxy_balancer_pre_request(proxy_worker **worker,
     }
 
     (*worker)->s->busy++;
+    apr_pool_cleanup_register(r->pool, *worker, decrement_busy_count,
+                              apr_pool_cleanup_null);
 
     /* Add balancer/worker info to env. */
     apr_table_setn(r->subprocess_env,
@@ -604,8 +617,10 @@ static int proxy_balancer_post_request(proxy_worker *worker,
         for (i = 0; i < balancer->errstatuses->nelts; i++) {
             int val = ((int *)balancer->errstatuses->elts)[i];
             if (r->status == val) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-                             "proxy: BALANCER: (%s).  Forcing recovery for worker (%s), failonstatus %d",
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                             "proxy: BALANCER: (%s).  Forcing worker (%s) into error state "
+                             "due to status code %d matching 'failonstatus' "
+                             "balancer parameter",
                              balancer->name, worker->name, val);
                 worker->s->status |= PROXY_WORKER_IN_ERROR;
                 worker->s->error_time = apr_time_now();
@@ -622,11 +637,7 @@ static int proxy_balancer_post_request(proxy_worker *worker,
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
                  "proxy_balancer_post_request for (%s)", balancer->name);
 
-    if (worker && worker->s->busy)
-        worker->s->busy--;
-
     return OK;
-
 }
 
 static void recalc_factors(proxy_balancer *balancer)
@@ -818,7 +829,8 @@ static int balancer_handler(request_rec *r)
         ap_rputs(DOCTYPE_HTML_3_2
                  "<html><head><title>Balancer Manager</title></head>\n", r);
         ap_rputs("<body><h1>Load Balancer Manager for ", r);
-        ap_rvputs(r, ap_get_server_name(r), "</h1>\n\n", NULL);
+        ap_rvputs(r, ap_escape_html(r->pool, ap_get_server_name(r)),
+                  "</h1>\n\n", NULL);
         ap_rvputs(r, "<dl><dt>Server Version: ",
                   ap_get_server_description(), "</dt>\n", NULL);
         ap_rvputs(r, "<dt>Server Built: ",
@@ -853,7 +865,8 @@ static int balancer_handler(request_rec *r)
             worker = (proxy_worker *)balancer->workers->elts;
             for (n = 0; n < balancer->workers->nelts; n++) {
                 char fbuf[50];
-                ap_rvputs(r, "<tr>\n<td><a href=\"", r->uri, "?b=",
+                ap_rvputs(r, "<tr>\n<td><a href=\"",
+                          ap_escape_uri(r->pool, r->uri), "?b=",
                           balancer->name + sizeof("balancer://") - 1, "&w=",
                           ap_escape_uri(r->pool, worker->name),
                           "&nonce=", balancer_nonce, 
@@ -894,7 +907,7 @@ static int balancer_handler(request_rec *r)
             ap_rputs("<h3>Edit worker settings for ", r);
             ap_rvputs(r, wsel->name, "</h3>\n", NULL);
             ap_rvputs(r, "<form method=\"GET\" action=\"", NULL);
-            ap_rvputs(r, r->uri, "\">\n<dl>", NULL);
+            ap_rvputs(r, ap_escape_uri(r->pool, r->uri), "\">\n<dl>", NULL);
             ap_rputs("<table><tr><td>Load factor:</td><td><input name=\"lf\" type=text ", r);
             ap_rprintf(r, "value=\"%d\"></td></tr>\n", wsel->s->lbfactor);
             ap_rputs("<tr><td>LB Set:</td><td><input name=\"ls\" type=text ", r);

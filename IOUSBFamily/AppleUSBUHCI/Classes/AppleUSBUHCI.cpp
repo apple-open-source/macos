@@ -1,5 +1,5 @@
 /*
- * Copyright © 2004-2007, 2012 Apple Inc. All rights reserved.
+ * Copyright © 2004-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -174,7 +174,7 @@ AppleUSBUHCI::HardwareInit(void)
 	status = InitializeBufferMemory();
     if (status != kIOReturnSuccess) 
 	{
-		USBError(1, "AppleUSBUHCI[%p]::HardwareInit - InitializeBufferMemory failed with status(%p)", this, (void*)status);
+		USBError(1, "AppleUSBUHCI::HardwareInit - InitializeBufferMemory failed with status(%p)", (void*)status);
         return status;
     }
 
@@ -359,19 +359,16 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
 		
         SetDeviceName();
         
-        // Do not use standardized errata bits yet
-        _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+        // SetVendorInfo() set an errata bit, so we need to OR in our regular errata
+        _ERRATA64BITS |= GetErrata64Bits(_vendorID, _deviceID, _revisionID);
 		
-		if (_v3ExpansionData->_onThunderbolt || (_errataBits & kErrataDontUseCompanionController))
+		if (_v3ExpansionData->_onThunderbolt || (_ERRATA64BITS & kErrataDontUseCompanionController))
 		{
 			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - Thunderbolt and companion controllers disallowed. Not initializing", this);
             return kIOReturnUnsupported;
 		}
 		
-		
-  		setProperty("Errata", _errataBits, 32);
-		
-		_ioMap = _device->mapDeviceMemoryWithIndex(0);
+        _ioMap = _device->mapDeviceMemoryWithIndex(0);
 		
         USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - _ioMap = %p", this, _ioMap);
         if (_ioMap) 
@@ -379,7 +376,7 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
             USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - _ioMap vaddr %p, pPhysical %p", this, (void*)_ioMap->getVirtualAddress(), (void*)_ioMap->getPhysicalAddress());
         } else 
 		{
-            USBError(1, "AppleUSBUHCI[%p]::UIMInitialize - ioMap is NULL", this);
+            USBError(1, "AppleUSBUHCI::UIMInitialize - ioMap is NULL");
             return kIOReturnNoMemory;
         }
 
@@ -395,7 +392,7 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         }
 
         _isocBandwidth = kUSBMaxFSIsocEndpointReqCount;
-		_expansionData->_isochMaxBusStall = 10000;						// we need a requireMaxBusStall of 10 microseconds for UHCI
+		_expansionData->_isochMaxBusStall = kUHCIIsochMaxBusStall;						// we need a requireMaxBusStall of 10 microseconds for UHCI
 		
 		
 		tempTime = mach_absolute_time();
@@ -566,7 +563,7 @@ AppleUSBUHCI::SetVendorInfo(void)
 	{
         // VIA controllers.
 		// After a BABBLE error, the controller seems to lock up.
-        _errataBits = kUHCIResetAfterBabble;
+        _ERRATA64BITS |= kErratakUHCIResetAfterBabble;
     }
 }
 
@@ -1098,7 +1095,7 @@ AppleUSBUHCI::scavengeAnIsochTD(AppleUHCIIsochTransferDescriptor *pTD)
 
     if (pEP == NULL)
     {
-		USBError(1, "AppleUSBUHCI[%p]::scavengeAnIsochTD - could not find endpoint associated with iTD (%p)", this, pTD->_pEndpoint);
+		USBError(1, "AppleUSBUHCI::scavengeAnIsochTD - could not find endpoint associated with iTD (%p)", pTD->_pEndpoint);
     }
     else
     {	
@@ -1247,7 +1244,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 						// for IN transactions, we store them in the DMA Command to be copied after the DMACommand is released
 						if (!command)
 						{
-							USBError(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - ERROR - missing usbcommand!!", this);
+							USBError(1, "AppleUSBUHCI::scavengeQueueHeads - ERROR - missing usbcommand!!");
 						}
 						else
 						{
@@ -1262,7 +1259,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 							}
 							else
 							{
-								USBError(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - ERROR - TD (%p) missing or empty dmaCommand (%p) or (%p)", this, qTD, dmaCommand, command->GetDMACommand());
+								USBError(1, "AppleUSBUHCI::scavengeQueueHeads - ERROR - TD (%p) missing or empty dmaCommand (%p) or (%p)", qTD, dmaCommand, command->GetDMACommand());
 							}
 						}
 					}
@@ -1425,7 +1422,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 		{
 			if ( pHCDoneTD->command == NULL )
 			{
-				USBError (1, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing pHCDoneTD->command is NULL (%p)", this, pHCDoneTD);
+				USBError (1, "AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing pHCDoneTD->command is NULL (%p)", pHCDoneTD);
 			}
 			else
 			{
@@ -1443,7 +1440,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 					{
 						if (!_controlBulkTransactionsOut)
 						{
-							USBError(1, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut underrun!", this);
+							USBError(1, "AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut underrun!");
 						}
 						else
 						{
@@ -1515,7 +1512,7 @@ AppleUSBUHCI::AllocateTD(AppleUHCIQueueHead *pQH)
 		memBlock = AppleUHCItdMemoryBlock::NewMemoryBlock();
 		if (!memBlock)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::AllocateTD - unable to allocate a new memory block!",  this);
+			USBError(1, "AppleUSBUHCI::AllocateTD - unable to allocate a new memory block!");
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -1529,7 +1526,7 @@ AppleUSBUHCI::AllocateTD(AppleUHCIQueueHead *pQH)
 			freeTD = AppleUHCITransferDescriptor::WithSharedMemory(memBlock->GetLogicalPtr(i), memBlock->GetPhysicalPtr(i));
 			if (!freeTD)
 			{
-				USBError(1, "AppleUSBUHCI[%p]::AllocateTD - hmm. ran out of TDs in a memory block",  this);
+				USBError(1, "AppleUSBUHCI::AllocateTD - hmm. ran out of TDs in a memory block");
 				freeTD = _pFreeTD;
 				break;
 			}
@@ -1605,7 +1602,7 @@ AppleUSBUHCI::AllocateITD(void)
 		memBlock = AppleUHCItdMemoryBlock::NewMemoryBlock();
 		if (!memBlock)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::AllocateITD - unable to allocate a new memory block!",  this);
+			USBError(1, "AppleUSBUHCI::AllocateITD - unable to allocate a new memory block!");
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -1619,7 +1616,7 @@ AppleUSBUHCI::AllocateITD(void)
 			freeITD = AppleUHCIIsochTransferDescriptor::WithSharedMemory(memBlock->GetLogicalPtr(i), memBlock->GetPhysicalPtr(i));
 			if (!freeITD)
 			{
-				USBError(1, "AppleUSBUHCI[%p]::AllocateITD - hmm. ran out of TDs in a memory block",  this);
+				USBError(1, "AppleUSBUHCI::AllocateITD - hmm. ran out of TDs in a memory block");
 				freeITD = _pFreeITD;
 				break;
 			}
@@ -1657,7 +1654,7 @@ AppleUSBUHCI::DeallocateITD(AppleUHCIIsochTransferDescriptor *pITD)
 	
 	if (pITD->alignBuffer)
 	{
-		USBError(1, "AppleUSBUHCI[%p]::DeallocateITD - UNEXPECTED alignment buffer %p", this, pITD->alignBuffer);
+		USBError(1, "AppleUSBUHCI::DeallocateITD - UNEXPECTED alignment buffer %p", pITD->alignBuffer);
 		ReleaseIsochAlignmentBuffer(pITD->alignBuffer);
 		pITD->alignBuffer = NULL;
 	}
@@ -1821,7 +1818,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 	dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
 	if (!dmaCommand)
 	{
-		USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not create IODMACommand", this);
+		USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not create IODMACommand");
 		return kIOReturnInternalError;
 	}
 	USBLog(6, "AppleUSBUHCI[%p]::InitializeBufferMemory - got IODMACommand %p", this, dmaCommand);
@@ -1833,7 +1830,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 		_frameListBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, PAGE_SIZE, kUHCIStructureAllocationPhysicalMask);
 		if (_frameListBuffer == NULL) 
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not get frame list buffer", this);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not get frame list buffer");
 			status = kIOReturnNoMemory;
 			break;
 		}
@@ -1841,7 +1838,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 		status = _frameListBuffer->prepare();
 		if (status)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - _frameListBuffer->prepare failed with status(%p)", this, (void*)status);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - _frameListBuffer->prepare failed with status(%p)", (void*)status);
 			break;
 		}
 		
@@ -1850,7 +1847,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 		status = dmaCommand->setMemoryDescriptor(_frameListBuffer);
 		if (status)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - setMemoryDescriptor returned err (%p)", this, (void*)status);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - setMemoryDescriptor returned err (%p)", (void*)status);
 			break;
 		}
 		
@@ -1862,7 +1859,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 		status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
 		if (status || (numSegments != 1) || (segments.fLength != PAGE_SIZE))
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)status, (int)numSegments, (int)segments.fLength);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", (void*)status, (int)numSegments, (int)segments.fLength);
 			dmaCommand->clearMemoryDescriptor();
 			status = status ? status : kIOReturnInternalError;
 			break;
@@ -1879,21 +1876,21 @@ AppleUSBUHCI::InitializeBufferMemory()
 		_cbiAlignBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, PAGE_SIZE, kUHCIStructureAllocationPhysicalMask);
 		if (!_cbiAlignBuffer)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not get alignment buffer", this);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not get alignment buffer");
 			status = kIOReturnNoMemory;
 			break;
 		}
 		status = _cbiAlignBuffer->prepare();
 		if (status)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - _alignBuffer->prepare failed with status(%p)", this, (void*)status);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - _alignBuffer->prepare failed with status(%p)", (void*)status);
 			break;
 		}
 		alignBufferPrepared = true;
 		status = dmaCommand->setMemoryDescriptor(_cbiAlignBuffer);
 		if (status)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - setMemoryDescriptor (_alignBuffer) returned err (%p)", this, (void*)status);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - setMemoryDescriptor (_alignBuffer) returned err (%p)", (void*)status);
 			break;
 		}
 		
@@ -1907,7 +1904,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 		status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
 		if (status || (numSegments != 1) || (segments.fLength != PAGE_SIZE))
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)status, (int)numSegments, (int)segments.fLength);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", (void*)status, (int)numSegments, (int)segments.fLength);
 			dmaCommand->clearMemoryDescriptor();
 			status = status ? status : kIOReturnInternalError;
 			break;
@@ -1918,7 +1915,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 			alignBuf = new UHCIAlignmentBuffer;
 			if (!alignBuf)
 			{
-				USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - unable to allocate expected UHCIAlignmentBuffer", this);
+				USBError(1, "AppleUSBUHCI::InitializeBufferMemory - unable to allocate expected UHCIAlignmentBuffer");
 				break;
 			}
 			alignBuf->paddr = pPhysical+(i*kUHCI_BUFFER_CBI_ALIGN_SIZE);
@@ -1936,21 +1933,21 @@ AppleUSBUHCI::InitializeBufferMemory()
 		_isochAlignBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, kUHCI_BUFFER_ISOCH_ALIGN_QTY * kUHCI_BUFFER_ISOCH_ALIGN_SIZE, kUHCIStructureAllocationPhysicalMask);
 		if (!_isochAlignBuffer)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not get isoch alignment buffer", this);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not get isoch alignment buffer");
 			status = kIOReturnNoMemory;
 			break;
 		}
 		status = _isochAlignBuffer->prepare();
 		if (status)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - _alignBuffer->prepare failed with status(%p)", this, (void*)status);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - _alignBuffer->prepare failed with status(%p)", (void*)status);
 			break;
 		}
 		isochBufferPrepared = true;
 		status = dmaCommand->setMemoryDescriptor(_isochAlignBuffer);
 		if (status)
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - setMemoryDescriptor (_alignBuffer) returned err (%p)", this, (void*)status);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - setMemoryDescriptor (_alignBuffer) returned err (%p)", (void*)status);
 			break;
 		}
 		
@@ -1966,7 +1963,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 		status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
 		if (status || (numSegments != 1) || (segments.fLength != PAGE_SIZE))
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)status, (int)numSegments, (int)segments.fLength);
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", (void*)status, (int)numSegments, (int)segments.fLength);
 			dmaCommand->clearMemoryDescriptor();
 			status = status ? status : kIOReturnInternalError;
 			break;
@@ -1977,7 +1974,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 			alignBuf = new UHCIAlignmentBuffer;
 			if (!alignBuf)
 			{
-				USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - unable to allocate expected UHCIAlignmentBuffer", this);
+				USBError(1, "AppleUSBUHCI::InitializeBufferMemory - unable to allocate expected UHCIAlignmentBuffer");
 				break;
 			}
 			alignBuf->paddr = pPhysical+(i*kUHCI_BUFFER_ISOCH_ALIGN_SIZE);
@@ -2021,7 +2018,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 	{
 		if (dmaCommand->getMemoryDescriptor())
 		{
-			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - dmaCommand still has memory descriptor (%p)", this, dmaCommand->getMemoryDescriptor());
+			USBError(1, "AppleUSBUHCI::InitializeBufferMemory - dmaCommand still has memory descriptor (%p)", dmaCommand->getMemoryDescriptor());
 			dmaCommand->clearMemoryDescriptor();
 		}
 		dmaCommand->release();
@@ -2075,7 +2072,7 @@ AppleUSBUHCI::GetCBIAlignmentBuffer()
 	
 	if (queue_empty(&_cbiAlignmentBuffers)) 
 	{
-		USBError(1, "AppleUSBUHCI[%p]::GetCBIAlignmentBuffer - ran out of alignment buffers", this);
+		USBError(1, "AppleUSBUHCI::GetCBIAlignmentBuffer - ran out of alignment buffers");
 		return NULL;
 	}
 	queue_remove_first(&_cbiAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
@@ -2102,7 +2099,7 @@ AppleUSBUHCI::GetIsochAlignmentBuffer()
 	
 	if (queue_empty(&_isochAlignmentBuffers)) 
 	{
-		USBError(1, "AppleUSBUHCI[%p]::GetIsochAlignmentBuffer - ran out of alignment buffers", this);
+		USBError(1, "AppleUSBUHCI::GetIsochAlignmentBuffer - ran out of alignment buffers");
 		return NULL;
 	}
 	queue_remove_first(&_isochAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
@@ -2159,7 +2156,8 @@ AppleUSBUHCIDMACommand::withSpecification(SegmentFunction outSegFunc,
         return NULL;
     };
 	
-	queue_init(&me->_alignment_buffers);
+	if (me)
+		queue_init(&me->_alignment_buffers);
 
     return me;
 }

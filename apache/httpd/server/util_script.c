@@ -537,7 +537,7 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
 
             if (!buffer) {
                 /* Soak up all the script output - may save an outright kill */
-                while ((*getsfunc) (w, MAX_STRING_LEN - 1, getsfunc_data)) {
+                while ((*getsfunc)(w, MAX_STRING_LEN - 1, getsfunc_data) > 0) {
                     continue;
                 }
             }
@@ -626,7 +626,8 @@ static int getsfunc_BRIGADE(char *buf, int len, void *arg)
     apr_status_t rv;
     int done = 0;
 
-    while ((dst < dst_end) && !done && !APR_BUCKET_IS_EOS(e)) {
+    while ((dst < dst_end) && !done && e != APR_BRIGADE_SENTINEL(bb)
+           && !APR_BUCKET_IS_EOS(e)) {
         const char *bucket_data;
         apr_size_t bucket_data_len;
         const char *src;
@@ -636,6 +637,7 @@ static int getsfunc_BRIGADE(char *buf, int len, void *arg)
         rv = apr_bucket_read(e, &bucket_data, &bucket_data_len,
                              APR_BLOCK_READ);
         if (rv != APR_SUCCESS || (bucket_data_len == 0)) {
+            *dst = '\0';
             return APR_STATUS_IS_TIMEUP(rv) ? -1 : 0;
         }
         src = bucket_data;
@@ -659,7 +661,7 @@ static int getsfunc_BRIGADE(char *buf, int len, void *arg)
         e = next;
     }
     *dst = 0;
-    return 1;
+    return done;
 }
 
 AP_DECLARE(int) ap_scan_script_header_err_brigade(request_rec *r,
@@ -681,8 +683,10 @@ static int getsfunc_STRING(char *w, int len, void *pvastrs)
     const char *p;
     int t;
 
-    if (!strs->curpos || !*strs->curpos)
+    if (!strs->curpos || !*strs->curpos) {
+        w[0] = '\0';
         return 0;
+    }
     p = ap_strchr_c(strs->curpos, '\n');
     if (p)
         ++p;

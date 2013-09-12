@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -276,6 +276,8 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 				IOAudioClientBuffer *clientBuf;
 				IOAudioEngineUserClient *userClient;
 				
+				lockStreamForIO();										// <rdar://13186726> 
+				
 				clientBuf = userClientList;
 				while (clientBuf) {
 					assert(clientBuf->userClient);
@@ -283,6 +285,8 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 					userClientsToLock->setObject(clientBuf->userClient);
 					clientBuf = clientBuf->nextClient;
 				}
+				
+				unlockStreamForIO();									// <rdar://13186726> 
 			
 				clientIterator = OSCollectionIterator::withCollection(userClientsToLock);
 				if (!clientIterator) {

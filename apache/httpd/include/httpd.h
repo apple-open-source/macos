@@ -337,9 +337,9 @@ extern "C" {
 #define AP_MAX_SENDFILE 16777216  /* 2^24 */
 
 /**
- * Special Apache error codes. These are basically used
- *  in http_main.c so we can keep track of various errors.
- *        
+ * MPM child process exit status values
+ * The MPM parent process may check the status to see if special
+ * error handling is required.
  */
 /** a normal exit */
 #define APEXIT_OK		0x0
@@ -1582,7 +1582,7 @@ AP_DECLARE(char *) ap_make_dirstr_parent(apr_pool_t *p, const char *s);
 
 /**
  * Given a directory and filename, create a single path from them.  This
- * function is smart enough to ensure that there is a sinlge '/' between the
+ * function is smart enough to ensure that there is a single '/' between the
  * directory and file names
  * @param a The pool to allocate from
  * @param dir The directory name

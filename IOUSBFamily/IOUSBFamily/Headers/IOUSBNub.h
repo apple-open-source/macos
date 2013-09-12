@@ -46,9 +46,9 @@ extern const OSSymbol *gUSBDeviceProtocol;
 class IOUSBController;
 class IOUSBPipe;
 
-/*!
- @class IOUSBNub
- @abstract Super class for for IOUSBDevice and IOUSBInterface.
+/*
+ IOUSBNub
+ Super class for for IOUSBDevice and IOUSBInterface.
  */
 class IOUSBNub : public IOService
 {

@@ -8,10 +8,13 @@
 <title>Using Apache HTTP Server on Microsoft Windows - Apache HTTP Server</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -44,7 +47,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#wincons">Running Apache as a Console Application</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#test">Testing the Installation</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#windrivemap">Configuring Access to Network Resources</a></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="req" id="req">Operating System Requirements</a></h2>
@@ -268,9 +271,7 @@
       Windows filenames instead of Unix ones. However, because Apache
       may interpret backslashes as an "escape character" sequence, you
       should consistently use forward slashes in path names, not 
-      backslashes.  Drive letters can be used; if omitted, the drive
-      of the SystemRoot directive (or -d command line option) becomes
-      the default.</p></li>
+      backslashes.</p></li>
 
       <li><p>While filenames are generally case-insensitive on
       Windows, URLs are still treated internally as case-sensitive
@@ -373,7 +374,8 @@
     <p>If you need to specify the name of the service you want to
     install, use the following command. You have to do this if you
     have several different service installations of Apache on your
-    computer.</p>
+    computer. If you specify a name during the install, you have to
+    also specify it during any other -k operation.</p>
 
     <div class="example"><p><code>
       httpd.exe -k install -n "MyServiceName"
@@ -418,27 +420,27 @@
     too. To start an installed Apache service you'll use this:</p>
 
     <div class="example"><p><code>
-      httpd.exe -k start
+      httpd.exe -k start -n "MyServiceName"
     </code></p></div>
 
     <p>To stop an Apache service via the command line switches, use
     this:</p>
 
     <div class="example"><p><code>
-      httpd.exe -k stop
+      httpd.exe -k stop -n "MyServiceName"
     </code></p></div>
 
     <p>or</p>
 
     <div class="example"><p><code>
-      httpd.exe -k shutdown
+      httpd.exe -k shutdown -n "MyServiceName"
     </code></p></div>
 
     <p>You can also restart a running service and force it to reread
     its configuration file by using:</p>
 
     <div class="example"><p><code>
-      httpd.exe -k restart
+      httpd.exe -k restart -n "MyServiceName"
     </code></p></div>
 
     <p>By default, all Apache services are registered to run as the
@@ -551,15 +553,19 @@
     shortcut starts the service. If the Apache service is running
     already, the shortcut doesn't do anything.</p>
 
-    <p>You can tell a running Apache to stop by opening another console
+    <p>If Apache is running as a service, you can tell it to stop by opening another console
     window and entering:</p>
 
     <div class="example"><p><code>
       httpd.exe -k shutdown
     </code></p></div>
 
-    <p>This should be preferred over pressing Control-C because this
-    lets Apache end any current operations and clean up gracefully.</p>
+    <p>Running as a service should be preferred over running in a
+    console window because this lets Apache end any current operations
+    and clean up gracefully.</p>
+
+    <p>But if the server is running in a console window, you can
+    only stop it by pressing Control-C in the same window.</p>
 
     <p>You can also tell Apache to restart. This forces it to reread
     the configuration file. Any operations in progress are allowed to
@@ -571,7 +577,7 @@
       httpd.exe -k restart
     </code></p></div>
 
-    <p>in any other console window.</p>
+    <p>if the server is running as a service.</p>
 
     <div class="note">Note for people familiar with the Unix version of Apache:
     these commands provide a Windows equivalent to <code>kill -TERM
@@ -800,7 +806,28 @@
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/platform/windows.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../ko/platform/windows.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/platform/windows.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

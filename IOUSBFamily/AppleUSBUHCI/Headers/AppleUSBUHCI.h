@@ -102,6 +102,8 @@ class AppleUSBUHCIDMACommand;
  */
 #define AUDIO_HACK 0
 
+// This is an iVar in our superclass' expansion data
+#define	_ERRATA64BITS					_v3ExpansionData->_errata64Bits
 
 /* It is possible to use a shorter list of "virtual" frames to reduce the memory requirement
  * of 1024 physical frames.
@@ -218,16 +220,6 @@ enum
 };    
 
 
-/*
- * Errata bits.  Eventually this should move into the USB family
- * errata bits when it is documented properly.
- */
-enum
-{
-    kUHCIResetAfterBabble   = 1
-};
-
-
 class AppleUSBUHCI : public IOUSBControllerV3
 {
     OSDeclareDefaultStructors(AppleUSBUHCI)
@@ -275,7 +267,6 @@ protected:
     UInt16							_vendorID;
     UInt16							_deviceID;
     UInt16							_revisionID;
-    UInt32							_errataBits;
     int								_deviceNameLen;
     const char *					_deviceName;
     IOFilterInterruptEventSource	*_interruptSource;

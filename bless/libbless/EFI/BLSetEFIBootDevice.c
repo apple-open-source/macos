@@ -72,7 +72,7 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
 				 int bootLegacy, const char *legacyHint, const char *optionalData, bool shortForm)
 {
     int ret;
-
+    
     CFStringRef xmlString = NULL;
     const char *bootString = NULL;
     
@@ -105,64 +105,89 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
 	} else {
         // the given device may be pointing at a RAID
         CFDictionaryRef dict = NULL;
-        CFArrayRef array = NULL;
-        char    newBSDName[MAXPATHLEN];
+        CFArrayRef      array = NULL;
+        char            newBSDName[MAXPATHLEN];
+        
         CFStringRef firstBooter = NULL;
         CFStringRef firstData = NULL;
+        int         uefiDiscBootEntry = 0;
+        int         uefiDiscPartitionStart = 0;
+        int         uefiDiscPartitionSize = 0;
         
         strcpy(newBSDName, bsdname);
         
-        ret = BLCreateBooterInformationDictionary(context, newBSDName,
-                                                    &dict);
-        if(ret) {
-            return 1;
-        }
+        // first check to see if we are dealing with a disk that has the following properties:
+        // is optical AND is DVD AND has an El Torito Boot Catalog AND has an UEFI-bootable entry.
+        // get yes/no on that, and if yes, also get some facts about where on disc it is.
+        bool isUEFIDisc = isDVDWithElToritoWithUEFIBootableOS(context, newBSDName, &uefiDiscBootEntry, &uefiDiscPartitionStart, &uefiDiscPartitionSize);
         
-        // check to see if there's a booter partition. If so, use it
-        array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
-        if(array) {
-            if(CFArrayGetCount(array) > 0) {
-                firstBooter = CFArrayGetValueAtIndex(array, 0);
-                if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
-                                       kCFStringEncodingUTF8)) {
-                    return 1;
-                }
-                contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+        if (isUEFIDisc) {
+            contextprintf(context, kBLLogLevelVerbose, "Disk is DVD disc with BootCatalog with UEFIBootableOS\n");
+        } else {
+            contextprintf(context, kBLLogLevelVerbose, "Checking if disk is complex (if it is associated with booter partitions)\n");
+            ret = BLCreateBooterInformationDictionary(context, newBSDName,
+                                                      &dict);
+            if(ret) {
+                return 1;
             }
-        }
-
-        // check to see if there's a data partition (without auxiliary) that
-        // we should boot from
-        if (!firstBooter) {
-            array = CFDictionaryGetValue(dict, kBLDataPartitionsKey);
+            
+            // check to see if there's a booter partition. If so, use it
+            array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
             if(array) {
                 if(CFArrayGetCount(array) > 0) {
-                    firstData = CFArrayGetValueAtIndex(array, 0);
-                    if(!CFStringGetCString(firstData, newBSDName, sizeof(newBSDName),
+                    firstBooter = CFArrayGetValueAtIndex(array, 0);
+                    if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
                                            kCFStringEncodingUTF8)) {
                         return 1;
                     }
-                    if (0 == strcmp(newBSDName, bsdname)) {
-                        /* same as before, no substitution */
-                        firstData = NULL;
-                    } else {
-                        contextprintf(context, kBLLogLevelVerbose, "Substituting bootable data partition %s\n", newBSDName);
+                    contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+                }
+            }
+
+            // check to see if there's a data partition (without auxiliary) that
+            // we should boot from
+            if (!firstBooter) {
+                array = CFDictionaryGetValue(dict, kBLDataPartitionsKey);
+                if(array) {
+                    if(CFArrayGetCount(array) > 0) {
+                        firstData = CFArrayGetValueAtIndex(array, 0);
+                        if(!CFStringGetCString(firstData, newBSDName, sizeof(newBSDName),
+                                               kCFStringEncodingUTF8)) {
+                            return 1;
+                        }
+                        if (0 == strcmp(newBSDName, bsdname)) {
+                            /* same as before, no substitution */
+                            firstData = NULL;
+                        } else {
+                            contextprintf(context, kBLLogLevelVerbose, "Substituting bootable data partition %s\n", newBSDName);
+                        }
                     }
                 }
             }
         }
-
-        ret = BLCreateEFIXMLRepresentationForDevice(context,
-                                                    newBSDName,
-                                                    optionalData,
-                                                    &xmlString,
-                                                    shortForm);
-
         
-        CFRelease(dict);
-
+        // we have the real entity we want to boot from: whether the "direct" disk, an actual underlying
+        // boot helper disk, or ElTorito offset information. create EFI boot settings depending on case.
+        
+        if (false == isUEFIDisc) {
+            ret = BLCreateEFIXMLRepresentationForDevice(context,
+                                                        newBSDName,
+                                                        optionalData,
+                                                        &xmlString,
+                                                        shortForm);
+        } else {
+            ret = BLCreateEFIXMLRepresentationForElToritoEntry(context,
+                                                               newBSDName,
+                                                               uefiDiscBootEntry,
+                                                               uefiDiscPartitionStart,
+                                                               uefiDiscPartitionSize,
+                                                               &xmlString);
+        }
+        
+        if (dict)
+            CFRelease(dict);
 	}
-		
+    
     if(ret) {
         return 1;
     }
@@ -203,51 +228,68 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
     CFDictionaryRef dict = NULL;
     CFArrayRef array = NULL;
     char    newBSDName[MAXPATHLEN];
+    
     CFStringRef firstBooter = NULL;
     CFStringRef firstData = NULL;
+    int         uefiDiscBootEntry = 0;
+    int         uefiDiscPartitionStart = 0;
+    int         uefiDiscPartitionSize = 0;
     
     strcpy(newBSDName, sb.f_mntfromname + 5);
     
-    ret = BLCreateBooterInformationDictionary(context, newBSDName,
-                                              &dict);
-    if(ret) {
-        return 1;
-    }
+    // first check to see if we are dealing with a disk that has the following properties:
+    // is optical AND is DVD AND has an El Torito Boot Catalog AND has an UEFI-bootable entry.
+    // get yes/no on that, and if yes, also get some facts about where on disc it is.
+    bool isUEFIDisc = isDVDWithElToritoWithUEFIBootableOS(context, newBSDName, &uefiDiscBootEntry, &uefiDiscPartitionStart, &uefiDiscPartitionSize);
     
-    // check to see if there's a booter partition. If so, use it
-    array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
-    if(array) {
-        if(CFArrayGetCount(array) > 0) {
-            firstBooter = CFArrayGetValueAtIndex(array, 0);
-            if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
-                                   kCFStringEncodingUTF8)) {
-                return 1;
-            }
-            contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+    if (isUEFIDisc) {
+        contextprintf(context, kBLLogLevelVerbose, "Disk is DVD disc with BootCatalog with UEFIBootableOS\n");
+    } else {
+        contextprintf(context, kBLLogLevelVerbose, "Checking if disk is complex (if it is associated with booter partitions)\n");
+        
+        ret = BLCreateBooterInformationDictionary(context, newBSDName,
+                                                  &dict);
+        if(ret) {
+            return 1;
         }
-    }
-    
-    // check to see if there's a data partition (without auxiliary) that
-    // we should boot from
-    if (!firstBooter) {
-        array = CFDictionaryGetValue(dict, kBLDataPartitionsKey);
+        
+        // check to see if there's a booter partition. If so, use it
+        array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
         if(array) {
             if(CFArrayGetCount(array) > 0) {
-                firstData = CFArrayGetValueAtIndex(array, 0);
-                if(!CFStringGetCString(firstData, newBSDName, sizeof(newBSDName),
+                firstBooter = CFArrayGetValueAtIndex(array, 0);
+                if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
                                        kCFStringEncodingUTF8)) {
                     return 1;
                 }
-                if (0 == strcmp(newBSDName, sb.f_mntfromname + 5)) {
-                    /* same as before, no substitution */
-                    firstData = NULL;
-                } else {
-                    contextprintf(context, kBLLogLevelVerbose, "Substituting bootable data partition %s\n", newBSDName);
+                contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+            }
+        }
+        
+        // check to see if there's a data partition (without auxiliary) that
+        // we should boot from
+        if (!firstBooter) {
+            array = CFDictionaryGetValue(dict, kBLDataPartitionsKey);
+            if(array) {
+                if(CFArrayGetCount(array) > 0) {
+                    firstData = CFArrayGetValueAtIndex(array, 0);
+                    if(!CFStringGetCString(firstData, newBSDName, sizeof(newBSDName),
+                                           kCFStringEncodingUTF8)) {
+                        return 1;
+                    }
+                    if (0 == strcmp(newBSDName, sb.f_mntfromname + 5)) {
+                        /* same as before, no substitution */
+                        firstData = NULL;
+                    } else {
+                        contextprintf(context, kBLLogLevelVerbose, "Substituting bootable data partition %s\n", newBSDName);
+                    }
                 }
             }
         }
     }
     
+    // we have the real entity we want to boot from: whether the "direct" disk, an actual underlying
+    // boot helper disk, or ElTorito offset information. create EFI boot settings depending on case.
     
     if(firstBooter || firstData) {
         // so this is probably a RAID. Validate that we were passed a mountpoint
@@ -261,17 +303,24 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
                                                     optionalData,
                                                     &xmlString,
                                                     shortForm);
-        
+    } else if(isUEFIDisc) {
+        ret = BLCreateEFIXMLRepresentationForElToritoEntry(context,
+                                                           newBSDName,
+                                                           uefiDiscBootEntry,
+                                                           uefiDiscPartitionStart,
+                                                           uefiDiscPartitionSize,
+                                                           &xmlString);
     } else {
         ret = BLCreateEFIXMLRepresentationForPath(context,
                                                   path,
                                                   optionalData,
-                                                  &xmlString, shortForm);
-        
+                                                  &xmlString,
+                                                  shortForm);
     }
     
-    CFRelease(dict);
-
+    if (dict)
+        CFRelease (dict);
+    
     if(ret) {
         return 1;
     }

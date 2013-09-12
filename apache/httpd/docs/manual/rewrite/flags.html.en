@@ -8,10 +8,13 @@
 <title>RewriteRule Flags - Apache HTTP Server</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -46,7 +49,7 @@ providing detailed explanations and examples.</p>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_r">R|redirect</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_s">S|skip</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_t">T|type</a></li>
-</ul><h3>See also</h3><ul class="seealso"><li><a href="../mod/mod_rewrite.html">Module documentation</a></li><li><a href="intro.html">mod_rewrite introduction</a></li><li><a href="remapping.html">Redirection and remapping</a></li><li><a href="access.html">Controlling access</a></li><li><a href="vhosts.html">Virtual hosts</a></li><li><a href="proxy.html">Proxying</a></li><li><a href="rewritemap.html">Using RewriteMap</a></li><li><a href="advanced.html">Advanced techniques and tricks</a></li><li><a href="avoid.html">When not to use mod_rewrite</a></li></ul></div>
+</ul><h3>See also</h3><ul class="seealso"><li><a href="../mod/mod_rewrite.html">Module documentation</a></li><li><a href="intro.html">mod_rewrite introduction</a></li><li><a href="remapping.html">Redirection and remapping</a></li><li><a href="access.html">Controlling access</a></li><li><a href="vhosts.html">Virtual hosts</a></li><li><a href="proxy.html">Proxying</a></li><li><a href="rewritemap.html">Using RewriteMap</a></li><li><a href="advanced.html">Advanced techniques</a></li><li><a href="avoid.html">When not to use mod_rewrite</a></li></ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="introduction" id="introduction">Introduction</a></h2>
@@ -58,14 +61,12 @@ by commas.</p>
 RewriteRule pattern target [Flag1,Flag2,Flag3]
 </code></p></div>
 
-<p>The flags all have a short form, such as <code>CO</code>, as well as
-a longer form, such as <code>cookie</code>. Some flags take one or more
-arguments. Flags are not case sensitive.</p>
-
-<p>Each flag (with a few exceptions) 
-has a long and short form. While it is most common to use
+<p>Each flag (with a few exceptions) has a short form, such as
+<code>CO</code>, as well as a longer form, such as <code>cookie</code>. 
+While it is most common to use
 the short form, it is recommended that you familiarize yourself with the
-long form, so that you remember what each flag is supposed to do.</p>
+long form, so that you remember what each flag is supposed to do.
+Some flags take one or more arguments. Flags are not case sensitive.</p>
 
 <p>Flags that alter metadata associated with the request (T=, H=, E=)
 have no affect in per-directory and htaccess context, when a substitution
@@ -86,15 +87,22 @@ so backreferences will be unescaped at the time they are applied.
 Using the B flag, non-alphanumeric characters in backreferences
 will be escaped. For example, consider the rule:</p>
 
-<div class="example"><p><code>
-RewriteRule ^(/.*)$ /index.php?show=$1
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^search/(.*)$ /search.php?term=$1</pre>
 
-<p>This will map <code>/C++</code> to
-<code>/index.php?show=/C++</code>. But it will also map
-<code>/C%2b%2b</code> to <code>/index.php?show=/C++</code>, because
-the <code>%2b</code> has been unescaped.  With the B flag, it will
-instead map to <code>/index.php?show=/C%2b%2b</code>.</p>
+
+<p>Given a search term of 'x &amp; y/z', a browser will encode it as
+'x%20%26%20y%2Fz', making the request 'search/x%20%26%20y%2Fz'. Without the B
+flag, this rewrite rule will map to 'search.php?term=x &amp; y/z', which
+isn't a valid URL, and so would be encoded as
+<code>search.php?term=x%20&amp;y%2Fz=</code>, which is not what was intended.</p>
+
+<p>With the B flag set on this same rule, the parameters are re-encoded
+before being passed on to the output URL, resulting in a correct mapping to
+<code>/search.php?term=x%20%26%20y%2Fz</code>.</p>
+
+<p>Note that you may also need to set <code class="directive"><a href="../mod/core.html#allowencodedslashes">AllowEncodedSlashes</a></code> to <code>On</code> to get this
+particular example to work, as httpd does not allow encoded slashes in URLs, and
+returns a 404 if it sees one.</p>
 
 <p>This escaping is particularly necessary in a proxy situation,
 when the backend may break if presented with an unescaped URL.</p>
@@ -138,7 +146,6 @@ security model.</dd>
 <p>You may optionally also set the following values:</p>
 
 <dl>
-
 <dt>Lifetime</dt>
 <dd>The time for which the cookie will persist, in minutes.</dd>
 <dd>A value of 0 indicates that the cookie will persist only for the
@@ -265,7 +272,7 @@ an example, not as a recommendation.</p>
 <h2><a name="flag_f" id="flag_f">F|forbidden</a></h2>
 <p>Using the [F] flag causes the server to return a 403 Forbidden status
 code to the client. While the same behavior can be accomplished using
-the <code class="directive"><a href="../mod/mod_access.html#deny">Deny</a></code> directive, this 
+the <code class="directive"><a href="../mod/mod_authz_host.html#deny">Deny</a></code> directive, this 
 allows more flexibility in assigning a Forbidden status.</p>
 
 <p>The following rule will forbid <code>.exe</code> files from being
@@ -340,13 +347,13 @@ C. Use this flag to indicate that the current rule should be applied
 immediately without considering further rules.</p>
 
 <p>If you are using <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> in either
-<code>.htaccess</code> files or in 
+<code>.htaccess</code> files or in
 <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> sections,
 it is important to have some understanding of how the rules are
 processed.  The simplified form of this is that once the rules have been
 processed, the rewritten request is handed back to the URL parsing
 engine to do what it may with it. It is possible that as the rewritten
-request is handled, the <code>.htaccess</code> file or 
+request is handled, the <code>.htaccess</code> file or
 <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> section
 may be encountered again, and thus the ruleset may be run again from the
 start. Most commonly this will happen if one of the rules causes a
@@ -360,7 +367,7 @@ rules, as shown below.</p>
 
 <p>The example given here will rewrite any request to
 <code>index.php</code>, giving the original request as a query string
-argument to <code>index.php</code>, however, the <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code> ensures that if the request 
+argument to <code>index.php</code>, however, the <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code> ensures that if the request
 is already for <code>index.php</code>, the <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> will be skipped.</p>
 
 <div class="example"><p><code>
@@ -440,7 +447,7 @@ On subrequests, it is not always useful, and can even cause errors, if
 the complete set of rules are applied. Use this flag to exclude
 problematic rules.</p>
 
-<p>To decide whether or not to use this rule: if you prefix URLs with 
+<p>To decide whether or not to use this rule: if you prefix URLs with
 CGI-scripts, to force them to be processed by the CGI-script, it's
 likely that you will run into problems (or significant overhead)
 on sub-requests. In these cases, use this flag.</p>
@@ -495,15 +502,15 @@ The target (or substitution string) in a RewriteRule is assumed to be a
 file path, by default. The use of the [PT] flag causes it to be treated
 as a URI instead. That is to say, the
 use of the [PT] flag causes the result of the <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> to be passed back through
-URL mapping, so that location-based mappings, such as <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>, <code class="directive"><a href="../mod/core.html#redirect">Redirect</a></code>, or <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>, for example, might have a 
+URL mapping, so that location-based mappings, such as <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>, <code class="directive"><a href="../mod/mod_alias.html#redirect">Redirect</a></code>, or <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>, for example, might have a
 chance to take effect.
 </p>
 
 <p>
-If, for example, you have an 
+If, for example, you have an
 <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>
 for /icons, and have a <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> pointing there, you should
-use the [PT] flag to ensure that the 
+use the [PT] flag to ensure that the
 <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code> is evaluated.
 </p>
 
@@ -561,18 +568,16 @@ will be used to generate the URL sent with the redirect.
 </p>
 
 <p>
-<em>Any</em> valid HTTP response  status code may be specified, 
-using the syntax [R=305], with a 302 status code being used by 
+<em>Any</em> valid HTTP response  status code may be specified,
+using the syntax [R=305], with a 302 status code being used by
 default if none is specified. The status code specified need not
-necessarily be a redirect (3xx) status code.
-</p>
-
-<p>If a status code is outside the redirect range (300-399) then the
+necessarily be a redirect (3xx) status code. However, 
+if a status code is outside the redirect range (300-399) then the
 substitution string is dropped entirely, and rewriting is stopped as if
 the <code>L</code> were used.</p>
 
 <p>In addition to response status codes, you may also specify redirect
-status using their symbolic names: <code>temp</code> (default), 
+status using their symbolic names: <code>temp</code> (default),
 <code>permanent</code>, or <code>seeother</code>.</p>
 
 <p>
@@ -586,10 +591,13 @@ URI in request' warnings.
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="flag_s" id="flag_s">S|skip</a></h2>
-<p>The [S] flag is used to skip rules that you don't want to run. This
-can be thought of as a <code>goto</code> statement in your rewrite
-ruleset. In the following example, we only want to run the <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> if the requested URI
-doesn't correspond with an actual file.</p>
+<p>The [S] flag is used to skip rules that you don't want to run. The 
+syntax of the skip flag is [S=<em>N</em>], where <em>N</em> signifies 
+the number of rules to skip (provided the <code class="directive"><a href="../mod/mod_rewrite.html#&#10;rewriterule">
+RewriteRule</a></code> matches). This can be thought of as a <code>goto</code> 
+statement in your rewrite ruleset. In the following example, we only want 
+to run the <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> if the 
+requested URI doesn't correspond with an actual file.</p>
 
 <div class="example"><p><code>
 # Is the request for a non-existent file?<br />
@@ -597,19 +605,38 @@ RewriteCond %{REQUEST_FILENAME} !-f<br />
 RewriteCond %{REQUEST_FILENAME} !-d<br />
 # If so, skip these two RewriteRules<br />
 RewriteRule .? - [S=2]<br />
-<br />
 RewriteRule (.*\.gif) images.php?$1<br />
-RewriteRule (.*\.html) docs.php?$1
+RewriteRule (.*\.html) docs.php?$1<br />
 </code></p></div>
 
 <p>This technique is useful because a <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code> only applies to the
 <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> immediately
 following it. Thus, if you want to make a <code>RewriteCond</code> apply
 to several <code>RewriteRule</code>s, one possible technique is to
-negate those conditions and use a [Skip] flag. So, you can 
-use this to make pseudo if-then-else constructs: The last rule of 
-the then-clause becomes <code>skip=N</code>, where N is the 
-number of rules in the else-clause.</p>
+negate those conditions and add a <code>RewriteRule</code> with a [Skip] flag. You can
+use this to make pseudo if-then-else constructs: The last rule of
+the then-clause becomes <code>skip=N</code>, where N is the
+number of rules in the else-clause:</p>
+<div class="example"><p><code>
+# Does the file exist?<br />
+RewriteCond %{REQUEST_FILENAME} !-f<br />
+RewriteCond %{REQUEST_FILENAME} !-d<br />
+# Create an if-then-else construct by skipping 3 lines if we meant to go to the "else" stanza.<br />
+RewriteRule .? - [S=3]<br />
+<br />
+# IF the file exists, then:
+<span class="indent">
+        RewriteRule (.*\.gif) images.php?$1<br />
+        RewriteRule (.*\.html) docs.php?$1<br />
+        # Skip past the "else" stanza.<br />
+        RewriteRule .? - [S=1]<br />
+</span>
+# ELSE...
+<span class="indent">
+        RewriteRule (.*) 404.php?file=$1<br />
+</span>
+# END
+</code></p></div>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="flag_t" id="flag_t">T|type</a></h2>
@@ -641,17 +668,38 @@ invariably be a less efficient solution than the alternatives.</p>
 
 <p>
 If used in per-directory context, use only <code>-</code> (dash)
-as the substitution <em>for the entire round of mod_rewrite processing</em>, 
-otherwise the MIME-type set with this flag is lost due to an internal 
+as the substitution <em>for the entire round of mod_rewrite processing</em>,
+otherwise the MIME-type set with this flag is lost due to an internal
 re-processing (including subsequent rounds of mod_rewrite processing).
-The <code>L</code> flag can be useful in this context to end the 
+The <code>L</code> flag can be useful in this context to end the
 <em>current</em> round of mod_rewrite processing.</p>
 
 </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/rewrite/flags.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/rewrite/flags.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/rewrite/flags.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

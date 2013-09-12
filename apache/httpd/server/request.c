@@ -670,7 +670,7 @@ AP_DECLARE(int) ap_directory_walk(request_rec *r)
 
         /* Set aside path_info to merge back onto path_info later.
          * If r->filename is a directory, we must remerge the path_info,
-         * before we continue!  [Directories cannot, by defintion, have
+         * before we continue!  [Directories cannot, by definition, have
          * path info.  Either the next segment is not-found, or a file.]
          *
          * r->path_info tracks the unconsumed source path.
@@ -1011,7 +1011,9 @@ AP_DECLARE(int) ap_directory_walk(request_rec *r)
             }
             else if (APR_STATUS_IS_EACCES(rv)) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-                              "access to %s denied", r->uri);
+                              "access to %s denied (filesystem path '%s') "
+                              "because search permissions are missing on a "
+                              "component of the path", r->uri, r->filename);
                 return r->status = HTTP_FORBIDDEN;
             }
             else if ((rv != APR_SUCCESS && rv != APR_INCOMPLETE)
@@ -1020,7 +1022,8 @@ AP_DECLARE(int) ap_directory_walk(request_rec *r)
                  * rather than assume not found.
                  */
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-                              "access to %s failed", r->uri);
+                              "access to %s failed (filesystem path '%s')", 
+                              r->uri, r->filename);
                 return r->status = HTTP_FORBIDDEN;
             }
 

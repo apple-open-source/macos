@@ -8,10 +8,13 @@
 <title>Les drapeaux de réécriture - Serveur Apache HTTP</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -48,7 +51,7 @@ des explications détaillées et des exemples.</p>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_s">S|skip</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_t">T|type</a></li>
 </ul><h3>Voir aussi</h3><ul class="seealso"><li><a href="../mod/mod_rewrite.html">Documentation du module</a></li><li><a href="intro.html">Introduction à mod_rewrite</a></li><li><a href="remapping.html">Redirection and remise en
-correspondance</a></li><li><a href="access.html">Contrôle d'accès</a></li><li><a href="vhosts.html">Serveurs virtuels</a></li><li><a href="proxy.html">Mise en cache</a></li><li><a href="rewritemap.html">Utilisation de RewriteMap</a></li><li><a href="advanced.html">Techniques avancées et astuces</a></li><li><a href="avoid.html">Quand ne pas utiliser mod_rewrite</a></li></ul></div>
+correspondance</a></li><li><a href="access.html">Contrôle d'accès</a></li><li><a href="vhosts.html">Serveurs virtuels</a></li><li><a href="proxy.html">Mise en cache</a></li><li><a href="rewritemap.html">Utilisation de RewriteMap</a></li><li><a href="advanced.html">Techniques avancées</a></li><li><a href="avoid.html">Quand ne pas utiliser mod_rewrite</a></li></ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="introduction" id="introduction">Introduction</a></h2>
@@ -59,15 +62,14 @@ de crochets, et séparés le cas échéant par des virgules.</p>
 RewriteRule modèle cible [drapeau1,drapeau2,drapeau3]
 </code></p></div>
 
-<p>Les drapeaux ont tous une forme courte, comme <code>CO</code>, ainsi
-qu'une forme longue, comme <code>cookie</code>. Certains drapeaux
-peuvent avoir un ou plusieurs arguments. Les drapeaux sont insensibles à
-la casse.</p>
-
-<p>Chaque drapeau (à quelques exceptions près) possède une forme longue et une forme courte. Bien que
+<p>Chaque drapeau (à quelques exceptions près)
+possède une forme courte, comme <code>CO</code>, ainsi qu'une forme longue,
+comme <code>cookie</code>. Bien que
 la forme courte soit la plus couramment utilisée, nous vous recommandons
 de vous familiariser avec les drapeaux sous leur forme longue, afin de
-bien mémoriser ce que chaque drapeau est supposé faire.</p>
+bien mémoriser ce que chaque drapeau est supposé faire.
+Certains drapeaux acceptent un ou plusieurs arguments. Les drapeaux ne
+sont pas sensibles Ã&nbsp; la casse.</p>
 
 <p>Les drapeaux qui modifient les métadonnées associées à la requête
 (T=, H=, E=) n'ont aucun effet dans un contexte de répertoire ou de
@@ -91,16 +93,25 @@ ces dernières sont appliquées. Avec le drapeau B, les caractères
 non-alphanumériques des références arrières seront échappés. Considérons
 par exemple cette règle :</p>
 
-<div class="example"><p><code>
-RewriteRule ^(/.*)$ /index.php?show=$1
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^search/(.*)$ /search.php?term=$1</pre>
 
-<p>Avec cet exemple, <code>/C++</code> sera réécrit en
-<code>/index.php?show=/C++</code>. Mais <code>/C%2b%2b</code> sera lui
-aussi réécrit en <code>/index.php?show=/C++</code>, car le caractère
-<code>%2b</code> aura été "déséchappé". Avec le drapeau B par contre,
-<code>/C%2b%2b</code> sera réécrit en
-<code>/index.php?show=/C%2b%2b</code>.</p>
+
+<p>Soit la chaîne 'x &amp; y/z' ; un navigateur va la coder en
+'x%20%26%20y%2Fz', transformant la requête en 'search/x%20%26%20y%2Fz'.
+Sans le drapeau B, la règle va intercepter la chaîne 'search.php?term=x
+&amp; y/z' qui n'est pas une URL valide, et la coder en
+<code>search.php?term=x%20&amp;y%2Fz=</code>, ce qui ne correspond pas
+au résultat attendu.</p>
+
+<p>Avec le drapeau B, la règle va réencoder les paramètres avant de les
+passer à l'URL de sortie, ce qui va produire l'URL correcte
+<code>/search.php?term=x%20%26%20y%2Fz</code>.</p>
+
+<p>Notez que vous serez peut-être amené à définir la directive
+<code class="directive"><a href="../mod/core.html#allowencodedslashes">AllowEncodedSlashes</a></code> à
+<code>On</code> pour que cet exemple fonctionne, car httpd n'autorise
+pas les slashes encodés dans les URLs et renvoie une erreur 404 s'il en
+rencontre un.</p>
 
 <p>Ce processus d'échappement est en particulier nécessaire dans le
 contexte d'un mandataire, où l'accès au serveur d'arrière-plan échouera
@@ -276,7 +287,7 @@ est présentée à titre d'exemple et non de recommandation.</p>
 <h2><a name="flag_f" id="flag_f">F|forbidden</a></h2>
 <p>L'utilisation du drapeau [F] permet de faire envoyer par le serveur au
 client un code de statut "403 Forbidden". Le même effet peut être obtenu à
-l'aide de la directive <code class="directive"><a href="../mod/mod_access.html#deny">Deny</a></code>,
+l'aide de la directive <code class="directive"><a href="../mod/mod_authz_host.html#deny">Deny</a></code>,
 mais ce drapeau offre plus de souplesse dans l'attribution d'un statut
 Forbidden.</p>
 
@@ -534,7 +545,7 @@ par contre, elle est traitée comme un URI. Autrement dit, avec le
 drapeau [PT], le résultat de la règle  <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> est passé à nouveau au
 système de mise en correspondance des URLs avec le système de fichiers,
 de façon à ce que les systèmes de mise en correspondance basés sur les
-chemins de fichiers, comme la directive <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>, <code class="directive"><a href="../mod/core.html#redirect">Redirect</a></code>, ou <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>, par exemple, puissent avoir une
+chemins de fichiers, comme la directive <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>, <code class="directive"><a href="../mod/mod_alias.html#redirect">Redirect</a></code>, ou <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>, par exemple, puissent avoir une
 chance d'accomplir leur tâche.
 </p>
 
@@ -626,10 +637,8 @@ navigateur. Si une URL pleinement qualifiée (FQDN - fully qualified domain name)
 <p><em>Tout</em> code de statut de réponse HTTP valide peut être
 spécifié, en utilisant la syntaxe [R=305], le code de statut 302 étant
 utilisé par défaut si aucun code n'est spécifié. Le code de statut
-spécifié n'est pas nécessairement un code de statut de redirection (3xx).
-</p>
-
-<p>Si le code de statut est en dehors de la plage des codes de
+spécifié n'est pas nécessairement un code de statut
+de redirection (3xx). Cependant, si le code de statut est en dehors de la plage des codes de
 redirection (300-399), la chaîne de substitution est entièrement
 supprimée, et la réécriture s'arrête comme si le drapeau <code>L</code>
 était utilisé.</p>
@@ -651,7 +660,10 @@ avertissements 'Invalid URI in request'.
 <div class="section">
 <h2><a name="flag_s" id="flag_s">S|skip</a></h2>
 <p>Le drapeau [S] sert à sauter des règles que vous ne voulez pas voir
-exécuter. Ceci peut s'interpréter comme une instruction
+exécuter. La syntaxe du drapeau skip est [S=<em>N</em>], où
+<em>N</em> correspond au nombre de règles à sauter (sous
+réserve que la règle <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> corresponde).
+Ceci peut s'interpréter comme une instruction
 <code>goto</code>  dans votre jeu de règles de réécriture. Dans
 l'exemple suivant, nous ne voulons exécuter la règle <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> que si l'URI demandé ne
 correspond pas à un fichier existant.</p>
@@ -662,7 +674,6 @@ RewriteCond %{REQUEST_FILENAME} !-f<br />
 RewriteCond %{REQUEST_FILENAME} !-d<br />
 # Si c'est la cas, on saute les deux règles de réécriture suivantes<br />
 RewriteRule .? - [S=2]<br />
-<br />
 RewriteRule (.*\.gif) images.php?$1<br />
 RewriteRule (.*\.html) docs.php?$1
 </code></p></div>
@@ -672,10 +683,31 @@ RewriteRule (.*\.html) docs.php?$1
 qu'à la règle qui la suit immédiatement. Ainsi, si vous voulez
 qu'une directive <code>RewriteCond</code> s'applique à plusieurs règles
 <code>RewriteRule</code>, une technique possible consiste à inverser ces
-conditions et à utiliser le drapeau [Skip]. Cette technique permet
+conditions et à ajouter une <code>RewriteRule</code> avec le drapeau [Skip]. Cette technique permet
 d'élaborer des pseudo-constructions if-then-else : la dernière règle du
 bloc then contiendra <code>skip=N</code>, où N est le nombre de règles
-contenues dans le bloc else.</p>
+contenues dans le bloc else :</p>
+<div class="example"><p><code>
+# Est-ce que le fichier existe ?<br />
+RewriteCond %{REQUEST_FILENAME} !-f<br />
+RewriteCond %{REQUEST_FILENAME} !-d<br />
+
+# Create an if-then-else construct by skipping 3 lines if we meant to go to the "else" stanza.<br />
+RewriteRule .? - [S=3]<br />
+<br />
+# Si le fichier existe, alors :
+<span class="indent">
+	RewriteRule (.*\.gif) images.php?$1<br />
+	RewriteRule (.*\.html) docs.php?$1<br />
+	# Skip past the "else" stanza.<br />
+	RewriteRule .? - [S=1]<br />
+</span>
+# ELSE...
+<span class="indent">
+	RewriteRule (.*) 404.php?file=$1<br />
+</span>
+# END
+</code></p></div>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -720,7 +752,28 @@ utiliser le drapeau <code>L</code> pour terminer la séquence
 <div class="bottomlang">
 <p><span>Langues Disponibles: </span><a href="../en/rewrite/flags.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/rewrite/flags.html" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/rewrite/flags.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

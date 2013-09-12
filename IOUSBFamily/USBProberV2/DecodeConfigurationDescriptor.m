@@ -54,7 +54,7 @@
     {
 		IOReturn	actErr;
 		
-		configBuf = malloc(sizeof(cfgHeader));
+		configBuf = malloc(sizeof(cfgHeader)*sizeof(Byte));
 	    (void) GetDescriptor(deviceIntf, descType, iconfig, configBuf, sizeof(cfgHeader), &actErr);
 
         // The device did not respond to a request for the first x bytes of the Configuration Descriptor  (We

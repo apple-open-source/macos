@@ -2,7 +2,7 @@
 //  AppleUSBXHCI_IsocQueues.h
 //  AppleUSBXHCI
 //
-//  Copyright 2011-2012 Apple Inc. All rights reserved.
+//  Copyright 2011-2013 Apple Inc. All rights reserved.
 //
 
 #ifndef AppleUSBXHCI_AppleUSBXHCI_IsocQueues_h
@@ -57,7 +57,7 @@ public:
 	int					FrameForEventIndex(UInt32 eventIndex);											// which of my TRBs does this one point to
 
 private:
-    IOReturn			MungeXHCIStatus(UInt32 status, UInt16 *transferLen, UInt32 maxPacketSize, UInt8 direction);
+    IOReturn			MungeXHCIIsochTDStatus(UInt32 status, UInt16 *transferLen, UInt32 maxPacketSize, UInt8 direction);
 };
 
 

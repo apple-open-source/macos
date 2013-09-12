@@ -561,6 +561,8 @@ enum
 #define kXHCIContextPhysMask  (0x00000000FFFFF000ULL)
 #define kXHCITransferRingPhysMask  (0x00000000FFFFF000ULL)
 #define kXHCIStreamContextPhysMask  (0x00000000FFFFF000ULL)
+
+#define kXHCIPortBandwidthContextPhysMask (0x00000000FFFFFFF0ULL)
 #endif
 
 #define kXHCIAC32Mask  (0x00000000FFFFFFFFULL)
@@ -596,6 +598,7 @@ enum
 	kXHCITRB_ResetDevice = 17,
 
     kXHCITRB_GetPortBandwidth = 21,
+    kXHCITRB_ForceHeaderCommand = 22,
 	kXHCITRB_CMDNoOp = 23,
     
 	kXHCITRB_CMDNEC = 49,   // NEC vendor specific command to get firmware version
@@ -628,6 +631,7 @@ enum
 	kXHCITRB_IOC = kXHCIBit5,
 	kXHCITRB_IDT = kXHCIBit6,
 	kXHCITRB_BSR = kXHCIBit9,
+	kXHCITRB_TSP = kXHCIBit9,
 	kXHCITRB_BEI = kXHCIBit9,
 	kXHCITRB_DIR = kXHCIBit16,
 	
@@ -655,6 +659,8 @@ enum
 	kXHCITRB_Stream_Shift = XHCIBitRangePhase(16, 31),
 	kXHCITRB_Port_Mask = XHCIBitRange(24, 31),
 	kXHCITRB_Port_Shift = XHCIBitRangePhase(24, 31),
+	kXHCITRB_DevSpeed_Mask = XHCIBitRange(16, 19),
+	kXHCITRB_DevSpeed_Shift = XHCIBitRangePhase(16, 19),
 	
     // Section 6.4.5 TRB Completion Codes
 	kXHCITRB_CC_Invalid = 0,

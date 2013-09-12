@@ -1,0 +1,13 @@
+diff -Naur php-5.3.0/ext/iconv/iconv.c php/ext/iconv/iconv.c
+--- php-5.3.0/ext/iconv/iconv.c	2009-03-16 22:31:04.000000000 -0700
++++ php/ext/iconv/iconv.c	2009-07-15 14:40:09.000000000 -0700
+@@ -51,9 +51,6 @@
+ #include <gnu/libc-version.h>
+ #endif
+ 
+-#ifdef HAVE_LIBICONV
+-#undef iconv
+-#endif
+ 
+ #include "ext/standard/php_smart_str.h"
+ #include "ext/standard/base64.h"

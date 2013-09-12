@@ -78,7 +78,6 @@ __BEGIN_DECLS
 #define kIOHIDSerialNumberKey               "SerialNumber"
 #define kIOHIDCountryCodeKey                "CountryCode"
 #define kIOHIDStandardTypeKey               "StandardType"
-#define kIOHIDDeviceKeyboardStandardTypeKey "DeviceKeyboardStandardType"
 #define kIOHIDLocationIDKey                 "LocationID"
 #define kIOHIDDeviceUsageKey                "DeviceUsage"
 #define kIOHIDDeviceUsagePageKey            "DeviceUsagePage"
@@ -91,8 +90,9 @@ __BEGIN_DECLS
 #define kIOHIDReportIntervalKey             "ReportInterval"
 #define kIOHIDReportDescriptorKey           "ReportDescriptor"
 #define kIOHIDResetKey                      "Reset"
-#define kIOHIDDeviceKeyboardLanguageKey     "DeviceKeyboardLanguage"
-
+#define kIOHIDKeyboardLanguageKey           "KeyboardLanguage"
+#define kIOHIDAltHandlerIdKey               "alt_handler_id"
+#define kIOHIDPowerOnDelayNSKey             "HIDPowerOnDelayNS"
 /*!
     @define kIOHIDElementKey
     @abstract Keys that represents an element property.

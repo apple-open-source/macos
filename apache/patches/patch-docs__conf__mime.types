@@ -1,70 +1,69 @@
---- docs/conf/mime.types.orig	2011-05-12 02:54:46.000000000 -0700
-+++ docs/conf/mime.types	2011-05-12 03:04:20.000000000 -0700
-@@ -142,7 +142,7 @@
+--- docs/conf/mime.types.orig	2013-01-17 05:45:11.000000000 -0800
++++ docs/conf/mime.types	2013-01-17 06:05:03.000000000 -0800
+@@ -151,7 +151,7 @@
  # application/nss
  # application/ocsp-request
  # application/ocsp-response
--application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy
-+application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy mobipocket-ebook
+-application/octet-stream	bin dms lrf mar so dist distz pkg bpk dump elc deploy
++application/octet-stream	bin dms lrf mar so dist distz pkg bpk dump elc deploy mobipocket-ebook
  application/oda					oda
  application/oebps-package+xml			opf
  application/ogg					ogx
-@@ -1010,6 +1010,7 @@
- application/x-java-jnlp-file			jnlp
- application/x-latex				latex
+@@ -1072,6 +1072,7 @@
+ application/x-lzh-compressed			lzh lha
+ application/x-mie				mie
  application/x-mobipocket-ebook			prc mobi
 +application/x-mpegurl				m3u8
  application/x-ms-application			application
+ application/x-ms-shortcut			lnk
  application/x-ms-wmd				wmd
- application/x-ms-wmz				wmz
-@@ -1134,7 +1135,7 @@
- audio/midi					mid midi kar rmi
+@@ -1214,6 +1215,7 @@
  # audio/mobile-xmf
  audio/mp4					mp4a
--# audio/mp4a-latm
-+audio/mp4a-latm			m4a m4p
+ # audio/mp4a-latm
++audio/mp4a-latm					m4a m4p
  # audio/mpa
  # audio/mpa-robust
  audio/mpeg					mpga mp2 mp2a mp3 m2a m3a
-@@ -1226,12 +1227,13 @@
- image/g3fax					g3
+@@ -1316,11 +1318,13 @@
  image/gif					gif
  image/ief					ief
--# image/jp2
-+image/jp2			jp2
+ # image/jp2
++image/jp2					jp2
  image/jpeg					jpeg jpg jpe
  # image/jpm
  # image/jpx
  image/ktx					ktx
  # image/naplps
-+image/pict			pict pic pct
++image/pict					pict pic pct
  image/png					png
  image/prs.btif					btif
  # image/prs.pti
-@@ -1268,12 +1270,14 @@
+@@ -1360,6 +1364,7 @@
  image/x-cmx					cmx
  image/x-freehand				fh fhc fh4 fh5 fh7
  image/x-icon					ico
-+image/x-macpaint		pntg pnt mac
++image/x-macpaint				pntg pnt mac
+ image/x-mrsid-image				sid
  image/x-pcx					pcx
  image/x-pict					pic pct
- image/x-portable-anymap				pnm
+@@ -1367,6 +1372,7 @@
  image/x-portable-bitmap				pbm
  image/x-portable-graymap			pgm
  image/x-portable-pixmap				ppm
-+image/x-quicktime		qtif qti
++image/x-quicktime				qtif qti
  image/x-rgb					rgb
+ image/x-tga					tga
  image/x-xbitmap					xbm
- image/x-xpixmap					xpm
-@@ -1328,6 +1332,7 @@
+@@ -1425,6 +1431,7 @@
  # multipart/report
  # multipart/signed
  # multipart/voice-message
 +text/cache-manifest				manifest
  # text/1d-interleaved-parityfec
+ text/cache-manifest				appcache
  text/calendar					ics ifb
- text/css					css
-@@ -1416,9 +1421,9 @@
+@@ -1520,9 +1527,9 @@
  video/mj2					mj2 mjp2
  # video/mp1s
  # video/mp2p
@@ -76,11 +75,12 @@
  video/mpeg					mpeg mpg mpe m1v m2v
  # video/mpeg4-generic
  # video/mpv
-@@ -1464,6 +1469,7 @@
+@@ -1569,6 +1576,7 @@
  # video/vnd.sealedmedia.softseal.mov
  video/vnd.uvvu.mp4				uvu uvvu
  video/vnd.vivo					viv
-+video/x-dv			dv dif
++video/x-dv					dv dif
  video/webm					webm
  video/x-f4v					f4v
  video/x-fli					fli
+

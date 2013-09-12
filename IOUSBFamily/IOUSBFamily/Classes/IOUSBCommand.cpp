@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -204,13 +204,15 @@ void
 IOUSBCommand::SetUIMScratch(UInt32 index, UInt32 value) 
 { 
     if (index < kUSBCommandScratchBuffers)
+    {
 		if (_expansionData->_masterUSBCommand)
 			_expansionData->_masterUSBCommand->_UIMScratch[index] = value;
 		else
 			_UIMScratch[index] = value;
+    }
 }
 
-void 
+void
 IOUSBCommand::SetBT(UInt32 index, void * value) 
 { 
     if (index < kUSBCommandScratchBuffers)
@@ -553,7 +555,7 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		
 		OSBacktrace((void**)bt, 8);
 		
-		USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand  command already in queue, not putting it back into the queue, bt: [%p][%p][%p][%p][%p][%p][%p][%p]", this, bt[0], bt[1], bt[2], bt[3], bt[4], bt[5], bt[6], bt[7]);
+		USBError(1,"IOUSBCommandPool::gatedReturnCommand  command already in queue, not putting it back into the queue, bt: [%p][%p][%p][%p][%p][%p][%p][%p]", bt[0], bt[1], bt[2], bt[3], bt[4], bt[5], bt[6], bt[7]);
 		return kIOReturnBadArgument;
 	}
 	
@@ -572,7 +574,7 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		}
 		else
 		{
-			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - missing dmaCommand in IOUSBCommand", this);
+			USBError(1,"IOUSBCommandPool::gatedReturnCommand - missing dmaCommand in IOUSBCommand");
 		}
 		
 		// Test to poison the IOUSBCommand when returning it
@@ -620,15 +622,15 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		
 		if ( usbCommand->GetBufferUSBCommand() != NULL )
 		{
-			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - GetBufferUSBCommand() is not NULL", this);
+			USBError(1,"IOUSBCommandPool::gatedReturnCommand - GetBufferUSBCommand() is not NULL");
 		}
 		if ( usbCommand->GetRequestMemoryDescriptor() != NULL )
 		{
-			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - GetRequestMemoryDescriptor() is not NULL", this);
+			USBError(1,"IOUSBCommandPool::gatedReturnCommand - GetRequestMemoryDescriptor() is not NULL");
 		}
 		if ( usbCommand->GetBufferMemoryDescriptor() != NULL )
 		{
-			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - GetBufferMemoryDescriptor() is not NULL", this);
+			USBError(1,"IOUSBCommandPool::gatedReturnCommand - GetBufferMemoryDescriptor() is not NULL");
 		}
 		
 		// Do not see these to anything but NULL as a lot of the code depends on checking for NULLness
@@ -652,7 +654,7 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		}
 		else
 		{
-			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - missing dmaCommand in IOUSBIsocCommand", this);
+			USBError(1,"IOUSBCommandPool::gatedReturnCommand - missing dmaCommand in IOUSBIsocCommand");
 		}
 	}
 	return IOCommandPool::gatedReturnCommand(command);

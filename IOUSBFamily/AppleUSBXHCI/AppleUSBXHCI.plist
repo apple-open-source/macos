@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBXHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>APPLEUSBXHCI_VERSION, Copyright © 2011-APPLEUSBXHCI_LAST_CHANGE_YEAR Apple Inc. All rights reserved.</string>
+	<string>APPLEUSBXHCI_VERSION, Copyright © 2011-APPLEUSBEHCI_LAST_CHANGE_YEAR Apple Inc. All rights reserved.</string>
 	<key>CFBundleName</key>
 	<string>I/O Kit Driver for USB XHCI Controllers</string>
 	<key>CFBundleIconFile</key>
@@ -21,7 +21,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>APPLEUSBXHCI_SHORTVERSION</string>
+	<string>APPLEUSBXHCI_VERSION</string>
 	<key>CFBundleShortVersionString</key>
 	<string>APPLEUSBXHCI_VERSION</string>
 	<key>IOKitPersonalities</key>

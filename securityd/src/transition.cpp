@@ -72,7 +72,7 @@
 
 #define BEGIN_IPCS		try {
 #define	END_IPCS(more)	} catch (...) { } \
-						mach_port_deallocate(mach_task_self(), serverPort); more; return KERN_SUCCESS;
+						mach_port_deallocate(mach_task_self(), servicePort); more; return KERN_SUCCESS;
 
 #define DATA_IN(base)	void *base, mach_msg_type_number_t base##Length
 #define DATA_OUT(base)	void **base, mach_msg_type_number_t *base##Length

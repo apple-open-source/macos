@@ -351,12 +351,6 @@ enum {
 	NSMutableString *			returnString = [[NSMutableString alloc] initWithCapacity:1] ;
 	[returnString setString:@""];
     
-	// SS devices have an extra bit that we need to temporarily remove to look at the first non-zero nibble
-	if (deviceSpeed == kUSBDeviceSpeedSuper )
-	{
-		parentLocationID &= 0xff7FFFFF;
-	}
-	
 	// First, create the locationID for the port
 	// Start looking at the nibble at the 3rd nibble for a 0
 	while ( parentLocationID & (0xf << (4 * nibble)) )
@@ -366,12 +360,6 @@ enum {
 	
 	locationID = parentLocationID | (port << (4*nibble));
 	
-	// Add back the ss bit
-	if (deviceSpeed == kUSBDeviceSpeedSuper )
-	{
-		locationID |= 0x00800000;
-	}
-									 
     // IOServiceMatching is a convenience function to create a dictionary with the key kIOProviderClassKey and 
     // the specified value.
     matchingDict = IOServiceMatching(kIOUSBDeviceClassName);
@@ -528,7 +516,7 @@ Exit:
 
 - (IOReturn) dealWithDevice:(io_service_t) usbDeviceRef
 {
-    IOReturn						err;
+    IOReturn						err = kIOReturnSuccess;
     IOCFPlugInInterface				**iodev = NULL;		// requires <IOKit/IOCFPlugIn.h>
     IOUSBDeviceInterface500			**dev = NULL;
     SInt32							score;
@@ -542,7 +530,7 @@ Exit:
 	UInt8							deviceSpeed = 0;
 	UInt32							bandwidth = 0;
 
-	UInt32							hubCurrentPowerState;
+	UInt32							hubCurrentPowerState = 0;
 	UInt32							portState[64];
 
     err = IOCreatePlugInInterfaceForService(usbDeviceRef, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &iodev, &score);

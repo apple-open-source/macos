@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -221,6 +221,7 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
 }
 
 
+
 //================================================================================================
 //
 //   ToEndpoint
@@ -230,9 +231,6 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller, IOUSBInterface * interface)
 {
-	OSObject *	propertyObj = NULL;
-	OSBoolean * boolObj = NULL;
-    
 	IOUSBPipe *	me = new IOUSBPipe;
    
     USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method 3 called");
@@ -240,17 +238,12 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, I
 	
 	if ( me && interface)
 	{
-		// If our interface has the CrossEndianCompatible property, set our boolean
-		propertyObj = interface->copyProperty(kUSBOutOfSpecMPSOK);
-		boolObj = OSDynamicCast( OSBoolean, propertyObj );
-		if ( boolObj && boolObj->isTrue())
+		// If we allow out of spec MPS (with a property) set a flag
+		me->_OUTOFSPECMPSOK = ( interface->getProperty(kUSBOutOfSpecMPSOK) == kOSBooleanTrue );
+		if (me->_OUTOFSPECMPSOK)
 		{
 			USBLog(6,"IOUSBPipe[%p]::ToEndpoint Device reports Out of spec MPS property and is TRUE", me);
-			me->_OUTOFSPECMPSOK = 0xFF;
 		}
-		
-		if (propertyObj)
-			propertyObj->release();
 	}
 
 	if ( !me->InitToEndpoint(ed, device->GetSpeed(), device->GetAddress(), controller, device, interface) ) 
@@ -259,30 +252,15 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, I
         return NULL;
     }
 
-	if ( me->_INTERFACE )
+	if ( me && me->_expansionData && me->_INTERFACE )
     {
         // If our interface has the CrossEndianCompatible property, set our boolean
-		OSObject * propertyObj = me->_INTERFACE->copyProperty(kIOUserClientCrossEndianCompatibleKey);
-        OSBoolean * boolObj = OSDynamicCast( OSBoolean, propertyObj );
-        if ( boolObj )
-		{
-			if (boolObj->isTrue() )
-			{
-				USBLog(6,"IOUSBPipe[%p]::ToEndpoint CrossEndianProperty exists and is TRUE", me);
-				me->_CROSSENDIANCOMPATIBLE = true;
-			}
-			else
-			{
-				USBLog(6,"IOUSBPipe[%p]::ToEndpoint CrossEndianProperty exists and is FALSE", me);
-				me->_CROSSENDIANCOMPATIBLE = false;
-			}
-		}
-		if (propertyObj)
-			propertyObj->release();
+        me->_CROSSENDIANCOMPATIBLE = ( me->_INTERFACE->getProperty(kIOUserClientCrossEndianCompatibleKey) == kOSBooleanTrue);
     }
 	
     return me;
 }
+
 
 
 //================================================================================================
@@ -395,9 +373,16 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     IOReturn	err;
     
     USBLog(5,"IOUSBPipe[%p]::ClearPipeStall",this);
+	
+	if (_expansionData == NULL)
+		return kIOReturnNoDevice;
+	
+    USBTrace_Start( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , _endpoint.transferType );
+
     if (_CORRECTSTATUS != 0)
 	{
         USBLog(2, "IOUSBPipe[%p]::ClearPipeStall setting status to 0", this);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , 1 );
 	}
 	
     _CORRECTSTATUS = 0;
@@ -405,18 +390,21 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     if ( _endpoint.transferType == kUSBIsoc )
     {
         USBLog(2, "IOUSBPipe[%p]::ClearPipeStall Isoch pipes never stall.  Returning success", this);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , 2 );
         return kIOReturnSuccess;
     }
     
 	if ( !_DEVICE )
 	{
         USBLog(2, "IOUSBPipe[%p]::ClearPipeStall  no _DEVICE", this);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , 3 );
         return kIOReturnNotPermitted;
 	}
 	
 	if ( _DEVICE->isInactive() )
 	{
         USBLog(6, "IOUSBPipe[%p]::ClearPipeStall  _DEVICE is inActive(), so returning success", this);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , 4 );
         return kIOReturnSuccess;
 	}
 	
@@ -425,16 +413,19 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	_DEVICE->retain();
 	
     err = _controller->ClearPipeStall(_address, &_endpoint);
+    USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, err , 5 );
 	
 	if (err == kIOUSBClearPipeStallNotRecursive)
 	{
 		USBLog(1,"IOUSBPipe[%p]::ClearPipeStall - tried to call recursively, err = %p", this, (void*)err);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, err , 6 );
 	}
 	
 	
     if ((_DEVICE->GetSpeed() == kUSBDeviceSpeedHigh) || (_DEVICE->GetSpeed() == kUSBDeviceSpeedSuper))
     {
 		USBLog(6,"IOUSBPipe[%p]::ClearPipeStall - HiSpeed or SuperSpeedDevice, no clear TT needed",this);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , 7 );
     }
     else if (!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
     {
@@ -446,7 +437,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 		//
 		if ( _expansionData && _DEVICE && _DEVICE->_expansionData && _DEVICE->_expansionData->_usbPlaneParent )
 		{
-			IOUSBHubPortClearTTParam	params;
+			IOUSBHubPortClearTTParam        params;
 			UInt8						deviceAddress;		//<<0
 			UInt8						endpointNum;		//<<8
 			UInt8						endpointType;		//<<16 // As split transaction. 00 Control, 10 Bulk
@@ -480,10 +471,16 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 				
 				
 				USBLog(6, "IOUSBPipe[%p]::ClearPipeStall  calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%x", this, (uint32_t)params.options);
+                USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, params.portNumber, params.options , 8 );
 				(void) usbParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
 				usbParent->release();
 			}
 		}
+        else
+        {
+            USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, _endpoint.number , 9 );
+
+        }
     }
     else
     {
@@ -511,12 +508,16 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 		
 		// send the request to pipe zero
 		err = _controller->DeviceRequest(&request, &tap, _address, 0, kUSBDefaultControlNoDataTimeoutMS, kUSBDefaultControlCompletionTimeoutMS);
+        USBTrace( kUSBTPipe, kTPPipeClearPipeStall, (uintptr_t)this, _address, err , 10 );
 		
     }
 	
-	_DEVICE->release();
+	if (_expansionData && _DEVICE)
+		_DEVICE->release();
+	
 	release();
 
+    USBTrace_End( kUSBTPipe, kTPPipeClearPipeStall, _address, _endpoint.number , _endpoint.transferType, err );
     return err;
 }
 
@@ -1226,13 +1227,14 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
 
 	// USBTrace_Start( kUSBTPipe, kTPPipeControlRequest, request->bmRequestType,  request->bRequest, request->wValue, request->wIndex );
 
+	if (request == NULL)
+		return kIOReturnBadArgument;
+	
 	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) && (request->wLength == 0) )
 	{
 		USBLog(1, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s @ 0x%x, operating: %d extra, sleep: %d", this, _DEVICE->getName(), (uint32_t)_DEVICE->_expansionData->_locationID, request->wIndex, request->wValue );
 		USBTrace(kUSBTPipe,  kTPPipeControlRequest, (uintptr_t)this, (uintptr_t)_DEVICE->_expansionData->_locationID, (uintptr_t)(request->wIndex<< 16 | request->wValue), 1 );
 	}
-
-
 
     if (completion == NULL)
     {
@@ -1280,6 +1282,9 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
     IOReturn	err = kIOReturnSuccess;
 	
 	// USBTrace_Start( kUSBTPipe, kTPPipeControlRequestMemDesc, request->bmRequestType,  request->bRequest, request->wValue, request->wIndex );
+	
+	if (request == NULL)
+		return kIOReturnBadArgument;
 	
 	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) && (request->wLength == 0) )
 	{

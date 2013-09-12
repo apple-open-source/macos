@@ -158,19 +158,19 @@
 		
 		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBControl )
 			if (maxPacketSize != 512 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Control endpoint (has to be 512)", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Control endpoint (has to be 512)", (uint32_t)maxPacketSize);
 		
 		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBIsoc )
 			if (maxPacketSize > 1024 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Isochronous endpoint (has to be between 0 and 1024)", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Isochronous endpoint (has to be between 0 and 1024)", (uint32_t)maxPacketSize);
 
 		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBBulk )
 			if (maxPacketSize != 1024 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Bulk endpoint (has to be 1024)", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Bulk endpoint (has to be 1024)", (uint32_t)maxPacketSize);
 		
 		if ( (endpointDescriptor.bmAttributes & 0x03) == kUSBInterrupt )
 			if (maxPacketSize > 1024 || maxPacketSize == 0 )
-				sprintf(temporaryString, " 0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Interrupt endpoint (has to between 1 and 1024)", (uint32_t)maxPacketSize);
+				sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a SuperSpeed Interrupt endpoint (has to between 1 and 1024)", (uint32_t)maxPacketSize);
 	}
 	else if (useHighSpeedDefinition)
     {
@@ -179,11 +179,21 @@
         if ( interrupt || isoch)
 		{
 			UInt32	transPerMicroFrame = (endpointDescriptor.wMaxPacketSize & 0x1800) >> 11;
+			UInt32  bytesPerTransfer = endpointDescriptor.wMaxPacketSize & 0x07ff;
+			
 			// If bits 15..13 are not 0, it's illegal.  If bits 12..11 are 11b, it's illegal
-            if ( ( (endpointDescriptor.wMaxPacketSize & 0xe000) != 0) || ( transPerMicroFrame == 3) )
-                sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a hi-speed Interrupt endpoint", endpointDescriptor.bInterval);
+            if ((endpointDescriptor.wMaxPacketSize & 0xe000) != 0 )
+                sprintf(temporaryString, "0x%04x: Illegal value for wMaxPacketSize for a hi-speed periodic endpoint (bits 15..13 are not 0)", endpointDescriptor.wMaxPacketSize);
+            else if  (transPerMicroFrame == 3)
+                sprintf(temporaryString, "0x%04x: Illegal value for wMaxPacketSize for a hi-speed periodic endpoint (bits 12..10 are 0x11)", endpointDescriptor.wMaxPacketSize);
+            else if ( transPerMicroFrame == 0 && bytesPerTransfer > 1024)
+                sprintf(temporaryString, "0x%04x: Illegal value for wMaxPacketSize for a hi-speed periodic endpoint (transfers per microframe == 1, but packetSize > 1024", endpointDescriptor.wMaxPacketSize);
+            else if ( transPerMicroFrame == 1 && ((bytesPerTransfer > 1024) || (bytesPerTransfer < 513)) )
+                sprintf(temporaryString, "0x%04x: Illegal value for wMaxPacketSize for a hi-speed periodic endpoint (transfers per microframe == 2, but packetSize > 1024 or < 513", endpointDescriptor.wMaxPacketSize);
+            else if ( transPerMicroFrame == 2 && ((bytesPerTransfer > 1024) || (bytesPerTransfer < 683)) )
+                sprintf(temporaryString, "0x%04x: Illegal value for wMaxPacketSize for a hi-speed periodic endpoint (transfers per microframe == 2, but packetSize > 1024 or < 683", endpointDescriptor.wMaxPacketSize);
             else
-                sprintf(temporaryString, "%d  (%d x %d  transactions opportunities per microframe)", endpointDescriptor.wMaxPacketSize, endpointDescriptor.wMaxPacketSize & 0x07ff,  (uint32_t)transPerMicroFrame + 1);
+                sprintf(temporaryString, "0x%04x  (%d x %d  transactions opportunities per microframe)", endpointDescriptor.wMaxPacketSize, endpointDescriptor.wMaxPacketSize & 0x07ff,  (uint32_t)transPerMicroFrame + 1);
         }
     }
 	
@@ -209,19 +219,23 @@
         }
         
         if ( interrupt )
+		{
             if ( (endpointDescriptor.bInterval == 0) || (endpointDescriptor.bInterval > 16) )
                 sprintf(temporaryString, "%d: Illegal value for bInterval for a hi-speed/SuperSpeed Interrupt endpoint", endpointDescriptor.bInterval);
             else
                 sprintf(temporaryString, "%d (%d %s (%d %s) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), endpointDescriptor.bInterval==1?"microframe":"microframes", 
 						(endpointDescriptor.bInterval > 3 ? (1 << (endpointDescriptor.bInterval-1))/8 : endpointDescriptor.bInterval * 125), endpointDescriptor.bInterval > 3?"msecs":"microsecs" );
-        
+        }
+		
         if ( isoch )
+		{
             if ( (endpointDescriptor.bInterval == 0) || (endpointDescriptor.bInterval > 16) )
                 sprintf(temporaryString, "Illegal value for bInterval for a hi-speed/SuperSpeed isoch endpoint: %d", endpointDescriptor.bInterval);
             else
                 sprintf(temporaryString, "%d (%d %s (%d %s) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), endpointDescriptor.bInterval==1?"microframe":"microframes", 
 						endpointDescriptor.bInterval > 3 ? (1 << (endpointDescriptor.bInterval-1))/8 : endpointDescriptor.bInterval * 125, endpointDescriptor.bInterval > 3?"msecs":"microsecs" );
-    }
+		}
+	}
     else
     {
         if ( isoch )

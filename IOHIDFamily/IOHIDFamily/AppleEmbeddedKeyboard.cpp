@@ -29,16 +29,6 @@
 #include "IOHIDKeyboard.h"
 #include "IOLLEvent.h"
 
-#define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
-#define kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
-#define kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
-#define kKeyboardUsageMapKey        "KeyboardUsageMap"
-
-#define kDeviceFnFunctionUsageMapKey      "DeviceFnFunctionUsageMap"
-#define kDeviceFnKeyboardUsageMapKey      "DeviceFnKeyboardUsageMap"
-#define kDeviceNumLockKeyboardUsageMapKey "DeviceNumLockKeyboardUsageMap"
-#define kDeviceKeyboardUsageMapKey        "DeviceKeyboardUsageMap"
-
 #define super IOHIDEventDriver
 
 OSDefineMetaClassAndStructors( AppleEmbeddedKeyboard, IOHIDEventDriver )
@@ -361,28 +351,13 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
         if (obj) obj->release();                                                        \
     } while (0)
 
-    if (getProperty(kDeviceNumLockKeyboardUsageMapKey)) {
-        DECODE_MAP(numLockKeyboard, kDeviceNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
-    }
-    else {
-        DECODE_MAP(numLockKeyboard, kNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
-    }
+    DECODE_MAP(numLockKeyboard, kNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
     
-    if (getProperty(kDeviceFnKeyboardUsageMapKey)) {
-        DECODE_MAP(fnKeyboard, kDeviceFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
-    }
-    else {
-        DECODE_MAP(fnKeyboard, kFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
-    }
-    
-    if (getProperty(kDeviceFnFunctionUsageMapKey)) {
-        DECODE_MAP(fnFunction, kDeviceFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
-    }
-    else {
-        DECODE_MAP(fnFunction, kFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
-    }
+    DECODE_MAP(fnKeyboard, kFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
 
-    if ( getProperty(kNumLockKeyboardUsageMapKey) || getProperty(kDeviceNumLockKeyboardUsageMapKey) ) {
+    DECODE_MAP(fnFunction, kFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
+    
+    if ( getProperty(kNumLockKeyboardUsageMapKey) ) {
         _virtualMouseKeysSupport = TRUE;
          for (index=0; index<255; index++) {
              if ( ( _secondaryKeys[index].bits & kSecondaryKeyFnFunction ) && 
@@ -426,18 +401,8 @@ IOReturn AppleEmbeddedKeyboard::setSystemProperties( OSDictionary * properties )
         parseSecondaries = true;
     }
     
-    if ((string = OSDynamicCast(OSString, properties->getObject(kDeviceFnFunctionUsageMapKey)))) {
-        setProperty(kDeviceFnFunctionUsageMapKey, string);
-        parseSecondaries = true;
-    }
-    
     if ((string = OSDynamicCast(OSString, properties->getObject(kFnKeyboardUsageMapKey)))) {
         setProperty(kFnKeyboardUsageMapKey, string);
-        parseSecondaries = true;
-    }
-    
-    if ((string = OSDynamicCast(OSString, properties->getObject(kDeviceFnKeyboardUsageMapKey)))) {
-        setProperty(kDeviceFnKeyboardUsageMapKey, string);
         parseSecondaries = true;
     }
     
@@ -445,12 +410,7 @@ IOReturn AppleEmbeddedKeyboard::setSystemProperties( OSDictionary * properties )
         setProperty(kNumLockKeyboardUsageMapKey, string);
         parseSecondaries = true;
     }
-    
-    if ((string = OSDynamicCast(OSString, properties->getObject(kDeviceNumLockKeyboardUsageMapKey)))) {
-        setProperty(kDeviceNumLockKeyboardUsageMapKey, string);
-        parseSecondaries = true;
-    }
-    
+        
     if (parseSecondaries) {
         parseSecondaryUsages();
     }

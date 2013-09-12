@@ -85,7 +85,15 @@ public:
 	OSMetaClassDeclareReservedUnused (IOAudioTimeIntervalFilter, 13 );
 	OSMetaClassDeclareReservedUnused (IOAudioTimeIntervalFilter, 14 );
 	OSMetaClassDeclareReservedUnused (IOAudioTimeIntervalFilter, 15 );
+
 protected:
+	/* <rdar://12136103> */
+    struct ExpansionData
+	{
+	};
+    
+    ExpansionData   *reserved;
+	
 	/*!
 	 @function initFilter
 	 @abstract Construct a new instance of the TimeFilter class

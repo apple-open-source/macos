@@ -107,8 +107,6 @@ IOReturn IOAudioTimeIntervalFilter::reInitialiseFilter(uint32_t expectedInterval
 		}
 	}
 
-	kprintf("IOAudioTimeIntervalFilter::reInitialiseFilter ( interval = %llu. Re-init=%d )\n", mExpectedInterval, expectedInterval!=NULL);
-
 	mIntervalTimeHistoryPointer = 0;
 	mFilterCount = 0;
 

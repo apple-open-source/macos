@@ -59,6 +59,16 @@
 /** mod_ssl headers */
 #include "ssl_toolkit_compat.h"
 #include "ssl_expr.h"
+
+#ifdef SSL_OP_NO_TLSv1_2
+#define HAVE_TLSV1_X
+#endif
+
+#if !defined(OPENSSL_NO_COMP) && !defined(SSL_OP_NO_COMPRESSION) \
+    && OPENSSL_VERSION_NUMBER < 0x00908000L
+#define OPENSSL_NO_COMP
+#endif
+
 #include "ssl_util_ssl.h"
 
 /** The #ifdef macros are only defined AFTER including the above
@@ -215,13 +225,22 @@ typedef int ssl_opt_t;
  * Define the SSL Protocol options
  */
 #define SSL_PROTOCOL_NONE  (0)
+#ifndef OPENSSL_NO_SSL2
 #define SSL_PROTOCOL_SSLV2 (1<<0)
+#endif
 #define SSL_PROTOCOL_SSLV3 (1<<1)
 #define SSL_PROTOCOL_TLSV1 (1<<2)
-#ifndef OPENSSL_NO_SSL2
-#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_SSLV2|SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1)
+#ifdef OPENSSL_NO_SSL2
+#define SSL_MOST_ALL SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1
 #else
-#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1)
+#define SSL_MOST_ALL SSL_PROTOCOL_SSLV2|SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1
+#endif
+#ifdef HAVE_TLSV1_X
+#define SSL_PROTOCOL_TLSV1_1 (1<<3)
+#define SSL_PROTOCOL_TLSV1_2 (1<<4)
+#define SSL_PROTOCOL_ALL (SSL_MOST_ALL|SSL_PROTOCOL_TLSV1_1|SSL_PROTOCOL_TLSV1_2)
+#else
+#define SSL_PROTOCOL_ALL (SSL_MOST_ALL)
 #endif
 typedef int ssl_proto_t;
 
@@ -359,7 +378,11 @@ typedef struct {
     int verify_depth;
     int is_proxy;
     int disabled;
-    int non_ssl_request;
+    enum {
+        NON_SSL_OK = 0,        /* is SSL request, or error handling completed */
+        NON_SSL_SEND_HDR_SEP,  /* Need to send the header separator */
+        NON_SSL_SET_ERROR_MSG  /* Need to set the error message */
+    } non_ssl_request;
 
     /* Track the handshake/renegotiation state for the connection so
      * that all client-initiated renegotiations can be rejected, as a
@@ -425,7 +448,11 @@ typedef struct {
     /** proxy can have any number of cert/key pairs */
     const char  *cert_file;
     const char  *cert_path;
-    STACK_OF(X509_INFO) *certs;
+    const char  *ca_cert_file;
+    STACK_OF(X509_INFO) *certs; /* Contains End Entity certs */
+    STACK_OF(X509) **ca_certs; /* Contains ONLY chain certs for
+                                * each item in certs.
+                                * (ptr to array of ptrs) */
 } modssl_pk_proxy_t;
 
 /** stuff related to authentication that can also be per-dir */
@@ -486,6 +513,9 @@ struct SSLSrvConfigRec {
 #ifdef HAVE_FIPS
     BOOL             fips;
 #endif
+#ifndef OPENSSL_NO_COMP
+    BOOL             compression;
+#endif
     BOOL             allow_empty_fragments;
 };
 
@@ -543,6 +573,7 @@ const char  *ssl_cmd_SSLCADNRequestFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCARevocationPath(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCARevocationFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLHonorCipherOrder(cmd_parms *cmd, void *dcfg, int flag);
+const char  *ssl_cmd_SSLCompression(cmd_parms *, void *, int flag);
 const char  *ssl_cmd_SSLVerifyClient(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLVerifyDepth(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLSessionCache(cmd_parms *, void *, const char *);
@@ -567,6 +598,7 @@ const char  *ssl_cmd_SSLProxyCARevocationPath(cmd_parms *, void *, const char *)
 const char  *ssl_cmd_SSLProxyCARevocationFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyMachineCertificatePath(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyMachineCertificateFile(cmd_parms *, void *, const char *);
+const char  *ssl_cmd_SSLProxyMachineCertificateChainFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyCheckPeerExpire(cmd_parms *cmd, void *dcfg, int flag);
 const char  *ssl_cmd_SSLProxyCheckPeerCN(cmd_parms *cmd, void *dcfg, int flag);
 

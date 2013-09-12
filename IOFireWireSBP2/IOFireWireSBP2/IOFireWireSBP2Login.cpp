@@ -3511,12 +3511,6 @@ IOReturn IOFireWireSBP2Login::appendORB( IOFireWireSBP2ORB * orb )
     IOReturn status = kIOReturnSuccess;
     if( fLastORB != NULL && fLastORB != orb )
     {
-        if( fLastORB )
-        {
-            fLastORB->release();
-            fLastORB = NULL;
-        }
-        
 		FWAddress orb_address(0,0);
         orb->getORBAddress( &orb_address );
         setNextORBAddress( fLastORB, orb_address );
@@ -3525,6 +3519,13 @@ IOReturn IOFireWireSBP2Login::appendORB( IOFireWireSBP2ORB * orb )
 		fLastORBAddress.addressHi = OSSwapHostToBigInt16(orb_address.addressHi);
 		fLastORBAddress.addressLo = OSSwapHostToBigInt32(orb_address.addressLo);
         orb->retain();
+        
+        if( fLastORB )
+        {
+            fLastORB->release();
+            fLastORB = NULL;
+        }
+        
         fLastORB = orb;
     }
     else

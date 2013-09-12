@@ -1,5 +1,5 @@
 /*
- * Copyright © 2009-2012 Apple Inc.  All rights reserved.
+ * Copyright © 2009-2013 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,6 +50,7 @@
 
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/usb/USB.h>
+
 #include "USBTracepoints.h"
 	
 #ifndef KERNEL_PRIVATE
@@ -81,7 +82,7 @@
 //	Constants
 //—————————————————————————————————————————————————————————————————————————————
 
-#define kTraceBufferSampleSize			65500
+#define kTraceBufferSampleSize			1000000
 #define kMicrosecondsPerSecond			1000000
 #define kMicrosecondsPerMillisecond		1000
 #define kPrintMaskAllTracepoints		0x80000000
@@ -109,6 +110,27 @@ typedef struct {
 	uint32_t	cpuid;
 } trace_info;
 
+// Constants that define the different power states
+enum
+{
+    kUSBOff				= 0,				// controller is reset, nothing is attached
+    kUSBStateRestart	= 1,				// same as OFF
+    kUSBSleep			= 2,				// controller is suspended, preparing to lose main power
+    kUSBLowPower		= 3,				// controller is suspended, power remains on
+    kUSBOn				= 4,				// up and running
+    kUSBBusPowerStates	= 5
+};
+
+#define	kIOUSBMessageMuxFromEHCIToXHCI				iokit_usb_msg(0xe1)		// 0xe00040e1  Message from the EHCI HC for ports mux transition from EHCI to XHCI
+#define	kIOUSBMessageMuxFromXHCIToEHCI				iokit_usb_msg(0xe2)		// 0xe00040e2  Message from the EHCI HC for ports mux transition from XHCI to EHCI
+#define kIOUSBMessageHubPortDeviceDisconnected      iokit_usb_msg(0x1b)		// 0xe000401b  Message sent by a built-in hub when a device was disconnected
+
+enum
+{
+    kUSBBusStateReset				= 0,				// bus is in RESET
+    kUSBBusStateSuspended			= 1,				// bus is in SUSPEND mode
+    kUSBBusStateRunning				= 2					// bus is operational
+};
 
 //—————————————————————————————————————————————————————————————————————————————
 //	OHCI Defines
@@ -423,8 +445,9 @@ enum
 	kXHCITRB_StopEndpoint = 15,
 	kXHCITRB_SetTRDqPtr = 16,
 	kXHCITRB_ResetDevice = 17,
-	
+    
     kXHCITRB_GetPortBandwidth = 21,
+    kXHCITRB_ForceHeaderCommand = 22,
 	kXHCITRB_CMDNoOp = 23,
     
 	kXHCITRB_CMDNEC = 49,   // NEC vendor specific command to get firmware version
@@ -458,7 +481,9 @@ enum
 	kXHCITRB_IDT = kXHCIBit6,
 	kXHCITRB_BSR = kXHCIBit9,
 	kXHCITRB_BEI = kXHCIBit9,
+	kXHCITRB_TSP = kXHCIBit9,
 	kXHCITRB_DIR = kXHCIBit16,
+    kXHCITRB_SP  = kXHCIBit23,
 	
 	kXHCITRB_Normal_Len_Mask = XHCIBitRange(0, 16),
 	kXHCITRB_TDSize_Mask = XHCIBitRange(17, 21),
@@ -485,6 +510,9 @@ enum
 	kXHCITRB_Port_Mask = XHCIBitRange(24, 31),
 	kXHCITRB_Port_Shift = XHCIBitRangePhase(24, 31),
 	
+    kXHCIStrCtx_SCT_Mask = XHCIBitRange(1,3),
+	kXHCIStrCtx_SCT_Shift = XHCIBitRangePhase(1,3),
+
     // Section 6.4.5 TRB Completion Codes
 	kXHCITRB_CC_Invalid = 0,
 	kXHCITRB_CC_Success = 1,
@@ -629,3 +657,11 @@ static void IndentIn ( int numOfTabs );
 static void IndentOut ( int numOfTabs );
 
 const char * DecodeUSBTransferType( uint32_t type );
+const char * DecodeUSBPowerState( uint32_t type );
+const char * DecodeXHCIMuxTransitionMessage( uint32_t type );
+const char * DecodeUSBBusState( uint32_t type );
+const char * DecodeTestMode( uint32_t type );
+const char * PrintXHCICommandTRBs(trace_info *info, uintptr_t xhci, uint32_t offs0, uint32_t offs4, uint32_t offs8, uint32_t offsC);
+
+const char * GetSpeedName(UInt32 speed);
+

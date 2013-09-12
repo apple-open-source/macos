@@ -8,10 +8,13 @@
 <title>Kimlik Doğrulama, Yetkilendirme ve Erişim Denetimi - Apache HTTP Sunucusu</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
 <p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -24,11 +27,15 @@
 <a href="../ko/howto/auth.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/howto/auth.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
+<div class="outofdate">Bu çeviri güncel olmayabilir. Son değişiklikler için İngilizce sürüm geçerlidir.</div>
 
     <p>Kimlik Doğrulama istediğiniz kişileri teyid etme işlemidir.
     Yetkilendirme ise kişilerin nereye gireceklerine ve hangi bilgiye
     ulaşacaklarına müsaade edilmesi işlemidir.</p>
-  </div>
+
+    <p>Genel erişim denetimi için, <a href="access.html">Erişim Denetimi
+      Nasıl</a> belgesine bakınız.</p>
+</div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">İlgili modüller ve Yönergeler</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#introduction">Giriş</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#theprerequisites">Ön gereksinimler</a></li>
@@ -38,7 +45,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#possibleproblems">Olası Sorunlar</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#dbmdbd">Diğer parola depolama yöntemleri</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#moreinformation">Daha fazla bilgi</a></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="related" id="related">İlgili modüller ve Yönergeler</a></h2>
@@ -47,30 +54,32 @@
     vardır. Genellikle her bir gruptan en az bir modül seçeceksiniz.</p>
 
     <ul>
-      <li>Kimlik Doğrulama türü (bkz. <code class="directive"><a href="../mod/core.html#authtype">AuthType</a></code> yönergesi)
+      <li>Kimlik Doğrulama türü (bkz. <code class="directive"><a href="../mod/mod_authn_core.html#authtype">AuthType</a></code> yönergesi)
         <ul>
           <li><code class="module"><a href="../mod/mod_auth_basic.html">mod_auth_basic</a></code></li>
           <li><code class="module"><a href="../mod/mod_auth_digest.html">mod_auth_digest</a></code></li>
         </ul>
       </li>
 
-      <li>Kimlik Doğrulayıcı
+      <li>Kimlik Doğrulayıcı (bkz.
+      <code class="directive"><a href="../mod/mod_auth_basic.html#authbasicprovider">AuthBasicProvider</a></code> ve
+      <code class="directive"><a href="../mod/mod_auth_digest.html#authdigestprovider">AuthDigestProvider</a></code>
+      yönergeleri)
         <ul>
-          <li><code class="module"><a href="../mod/mod_authn_alias.html">mod_authn_alias</a></code></li>                                                                           <li><code class="module"><a href="../mod/mod_authn_anon.html">mod_authn_anon</a></code></li>
+          <li><code class="module"><a href="../mod/mod_authn_anon.html">mod_authn_anon</a></code></li>
           <li><code class="module"><a href="../mod/mod_authn_dbd.html">mod_authn_dbd</a></code></li>
           <li><code class="module"><a href="../mod/mod_authn_dbm.html">mod_authn_dbm</a></code></li>
-          <li><code class="module"><a href="../mod/mod_authn_default.html">mod_authn_default</a></code></li>
           <li><code class="module"><a href="../mod/mod_authn_file.html">mod_authn_file</a></code></li>
           <li><code class="module"><a href="../mod/mod_authnz_ldap.html">mod_authnz_ldap</a></code></li>
         </ul>
       </li>
       <li>Yetkilendirme (bkz.
-          <code class="directive"><a href="../mod/core.html#require">Require</a></code> yönergesi)
+          <code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code> yönergesi)
         <ul>
           <li><code class="module"><a href="../mod/mod_authnz_ldap.html">mod_authnz_ldap</a></code></li>
           <li><code class="module"><a href="../mod/mod_authz_dbm.html">mod_authz_dbm</a></code></li>
-          <li><code class="module"><a href="../mod/mod_authz_default.html">mod_authz_default</a></code></li>
           <li><code class="module"><a href="../mod/mod_authz_groupfile.html">mod_authz_groupfile</a></code></li>
+          <li><code class="module"><a href="../mod/mod_authz_host.html">mod_authz_host</a></code></li>
           <li><code class="module"><a href="../mod/mod_authz_owner.html">mod_authz_owner</a></code></li>
           <li><code class="module"><a href="../mod/mod_authz_user.html">mod_authz_user</a></code></li>
         </ul>
@@ -137,6 +146,12 @@
     zor olmamakla birlikte bu noktaya gelindiğinde konuyu
     netleştireceğiz.</p>
 
+    <p>Ayrıca, <code class="module"><a href="../mod/mod_authn_core.html">mod_authn_core</a></code> ve
+    <code class="module"><a href="../mod/mod_authz_core.html">mod_authz_core</a></code> modüllerinin ya httpd çalıştırılabilirinin
+    içinde derlenmiş ya da httpd.conf dosyası tarafından yüklenmiş olduğundan
+    emin olmalısınız. Bu modüllerin her ikisi de HTTP sunucusunda yetkilendirme
+    ve kimlik denetiminin kullanımı ile yapılandırmada kritik öneme sahip
+    işlevselliği ve temel yönergeleri sağlar.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="gettingitworking" id="gettingitworking">Çalışmaya Başlama</a></h2>
@@ -215,7 +230,7 @@
     (<code>Digest</code>) kimlik doğrulama yöntemini
     desteklemektedir.</p>
 
-    <p><code class="directive"><a href="../mod/core.html#authname">AuthName</a></code> yönergesi
+    <p><code class="directive"><a href="../mod/mod_authn_core.html#authname">AuthName</a></code> yönergesi
     ile kimlik doğrulamada kullanılacak <dfn>Saha</dfn> da
     belirtilebilir. Saha kullanımının, başlıca iki işlevi vardır.
     Birincisi, istemci sıklıkla bu bilgiyi kullanıcıya parola diyalog
@@ -253,10 +268,10 @@
     Veritabanı</a> içindeki üçüncü parti modüllerinde çok sayıda
     başka kimlik doğrulama türü de vardır.</p>
 
-    <p>Son olarak <code class="directive"><a href="../mod/core.html#require">Require</a></code>
+    <p>Son olarak <code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code>
     yönergesi, sunucunun bu bölgesine erişimine izin verilen
     kullanıcıları ayarlama işleminin kimlik doğrulamasıyla ilgili
-    kısmını sağlar. Bir sonraki bölümde <code class="directive"><a href="../mod/core.html#require">Require</a></code> yönergesini kullanmanın
+    kısmını sağlar. Bir sonraki bölümde <code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code> yönergesini kullanmanın
     çeşitli yoları üzerinde duracağız.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -277,6 +292,7 @@
 
     <div class="example"><p><code>
     &lt;Directory /usr/local/apache/htdocs/sekrit&gt;<br />
+    <span class="indent">
       AuthType Basic<br />
       AuthName intranet<br />
       AuthUserFile /www/passwd/users<br />
@@ -285,6 +301,7 @@
       Order allow,deny<br />
       Allow from internal.com<br />
       Satisfy any<br />
+    </span>
     &lt;/Directory&gt;
     </code></p></div>
 
@@ -322,8 +339,9 @@
     (Yeni bir parola dosyası oluşturmak için <code>-c</code> seçeneği
     kullanılır).</p>
 
-    <p>Şimdi, <code>.htaccess</code> dosyanızı aşağıda görüldüğü şekilde
-    değiştirebilirsiniz:</p>
+    <p>Şimdi, <code>.htaccess</code> dosyanızı veya
+    <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code>
+    bölümünüzü aşağıda görüldüğü şekilde değiştirebilirsiniz:</p>
 
     <div class="example"><p><code>
       AuthType Basic<br />
@@ -349,13 +367,7 @@
 
     <p><code>Require user umut</code> satırı ile parola dosyasında
     listelenmiş ve parolayı doğru olarak giren herhangi bir kişiye izin
-    vermektense, her grup için ayrı bir parola dosyası tutarak grup
-    davranışını taklit edebilirsiniz. Bu yaklaşımın getirisi:
-    Apache iki dosya yerine sadece bir dosyaya bakar.
-    Götürüsü ise parola dosyalarından oluşan bir dosya demeti sağlamak
-    ve <code class="directive"><a href="../mod/mod_authn_file.html#authuserfile">AuthUserFile</a></code>
-    yönergesinde doğru dosyayı belirtmeyi unutmamak zorunda
-    kalmanızdır.</p>
+    vermektense bunu kullanabilirsiniz.</p>
 
   </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -393,11 +405,13 @@
 
     <div class="example"><p><code>
     &lt;Directory /www/docs/private&gt;<br />
-    AuthName "Private"<br />
-    AuthType Basic<br />
-    AuthBasicProvider dbm<br />
-    AuthDBMUserFile /www/passwords/passwd.dbm<br />
-    Require valid-user<br />
+    <span class="indent">
+        AuthName "Private"<br />
+        AuthType Basic<br />
+        AuthBasicProvider dbm<br />
+        AuthDBMUserFile /www/passwords/passwd.dbm<br />
+        Require valid-user<br />
+    </span>
     &lt;/Directory&gt;
     </code></p></div>
 
@@ -424,7 +438,28 @@
 <a href="../ja/howto/auth.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/auth.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/howto/auth.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/auth.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

@@ -698,8 +698,9 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				snprintf(text, sizeof(text), "peers_identifier fqdn \"%s\";\n", str);
 				WRITE(text);
 
-				if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate))
-					cert_verification_option = CERT_VERIFICATION_OPTION_PEERS_ID;					
+				if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate) ||
+                    CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid))
+					cert_verification_option = CERT_VERIFICATION_OPTION_PEERS_ID;
 			}
 			else if (CFEqual(string, kRASValIPSecIdentifierVerificationUseOpenDirectory)) {
 				/* 
@@ -783,9 +784,17 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			snprintf(text, sizeof(text), "certificate_verification sec_framework%s;\n", option_str);
 			WRITE(text);
 		}
+		/*
+			Hybrid authentication method
+		*/
+		if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) {
+			//WRITE("verify_cert on;\n");	// Should we set this??
+			snprintf(text, sizeof(text), "certificate_verification sec_framework use_peers_identifier;\n");
+			WRITE(text);
+		}
 	}
 	
-    /* 
+	/*
 		Nonce size key is OPTIONAL 
 	*/
 	{

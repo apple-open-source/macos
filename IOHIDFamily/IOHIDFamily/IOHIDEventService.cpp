@@ -512,50 +512,43 @@ void IOHIDEventService::calculateStandardType()
     IOHIDStandardType   result = kIOHIDStandardTypeANSI;
     OSNumber *          number;
 
-    number = (OSNumber*)copyProperty(kIOHIDDeviceKeyboardStandardTypeKey);
-    if ( OSDynamicCast(OSNumber, number) ) {
-        result = number->unsigned32BitValue();
-    }
-    else {
-        OSSafeReleaseNULL(number);
-        number = (OSNumber*)copyProperty(kIOHIDStandardTypeKey);
-        if ( OSDynamicCast(OSNumber, number) ) {
-            result = number->unsigned32BitValue();
-        }
-        else {
-            OSSafeReleaseNULL(number);
-            UInt16 productID    = getProductID();
-            UInt16 vendorID     = getVendorID();
-            
-            if (vendorID == kIOUSBVendorIDAppleComputer) {
-                
-                switch (productID) {
-                    case kprodUSBCosmoISOKbd:  //Cosmo ISO
-                    case kprodUSBAndyISOKbd:  //Andy ISO
-                    case kprodQ6ISOKbd:  //Q6 ISO
-                    case kprodQ30ISOKbd:  //Q30 ISO
+	number = (OSNumber*)copyProperty(kIOHIDStandardTypeKey);
+	if ( OSDynamicCast(OSNumber, number) ) {
+		result = number->unsigned32BitValue();
+	}
+	else {
+		OSSafeReleaseNULL(number);
+		UInt16 productID    = getProductID();
+		UInt16 vendorID     = getVendorID();
+		
+		if (vendorID == kIOUSBVendorIDAppleComputer) {
+			
+			switch (productID) {
+				case kprodUSBCosmoISOKbd:  //Cosmo ISO
+				case kprodUSBAndyISOKbd:  //Andy ISO
+				case kprodQ6ISOKbd:  //Q6 ISO
+				case kprodQ30ISOKbd:  //Q30 ISO
 #if TARGET_OS_EMBEDDED
-                        _shouldSwapISO = true;
+					_shouldSwapISO = true;
 #endif /* TARGET_OS_EMBEDDED */
-                        // fall through
-                    case kprodFountainISOKbd:  //Fountain ISO
-                    case kprodSantaISOKbd:  //Santa ISO
-                        result = kIOHIDStandardTypeISO;
-                        break;
-                    case kprodUSBCosmoJISKbd:  //Cosmo JIS
-                    case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
-                    case kprodQ6JISKbd:  //Q6 JIS
-                    case kprodQ30JISKbd:  //Q30 JIS
-                    case kprodFountainJISKbd:  //Fountain JIS
-                    case kprodSantaJISKbd:  //Santa JIS
-                        result = kIOHIDStandardTypeJIS;
-                        break;
-                }
-                
-                setProperty(kIOHIDStandardTypeKey, result, 32);
-            }
-        }
-    }
+					// fall through
+				case kprodFountainISOKbd:  //Fountain ISO
+				case kprodSantaISOKbd:  //Santa ISO
+					result = kIOHIDStandardTypeISO;
+					break;
+				case kprodUSBCosmoJISKbd:  //Cosmo JIS
+				case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
+				case kprodQ6JISKbd:  //Q6 JIS
+				case kprodQ30JISKbd:  //Q30 JIS
+				case kprodFountainJISKbd:  //Fountain JIS
+				case kprodSantaJISKbd:  //Santa JIS
+					result = kIOHIDStandardTypeJIS;
+					break;
+			}
+			
+			setProperty(kIOHIDStandardTypeKey, result, 32);
+		}
+	}
     OSSafeReleaseNULL(number);
     
 #if TARGET_OS_EMBEDDED

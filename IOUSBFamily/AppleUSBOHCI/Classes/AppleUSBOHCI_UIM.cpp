@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,18 +99,18 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 		{
 			if (!dmaCommand)
 			{
-				USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - no dmaCommand", this);
+				USBError(1, "AppleUSBOHCI::CreateGeneralTransfer - no dmaCommand");
 				status = kIOReturnInternalError;
 			}
 			else if (dmaCommand->getMemoryDescriptor() != CBP)
 			{
-				USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - mismatched CBP (%p) and dmaCommand memory descriptor (%p)", this, CBP, dmaCommand->getMemoryDescriptor());
+				USBError(1, "AppleUSBOHCI::CreateGeneralTransfer - mismatched CBP (%p) and dmaCommand memory descriptor (%p)", CBP, dmaCommand->getMemoryDescriptor());
 				status = kIOReturnInternalError;
 			}
 		}
 		else
 		{
-			USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - nonZero bufferSize and no CBP", this);
+			USBError(1, "AppleUSBOHCI::CreateGeneralTransfer - nonZero bufferSize and no CBP");
 			status = kIOReturnInternalError;
 		}
 		if (!status)
@@ -119,7 +119,7 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 			while (transferOffset < bufferSize)
 			{
 				offset = transferOffset;
-				if (_errataBits & kErrataOnlySinglePageTransfers)
+				if (_ERRATA64BITS & kErrataOnlySinglePageTransfers)
 					pageCount = 1;
 				else
 					pageCount = 2;
@@ -128,7 +128,7 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 				status = dmaCommand->gen64IOVMSegments(&offset, segments64, &pageCount);
 				if (status || ((pageCount != 1) && (pageCount != 2)))
 				{
-					USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - could not generate segments - err (%p) pageCount (%d) offset (%qd) transferOffset (%d) bufferSize (%d) getMemoryDescriptor (%p)", this, (void*)status, (int)pageCount, offset, (int)transferOffset, (int)bufferSize, dmaCommand->getMemoryDescriptor());
+					USBError(1, "AppleUSBOHCI::CreateGeneralTransfer - could not generate segments - err (%p) pageCount (%d) offset (%qd) transferOffset (%d) bufferSize (%d) getMemoryDescriptor (%p)", (void*)status, (int)pageCount, offset, (int)transferOffset, (int)bufferSize, dmaCommand->getMemoryDescriptor());
 					status = status ? status : kIOReturnInternalError;
 					return status;
 				}
@@ -144,7 +144,7 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 				{
 					if (((UInt32)(segments64[i].fIOVMAddr >> 32) > 0) || ((UInt32)(segments64[i].fLength >> 32) > 0))
 					{
-						USBError(1, "AppleUSBOHCI[%p]::CreateGeneralTransfer - generated segments (%d) not 32 bit -  offset (0x%qx) length (0x%qx) ", this, (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
+						USBError(1, "AppleUSBOHCI::CreateGeneralTransfer - generated segments (%d) not 32 bit -  offset (0x%qx) length (0x%qx) ", (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
 						return kIOReturnInternalError;
 					}
 					// OK to convert to 32 bit (which it should have been already)
@@ -173,7 +173,7 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 					// must be a multiple of max packet size to avoid short packets
 					if (segments32[0].fLength % ((USBToHostLong(queue->pShared->flags) & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase) != 0)
 					{
-						USBError(1, "AppleUSBOHCI[%p] CreateGeneralTransfer: non-multiple MPS transfer required -- giving up!", this);
+						USBError(1, "AppleUSBOHCI::CreateGeneralTransfer: non-multiple MPS transfer required -- giving up!");
 						status = kIOReturnNoMemory;
 						break;
 					}
@@ -1436,7 +1436,7 @@ bool AppleUSBOHCI::DetermineInterruptOffset(
     if (pollingRate <  1)
     {
         //error condition
-        USBError(1,"AppleUSBOHCI[%p]::DetermineInterruptOffset pollingRate of 0 -- that's illegal!", this);
+        USBError(1,"AppleUSBOHCI::DetermineInterruptOffset pollingRate of 0 -- that's illegal!");
         return(false);
     }
     else if (pollingRate < 2)
@@ -1852,7 +1852,7 @@ AppleUSBOHCI::CheckEDListForTimeouts(AppleOHCIEndpointDescriptorPtr head, AppleO
             {
 				uint32_t	myFlags = USBToHostLong( pED->pShared->flags);
                 USBLog(2, "AppleUSBOHCI[%p]::Found a transaction past the completion deadline, timing out! (%p, 0x%x - 0x%x)", this, pTD, (uint32_t)curFrame, (uint32_t)firstActiveFrame);
-				USBError(1, "AppleUSBOHCI[%p]::Found a transaction past the completion deadline on bus 0x%x, timing out! (Addr: %d, EP: %d)", this, (uint32_t) _busNumber, ((myFlags & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase), ((myFlags & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase) );
+				USBError(1, "AppleUSBOHCI::Found a transaction past the completion deadline on bus 0x%x, timing out! (Addr: %d, EP: %d)", (uint32_t) _busNumber, ((myFlags & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase), ((myFlags & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase) );
                
 				ReturnOneTransaction(pTD, pED, kIOUSBTransactionTimeout);
                 continue;
@@ -1880,7 +1880,7 @@ AppleUSBOHCI::CheckEDListForTimeouts(AppleOHCIEndpointDescriptorPtr head, AppleO
         {
 			uint32_t	myFlags = USBToHostLong( pED->pShared->flags); 
             USBLog(2, "AppleUSBOHCI[%p]::Found a transaction which hasn't moved in 5 seconds, timing out! (%p, 0x%x - 0x%x)", this, pTD, (uint32_t)curFrame, (uint32_t)pTD->lastFrame);
-			USBError(1, "AppleUSBOHCI[%p]::Found a transaction which hasn't moved in 5 seconds on bus 0x%x, timing out! (Addr: %d, EP: %d)", this, (uint32_t) _busNumber, ((myFlags & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase), ((myFlags & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase) );
+			USBError(1, "AppleUSBOHCI::Found a transaction which hasn't moved in 5 seconds on bus 0x%x, timing out! (Addr: %d, EP: %d)", (uint32_t) _busNumber, ((myFlags & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase), ((myFlags & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase) );
 			
             ReturnOneTransaction(pTD, pED, kIOUSBTransactionTimeout);
             continue;
@@ -1953,7 +1953,7 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
     // some controllers can be swamped by PCI traffic and essentially go dead.  
     // here we attempt to detect this condition and recover from it.
     //
-    if ( _errataBits & kErrataNeedsWatchdogTimer ) 
+    if ( _ERRATA64BITS & kErrataNeedsWatchdogTimer ) 
     {
         UInt16 			hccaFrameNumber, hcFrameNumber;
         UInt32			fmInterval, hcca, bulkHead, controlHead, periodicStart, intEnable, fmNumber;
@@ -1965,7 +1965,7 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
         
         if ( (hcFrameNumber > 5) && (hcFrameNumber > (hccaFrameNumber+5)) )
         {
-            USBError(1,"AppleUSBOHCI[%p] Watchdog detected dead controller (hcca #: %d, hc #: %d)", this,  (uint32_t) hccaFrameNumber, (uint32_t) hcFrameNumber);
+            USBError(1,"AppleUSBOHCI::UIMCheckForTimeouts  Watchdog detected dead controller (hcca #: %d, hc #: %d)",  (uint32_t) hccaFrameNumber, (uint32_t) hcFrameNumber);
                     
             // Save registers
             //
@@ -1996,7 +1996,7 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
 						
             _pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Resume << kOHCIHcControl_HCFSPhase);
             
-            if (_errataBits & kErrataLucentSuspendResume)
+            if (_ERRATA64BITS & kErrataLucentSuspendResume)
             {
                 // JRH 08-27-99
                 // this is a very simple yet clever hack for working around a bug in the Lucent controller
@@ -2120,13 +2120,13 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 	
 	if (!dmaCommand)
 	{
-        USBError(1,"AppleUSBOHCI[%p]::UIMCreateIsochTransfer no dmaCommand", this);
+        USBError(1,"AppleUSBOHCI::UIMCreateIsochTransfer no dmaCommand");
         return kIOReturnInternalError;
 	}
 	
 	if (dmaCommand->getMemoryDescriptor() != pBuffer)
 	{
-        USBError(1,"AppleUSBOHCI[%p]::UIMCreateIsochTransfer - memory desc in dmaCommand (%p) different than IOMD (%p)", this, dmaCommand->getMemoryDescriptor(), pBuffer);
+        USBError(1,"AppleUSBOHCI::UIMCreateIsochTransfer - memory desc in dmaCommand (%p) different than IOMD (%p)", dmaCommand->getMemoryDescriptor(), pBuffer);
         return kIOReturnInternalError;
 	}
 	
@@ -2234,7 +2234,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 
 			if (status)
 			{
-				USBError(1, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - curFrameInRequest[%d] frameCount[%d] - got status (%p) from gen64IOVMSegments", this, (int)curFrameInRequest, (int)frameCount, (void*)status);
+				USBError(1, "AppleUSBOHCI::UIMCreateIsochTransfer - curFrameInRequest[%d] frameCount[%d] - got status (%p) from gen64IOVMSegments", (int)curFrameInRequest, (int)frameCount, (void*)status);
 				return status;
 			}
 			
@@ -2251,7 +2251,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 			{
 				if (((UInt32)(segments64[i].fIOVMAddr >> 32) > 0) || ((UInt32)(segments64[i].fLength >> 32) > 0))
 				{
-					USBError(1, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - generated segments (%d) not 32 bit -  offset (0x%qx) length (0x%qx) ", this, (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
+					USBError(1, "AppleUSBOHCI::UIMCreateIsochTransfer - generated segments (%d) not 32 bit -  offset (0x%qx) length (0x%qx) ", (int)i, segments64[0].fIOVMAddr, segments64[0].fLength);
 					return kIOReturnInternalError;
 				}
 				// OK to convert to 32 bit (which it should have been already)
@@ -2285,7 +2285,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
                 // If we are wrapping around the same physical page and we are on an NEC controller, then we need to discard the 2nd segment.  It will click
                 // but at least we won't hang the controller
                 //
-                if ( (_errataBits & kErrataNECOHCIIsochWraparound) && ((segments32[0].fIOVMAddr & kOHCIPageMask) == (segments32[1].fIOVMAddr & kOHCIPageMask)) )
+                if ( (_ERRATA64BITS & kErrataNECOHCIIsochWraparound) && ((segments32[0].fIOVMAddr & kOHCIPageMask) == (segments32[1].fIOVMAddr & kOHCIPageMask)) )
                 {
                     USBLog(3,"AppleUSBOHCI[%p]::UIMCreateIsochTransfer On an NEC controller and frame data wraps from end of buffer to beginning.  Dropping data to avoid controller hang", this);
                     numSegs = 1;

@@ -8,11 +8,14 @@
 <title>mod_rewrite - Serveur Apache HTTP</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -82,7 +85,7 @@ d'Apache</td></tr></table>
 </ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><a href="#rewriteflags">Drapeaux des règles de réécriture</a></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="quoting" id="quoting">Marquage des caractères spéciaux</a></h2>
@@ -151,101 +154,48 @@ SCRIPT_URI=http://en1.engelschall.com/u/rse/
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit l'URL de base pour les réécritures au niveau
 répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>RewriteBase <em>chemin URL</em></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>Voir utilisation pour plus d'informations.</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>None</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">AllowOverride:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_rewrite</td></tr>
 </table>
-      <p>La directive <code class="directive">RewriteBase</code> définit
-      explicitement l'URL de base pour les réécritures au niveau du
-      répertoire. Comme vous le verrez plus loin, la directive
-      <code class="directive"><a href="#rewriterule">RewriteRule</a></code> peut
-      être utilisée dans les fichiers de configuration au niveau du
-      répertoire (<code>.htaccess</code>). Elle agit alors localement,
-      en amputant le répertoire local de son préfixe avant traitement,
-      et en n'appliquant les règles de réécriture que sur ce qui reste
-      de l'URL. Lorsque le traitement est terminé, le préfixe est
-      automatiquement rajouté à l'URL. La valeur par défaut est
-      <code class="directive">RewriteBase</code>
-      <em>chemin répertoire physique</em></p>
+      <p>La directive <code class="directive">RewriteBase</code> permet de
+      spécifier le préfixe d'URL à utiliser dans un contexte de
+      répertoire (htaccess) pour les directives
+      <code class="directive">RewriteRule</code> qui réécrivent vers un chemin
+      relatif.</p>
+      <p>Cette directive est <em>obligatoire</em> si vous utilisez un
+      chemin relatif dans une substitution, et dans un contexte de
+      répertoire (htaccess), sauf si au moins une de ces conditions est
+      vérifiée :</p>
+      <ul>
+          <li>La requête initiale, ainsi que la substitution, sont dans
+	  la <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> (c'est à
+	  dire que pour y accéder, il n'est pas nécessaire d'utiliser
+	  une directive telle qu'<code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>).</li>
+          <li>Le chemin du système de fichiers vers le répertoire
+	  contenant la <code class="directive">RewriteRule</code>, suffixé par
+	  la substitution relative est aussi valide en tant qu'URL sur
+	  le serveur (ce qui est rare).</li>
+      </ul>
 
-      <p>Lorsqu'une substitution intervient pour une nouvelle URL, ce
-      module doit réinjecté l'URL dans le traitement du serveur. Pour
-      y parvenir, il doit connaître le préfixe de l'URL ou l'URL de
-      base correspondants. Par défaut, le préfixe est le chemin du
-      fichier correspondant lui-même. <strong>Cependant, pour la
-      plupart des sites web, les URLs ne correspondent PAS directement
-      aux chemins des fichiers physiques, cette assertion s'avère
-      ainsi souvent fausse !</strong>. C'est pourquoi vous pouvez
-      utiliser la directive <code>RewriteBase</code> pour spécifier
-      le préfixe correct.</p>
-
-<div class="note"> Si les URLs de votre serveur web ne correspondent
-<strong>pas</strong> directement aux chemins physiques des fichiers,
-vous devrez utiliser <code class="directive">RewriteBase</code> dans chaque
-fichier <code>.htaccess</code> où vous voudrez utiliser des
-directives <code class="directive"><a href="#rewriterule">RewriteRule</a></code>.
-</div>
-
-        <p> Par exemple, considérons le fichier de configuration de
-	répertoire suivant :</p>
+<p>Dans l'exemple ci-dessous, la directive
+<code class="directive">RewriteBase</code> est nécessaire afin d'éviter une
+réécriture en http://example.com/opt/myapp-1.2.3/welcome.html car la
+ressource n'était pas relative à la racine des documents. Cette erreur
+de configuration aurait conduit le serveur à rechercher un répertoire
+"opt" à la racine des documents.</p>
 
 <div class="example"><pre>
-#
-#  /abc/def/.htaccess -- fichier de configuration pour le répertoire
-/abc/def
-#  Rappel : /abc/def est le chemin physique de /xyz,
-#  <em>ce qui veut dire</em> que la configuration du serveur comporte
-#  une directive du style 'Alias /xyz /abc/def'.
-#
-
+DocumentRoot /var/www/example.com
+Alias /myapp /opt/myapp-1.2.3
+&lt;Directory /opt/myapp-1.2.3&gt;
 RewriteEngine On
-
-#  faisons savoir au serveur qu'on nous a atteint via /xyz et non par
-#  le chemin physique /abc/def
-RewriteBase   /xyz
-
-#  maintenant les règles de réécriture
-RewriteRule   ^avant\.html$  après.html
+RewriteBase /myapp/
+RewriteRule ^index\.html$  welcome.html 
+&lt;/Directory&gt;
 </pre></div>
-
-        <p>Dans l'exemple précédent, une requête pour
-	<code>/xyz/avant.html</code> sera correctement réécrite sous
-	sous sa forme chemin physique
-	<code>/abc/def/après.html</code>.</p>
-
-<div class="note"><h3>Pour les hackers d'Apache</h3>
-<p>La liste suivante fournit des informations détaillées à propos des
-étapes du traitement interne :</p>
-<pre>
-Requête :
-  /xyz/avant.html
-
-Traitement interne :
-  /xyz/avant.html     -&gt; /abc/def/avant.html  (Alias au niveau serveur)
-  /abc/def/avant.html -&gt; /abc/def/après.html  (RewriteRule au niveau répertoire)
-  /abc/def/après.html -&gt; /xyz/après.html      (RewriteBase au niveau répertoire)
-  /xyz/après.html     -&gt; /abc/def/après.html  (Alias au niveau serveur)
-
-Résultat :
-  /abc/def/après.html
-
-</pre>
-              <p>Tout ceci paraît très compliqué, mais correspond
-	      réellement au traitement interne d'Apache. Comme la
-	      réécriture au niveau du répertoire intervient plus tard
-	      au cours du traitement, la requête de réécriture doit être
-	      réinjectée dans le noyau d'Apache, comme s'il s'agissait
-	      d'une nouvelle requête (Voir les <a href="../rewrite/tech.html">détails techniques à
-	      propos de mod_rewrite</a>). La surcharge
-	      correspondante n'est pas aussi importante qu'il n'y
-	      paraît, car la réinjection est entièrement prise en charge
-	      en interne par Apache (comme c'est d'ailleurs le cas pour
-	      de nombreuses autres opérations effectuées à l'intérieur
-	      d'Apache).</p>
-</div>
-
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -778,7 +728,7 @@ synchronisation de <code class="directive"><a href="#rewritemap">RewriteMap</a><
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit le nom du fichier utilisé pour la journalisation
 des traitements du moteur de réécriture</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>RewriteLog <em>chemin du fichier journal</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>RewriteLog <em>chemin du fichier journal|redirection vers un pipe</em></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_rewrite</td></tr>
@@ -834,7 +784,11 @@ autre que l'utilisateur qui démarre le serveur.
 </div>
 
 <div class="example"><h3>Exemple</h3><p><code>
-RewriteLog "/usr/local/var/apache/logs/rewrite.log"
+# Journalisation dans un fichier :<br />
+RewriteLog "/usr/local/var/apache/logs/rewrite.log"<br />
+<br />
+# Journalisation redirigée vers un pipe:<br />
+RewriteLog "|/path/to/parser.pl"
 </code></p></div>
 
 
@@ -1195,8 +1149,41 @@ la version version 2.1</td></tr>
       <strong>after</strong> après les règles spécifiées dans le niveau
       enfant.
       </div>
+
       </dd>
-      </dl>
+
+      <dt><code>AllowAnyURI</code></dt>
+      <dd>
+
+      <p>A partir de la version 2.2.23 de httpd, lorsqu'une directive
+      <code class="directive"><a href="#rewriterule">RewriteRule</a></code> est
+      utilisée dans un contexte de <code>serveur virtuel</code> ou de
+      serveur principal, <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> ne la traitera que
+      si l'URI de la requête correspond à un <a href="./directive-dict.html#Syntax">chemin d'URL</a>. Ceci permet
+      d'éviter certains problèmes de sécurité où certaines règles
+      peuvent permettre l'expansion de modèles inattendus (voir <a href="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2011-3368">CVE-2011-3368</a>
+      et <a href="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2011-4317">CVE-2011-4317</a>).
+      Pour lever cette restriction, on peut activer l'option
+      <code>AllowAnyURI</code>, et <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> va alors
+      appliquer le jeu de règles à tout URI de requête, sans vérifier si
+      la chaîne respecte la grammaire des chemins d'URL définie dans la
+      spécification HTTP.</p>
+
+      <div class="warning">
+      <h3>Avertissement en matière de sécurité</h3> 
+
+      <p>L'activation de cette option expose le serveur à des
+      problèmes de sécurité si les règles de réécriture n'ont pas été
+      rédigées avec soin. Il est donc <strong>fortement
+      recommandé</strong> de ne pas utiliser cette option. En
+      particulier, prenez garde aux chaînes d'entrée contenant le
+      caractère '<code>@</code>' qui peut modifier l'interprétation de
+      l'URI transformé, comme indiqué dans les CVE ci-dessus.</p>
+      </div>
+      </dd>
+
+     </dl>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1326,7 +1313,11 @@ substitution !
         <dt>un chemin du système de fichiers</dt>
 
         <dd>Il indique alors la localisation dans le système de
-	fichiers de la ressource qui doit être envoyée au client.</dd>
+	fichiers de la ressource qui doit être envoyée au
+	client. Les substitutions ne sont traitées en tant que chemin du
+	système de fichiers que si les règles sont définies dans un
+	contexte de serveur (virtualhost), et si le premier élément de ce
+	chemin existe dans le système de fichiers.</dd>
 
         <dt>chemin d'URL</dt>
 
@@ -1339,7 +1330,9 @@ substitution !
 	<em>Substitution</em> <code>/www/file.html</code>, cette
 	dernière sera traitée comme un chemin d'URL <em>à moins</em>
 	qu'un répertoire nommé <code>www</code> n'existe à la racine
-	de votre système de fichiers, auquel cas la chaîne de
+	de votre système de fichiers (ou dans le cas d'une
+	réécriture au sein d'un fichier <code>.htaccess</code>,
+	relativement à la racine des documents), auquel cas la chaîne de
 	substitution sera traitée comme un chemin du système de
 	fichiers. Si vous désirez que d'autres directives de
 	correspondance d'URL (comme la directive <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>) soient appliquées au
@@ -1429,112 +1422,129 @@ substitution !
       réécriture</a>.</p>
 
 <table class="bordered">
-    <tr><th>Flag and syntax</th>
-        <th>Function</th>
+    <tr><th>Drapeaux et syntaxe</th>
+        <th>Fonction</th>
     </tr>
     <tr>
         <td>B</td>
-        <td>Escape non-alphanumeric characters <em>before</em> applying
-        the transformation. <em><a href="../rewrite/flags.html#flag_b">details ...</a></em></td>
+        <td>Echappe les caractères non-alphanumériques <em>avant</em>
+	d'appliquer la transformation. <em><a href="../rewrite/flags.html#flag_b">détails ...</a></em></td>
     </tr>
     <tr>
         <td>chain|C</td>
-        <td>Rule is chained to the following rule. If the rule fails,
-        the rule(s) chained to it will be skipped. <em><a href="../rewrite/flags.html#flag_c">details ...</a></em></td>
+        <td>La règle est chaînée avec la règle suivante. Si la règle
+	échoue, la ou les règles avec lesquelles elle est est chaînée
+	seront sautées. <em><a href="../rewrite/flags.html#flag_c">détails ...</a></em></td>
     </tr>
     <tr>
         <td>cookie|CO=<em>NAME</em>:<em>VAL</em></td>
-        <td>Sets a cookie in the client browser. Full syntax is: 
-        CO=<em>NAME</em>:<em>VAL</em>:<em>domain</em>[:<em>lifetime</em>[:<em>path</em>[:<em>secure</em>[:<em>httponly</em>]]]] <em><a href="../rewrite/flags.html#flag_co">details ...</a></em>
+        <td>Définit un cookie au niveau du navigateur client. La syntaxe
+	complète est :
+	CO=<em>NAME</em>:<em>VAL</em>:<em>domain</em>[:<em>lifetime</em>[:<em>path</em>[:<em>secure</em>[:<em>httponly</em>]]]] <em><a href="../rewrite/flags.html#flag_co">details ...</a></em>
+	<em><a href="../rewrite/flags.html#flag_co">détails ...</a></em>
         </td>
     </tr>
     <tr>
         <td>discardpath|DPI</td>
-        <td>Causes the PATH_INFO portion of the rewritten URI to be
-        discarded. <em><a href="../rewrite/flags.html#flag_dpi">details 
+        <td>Supprime la partie PATH_INFO de l'URI réécrit. <em><a href="../rewrite/flags.html#flag_dpi">détails
         ...</a></em></td>
     </tr>
     <tr>
         <td>env|E=[!]<em>VAR</em>[:<em>VAL</em>]</td>
-        <td>Causes an environment variable <em>VAR</em> to be set (to the
-        value <em>VAL</em> if provided). The form !<em>VAR</em> causes
-        the environment variable <em>VAR</em> to be unset.<em><a href="../rewrite/flags.html#flag_e">details ...</a></em></td>
+        <td>Définit la variable d'environnement <em>VAR</em> (à la valeur
+	<em>VAL</em> si elle est fournie). La variante !<em>VAR</em>
+	annule la définition de la variable <em>VAR</em>.<em><a href="../rewrite/flags.html#flag_e">détails ...</a></em></td>
     </tr>
     <tr>
         <td>forbidden|F</td>
-        <td>Returns a 403 FORBIDDEN response to the client browser.
-        <em><a href="../rewrite/flags.html#flag_f">details ...</a></em></td>
+        <td>Renvoie une réponse 403 FORBIDDEN au navigateur client.
+	<em><a href="../rewrite/flags.html#flag_f">détails ...</a></em></td>
     </tr>
     <tr>
         <td>gone|G</td>
-        <td>Returns a 410 GONE response to the client browser. <em><a href="../rewrite/flags.html#flag_g">details ...</a></em></td>
+        <td>Renvoie un message d'erreur 410 GONE au navigateur client. <em><a href="../rewrite/flags.html#flag_g">détails ...</a></em></td>
     </tr>
     <tr>
-        <td>Handler|H=<em>Content-handler</em></td>
-        <td>Causes the resulting URI to be sent to the specified
-        <em>Content-handler</em> for processing. <em><a href="../rewrite/flags.html#flag_h">details ...</a></em></td>
+        <td>Handler|H=<em>Gestionnaire de contenu</em></td>
+        <td>L'URI résultant est envoyé au <em>Gestionnaire de
+	contenu</em> pour traitement. <em><a href="../rewrite/flags.html#flag_h">détails ...</a></em></td>
     </tr>
     <tr>
         <td>last|L</td>
-        <td>Stop the rewriting process immediately and don't apply any
-        more rules. Especially note caveats for per-directory and
-        .htaccess context (see also the END flag). <em><a href="../rewrite/flags.html#flag_l">details ...</a></em></td>
+        <td>Arrête le processus de réécriture immédiatement et n'applique
+	plus aucune règle. Prêtez une attention particulière aux mises
+	en garde concernant les contextes de niveau répertoire et
+	.htaccess (voir aussi le drapeau END). <em><a href="../rewrite/flags.html#flag_l">détails ...</a></em></td>
     </tr>
     <tr>
         <td>next|N</td>
-        <td>Re-run the rewriting process, starting again with the first
-        rule, using the result of the ruleset so far as a starting
-        point. <em><a href="../rewrite/flags.html#flag_n">details
+        <td>Réexécute le processus de réécriture à partir de la première
+	règle, en utilisant le résultat du jeu de règles, sous réserve
+	qu'il y ait un point de départ. <em><a href="../rewrite/flags.html#flag_n">détails
         ...</a></em></td>
     </tr>
     <tr>
         <td>nocase|NC</td>
-        <td>Makes the pattern pattern comparison case-insensitive.
-        <em><a href="../rewrite/flags.html#flag_nc">details ...</a></em></td>
+        <td>Rend la comparaison entre modèles insensible à la casse.
+	<em><a href="../rewrite/flags.html#flag_nc">détails ...</a></em></td>
     </tr>
     <tr>
         <td>noescape|NE</td>
-        <td>Prevent mod_rewrite from applying hexcode escaping of
-        special characters in the result of the rewrite. <em><a href="../rewrite/flags.html#flag_ne">details ...</a></em></td>
+        <td>Empêche mod_rewrite d'effectuer un échappement hexadécimal
+	des caractères spéciaux dans le résultat de la réécriture. <em><a href="../rewrite/flags.html#flag_ne">détails ...</a></em></td>
     </tr>
     <tr>
         <td>nosubreq|NS</td>
-        <td>Causes a rule to be skipped if the current request is an
-        internal sub-request. <em><a href="../rewrite/flags.html#flag_ns">details ...</a></em></td>
+        <td>La règle est sautée si la requête courante est une
+	sous-requête interne. <em><a href="../rewrite/flags.html#flag_ns">détails ...</a></em></td>
     </tr>
     <tr>
         <td>proxy|P</td>
-        <td>Force the substitution URL to be internally sent as a proxy
-        request. <em><a href="../rewrite/flags.html#flag_p">details
+        <td>Force l'envoi en interne de l'URL de substitution en tant
+	que requête mandataire. <em><a href="../rewrite/flags.html#flag_p">détails
         ...</a></em></td>
     </tr>
     <tr>
         <td>passthrough|PT</td>
-        <td>Forces the resulting URI to be passed back to the URL
-        mapping engine for processing of other URI-to-filename
-        translators, such as <code>Alias</code> or
-        <code>Redirect</code>. <em><a href="../rewrite/flags.html#flag_pt">details ...</a></em></td>
+        <td>L'URI résultant est repassé au moteur de mise en
+	correspondance des URLs pour y être traité par d'autres
+	traducteurs URI-vers-nom de fichier, comme <code>Alias</code> ou
+	<code>Redirect</code>. <em><a href="../rewrite/flags.html#flag_pt">détails ...</a></em></td>
     </tr>
     <tr>
         <td>qsappend|QSA</td>
-        <td>Appends any query string created in the rewrite target to
-        any query string that was in the original request URL. <em><a href="../rewrite/flags.html#flag_qsa">details ...</a></em></td>
+        <td>Ajoute toute chaîne de paramètres présente dans l'URL de la
+	requête originale à toute chaîne de paramètres créée dans la
+	cible de réécriture. <em><a href="../rewrite/flags.html#flag_qsa">détails ...</a></em></td>
+    </tr>
+    <tr>
+        <td>qsdiscard|QSD</td>
+        <td>Supprime toute chaîne de paramètres de l'URI entrant. <em><a href="../rewrite/flags.html#flag_qsd">détails
+        ...</a></em></td>
     </tr>
     <tr>
         <td>redirect|R[=<em>code</em>]</td>
-        <td>Forces an external redirect, optionally with the specified
-        HTTP status code. <em><a href="../rewrite/flags.html#flag_r">details ...</a></em>
+        <td>Force une redirection externe, avec un code de statut HTTP
+	optionnel. <em><a href="../rewrite/flags.html#flag_r">détails ...</a></em>
         </td>
     </tr>
     <tr>
-        <td>skip|S=<em>num</em></td>
-        <td>Tells the rewriting engine to skip the next <em>num</em>
-        rules if the current rule matches. <em><a href="../rewrite/flags.html#flag_s">details ...</a></em></td>
+        <td>END</td>
+        <td>Arrête le processus de réécriture immédiatement et
+	n'applique plus aucune règle. Empêche aussi l'exécution
+	ultérieure de règles de réécriture dans des contextes de
+	répertoire et des fichiers .htaccess (disponible depuis la
+	version 2.3.9) <em><a href="../rewrite/flags.html#flag_l">détails ...</a></em></td>
+    </tr>
+    <tr>
+        <td>skip|S=<em>nombre</em></td>
+        <td>Si la règle courante s'applique, le moteur de réécriture
+	doit sauter les <em>nombre</em> règles suivantes. <em><a href="../rewrite/flags.html#flag_s">détails ...</a></em></td>
     </tr>
     <tr>
         <td>type|T=<em>MIME-type</em></td>
-        <td>Force the <a class="glossarylink" href="../glossary.html#mime-type" title="voir glossaire">MIME-type</a> of the target file
-        to be the specified type. <em><a href="../rewrite/flags.html#flag_t">details ...</a></em></td>
+        <td>Force l'attribution du <a class="glossarylink" href="../glossary.html#type-mime" title="voir glossaire">Type-MIME</a>
+	spécifié au fichier cible. <em><a href="../rewrite/flags.html#flag_t">détails ...</a></em></td>
     </tr>
     </table>
 
@@ -1641,7 +1651,28 @@ utilisé dans la directive <code class="directive"><a href="#rewriterule">Rewrite
 <div class="bottomlang">
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_rewrite.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_rewrite.html" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_rewrite.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

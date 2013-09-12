@@ -8,11 +8,14 @@
 <title>mod_auth_digest - Serveur Apache HTTP</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -25,8 +28,6 @@
 <a href="../fr/mod/mod_auth_digest.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/mod/mod_auth_digest.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div>
-<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
-            anglaise pour les changements récents.</div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Authentification utilisateur utilisant les condensés
 MD5.</td></tr>
 <tr><th><a href="module-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
@@ -54,7 +55,6 @@ MD5.</td></tr>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#using">Utilisation de l'authentification à base de
 condensés</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#msie">Travailler avec MS Internet Explorer</a></li>
 </ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/core.html#authname">AuthName</a></code></li>
@@ -63,7 +63,7 @@ condensés</a></li>
 <li><code class="directive"><a href="../mod/core.html#satisfy">Satisfy</a></code></li>
 <li><a href="../howto/auth.html">Mode d'emploi de
 l'authentification</a></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="using" id="using">Utilisation de l'authentification à base de
@@ -96,56 +96,9 @@ condensés</a></h2>
     <div class="note"><h3>Note</h3>
     <p>L'authentification à base de condensés MD5 est plus sécurisée que
     l'authentification Basic, mais ne fonctionne qu'avec les navigateurs
-    qui la supportent. En septembre 2004, les principaux navigateurs
-    supportant l'authentification à base de condensés MD5 incluaient <a href="http://www.w3.org/Amaya/">Amaya</a>, <a href="http://konqueror.kde.org/">Konqueror</a>, <a href="http://www.microsoft.com/windows/ie/">MS Internet Explorer</a>
-    pour Mac OS X et Windows (bien que la version Windows échoue lorsque
-    la requête comporte une chaîne d'arguments -- voir plus loin "<a href="#msie">Travailler avec MS Internet Explorer</a>" pour
-    contourner ce problème), <a href="http://www.mozilla.org">Mozilla</a>, <a href="http://channels.netscape.com/ns/browsers/download.jsp">
-    Netscape</a> 7, <a href="http://www.opera.com/">Opera</a>, et <a href="http://www.apple.com/safari/">Safari</a>. <a href="http://lynx.isc.org/">lynx</a> ne supporte
-    <strong>pas</strong> l'authentification à base de condensés MD5.
-    Comme l'authentification à base de condensés MD5 est moins répandue
-    que l'authentification Basic, vous ne devez l'utiliser que dans des
-    environnements où tous les utilisateurs disposeront d'un navigateur
-    la supportant.</p>
+    qui la supportent. Au moment où ces lignes sont écrites (Décembre
+    2012), c'est le cas des principaux navigateurs.</p>
     </div>
-</div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="section">
-<h2><a name="msie" id="msie">Travailler avec MS Internet Explorer</a></h2>
-    <p>L'implémentation de l'authentification à base de condensé dans
-    les versions anciennes d'Internet Explorer pour Windows (5 et 6)
-    posait problème, car les requêtes de type <code>GET</code>
-    comportant une chaîne d'arguments ne respectaient pas les RFC. Il y
-    a plusieurs manières de contourner ce problème.</p>
-
-    <p>
-    La première méthode consiste à utiliser des requêtes de type
-    <code>POST</code> plutôt que <code>GET</code> pour transmettre les
-    données à votre programme. Cette méthode constitue l'approche la
-    plus simple dans le cas où votre application peut fonctionner avec
-    cette limitation.
-    </p>
-
-    <p>Depuis la version 2.0.51, Apache propose aussi de contourner le
-    problème à l'aide de la variable d'environnement
-    <code>AuthDigestEnableQueryStringHack</code>. Si
-    <code>AuthDigestEnableQueryStringHack</code> est définie pour la
-    requête, Apache va prendre des mesures pour contourner la bogue MSIE
-    et en particulier va exclure la chaîne d'arguments de la comparaison
-    des condensés. L'utilisation de cette méthode peut se traduire par
-    ceci :</p>
-
-    <div class="example"><h3>Utilisation de l'authentification à base de condensé
-    avec MSIE :</h3><p><code>
-    BrowserMatch "MSIE" AuthDigestEnableQueryStringHack=On
-    </code></p></div>
-
-    <p>Cette correction n'est pas nécessaire avec MSIE 7, bien que son
-    activation ne pose pas de problème de compatibilité ou de surcharge
-    significative.</p>
-
-    <p>Voir la directive <code class="directive"><a href="../mod/mod_setenvif.html#browsermatch">BrowserMatch</a></code> pour plus de détails
-    à propos de la définition conditionnelle des variables
-    d'environnement.</p>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AuthDigestAlgorithm" id="AuthDigestAlgorithm">AuthDigestAlgorithm</a> <a name="authdigestalgorithm" id="authdigestalgorithm">Directive</a></h2>
@@ -358,7 +311,28 @@ les informations à propos des clients</td></tr>
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_auth_digest.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_auth_digest.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/mod/mod_auth_digest.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_auth_digest.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

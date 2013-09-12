@@ -1,5 +1,5 @@
 /*
- * Copyright © 2004-2009, 2012 Apple Inc.  All rights reserved.
+ * Copyright © 2004-2013 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -686,7 +686,7 @@ AppleUSBUHCI::RootHubAbortInterruptRead()
     int										i;
 	IOUSBRootHubInterruptTransaction		xaction;
 	
-	if ( _errataBits & kErrataUHCISupportsResumeDetectOnConnect )
+	if ( _ERRATA64BITS & kErrataUHCISupportsResumeDetectOnConnect )
 	{
 		USBLog(6, "AppleUSBUHCI[%p]::RootHubAbortInterruptRead,  controller supports kErrataUHCISupportsResumeDetectOnConnect", this);
 		return super::RootHubAbortInterruptRead();
@@ -891,7 +891,7 @@ AppleUSBUHCI::RHSuspendPort(int port, bool suspended)
         if (cmd & kUHCI_CMD_EGSM) 
 		{
             /* Can't un-suspend a port during global suspend. */
-            USBError(1, "AppleUSBUHCI[%p]: attempt to resume during global suspend", this);
+            USBError(1, "AppleUSBUHCI::RHSuspendPort attempt to resume during global suspend");
             return kIOReturnError;
         }
         value |= (kUHCI_PORTSC_SUSPEND | kUHCI_PORTSC_RD);
@@ -899,7 +899,7 @@ AppleUSBUHCI::RHSuspendPort(int port, bool suspended)
     // Always enable the port also.
     value |= kUHCI_PORTSC_PED;
 
-    USBLog(5, "AppleUSBUHCI[%p]: writing (%p) to port control", this, (void*)value);
+    USBLog(5, "AppleUSBUHCI[%p]::RHSuspendPort writing (%p) to port control", this, (void*)value);
     
     WritePortStatus(port, value);
     

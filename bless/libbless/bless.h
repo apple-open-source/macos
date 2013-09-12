@@ -786,6 +786,13 @@ int BLCreateEFIXMLRepresentationForLegacyDevice(BLContextPtr context,
                                           const char *bsdName,
                                           CFStringRef *xmlString);
 
+int BLCreateEFIXMLRepresentationForElToritoEntry(BLContextPtr context,
+                                                 const char *bsdName,
+                                                 int bootEntry,
+                                                 int partitionStart,
+                                                 int partitionSize,
+                                                 CFStringRef *xmlString);
+
 int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
                                                BLNetBootProtocolType protocol,
                                                const char *interface,

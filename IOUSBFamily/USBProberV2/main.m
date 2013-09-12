@@ -55,44 +55,14 @@ int main(int argc, const char *argv[])
 	if ( !busProbe && !showHelp )
 	{
 		[NSApplication sharedApplication];
-		
-		
-		SInt32 result;
-		Gestalt( gestaltSystemVersion, &result );
-		
-	#if defined(MAC_OS_X_VERSION_10_5) 
-		// Prevent executables built under Leopard from running
-		// on pre-Leopard systems. If we don't, the app will eventually
-		// crash because it'll try to load some IOKit stuff newly
-		// introduced in (and only avaialble on) Leopard.
-		// We don't really need to strictly enforce the requirement that
-		// versions of USB Prober built under 10.5 can only run on machines
-		// running versions 10.5 of the OS or later - but the price of allowing
-		// that degree of backward compatibility is compiler warnings at
-		// build time, complaining about the use of a deprecated IOKit API.
-		if ( result < 0x1050 ) {
-		  NSRunCriticalAlertPanel(@"Mac OS X Version error", @"This version of USB Prober was built under Mac OS X version 10.5, and so it requires Mac OS X version 10.5 or newer to run.", @"Okay", nil, nil);
-			exit(0);
-		} else {
-			[NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
-		}
-	#else
-		// Check what Mac OS X version the user is running, and load the appropriate nib file. Prober requires
-		// Mac OS X version 10.2 at the minimum, but some features require 10.3.
-		if ( result < 0x1020 ) {
-			NSRunCriticalAlertPanel(@"Mac OS X Version error", @"USB Prober requires Mac OS X version 10.6 or newer to run.", @"Okay", nil, nil);
-			exit(0);
-		} else {
-			[NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
-		}
-	#endif // MAC_OS_X_VERSION_10_5
+        [NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
 		
 		[NSApp run];
 	}
 	else
 	{
 	    BusProbeController *ctr = [[BusProbeController alloc] init];
-		[ctr dumpToTerminal:args :showHelp];
+		[ctr dumpToTerminal:args showHelp:showHelp];
 	}
 	
     [pool release];

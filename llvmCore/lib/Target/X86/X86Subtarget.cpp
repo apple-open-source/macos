@@ -207,14 +207,6 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
     HasCLMUL = true;
     ToggleFeature(X86::FeatureCLMUL);
   }
-  if (IsIntel && ((ECX >> 12) & 0x1)) {
-    HasFMA3 = true;
-    ToggleFeature(X86::FeatureFMA3);
-  }
-  if (IsIntel && ((ECX >> 22) & 0x1)) {
-    HasMOVBE = true;
-    ToggleFeature(X86::FeatureMOVBE);
-  }
   if (IsIntel && ((ECX >> 23) & 0x1)) {
     HasPOPCNT = true;
     ToggleFeature(X86::FeaturePOPCNT);
@@ -223,15 +215,6 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
     HasAES = true;
     ToggleFeature(X86::FeatureAES);
   }
-  if (IsIntel && ((ECX >> 29) & 0x1)) {
-    HasF16C = true;
-    ToggleFeature(X86::FeatureF16C);
-  }
-  if (IsIntel && ((ECX >> 30) & 0x1)) {
-    HasRDRAND = true;
-    ToggleFeature(X86::FeatureRDRAND);
-  }
-
   if ((ECX >> 13) & 0x1) {
     HasCmpxchg16b = true;
     ToggleFeature(X86::FeatureCMPXCHG16B);
@@ -262,10 +245,6 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
         HasX86_64 = true;
         ToggleFeature(X86::Feature64Bit);
       }
-      if ((ECX >> 5) & 0x1) {
-        HasLZCNT = true;
-        ToggleFeature(X86::FeatureLZCNT);
-      }
       if (IsAMD && ((ECX >> 6) & 0x1)) {
         HasSSE4A = true;
         ToggleFeature(X86::FeatureSSE4A);
@@ -273,28 +252,6 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
       if (IsAMD && ((ECX >> 16) & 0x1)) {
         HasFMA4 = true;
         ToggleFeature(X86::FeatureFMA4);
-      }
-    }
-  }
-
-  if (IsIntel && MaxLevel >= 7) {
-    if (!X86_MC::GetCpuIDAndInfoEx(0x7, 0x0, &EAX, &EBX, &ECX, &EDX)) {
-      if (EBX & 0x1) {
-        HasFSGSBase = true;
-        ToggleFeature(X86::FeatureFSGSBase);
-      }
-      if ((EBX >> 3) & 0x1) {
-        HasBMI = true;
-        ToggleFeature(X86::FeatureBMI);
-      }
-      // FIXME: AVX2 codegen support is not ready.
-      //if ((EBX >> 5) & 0x1) {
-      //  HasAVX2 = true;
-      //  ToggleFeature(X86::FeatureAVX2);
-      //}
-      if ((EBX >> 8) & 0x1) {
-        HasBMI2 = true;
-        ToggleFeature(X86::FeatureBMI2);
       }
     }
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc. All rights reserved.
+ * Copyright © 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,7 +182,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                 localCopyOfProvidersDictionary = OSDictionary::withDictionary( providerDictionary, 0);
                 if ( localCopyOfProvidersDictionary == NULL )
                 {
-                    USBError(1,"%s[%p]::MergeDictionaryIntoProvider  could not copy our provider's dictionary",getName(), this);
+                    USBError(1,"%s::MergeDictionaryIntoProvider  could not copy our provider's dictionary",getName());
                     break;
                 }
                 
@@ -205,7 +205,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                     providerSizeAfterMerge = providerDictionary->getCapacity();
                     if ( providerSizeAfterMerge != providerSize )
                     {
-                        USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, (uint32_t)providerSize, (uint32_t)providerSizeAfterMerge);
+                        USBError(1,"%s::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), (uint32_t)providerSize, (uint32_t)providerSizeAfterMerge);
                     }
                     
                     USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);

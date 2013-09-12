@@ -30,7 +30,7 @@
 #include "apr_time.h"
 #include "apr_ldap.h"
 
-#if APR_HAS_MICROSOFT_LDAPSDK
+#if defined(LDAP_UNAVAILABLE) || APR_HAS_MICROSOFT_LDAPSDK
 #define AP_LDAP_IS_SERVER_DOWN(s)                ((s) == LDAP_SERVER_DOWN \
                 ||(s) == LDAP_UNAVAILABLE)
 #else

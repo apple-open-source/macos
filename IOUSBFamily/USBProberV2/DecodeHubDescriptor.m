@@ -76,7 +76,7 @@
     
 	if(hubDescriptor.hubType == kUSB3HUBDesc)
 	{
-		sprintf(temporaryString, "0.%d µsecs", hub3Descriptor.hubHdrDecLat);
+		sprintf(temporaryString, "0.%d microsecs", hub3Descriptor.hubHdrDecLat);
 		[thisDevice addProperty:"Header decode latency:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
 		sprintf(temporaryString, "%d ns", hub3Descriptor.hubDelay);
 		[thisDevice addProperty:"Hub delay time:" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];

@@ -57,6 +57,9 @@ protected:
     static UInt32 genericAddRef(void *self);
     static UInt32 genericRelease(void *self);
 
+    UInt32      _versionNumberFromString(CFStringRef versStr);
+    Boolean     _isDigit(UniChar aChar);
+    
 protected:
 
     UInt32 refCount;
@@ -66,6 +69,8 @@ public:
     virtual HRESULT queryInterface(REFIID iid, void **ppv) = 0;
     virtual UInt32 addRef();
     virtual UInt32 release();
+    
+    virtual IOReturn				GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
 };
 
 #endif /* !_IOKIT_IOUSBIUNKNOWN_H */

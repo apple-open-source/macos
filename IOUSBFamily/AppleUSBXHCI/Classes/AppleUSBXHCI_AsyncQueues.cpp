@@ -1,3 +1,10 @@
+//
+//  AppleUSBXHCI_AsyncQueues.cpp
+//  AppleUSBXHCI
+//
+//  Copyright 2011-2013 Apple Inc. All rights reserved.
+//
+
 #include "AppleUSBXHCI_AsyncQueues.h"
 
 
@@ -166,11 +173,15 @@ bool
 AppleXHCIAsyncEndpoint::init(AppleUSBXHCI *controller, XHCIRing *pRing, UInt16 maxPacketSize, UInt16 maxBurst, UInt16 mult)
 {
 	bool		ret = init();
+    UInt32      maxBurstPayload = 0;
+    UInt32      numberOfMaxBursts = 0;
 	
     if(!ret)
     {
         return false;
     }
+    
+    USBTrace_Start( kUSBTXHCI, kTPXHCIAsyncEPAlloc, (uintptr_t)this, (uintptr_t)pRing, maxBurst, mult );
     
     _xhciUIM        = controller;
     _ring           = pRing;
@@ -178,9 +189,14 @@ AppleXHCIAsyncEndpoint::init(AppleUSBXHCI *controller, XHCIRing *pRing, UInt16 m
     _maxBurst       = maxBurst;
     _mult           = mult;
     
-    UInt32 maxBurstPayload      = _maxPacketSize*(_maxBurst+1)*(_mult+1);
-    UInt32 numberOfMaxBursts    = kAsyncMaxFragmentSize/maxBurstPayload;
+    maxBurstPayload      = _maxPacketSize * (_maxBurst+1) * (_mult+1);              // MPS could be 0
+    
+    if (maxBurstPayload)
+        numberOfMaxBursts    = kAsyncMaxFragmentSize / maxBurstPayload;
+    
     _actualFragmentSize         = numberOfMaxBursts * maxBurstPayload;
+
+    USBTrace_End( kUSBTXHCI, kTPXHCIAsyncEPAlloc, (uintptr_t)this, maxBurstPayload, numberOfMaxBursts, _actualFragmentSize );
 
 	return ret;
 }
@@ -189,6 +205,8 @@ AppleXHCIAsyncEndpoint::init(AppleUSBXHCI *controller, XHCIRing *pRing, UInt16 m
 void									
 AppleXHCIAsyncEndpoint::free(void)
 {
+    USBTrace_Start( kUSBTXHCI, kTPXHCIAsyncEPFree, (uintptr_t)this, onReadyQueue, onActiveQueue, onDoneQueue );
+
     USBLog(7,"+AppleXHCIAsyncEndpoint[%p]::free",  this );
 
     _aborting            = true;
@@ -224,6 +242,8 @@ AppleXHCIAsyncEndpoint::free(void)
     _aborting            = false;
     _ring->beingReturned = false;
     
+    USBTrace_End( kUSBTXHCI, kTPXHCIAsyncEPFree, (uintptr_t)this, 0, 0, 0 );
+
 	OSObject::free();
 }
 
@@ -591,7 +611,7 @@ AppleXHCIAsyncEndpoint::CreateTDs(IOUSBCommand *command, UInt16 streamID, UInt32
     
     if ((command->GetReqCount() > 0) && (!command->GetDMACommand() || !command->GetDMACommand()->getMemoryDescriptor()))
     {
-        USBError(1, "AppleXHCIAsyncEndpoint[%p]::CreateTDs - no DMA Command or missing memory descriptor", this);
+        USBError(1, "AppleXHCIAsyncEndpoint::CreateTDs - no DMA Command or missing memory descriptor");
         return kIOReturnBadArgument;
     }
     
@@ -810,8 +830,9 @@ AppleXHCIAsyncEndpoint::ScheduleTDs()
                 PutTDonActiveQueue(pReadyATD);
                 
                 USBTrace(kUSBTXHCI, kTPXHCIAsyncEPScheduleTD, (uintptr_t)this, _ring->slotID, _ring->endpointID, 4);
-                USBTrace(kUSBTXHCI, kTPXHCIAsyncEPScheduleTD, (uintptr_t)this, (uintptr_t)pReadyATD, (uintptr_t)pReadyATD->activeCommand, pReadyATD->completionIndex);
-                
+                USBTrace(kUSBTXHCI, kTPXHCIAsyncEPScheduleTD, (uintptr_t)this, (uintptr_t)pReadyATD, (uintptr_t)pReadyATD->activeCommand, 5);
+                USBTrace(kUSBTXHCI, kTPXHCIAsyncEPScheduleTD, (uintptr_t)this, pReadyATD->completionIndex, 0, 6);
+
                 if(_ring->beingReturned)
                 {
                     _ring->needsDoorbell = true;
@@ -832,47 +853,7 @@ AppleXHCIAsyncEndpoint::ScheduleTDs()
     return;
 }
 
-#if 0
-void
-AppleXHCIAsyncEndpoint::FlushTDs(IOUSBCommandPtr pUSBCommand)
-{
-    AppleXHCIAsyncTransferDescriptor *pActiveATD;
-    
-    pActiveATD = activeQueue;
-    
-    if (pUSBCommand == NULL)
-    {
-        USBLog(5, "AppleXHCIAsyncEndpoint[%p]::FlushTDs - pUSBCommand: %p Unexpected", this, pUSBCommand);
-        return;
-    }
-    
-    if (pActiveATD == NULL)
-    {
-        USBLog(7, "AppleXHCIAsyncEndpoint[%p]::FlushTDs - activeQueue empty", this);
-        return;
-    }
-    
-    USBLog(7, "AppleXHCIAsyncEndpoint[%p]::FlushTDs - pUSBCommand: %p", this, pUSBCommand);
-    
-    while (pActiveATD != NULL)
-    {
-        USBLog(7, "AppleXHCIAsyncEndpoint[%p]::FlushTDs - ATD: %p USBCommand: %p onActiveQueue: %d", this, pActiveATD, pActiveATD->activeCommand, (int)onActiveQueue);
-        
-        if ((pUSBCommand == pActiveATD->activeCommand) && (pActiveATD->flushed == false))
-        {
-            pActiveATD->flushed = true;
-            
-            if (pActiveATD == activeEnd)
-            {
-                pActiveATD->lastFlushedTD = true;
-            }
-        }
-        pActiveATD      = OSDynamicCast(AppleXHCIAsyncTransferDescriptor, pActiveATD->_logicalNext);
-    }
-    
-    USBLog(7, "AppleXHCIAsyncEndpoint[%p]::FlushTDs - Done", this);
-}
-#endif 
+
 
 void 
 AppleXHCIAsyncEndpoint::FlushTDsWithStatus(IOUSBCommandPtr pUSBCommand, IOReturn status)
@@ -886,6 +867,7 @@ AppleXHCIAsyncEndpoint::FlushTDsWithStatus(IOUSBCommandPtr pUSBCommand, IOReturn
 
     AppleXHCIAsyncTransferDescriptor *pActiveATD;
     
+    USBTrace_Start( kUSBTXHCI, kTPXHCIAsyncFlushTDsWithStatus, (uintptr_t)this, (uintptr_t)pUSBCommand, (uintptr_t)status, 0);
     pActiveATD = activeQueue;
     
     //
@@ -953,11 +935,24 @@ AppleXHCIAsyncEndpoint::FlushTDsWithStatus(IOUSBCommandPtr pUSBCommand, IOReturn
     
     if (updateDequeueIndex)
     {
-        _xhciUIM->SetTRDQPtr(_ring->slotID, _ring->endpointID, dequeueStreamID, flushedDequeueIndex);
+		if (_xhciUIM->_controllerAvailable)
+		{
+			USBTrace( kUSBTXHCI, kTPXHCIAsyncFlushTDsWithStatus, (uintptr_t)this, dequeueStreamID, flushedDequeueIndex, 0);
+			_xhciUIM->SetTRDQPtr(_ring->slotID, _ring->endpointID, dequeueStreamID, flushedDequeueIndex);
+		}
+		
+		else
+		{
+			USBTrace( kUSBTXHCI, kTPXHCIAsyncFlushTDsWithStatus, (uintptr_t)this, (uintptr_t)_ring, 0, 1);
+			_ring->needsSetTRDQPtr = true;
+		}
     }
  
     USBLog(7, "AppleXHCIAsyncEndpoint[%p]::FlushTDsWithStatus - Done enqueueIndex %d flushedDequeueIndex %d", this, enqueueIndex, flushedDequeueIndex);
+    USBTrace_End( kUSBTXHCI, kTPXHCIAsyncFlushTDsWithStatus, (uintptr_t)this, enqueueIndex, flushedDequeueIndex, 0);
 }
+
+
 
 //
 //  Move ATDs from HW ring -> doneQueue & readyQueue -> doneQueue
@@ -1058,6 +1053,8 @@ AppleXHCIAsyncEndpoint::Complete(IOReturn status)
                 
                 if (completion.action != NULL)
                 {
+                    uint32_t done;
+                    done = pDoneATD->activeCommand->GetReqCount()- shortfall;
 #if DEBUG_BUFFER
                     xhciUIM->CheckBuf(pDoneATD->activeCommand);
 #endif                    
@@ -1066,8 +1063,19 @@ AppleXHCIAsyncEndpoint::Complete(IOReturn status)
                                                     pDoneATD->activeCommand, status, (int)(pDoneATD->activeCommand->GetReqCount()- shortfall), (int)shortfall, _ring->transferRingEnqueueIdx, _ring->transferRingDequeueIdx);
                     USBTrace_Start(kUSBTXHCI, kTPXHCIAsyncEPComplete,  (uintptr_t)this, _ring->slotID, _ring->endpointID, status );
                     USBTrace(kUSBTXHCI, kTPXHCIAsyncEPComplete,  (uintptr_t)this, (uintptr_t)pDoneATD, (uintptr_t)pDoneATD->activeCommand, (uint32_t)pDoneATD->completionIndex );
-                    USBTrace_End(kUSBTXHCI, kTPXHCIAsyncEPComplete,  (uintptr_t)this, (uint32_t)(pDoneATD->activeCommand->GetReqCount()- shortfall), _ring->transferRingEnqueueIdx, _ring->transferRingDequeueIdx);
+                    USBTrace_End(kUSBTXHCI, kTPXHCIAsyncEPComplete,  (uintptr_t)this, done, _ring->transferRingEnqueueIdx, _ring->transferRingDequeueIdx);
                     
+                    
+                    _xhciUIM->_UIMDiagnostics.totalBytes += done;
+                    if( (gUSBStackDebugFlags & kUSBEnableErrorLogMask) != 0)
+                    {
+                        // Only do per port count if error log mask is set
+                        // Its a rather involved operation
+                        int port;
+                        port = pDoneATD->_endpoint->_xhciUIM->getRootPortNumber(pDoneATD->_endpoint->_ring->slotID)-1;
+                        pDoneATD->_endpoint->_xhciUIM->_UIMDiagnostics.portCounts[port].totalBytes += done;
+                    }
+
                     _xhciUIM->Complete(completion, status, (UInt32)shortfall);
                     pDoneATD->shortfall = 0;
                 }
@@ -1327,6 +1335,19 @@ AppleXHCIAsyncEndpoint::UpdateTimeouts(bool abortAll, UInt32 curFrame, bool stop
         if (_xhciUIM->_slots[_ring->slotID].deviceNeedsReset == true)
         {
             status = kIOReturnNotResponding;
+        }
+        else
+        {
+            _xhciUIM->_UIMDiagnostics.timeouts++;
+            if( (gUSBStackDebugFlags & kUSBEnableErrorLogMask) != 0)
+            {
+                // Only do per port count if error log mask is set
+                // Its a rather involved operation
+                int port;
+                port = _xhciUIM->getRootPortNumber(_ring->slotID)-1;
+                _xhciUIM->_UIMDiagnostics.portCounts[port].timeouts++;
+            }
+
         }
         
         int  timedOutDequeueIndex = pActiveATD->completionIndex+1;

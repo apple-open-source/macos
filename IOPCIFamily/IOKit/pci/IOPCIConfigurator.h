@@ -23,6 +23,10 @@
 #ifndef _IOPCICONFIGURATOR_H
 #define _IOPCICONFIGURATOR_H
 
+#if ACPI_SUPPORT
+#define PLX8680		0
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 typedef uint64_t IOPCIScalar;
@@ -32,6 +36,10 @@ enum {
     kIOPCIRangeFlagNoCollapse    = 0x00000002,
     kIOPCIRangeFlagSplay         = 0x00000004,
     kIOPCIRangeFlagRelocatable   = 0x00000008,
+	//
+    kIOPCIRangeFlagForceReloc    = 0x00000100,
+    kIOPCIRangeFlagRelocHalf     = 0x00000200,
+	//
 	kIOPCIRangeFlagMaximizeFlags = kIOPCIRangeFlagMaximizeSize
 								  | kIOPCIRangeFlagNoCollapse
 };
@@ -50,7 +58,10 @@ struct IOPCIRange
     IOPCIScalar         minAddress;
     IOPCIScalar         maxAddress;
 
-    uint32_t            type;
+    uint8_t             type;
+    uint8_t             count;
+    uint8_t             pri;
+    uint8_t             resvB;
     uint32_t            flags;
     struct IOPCIRange * next;
     struct IOPCIRange * nextSubRange;
@@ -123,12 +134,18 @@ enum {
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
     kIOPCIConfiguratorDeferHotPlug   = 0x00000080,
 	kIOPCIConfiguratorPanicOnFault   = 0x00000100, 
-    kIOPCIConfiguratorIGIsMapped     = 0x00000200,
+    kIOPCIConfiguratorNoSplay        = 0x00000200,
 
-    kIOPCIConfiguratorAllocate       = 0x00001000,
+    kIOPCIConfiguratorDeepIdle       = 0x00000400,
+    kIOPCIConfiguratorNoTB           = 0x00000800,
+    kIOPCIConfiguratorMSIEnable      = 0x00001000,
+
     kIOPCIConfiguratorPFM64          = 0x00002000,
     kIOPCIConfiguratorBoot	         = 0x00004000,
+    kIOPCIConfiguratorIGIsMapped     = 0x00008000,
     kIOPCIConfiguratorReset          = 0x00010000,
+    kIOPCIConfiguratorAllocate       = 0x00020000,
+	kIOPCIConfiguratorUsePause       = 0x00040000,
 
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
@@ -163,12 +180,14 @@ enum {
 enum {
 //    kPCIDeviceStateResourceAssigned  = 0x00000001,
     kPCIDeviceStatePropertiesDone    = 0x00000002,
+    kPCIDeviceStateTreeConnected     = 0x00000004,
     kPCIDeviceStateConfigurationDone = 0x00000008,
 
     kPCIDeviceStateScanned          = 0x00000010,
     kPCIDeviceStateAllocatedBus     = 0x00000020,
     kPCIDeviceStateAllocated        = 0x00000040,
-    kPCIDeviceStateNoLink           = 0x00000080,
+    kPCIDeviceStateChildChanged     = 0x00000080,
+    kPCIDeviceStateNoLink           = 0x00000100,
 
 	kPCIDeviceStateConfigProtectShift = 15,
 	kPCIDeviceStateConfigRProtect	= (VM_PROT_READ  << kPCIDeviceStateConfigProtectShift),
@@ -177,6 +196,9 @@ enum {
     kPCIDeviceStateDead             = 0x80000000,
     kPCIDeviceStateEjected          = 0x40000000,
     kPCIDeviceStateToKill           = 0x20000000,
+    kPCIDeviceStatePaused           = 0x10000000,
+    kPCIDeviceStateRequestPause     = 0x08000000,
+    kPCIDeviceStateSwizzled         = 0x04000000,
 };
 
 enum {
@@ -216,12 +238,16 @@ enum
 {
     kConfigOpAddHostBridge = 1,
     kConfigOpScan,
+    kConfigOpRealloc,
     kConfigOpGetState,
     kConfigOpNeedsScan,
     kConfigOpEject,
     kConfigOpKill,
     kConfigOpTerminated,
-    kConfigOpProtect
+    kConfigOpProtect,
+    kConfigOpPaused,
+    kConfigOpUnpaused,
+    kConfigOpTestPause,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -260,10 +286,16 @@ struct IOPCIConfigEntry
 	uint16_t			expressCaps;
     uint8_t   			expressMaxPayload;
     uint8_t   			expressPayloadSetting;
+//	uint16_t            pausedCommand;
 
     IORegistryEntry *   dtNub;
 #if ACPI_SUPPORT
     IORegistryEntry *   acpiDevice;
+#endif
+
+#if PLX8680
+    volatile uint32_t * plx;
+    IOPCIScalar         plxAperture;
 #endif
 };
 
@@ -286,13 +318,10 @@ class IOPCIConfigurator : public IOService
     IOPCIScalar             fPFMConsole;
 
     OSSet *                 fChangedServices;
+    uint32_t				fWaitingPause;
 
-    int                     fBridgeCount;
-    int                     fDeviceCount;
-
-    int                     fBridgeConfigCount;
-    int                     fDeviceConfigCount;
-    int                     fCardBusConfigCount;
+    uint32_t                fBridgeCount;
+    uint32_t                fDeviceCount;
 
 protected:
 
@@ -305,21 +334,23 @@ protected:
 	void        removeFixedRanges(IORegistryEntry * root);
 #endif
 
-    typedef bool (IOPCIConfigurator::*IterateProc)(void * ref, IOPCIConfigEntry * bridge);
+    typedef int32_t (IOPCIConfigurator::*IterateProc)(void * ref, IOPCIConfigEntry * bridge);
     void    iterate(uint32_t options, 
                     IterateProc topProc, IterateProc bottomProc, 
                     void * ref = NULL);
 
-    bool    scanProc(void * ref, IOPCIConfigEntry * bridge);
-    bool    totalProc(void * ref, IOPCIConfigEntry * bridge);
-    bool    allocateProc(void * ref, IOPCIConfigEntry * bridge);
+    int32_t scanProc(void * ref, IOPCIConfigEntry * bridge);
+	int32_t bootResetProc(void * ref, IOPCIConfigEntry * bridge);
+    int32_t totalProc(void * ref, IOPCIConfigEntry * bridge);
+    int32_t allocateProc(void * ref, IOPCIConfigEntry * bridge);
+	int32_t bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge);
 
     void    configure(uint32_t options);
-    void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum);
+    void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t resetMask);
 
     IOPCIRange * bridgeGetRange(IOPCIConfigEntry * bridge, uint32_t type);
     bool    bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask);
-    bool    bridgeAllocateResources( IOPCIConfigEntry * bridge, uint32_t typeMask );
+    int32_t bridgeAllocateResources( IOPCIConfigEntry * bridge, uint32_t typeMask );
 
 	bool    bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
 								        uint32_t deallocTypes, uint32_t freeTypes);
@@ -337,18 +368,19 @@ protected:
 								IOPCIConfigEntry ** childList);
 	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list);
     void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
-    void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);
-    void    probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint8_t reset);
-    void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint8_t reset);
-    void    deviceProbeRanges(IOPCIConfigEntry * device, uint8_t reset);
-    void    bridgeProbeRanges(IOPCIConfigEntry * bridge, uint8_t reset);
-    void    cardbusProbeRanges(IOPCIConfigEntry * bridge, uint8_t reset);
-    void    bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint8_t reset);
+    void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space, uint32_t resetMask);
+    void    probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
+    void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
+    void    deviceProbeRanges(IOPCIConfigEntry * device, uint32_t resetMask);
+    void    bridgeProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
+    void    cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
+    void    bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint32_t resetMask);
 	uint32_t findPCICapability(IOPCIConfigEntry * device,
                                uint32_t capabilityID, uint32_t * found);
     void    checkCacheLineSize(IOPCIConfigEntry * device);
     void    writeLatencyTimer(IOPCIConfigEntry * device);
-	bool    bridgeFinalizeConfig(void * unused, IOPCIConfigEntry * bridge);
+
+    void    markChanged(IOPCIConfigEntry * entry);
     void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
     bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);
     OSDictionary * constructProperties(IOPCIConfigEntry * device);

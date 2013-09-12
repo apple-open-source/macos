@@ -8,10 +8,13 @@
 <title>Apache Sanal Konak Belgeleri - Apache HTTP Sunucusu</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
 <p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="../"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -30,7 +33,7 @@
 
 
     <p><cite>Sanal Konak</cite> (Virtual Host) terimi tek bir makine üzerinde
-      birden fazla sitenin (www.sirket1.dom, www.sirket2.dom gibi) barındırılma
+      birden fazla sitenin (sirket1.example.com, sirket2.example.com gibi) barındırılma
       uygulamasını betimler. Sanal konaklar, "<a href="ip-based.html">IP’ye
       dayalı</a>" veya "<a href="name-based.html">isme dayalı</a>" olabilir;
       birincisinde, her site ayrı bir IP adresinden sunulurken, ikincisinde her
@@ -43,7 +46,7 @@
       bazen <em>konağa dayalı</em> sanal konaklar veya <em>IP’ye dayanmayan</em>
       sanal konaklar da denmektedir.</p>
 
-    <p>Aşağıda, Apache’nin 1.3 sürümü ve sonrası için sanal konak desteğini bütün
+    <p>Aşağıda, Apache HTTP Sunucusu için sanal konak desteğini bütün
       ayrıntıları ile açıklayan belgeler listelenmiştir.</p>
 
 </div>
@@ -73,8 +76,8 @@
 <h2><a name="directives" id="directives">Yapılandırma Yönergeleri</a></h2>
 
     <ul>
-      <li><code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code></li>
       <li><code class="directive"><a href="../mod/core.html#namevirtualhost">NameVirtualHost</a></code></li>
+      <li><code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code></li>
       <li><code class="directive"><a href="../mod/core.html#servername">ServerName</a></code></li>
       <li><code class="directive"><a href="../mod/core.html#serveralias">ServerAlias</a></code></li>
       <li><code class="directive"><a href="../mod/core.html#serverpath">ServerPath</a></code></li>
@@ -105,6 +108,10 @@
 <a href="../tr/vhosts/" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/vhosts/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

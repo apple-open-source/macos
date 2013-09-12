@@ -67,10 +67,10 @@ IOSCSIArchitectureModelFamilyDebugAssert ( 	const char * componentNameString,
 
 #endif	/* KERNEL */
 
-#include </usr/include/AssertMacros.h>
+#include <AssertMacros.h>
 
 // Other helpful macros (maybe some day these will make
-// their way into /usr/include/AssertMacros.h)
+// their way into AssertMacros.h)
 
 #define require_success( errorCode, exceptionLabel ) \
 	require( kIOReturnSuccess == (errorCode), exceptionLabel )

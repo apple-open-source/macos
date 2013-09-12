@@ -207,7 +207,7 @@
 }
 
 - (NSString *)descriptionForName:(NSString*)name {
-    return [NSString stringWithFormat:@"%@\n",[[self rootNode] stringRepresentation:name:0]];
+    return [NSString stringWithFormat:@"%@\n",[[self rootNode] stringRepresentation:name startingLevel:0]];
 }
 
 - (NSMutableDictionary *)dictionaryVersionOfMe

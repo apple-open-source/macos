@@ -1413,7 +1413,7 @@ pk_rd_pa_reply_dh(krb5_context context,
 	}
 
 	dh_gen_keylen = DH_compute_key(dh_gen_key, kdc_dh_pubkey, ctx->u.dh);
-	if (dh_gen_keylen == -1) {
+	if (dh_gen_keylen <= 0 || dh_gen_keylen < size / 2) {
 	    ret = KRB5KRB_ERR_GENERIC;
 	    dh_gen_keylen = 0;
 	    krb5_set_error_message(context, ret,
@@ -1421,9 +1421,10 @@ pk_rd_pa_reply_dh(krb5_context context,
 	    goto out;
 	}
 	if (dh_gen_keylen < (int)size) {
-	    size -= dh_gen_keylen;
-	    memmove(dh_gen_key + size, dh_gen_key, dh_gen_keylen);
-	    memset(dh_gen_key, 0, size);
+	    size_t diff = size - dh_gen_keylen;
+	    memmove(dh_gen_key + diff, dh_gen_key, dh_gen_keylen);
+	    memset(dh_gen_key, 0, diff);
+	    dh_gen_keylen = (int)size;
 	}
 
     } else {

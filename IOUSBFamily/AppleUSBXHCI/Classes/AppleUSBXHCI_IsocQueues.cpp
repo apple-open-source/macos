@@ -1,9 +1,25 @@
-//
-//  AppleUSBXHCI_IsocQueues.cpp
-//  AppleUSBXHCI
-//
-//  Copyright 2011-2012 Apple Inc. All rights reserved.
-//
+/*
+ * Copyright © 2011-2013 Apple Inc.  All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #include "AppleUSBXHCI_IsocQueues.h"
 #include "AppleUSBXHCIUIM.h"
@@ -69,14 +85,14 @@ AppleXHCIIsochTransferDescriptor::SetPhysicalLink(IOPhysicalAddress next)
 {
 #pragma unused(next)
 	
-	USBError(1, "AppleXHCIIsochTransferDescriptor[%p]::SetPhysicalLink - not implemented", this);
+	USBError(1, "AppleXHCIIsochTransferDescriptor::SetPhysicalLink - not implemented");
 }
 
 
 IOPhysicalAddress
 AppleXHCIIsochTransferDescriptor::GetPhysicalLink(void)
 {
-	USBError(1, "AppleXHCIIsochTransferDescriptor[%p]::GetPhysicalLink - not implemented", this);
+	USBError(1, "AppleXHCIIsochTransferDescriptor::GetPhysicalLink - not implemented");
     return 0;
 }
 
@@ -84,31 +100,39 @@ AppleXHCIIsochTransferDescriptor::GetPhysicalLink(void)
 IOPhysicalAddress 
 AppleXHCIIsochTransferDescriptor::GetPhysicalAddrWithType(void)
 {
-	USBError(1, "AppleXHCIIsochTransferDescriptor[%p]::GetPhysicalAddrWithType - not implemented", this);
+	USBError(1, "AppleXHCIIsochTransferDescriptor::GetPhysicalAddrWithType - not implemented");
 	return 0;
 }
 
 
 IOReturn 
-AppleXHCIIsochTransferDescriptor::MungeXHCIStatus(UInt32 status, UInt16 *transferLen, UInt32 maxPacketSize, UInt8 direction)
+AppleXHCIIsochTransferDescriptor::MungeXHCIIsochTDStatus(UInt32 status, UInt16 *transferLen, UInt32 maxPacketSize, UInt8 direction)
 {
 #pragma unused (transferLen, maxPacketSize, direction)
 	
 	switch(status)
 	{
+        case kXHCITRB_CC_Missed_Service:
+            USBTrace(kUSBTXHCI, kTPXHCIMungeIsochStatus, (uintptr_t)status, (uintptr_t)kIOUSBNotSent1Err, 0, 0);
+            return kIOUSBNotSent1Err;
+            
         case kXHCITRB_CC_XActErr:
+            USBTrace(kUSBTXHCI, kTPXHCIMungeIsochStatus, (uintptr_t)status, (uintptr_t)kIOUSBNotSent1Err, 0, 0);
             return kIOUSBNotSent1Err;
             
 		case kXHCITRB_CC_ShortPacket:
+            // We don't trace because this is very common
 			return kIOReturnUnderrun;
 			
 		case kXHCITRB_CC_Success:
 			return kIOReturnSuccess;
 			
 		case kXHCITRB_CC_STALL:
+            USBTrace(kUSBTXHCI, kTPXHCIMungeIsochStatus, (uintptr_t)status, (uintptr_t)kIOUSBPipeStalled, 0, 0);
 			return kIOUSBPipeStalled;
             
 		default:
+            USBTrace(kUSBTXHCI, kTPXHCIMungeIsochStatus, (uintptr_t)status, (uintptr_t)kIOReturnInternalError, 0, 0);
 			return kIOReturnInternalError;
 	}
 
@@ -307,7 +331,7 @@ AppleXHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 				// the event points to a TRB within my TD
 				UInt8							condCode = 	((USBToHostLong(eventTRB.offs8) & kXHCITRB_CC_Mask) >> kXHCITRB_CC_Shift);
 				UInt32							eventLen = USBToHostLong(eventTRB.offs8) & kXHCITRB_TR_Len_Mask;
-				IOReturn						frStatus = MungeXHCIStatus(condCode, NULL, 0, 0);
+				IOReturn						frStatus = MungeXHCIIsochTDStatus(condCode, NULL, 0, 0);
 				bool							edEvent = ((USBToHostLong(eventTRB.offsC) & kXHCITRB_ED) != 0);
 
 				if (condCode == kXHCITRB_CC_XActErr)
@@ -640,7 +664,7 @@ AppleUSBXHCI::DeleteIsochEP(AppleXHCIIsochEndpoint* pEP)
 		AbortIsochEP(pEP);
 		if (pEP->activeTDs)
 		{
-			USBError(1, "AppleUSBEHCI[%p]::DeleteIsochEP- after abort there are STILL %d active TDs", this, (uint32_t) pEP->activeTDs);
+			USBError(1, "AppleUSBEHCI::DeleteIsochEP- after abort there are STILL %d active TDs", (uint32_t) pEP->activeTDs);
 		}
     }
     prevEP = NULL;
@@ -661,10 +685,7 @@ AppleUSBXHCI::DeleteIsochEP(AppleXHCIIsochEndpoint* pEP)
     
 	// Save the current max packet size, as DeallocateIsochBandwidth will set the ep->mps to 0
 	// currentMaxPacketSize = pEP->maxPacketSize;
-	kprintf("DeleteIsochEP - releasing pEP(%p)\n", pEP);
 	pEP->release();
-	
-   	kprintf("DeleteIsochEP - returning success\n");
 	
     USBTrace_End(kUSBTXHCI, kTPXHCIDeleteIsochEP,  (uintptr_t)this, kIOReturnSuccess, 0, 0);
     return kIOReturnSuccess;
@@ -828,7 +849,7 @@ AppleUSBXHCI::AddIsocFramesToSchedule(AppleXHCIIsochEndpoint* pEP)
 		// the inconsistency should be taken care of inside of the PutTDOnDoneQueue method
 	}
 	
-	USBLog(2, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule pEP(%p)- top TD(%p) frame(%lld) scheduledTDs = %d, deferredTDs = %d", this, pEP, pEP->toDoList, pEP->toDoList->_frameNumber, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->deferredTDs);
+	USBLog(7, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule pEP(%p)- top TD(%p) frame(%lld) scheduledTDs = %d, deferredTDs = %d", this, pEP, pEP->toDoList, pEP->toDoList->_frameNumber, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->deferredTDs);
 	
 	// 4211382 - This routine is already non-reentrant, since it runs on the WL.
 	// However, we also need to disable preemption while we are in here, since we have to get everything
@@ -838,7 +859,7 @@ AppleUSBXHCI::AddIsocFramesToSchedule(AppleXHCIIsochEndpoint* pEP)
 	if (!IOSimpleLockTryLock(_isochScheduleLock))
 	{
 		// This would indicate reentrancy, which should never ever happen
-		USBError(1, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule - could not obtain scheduling lock", this);
+		USBError(1, "AppleUSBXHCI::AddIsocFramesToSchedule - could not obtain scheduling lock");
 		return;
 	}
 	//*******************************************************************************************************
@@ -902,8 +923,8 @@ AppleUSBXHCI::AddIsocFramesToSchedule(AppleXHCIIsochEndpoint* pEP)
 				bool alreadyQueued = thread_call_enter1(_returnIsochDoneQueueThread, (thread_call_param_t) pEP);
 				if ( alreadyQueued )
 				{
-					USBLog(1, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule - thread_call_enter1(_returnIsochDoneQueueThread) was NOT scheduled.  That's not good", this);
-					// USBTrace( kUSBTEHCI, kTPEHCIAddIsocFramesToSchedule, (uintptr_t)this, 0, 0, 2 );
+					USBLog(2, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule - thread_call_enter1(_returnIsochDoneQueueThread) was NOT scheduled. That is unusual", this);
+					USBTrace( kUSBTXHCI, kTPXHCIAddIsochFramesToSchedule, (uintptr_t)this, 0, 0, 15 );
 				}
 				return;
 			}
@@ -1138,7 +1159,7 @@ AppleUSBXHCI::AddIsocFramesToSchedule(AppleXHCIIsochEndpoint* pEP)
 	}
 	
     USBTrace(kUSBTXHCI, kTPXHCIAddIsochFramesToSchedule, (uintptr_t)pEP, (uintptr_t)pEP->toDoList, (uint32_t)pEP->onDoneQueue, 7);
-	USBLog(2, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule - finished,  currFrame: %qx, deferred TDs(%d) onDoneQueue(%d)", this, GetFrameNumber(), (int)pEP->deferredTDs, (int)pEP->onDoneQueue );
+	USBLog(7, "AppleUSBXHCI[%p]::AddIsocFramesToSchedule - finished,  currFrame: %qx, deferred TDs(%d) onDoneQueue(%d)", this, GetFrameNumber(), (int)pEP->deferredTDs, (int)pEP->onDoneQueue );
 }
 
 

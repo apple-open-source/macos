@@ -729,6 +729,10 @@ USBErrorToString(IOReturn status)
 			return "kIOReturnIPCError";
 		case kIOReturnTimeout:
 			return "kIOReturnTimeout";
+		case kIOReturnOffline:
+			return "kIOReturnOffline";
+		case kIOReturnNotReady:
+			return "kIOReturnNotReady";
 		case kIOReturnBusy:
 			return "kIOReturnBusy";
 		case kIOUSBUnknownPipeErr:

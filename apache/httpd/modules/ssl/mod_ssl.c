@@ -144,11 +144,24 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(SessionCacheTimeout, TAKE1,
                 "SSL Session Cache object lifetime "
                 "(`N' - number of seconds)")
+#ifdef OPENSSL_NO_SSL2
+#define SSLv2_PROTO_PREFIX ""
+#else
+#define SSLv2_PROTO_PREFIX "SSLv2|"
+#endif
+#ifdef HAVE_TLSV1_X
+#define SSL_PROTOCOLS SSLv2_PROTO_PREFIX "SSLv3|TLSv1|TLSv1.1|TLSv1.2"
+#else
+#define SSL_PROTOCOLS SSLv2_PROTO_PREFIX "SSLv3|TLSv1"
+#endif
     SSL_CMD_SRV(Protocol, RAW_ARGS,
-                "Enable or disable various SSL protocols"
-                "(`[+-][SSLv2|SSLv3|TLSv1] ...' - see manual)")
+                "Enable or disable various SSL protocols "
+                "('[+-][" SSL_PROTOCOLS "] ...' - see manual)")
     SSL_CMD_SRV(HonorCipherOrder, FLAG,
                 "Use the server's cipher ordering preference")
+    SSL_CMD_SRV(Compression, FLAG,
+                "Enable SSL level compression"
+                "(`on', `off')")
     SSL_CMD_SRV(InsecureRenegotiation, FLAG,
                 "Enable support for insecure renegotiation")
     SSL_CMD_ALL(UserName, TAKE1,
@@ -163,8 +176,8 @@ static const command_rec ssl_config_cmds[] = {
                 "SSL switch for the proxy protocol engine "
                 "(`on', `off')")
     SSL_CMD_SRV(ProxyProtocol, RAW_ARGS,
-               "SSL Proxy: enable or disable SSL protocol flavors "
-               "(`[+-][SSLv2|SSLv3|TLSv1] ...' - see manual)")
+                "SSL Proxy: enable or disable SSL protocol flavors "
+                "('[+-][" SSL_PROTOCOLS "] ...' - see manual)")
     SSL_CMD_SRV(ProxyCipherSuite, TAKE1,
                "SSL Proxy: colon-delimited list of permitted SSL ciphers "
                "(`XXX:...:XXX' - see manual)")
@@ -192,6 +205,10 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(ProxyMachineCertificatePath, TAKE1,
                "SSL Proxy: directory containing client certificates "
                "(`/path/to/dir' - contains PEM encoded certificates)")
+    SSL_CMD_SRV(ProxyMachineCertificateChainFile, TAKE1,
+               "SSL Proxy: file containing issuing certificates "
+               "of the client certificate "
+               "(`/path/to/file' - PEM encoded certificates)")
     SSL_CMD_SRV(ProxyCheckPeerExpire, FLAG,
                 "SSL Proxy: check the peers certificate expiration date")
     SSL_CMD_SRV(ProxyCheckPeerCN, FLAG,

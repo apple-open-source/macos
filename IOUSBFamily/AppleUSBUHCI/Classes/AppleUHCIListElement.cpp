@@ -371,7 +371,7 @@ AppleUHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			pLLFrames[_frameIndex].frTimeStamp = timeStamp;
 			pLLFrames[_frameIndex].frStatus = frStatus;
 
-#ifdef __LP64__
+#ifdef ABSOLUTETIME_SCALAR_TYPE
 			USBTrace( kUSBTUHCIInterrupts, kTPUHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)frActualCount, (uintptr_t)timeStamp );
 #else
 			USBTrace( kUSBTUHCIInterrupts, kTPUHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)(timeStamp.hi), (uintptr_t)timeStamp.lo );

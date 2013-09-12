@@ -357,7 +357,7 @@ AppleUSBOHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
     {
         case kUSBHubPortSuspendFeature :
             // to be consistent with OS 9, the bit we check below needs to be the port NUMBER
-	    if ( (_errataBits & kErrataLucentSuspendResume) && ((_disablePortsBitmap & (1 << wIndex)) != 0))
+	    if ( (_ERRATA64BITS & kErrataLucentSuspendResume) && ((_disablePortsBitmap & (1 << wIndex)) != 0))
 	    {
 			USBLog(3,"AppleUSBOHCI[%p]::SetRootHubPortFeature - Ignoring suspend feature", this);
 			err = kIOUSBPipeStalled;
@@ -408,7 +408,7 @@ AppleUSBOHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
             break;
 
         case kUSBHubPortPowerFeature :
- 			if (_errataBits & kErrataIgnoreRootHubPowerClearFeature)
+ 			if (_ERRATA64BITS & kErrataIgnoreRootHubPowerClearFeature)
 			{
 				USBLog(5,"AppleUSBOHCI[%p]::ClearRootHubPortFeature (kUSBHubPortPowerFeature) port %d, ignoring per errata bit",  this, port+1);
 				err = kIOReturnUnsupported;
@@ -680,7 +680,7 @@ AppleUSBOHCI::OHCIRootHubResetChangeConnection(UInt16 port)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
@@ -707,7 +707,7 @@ AppleUSBOHCI::OHCIRootHubResetResetChange(UInt16 port)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
@@ -735,7 +735,7 @@ AppleUSBOHCI::OHCIRootHubResetSuspendChange(UInt16 port)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
@@ -763,7 +763,7 @@ AppleUSBOHCI::OHCIRootHubResetEnableChange(UInt16 port)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
@@ -791,7 +791,7 @@ AppleUSBOHCI::OHCIRootHubResetOverCurrentChange(UInt16 port)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
@@ -820,7 +820,7 @@ AppleUSBOHCI::OHCIRootHubResetPort (UInt16 port)
     value = kOHCIHcRhPortStatus_PRS;												// sets Bit 8 in port root hub register
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(kOHCIHcRhPortStatus_PRS);
     IOSync();
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		count = 0;
 		value = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
@@ -851,7 +851,7 @@ AppleUSBOHCI::OHCIRootHubPortEnable(UInt16	port, bool	on)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
@@ -883,7 +883,7 @@ AppleUSBOHCI::OHCIRootHubPortSuspend(UInt16 port, bool	on)
     IOSync();
 
 	// we can only check to see that we went into suspend state, not that we went into resume
-	if ((_errataBits & kErrataNECIncompleteWrite) && on)
+	if ((_ERRATA64BITS & kErrataNECIncompleteWrite) && on)
 	{
 		UInt32		newValue = 0, count = 0;
 		IOSleep(1);									// wait for the write to settle
@@ -918,7 +918,7 @@ AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port, bool	on)
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
-	if (_errataBits & kErrataNECIncompleteWrite)
+	if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 	{
 		UInt32		newValue = 0, count = 0;
 		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);

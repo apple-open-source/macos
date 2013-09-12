@@ -297,6 +297,7 @@ dns_master_rdatasettotext
 dns_master_stylecreate
 dns_master_styledestroy
 dns_message_addname
+dns_message_buildopt
 dns_message_checksig
 dns_message_create
 dns_message_currentname
@@ -533,6 +534,7 @@ dns_rdataset_settrust
 dns_rdataset_totext
 dns_rdataset_towire
 dns_rdataset_towiresorted
+dns_rdataset_trimttl
 dns_rdatasetiter_current
 dns_rdatasetiter_destroy
 dns_rdatasetiter_first
@@ -603,7 +605,6 @@ dns_resolver_setclientsperquery
 dns_resolver_setlamettl
 dns_resolver_setmustbesecure
 dns_resolver_settimeout
-dns_resolver_settimeout
 dns_resolver_setudpsize
 dns_resolver_setzeronosoattl
 dns_resolver_shutdown
@@ -619,11 +620,9 @@ dns_rpz_cidr_deleteip
 dns_rpz_cidr_find
 dns_rpz_cidr_free
 dns_rpz_decode_cname
-dns_rpz_enabled
-dns_rpz_needed
+dns_rpz_enabled_get
 dns_rpz_new_cidr
 dns_rpz_policy2str
-dns_rpz_set_need
 dns_rpz_str2policy
 dns_rpz_type2str
 dns_rpz_view_destroy
@@ -762,6 +761,7 @@ dns_zone_checknames
 dns_zone_clearforwardacl
 dns_zone_clearnotifyacl
 dns_zone_clearqueryacl
+dns_zone_clearqueryonacl
 dns_zone_clearupdateacl
 dns_zone_clearxfracl
 dns_zone_create
@@ -777,6 +777,7 @@ dns_zone_flush
 dns_zone_forcereload
 dns_zone_forwardupdate
 dns_zone_fulldumptostream
+dns_zone_get_rpz
 dns_zone_getadded
 dns_zone_getchecknames
 dns_zone_getclass
@@ -801,6 +802,7 @@ dns_zone_getoptions
 dns_zone_getorigin
 dns_zone_getprivatetype
 dns_zone_getqueryacl
+dns_zone_getqueryonacl
 dns_zone_getrequeststats
 dns_zone_getserial
 dns_zone_getserial2
@@ -834,6 +836,7 @@ dns_zone_nscheck
 dns_zone_refresh
 dns_zone_rekey
 dns_zone_replacedb
+dns_zone_rpz_enable
 dns_zone_setacache
 dns_zone_setadded
 dns_zone_setalsonotify

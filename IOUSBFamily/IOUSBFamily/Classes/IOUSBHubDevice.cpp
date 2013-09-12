@@ -1,5 +1,5 @@
 /*
- * Copyright © 2006-2012 Apple Inc.  All rights reserved.
+ * Copyright © 2006-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -719,9 +719,8 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 {
 	OSNumber *		extraPowerProp = NULL;
 	OSObject *		propertyObject = NULL;
-	OSBoolean *		booleanObj = NULL;
 	UInt32			deviceInfo = 0;
-	bool			useNewMethodToAddRequestFromParent = false;;
+	bool			useNewMethodToAddRequestFromParent = false;
 	
 	(void) GetDeviceInformation(&deviceInfo);
 	
@@ -734,11 +733,10 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 	
 	if ( _controller )
 	{
-		booleanObj = OSDynamicCast(OSBoolean, _controller->getProperty("UpdatedSleepPropertiesExists"));
-		if (booleanObj && booleanObj->isTrue())
+		useNewMethodToAddRequestFromParent = (_controller->getProperty("UpdatedSleepPropertiesExists") == kOSBooleanTrue);
+		if (useNewMethodToAddRequestFromParent)
 		{
 			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found UpdatedSleepPropertiesExists with true value", this);
-			useNewMethodToAddRequestFromParent = true;
 		}
 	}
 	// If we have a hub that is (1) internal, (2) attached to the RootHub, (3) captive, and (4) is not on thunderbolt, then we will tell it to request power from its parent
@@ -763,12 +761,10 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 		// If we have an "RequestExtraCurrentFromParent" property, this means that the hub needs to ask its parent for the extra power.  This is used for internal hubs where the MLB provides
 		// the extra current.  If a hub had a unique vid/pid (like a display hub), then it could just add the required properties and not set the "RequestExtraCurrentFromParent" one.
 		
-		propertyObject = getProperty("RequestExtraCurrentFromParent");
-		booleanObj = OSDynamicCast(OSBoolean, propertyObject);
-		if (booleanObj && booleanObj->isTrue() && DoLocationOverrideAndModelMatch())
-		{
+		_REQUESTFROMPARENT = ( (getProperty("RequestExtraCurrentFromParent") == kOSBooleanTrue) && DoLocationOverrideAndModelMatch() );
+		if (_REQUESTFROMPARENT)
+        {
 			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found RequestExtraCurrentFromParent property, setting _REQUESTFROMPARENT to true", this);
-			_REQUESTFROMPARENT = true;
 			
 			if (_USBPLANE_PARENT != NULL)
 			{
@@ -807,6 +803,7 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 	USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  USB Plane Parent is %p (%s)", this, _USBPLANE_PARENT, _USBPLANE_PARENT == NULL ? "" : _USBPLANE_PARENT->getName());
 	
 }
+
 
 
 void			

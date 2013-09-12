@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -1056,6 +1056,12 @@ t_dns_rbtnodechain_first(char *dbfile, char *expected_firstname,
 	dns_fixedname_t		dns_origin;
 	isc_result_t		expected_result;
 
+	REQUIRE(dbfile != NULL);
+	REQUIRE(expected_firstname != NULL);
+	REQUIRE(expected_firstorigin != NULL);
+	REQUIRE(expected_nextname != NULL);
+	REQUIRE(expected_nextorigin != NULL);
+
 	result = T_UNRESOLVED;
 
 	nfails = 0;
@@ -1246,6 +1252,12 @@ t_dns_rbtnodechain_last(char *dbfile, char *expected_lastname,
 	dns_fixedname_t		dns_name;
 	dns_fixedname_t		dns_origin;
 	isc_result_t		expected_result;
+
+	REQUIRE(dbfile != NULL);
+	REQUIRE(expected_lastname != NULL);
+	REQUIRE(expected_lastorigin != NULL);
+	REQUIRE(expected_prevname != NULL);
+	REQUIRE(expected_prevorigin != NULL);
 
 	result = T_UNRESOLVED;
 

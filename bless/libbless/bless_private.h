@@ -119,7 +119,7 @@ int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
 char *BLGetCStringDescription(CFTypeRef typeRef);
 
 /*
- * check if the context is null. if not, check if the log funcion is null
+ * check if the context is null. if not, check if the log function is null
  */
 int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) __printflike(3, 4);;
 
@@ -132,5 +132,12 @@ char * blostype2string(uint32_t type, char buf[5]);
 // where the mount table hasn't been updated with the
 // proper dev node
 int blsustatfs(const char *path, struct statfs *buf);
+
+// Open raw DVD data and search for the first UEFI boot image; returns false if no for any reason,
+// including if the given disk is not even a DVD, or if no ElTorito header, or if no boot image
+// pointed to by the ElTorito structures. If you get false you should assume the disk to be anything
+// else worthy of consideration, such as even a MacOSX disc. If you get true then output fields
+// give info that, when converted to XML form and put in the IOReg->NVRAM, will command EFI to boot it.
+bool isDVDWithElToritoWithUEFIBootableOS (BLContextPtr inContext, const char* inDevBSD, int* outBootEntry, int* outPartitionStart, int* outPartitionSize);
 
 #endif // _BLESS_PRIVATE_H_

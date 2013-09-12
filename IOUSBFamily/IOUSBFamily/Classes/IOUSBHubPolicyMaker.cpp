@@ -1,5 +1,5 @@
 /*
- * Copyright © 2007-2009 Apple Inc.  All rights reserved.
+ * Copyright © 2007-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -127,6 +127,18 @@ static IOPMPowerState ourPowerStates[kIOUSBHubNumberPowerStates] = {
 
 
 
+void
+IOUSBHubPolicyMaker::stop( IOService * provider )
+{
+#pragma unused (provider)
+	
+	// 11978032 - move this call from AppleUSBHub to here
+	USBLog(6, "IOUSBHubPolicyMaker[%p]::stop - calling PMstop", this);
+	PMstop();
+}
+
+
+
 bool
 IOUSBHubPolicyMaker::start(IOService * provider)
 {
@@ -134,8 +146,8 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 	UInt32					deviceCharacteristics;
 	IOReturn				err;
 	IOUSBControllerV3		*v3Bus = NULL;
-	OSBoolean				*boolObj = NULL;
 	OSNumber				*numberObj = NULL;
+	OSObject				*numberProp = NULL;
 
 	// remember my device
     _device		= OSDynamicCast(IOUSBHubDevice, provider);
@@ -150,57 +162,28 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 	
 	// Only allow lowPower mode if we have a V3 Controller
 	v3Bus = OSDynamicCast(IOUSBControllerV3, _bus);
-	if ( v3Bus )
-	{
-		boolObj = OSDynamicCast( OSBoolean, _device->getProperty(kUSBHubDontAllowLowPower) );
-		if ( boolObj && boolObj->isTrue() )
-		{
-			// This hub will not go into low power mode
-			_dontAllowLowPower = true;
-		}
-		else
-		{
-			// Do allow hub to go into low power
-			if( (gUSBStackDebugFlags & kUSBDontAllowHubLowPowerMask) != 0)
-			{
-				USBLog(5, "IOUSBHubPolicyMaker[%p]::start - boot arg not allowing low power: %x", this, (uint32_t)gUSBStackDebugFlags);
-				_dontAllowLowPower = true;
-			}
-			else
-			{
-				_dontAllowLowPower = false;
-			}
-		} 
-	} 
-	else
-	{
-		// This hub will not go into low power mode because its on a non-V3 controller
+    if (!v3Bus || (gUSBStackDebugFlags & kUSBDontAllowHubLowPowerMask) || (_device->getProperty(kUSBHubDontAllowLowPower) == kOSBooleanTrue) )
 		_dontAllowLowPower = true;
-	}
-		
-	boolObj = OSDynamicCast( OSBoolean, _device->getProperty("kUSBNoExtraSleepCurrent") );
-	if ( boolObj && boolObj->isTrue() )
-	{
-		_dontAllowSleepPower = true;
-	}
-	else
-	{
-		_dontAllowSleepPower = false;
-	}
+	
+	_dontAllowSleepPower = ( _device->getProperty("kUSBNoExtraSleepCurrent") == kOSBooleanTrue );
 
 	// Set our _hubResumeRecoveryTime, overriding with a property-based errata
-	numberObj = OSDynamicCast( OSNumber, _device->getProperty(kUSBDeviceResumeRecoveryTime) );
+	numberProp = _device->copyProperty(kUSBDeviceResumeRecoveryTime);
+	numberObj = OSDynamicCast( OSNumber, numberProp);
 	if ( numberObj )
 	{
 		_hubResumeRecoveryTime = numberObj->unsigned32BitValue();
-		if ( _hubResumeRecoveryTime < 10 ) _hubResumeRecoveryTime = 10;
-		
-		USBLog(5, "IOUSBHubPolicyMaker[%p]::start - device %s, setting kUSBDeviceResumeRecoveryTime to %d", this, _device->getName(), (uint32_t)_hubResumeRecoveryTime ); 
+		if ( _hubResumeRecoveryTime < 10 ) 
+			_hubResumeRecoveryTime = 10;
+		USBLog(5, "IOUSBHubPolicyMaker[%p]::start - device %s, setting kUSBDeviceResumeRecoveryTime to %d", this, _device->getName(), (uint32_t)_hubResumeRecoveryTime );
 	}
 	else
 	{
 		_hubResumeRecoveryTime = kHubResumeRecoveryTime;
 	}
+	
+	if (numberProp)
+		numberProp->release();
 	
 	_powerStateChangingTo = kIOUSBHubPowerStateStable;							// not currently changing state..
 	
@@ -298,7 +281,7 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 	err = registerPowerDriver(this, ourPowerStates, kIOUSBHubNumberPowerStates);
 	if (err)
 	{
-		USBError(1, "IOUSBHubPolicyMaker[%p]::start - err [%p] from registerPowerDriver", this, (void*)err);
+		USBError(1, "IOUSBHubPolicyMaker::start - err [%p] from registerPowerDriver", (void*)err);
 		PMstop();
 		return false;
 	}
@@ -537,12 +520,15 @@ IOUSBHubPolicyMaker::RequestExtraPower(UInt32 portNum, UInt32 type, UInt32 reque
 #pragma unused (portNum)
 	UInt32		returnValue = 0;
 	
-	USBLog(5, "IOUSBHubPolicyMaker[%p]::RequestExtraPower  for port %d, type: %d, requested %d", this, (uint32_t)portNum,(uint32_t)type, (uint32_t) requestedPower);
+	USBLog(5, "IOUSBHubPolicyMaker[%p]::RequestExtraPower _device(%p) for port %d, type: %d, requested %d", this, _device, (uint32_t)portNum,(uint32_t)type, (uint32_t) requestedPower);
 	
-	returnValue = _device->RequestExtraPower(type, requestedPower);
+    if (_device)
+        returnValue = _device->RequestExtraPower(type, requestedPower);
 	
 	return returnValue;
 }
+
+
 
 IOReturn
 IOUSBHubPolicyMaker::ReturnExtraPower(UInt32 portNum, UInt32 type, UInt32 returnedPower)
@@ -550,12 +536,16 @@ IOUSBHubPolicyMaker::ReturnExtraPower(UInt32 portNum, UInt32 type, UInt32 return
 #pragma unused (portNum)
 	IOReturn	kr = kIOReturnSuccess;
 	
-	USBLog(5, "IOUSBHubPolicyMaker[%p]::ReturnExtraPower  for port %d, type %d, returnedPower %d", this, (uint32_t)portNum, (uint32_t)type, (uint32_t) returnedPower);
+	USBLog(5, "IOUSBHubPolicyMaker[%p]::ReturnExtraPower _device(%p) port %d, type %d, returnedPower %d", this, _device, (uint32_t)portNum, (uint32_t)type, (uint32_t) returnedPower);
 
-	kr = _device->ReturnExtraPower( type, returnedPower );
+    // if _device is NULL, then the hub is going away, and we can go ahead and return kIOReturnSuccess
+    if (_device)
+        kr = _device->ReturnExtraPower( type, returnedPower );
 
 	return kr;
 }
+
+
 
 #pragma mark Obsolete
 IOReturn

@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2007, 2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013, Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,31 +55,14 @@ AppleUSBOpticalMouse::StartFinalProcessing()
     UInt32			curResInt, resPrefInt;
     IOFixed			curRes, resPref;
     IOReturn		err = kIOReturnSuccess;
-    OSBoolean * 	boolObj;
-    OSObject *		propertyObj = NULL;
 	
     USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing", this);
 	_switchBackOnRestart = FALSE;
-    propertyObj = copyProperty("SwitchTo800DPI");
-    boolObj = OSDynamicCast( OSBoolean, propertyObj );
-    if ( boolObj && boolObj->isTrue() )
-    {
-       // USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - found switchTo800DPI resolution property", this);
-        _switchTo800dpiFlag = true;
-    }
-	if (propertyObj)
-		propertyObj->release();
+    
+    _switchTo800dpiFlag = ( getProperty("SwitchTo800DPI") == kOSBooleanTrue );
+    _switchTo2000fpsFlag = ( getProperty("SwitchTo2000FPS") == kOSBooleanTrue );
 
-    propertyObj = copyProperty("SwitchTo2000FPS");
-    boolObj = OSDynamicCast( OSBoolean, propertyObj );
-    if ( boolObj && boolObj->isTrue() )
-    {
-       // USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - found switchTo2000fps resolution property", this);
-        _switchTo2000fpsFlag = true;
-    }
-	if (propertyObj)
-		propertyObj->release();
-
+    
     if ( _switchTo2000fpsFlag )
     {
         IOUSBDevRequest		devReq;
@@ -161,6 +144,8 @@ AppleUSBOpticalMouse::StartFinalProcessing()
 
     if ( _switchTo800dpiFlag )
     {
+        OSObject    *propertyObj;
+        
 		propertyObj = copyProperty(kIOHIDPointerResolutionKey);
         curResPtr = OSDynamicCast( OSNumber, propertyObj );
         if (curResPtr)

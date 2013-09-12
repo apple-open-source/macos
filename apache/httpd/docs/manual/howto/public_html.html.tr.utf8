@@ -8,10 +8,13 @@
 <title>Kullanıcı Dizinleri (public_html) - Apache HTTP Sunucusu</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
 <p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -29,6 +32,17 @@
     <code>http://example.com/~kullanıcı/</code> adresinin ziyaretçileri
     "kullanıcı" isimli kullanıcının ev dizininin içeriğini değil, <code class="directive"><a href="../mod/mod_userdir.html#userdir">UserDir</a></code> yönergesinde belirtilen alt
     dizinin içeriğini görürler.</p>
+
+  <p>Şuna dikkat edin: Öntanımlı olarak bu yönergelere erişim etkin
+    <strong>değildir</strong>.Öntanımlı yapılandırma dosyasında</p>
+  <div class="example"><p><code>
+    #Include conf/extra/httpd-userdir.conf
+  </code></p></div>
+  <p>satırını açıklama olmaktan çıkarıp etkin hale getirmekle <code class="directive"><a href="../mod/mod_userdir.html#userdir">UserDir</a></code> modülünü kullanıma sokarak ve
+    <code>httpd-userdir.conf</code> dosyasında gerekli değişiklikleri yaparak
+    veya ana yapılandırma dosyasındaki ilgili <code>Directory</code> bölümünün
+    içine uygun yönergeleri yerleştirerek bu yönergelere erişimi etkin
+    kılabilirsiniz.</p>
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Kullanıcı sayfaları dizinleri</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#userdir"><code>UserDir</code> ile dosya yolunun belirtilmesi</a></li>
@@ -37,7 +51,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#cgi">Her kullanıcıya bir CGI dizini tahsis etmek</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#htaccess">Kullanıcıların yapılandırmayı değiştirmesine izin vermek</a></li>
 </ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><a href="../urlmapping.html">URL’lerin Dosya Sistemi ile
-  Eşleştirilmesi</a></li></ul></div>
+  Eşleştirilmesi</a></li></ul><ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="related" id="related">Kullanıcı sayfaları dizinleri</a></h2>
@@ -187,7 +201,28 @@
 <a href="../ja/howto/public_html.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/howto/public_html.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/public_html.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

@@ -473,19 +473,46 @@ keychain_query(hx509_context context,
 	       hx509_certs certs,
 	       void *data,
 	       const hx509_query *query,
-	       hx509_cert *cert)
+	       hx509_cert *retcert)
 {
+    CFArrayRef identities = NULL;
+    hx509_cert cert = NULL;
+    CFIndex n, count;
     int ret;
+    int kdcLookupHack = 0;
 
-    if ((query->match & HX509_QUERY_MATCH_PERSISTENT) == 0)
+    /*
+     * First to course filtering using security framework ....
+     */
+
+#define FASTER_FLAGS (HX509_QUERY_MATCH_PERSISTENT|HX509_QUERY_PRIVATE_KEY)
+
+    if ((query->match & FASTER_FLAGS) == 0)
 	return HX509_UNIMPLEMENTED_OPERATION;
-
-    SecIdentityRef identity = NULL;
 
     CFMutableDictionaryRef secQuery = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,  &kCFTypeDictionaryValueCallBacks);
 
-    CFDictionaryAddValue(secQuery, kSecClass, kSecClassIdentity);
+    /*
+     * XXX this is so broken, SecItem doesn't find the kdc certificte,
+     * and kdc certificates happend to be searched by friendly name,
+     * so find that and mundge on the structure.
+     */
+
+    if ((query->match & HX509_QUERY_MATCH_FRIENDLY_NAME) &&
+	(query->match & HX509_QUERY_PRIVATE_KEY) && 
+	strcmp(query->friendlyname, "O=System Identity,CN=com.apple.kerberos.kdc") == 0)
+    {
+	((hx509_query *)query)->match &= ~HX509_QUERY_PRIVATE_KEY;
+	kdcLookupHack = 1;
+    }
+
+    if (kdcLookupHack || (query->match & HX509_QUERY_MATCH_PERSISTENT)) {
+	CFDictionaryAddValue(secQuery, kSecClass, kSecClassCertificate);
+    } else
+	CFDictionaryAddValue(secQuery, kSecClass, kSecClassIdentity);
+
     CFDictionaryAddValue(secQuery, kSecReturnRef, kCFBooleanTrue);
+    CFDictionaryAddValue(secQuery, kSecMatchLimit, kSecMatchLimitAll);
 
     if (query->match & HX509_QUERY_MATCH_PERSISTENT) {
 	CFDataRef refdata = CFDataCreateWithBytesNoCopy(NULL, query->persistent->data, query->persistent->length, kCFAllocatorNull);
@@ -493,17 +520,80 @@ keychain_query(hx509_context context,
 	CFRelease(refdata);
     }
 
-    OSStatus status = SecItemCopyMatching(secQuery, (CFTypeRef *)&identity);
+
+    OSStatus status = SecItemCopyMatching(secQuery, (CFTypeRef *)&identities);
     CFRelease(secQuery);
-    if (status) {
+    if (status || identities == NULL) {
+	hx509_clear_error_string(context);
+	return HX509_CERT_NOT_FOUND;
+    }
+    
+    heim_assert(CFArrayGetTypeID() == CFGetTypeID(identities), "return value not an array");
+
+    /*
+     * ... now do hx509 filtering
+     */
+
+    count = CFArrayGetCount(identities);
+    for (n = 0; n < count; n++) {
+	CFTypeRef secitem = (CFTypeRef)CFArrayGetValueAtIndex(identities, n);
+
+	if (query->match & HX509_QUERY_MATCH_PERSISTENT) {
+	    SecIdentityRef other = NULL;
+	    OSStatus osret;
+
+	    osret = SecIdentityCreateWithCertificate(NULL, (SecCertificateRef)secitem, &other);
+	    if (osret == noErr) {
+		ret = hx509_cert_init_SecFramework(context, (void *)other, &cert);
+		CFRelease(other);
+		if (ret)
+		    continue;
+	    } else {
+		ret = hx509_cert_init_SecFramework(context, (void *)secitem, &cert);
+		if (ret)
+		    continue;
+	    }
+	} else {
+
+	    ret = hx509_cert_init_SecFramework(context, (void *)secitem, &cert);
+	    if (ret)
+		continue;
+	}
+
+	if (_hx509_query_match_cert(context, query, cert)) {
+
+	    /* certtool/keychain doesn't glue togheter the cert with keys for system keys */
+	    if (kdcLookupHack) {
+		SecIdentityRef other = NULL;
+		OSStatus osret;
+
+		osret = SecIdentityCreateWithCertificate(NULL, (SecCertificateRef)secitem, &other);
+		if (osret == noErr) {
+		    hx509_cert_free(cert);
+		    ret = hx509_cert_init_SecFramework(context, other, &cert);
+		    CFRelease(other);
+		    if (ret)
+			continue;
+		}
+	    }	    
+
+	    *retcert = cert;
+	    break;
+	}
+	hx509_cert_free(cert);
+    }
+
+    if (kdcLookupHack)
+	((hx509_query *)query)->match |= HX509_QUERY_PRIVATE_KEY;
+
+    CFRelease(identities);
+
+    if (*retcert == NULL) {
 	hx509_clear_error_string(context);
 	return HX509_CERT_NOT_FOUND;
     }
 
-    ret = hx509_cert_init_SecFramework(context, identity, cert);
-    CFRelease(identity);
-
-    return ret;
+    return 0;
 }
 
 /*
@@ -763,17 +853,7 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
 
     /* if identity assign private key too */
     if (SecIdentityGetTypeID() == typeid) {
-
 	(void)SecIdentityCopyPrivateKey(identity, &pkey);
-
-    } else if (SecCertificateGetTypeID() == typeid) {
-	SecIdentityRef secidentity;
-
-	osret = SecIdentityCreateWithCertificate(NULL, seccert, &secidentity);
-	if (osret == noErr) {
-	    (void)SecIdentityCopyPrivateKey(secidentity, &pkey);
-	    CFRelease(secidentity);
-	}
     }
 
     if (pkey) {

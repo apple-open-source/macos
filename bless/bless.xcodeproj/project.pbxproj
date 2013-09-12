@@ -39,6 +39,8 @@
 		0C259F1314FCA25F00A3A244 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = C66479270A35E7C90026B51E /* protos.h */; };
 		0C477C9715000D7200C0DFA2 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
 		0CAD683A135CD78E00C9B626 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
+		B0063D8C16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c in Sources */ = {isa = PBXBuildFile; fileRef = B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */; };
+		B074D69316E5ACDA006D723F /* BLElToritoFindUEFI.c in Sources */ = {isa = PBXBuildFile; fileRef = B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */; };
 		BA17434C0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
 		BA17434D0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
 		BA1C89FC07CBCBA4005CE20C /* modeFirmware.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */; };
@@ -261,6 +263,8 @@
 
 /* Begin PBXFileReference section */
 		0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLSetEFIBootDevice.c; sourceTree = "<group>"; };
+		B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForElToritoEntry.c; sourceTree = "<group>"; };
+		B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLElToritoFindUEFI.c; sourceTree = "<group>"; };
 		BA10D77D04FADE430070B3E0 /* minibless.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = minibless.c; sourceTree = "<group>"; };
 		BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForLegacyDevice.c; sourceTree = "<group>"; };
 		BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = modeFirmware.c; sourceTree = "<group>"; };
@@ -527,6 +531,7 @@
 				BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */,
 				C6E53F2609228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c */,
 				C61673B30940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c */,
+				B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */,
 				C6B01CA5092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c */,
 				C621BF120940EFEE00AA65BC /* BLInterpretEFIXMLRepresentationAsNetworkPath.c */,
 				C621BFA8094104A200AA65BC /* BLInterpretEFIXMLRepresentationAsDevice.c */,
@@ -604,6 +609,7 @@
 				F521EBA70228E90D01F502C1 /* BLGenerateOFLabel.c */,
 				F5099052023441B901F502C1 /* BLBlockChecksum.c */,
 				F54EC307027E73AE01F502C1 /* BLLoadFile.c */,
+				B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */,
 			);
 			path = Misc;
 			sourceTree = "<group>";
@@ -1023,6 +1029,8 @@
 				C664E3070C4BEAA800C6437C /* BLBootRootMapMemberToHelper.c in Sources */,
 				C664E3090C4BEAB400C6437C /* BLBootRootMapHelperToMember.c in Sources */,
 				0CAD683A135CD78E00C9B626 /* BLSetEFIBootDevice.c in Sources */,
+				B074D69316E5ACDA006D723F /* BLElToritoFindUEFI.c in Sources */,
+				B0063D8C16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1099,7 +1107,7 @@
 		BA3D815C086C4E9C00484376 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1112,7 +1120,7 @@
 		BA3D815D086C4E9C00484376 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1150,7 +1158,7 @@
 		BA4E13E70C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1165,7 +1173,7 @@
 		BA4E13E80C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1187,7 +1195,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1204,7 +1212,7 @@
 		BA4E13EA0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
 				INSTALL_PATH = /usr/local/bin;
@@ -1217,7 +1225,7 @@
 		BA4E13EC0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1235,7 +1243,7 @@
 		BA4E13ED0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1249,7 +1257,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1269,7 +1277,7 @@
 		BA7EB3D1086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1294,7 +1302,7 @@
 		BA7EB3D6086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1315,7 +1323,7 @@
 		BA7EB3DB086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(value)",
@@ -1341,7 +1349,7 @@
 		BA7EB3E5086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1377,7 +1385,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1397,7 +1405,7 @@
 		BA7EB485086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1423,7 +1431,7 @@
 		BA7EB486086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1444,7 +1452,7 @@
 		BA7EB487086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(value)",
@@ -1470,7 +1478,7 @@
 		BA7EB489086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1527,7 +1535,7 @@
 		C68F27350CC13BCF00E3CD6A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1543,7 +1551,7 @@
 		C68F27360CC13BCF00E3CD6A /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
@@ -1556,7 +1564,7 @@
 		C68F27370CC13BCF00E3CD6A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 84;
+				CURRENT_PROJECT_VERSION = 87;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (

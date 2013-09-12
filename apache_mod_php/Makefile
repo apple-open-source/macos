@@ -1,6 +1,6 @@
 #
 # Apple wrapper Makefile for PHP
-# Copyright (c) 2008-2012 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2013 Apple Inc. All Rights Reserved.
 ##
 #
 
@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Commands
-Submission      = 74
+Submission      = 79.1
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -43,7 +43,6 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-dba \
 				--enable-ndbm=$(USRDIR) \
 			--enable-exif \
-			--enable-fpm \
 			--enable-ftp \
 			--with-gd \
 				--with-freetype-dir=$(DSTROOT)$(USRDIR)/local \
@@ -81,16 +80,16 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.15
+AEP_Version	= 5.3.26
 AEP_LicenseFile	= $(Sources)/LICENSE
-AEP_Patches	= suhosin-patch-5.3.9-0.9.10.patch \
+AEP_Patches	= suhosin-patch-5.3.23-0.9.10.patch \
 			MacOSX_build.patch arches.patch \
 			iconv.patch mysql_sock.patch pear.patch phar.patch \
-			xdebug.patch fpm.patch dSYM.patch
+			xdebug.patch dSYM.patch
 AEP_ConfigDir	= $(ETCDIR)
-AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
+AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php 
 AEP_ManPages	= pear.1 phar.1 phar.phar.1
-Dependencies	= freetype libjpeg libpng
+Dependencies	= freetype libjpeg libpng phpfpm
 GnuAfterInstall	= archive-strip-binaries install-macosx install-xdebug
 
 
@@ -183,7 +182,6 @@ install-macosx:
 		$(DSTROOT)/.registry \
 		$(DSTROOT)$(USRLIBDIR)/php/.lock \
 		$(DSTROOT)$(USRLIBDIR)/php/.depdblock
-	-$(STRIP) -x $(DSTROOT)/usr/bin/php $(DSTROOT)/usr/sbin/php-fpm
 	-$(RM) -rf $(DSTROOT)/usr/var
 	@echo "Mac OS X-specific cleanup complete."
 

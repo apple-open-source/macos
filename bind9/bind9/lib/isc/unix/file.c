@@ -98,6 +98,20 @@ file_stats(const char *file, struct stat *stats) {
 }
 
 isc_result_t
+isc_file_mode(const char *file, mode_t *modep) {
+	isc_result_t result;
+	struct stat stats;
+
+	REQUIRE(modep != NULL);
+
+	result = file_stats(file, &stats);
+	if (result == ISC_R_SUCCESS)
+		*modep = (stats.st_mode & 07777);
+
+	return (result);
+}
+
+isc_result_t
 isc_file_getmodtime(const char *file, isc_time_t *time) {
 	isc_result_t result;
 	struct stat stats;
@@ -313,6 +327,23 @@ isc_file_openuniquemode(char *templet, int mode, FILE **fp) {
 }
 
 isc_result_t
+isc_file_bopenunique(char *templet, FILE **fp) {
+	int mode = S_IWUSR|S_IRUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH;
+	return (isc_file_openuniquemode(templet, mode, fp));
+}
+
+isc_result_t
+isc_file_bopenuniqueprivate(char *templet, FILE **fp) {
+	int mode = S_IWUSR|S_IRUSR;
+	return (isc_file_openuniquemode(templet, mode, fp));
+}
+
+isc_result_t
+isc_file_bopenuniquemode(char *templet, int mode, FILE **fp) {
+	return (isc_file_openuniquemode(templet, mode, fp));
+}
+
+isc_result_t
 isc_file_remove(const char *filename) {
 	int r;
 
@@ -360,6 +391,24 @@ isc_file_isplainfile(const char *filename) {
 		return(isc__errno2result(errno));
 
 	if(! S_ISREG(filestat.st_mode))
+		return(ISC_R_INVALIDFILE);
+
+	return(ISC_R_SUCCESS);
+}
+
+isc_result_t
+isc_file_isdirectory(const char *filename) {
+	/*
+	 * This function returns success if filename exists and is a
+	 * directory.
+	 */
+	struct stat filestat;
+	memset(&filestat,0,sizeof(struct stat));
+
+	if ((stat(filename, &filestat)) == -1)
+		return(isc__errno2result(errno));
+
+	if(! S_ISDIR(filestat.st_mode))
 		return(ISC_R_INVALIDFILE);
 
 	return(ISC_R_SUCCESS);
@@ -510,6 +559,9 @@ isc_result_t
 isc_file_splitpath(isc_mem_t *mctx, char *path, char **dirname, char **basename)
 {
 	char *dir, *file, *slash;
+
+	if (path == NULL)
+		return (ISC_R_INVALIDFILE);
 
 	slash = strrchr(path, '/');
 

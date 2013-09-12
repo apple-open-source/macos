@@ -66,7 +66,8 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
                        CFMutableArrayRef systemPartitions);      
 
 static int addPreferredSystemPartitionInfo(BLContextPtr context,
-                                CFMutableArrayRef systemPartitions);      
+                                CFMutableArrayRef systemPartitions,
+                                           bool foundPreferred);
 
 
 bool isPreferredSystemPartition(BLContextPtr context, CFStringRef bsdName);
@@ -96,7 +97,7 @@ int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdNa
     
     io_service_t            rootDev;
     int                     ret = 0;
-    bool                    foundPreferredSystemPartition = false;
+    bool                    gotOne;
     
     dataPartitions = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if(dataPartitions == NULL)
@@ -229,22 +230,42 @@ gotinfo:
     
     // we have a set of systemPartitions. Reorder a preferred one to the front.
     // if not, look for a preferred partition manually
-    if(CFArrayGetCount(systemPartitions) > 0) {
+    // In the past, we just wanted to find one preferred partition, so
+    // addPreferredSystemPartitionInfo() would find one and put it at the front.
+    // But there is now a desire by some callers to be able to see all
+    // preferred ESPs.  So our logic becomes a little convoluted:
+    // Previously, we would look at any partitions on devices associated
+    // with the passed-in mountpoint.  If one of them was preferred, then
+    // make sure that one was first.  If not, then (and only then) call
+    // addPreferred..., which would (hopefully) find at most one preferred
+    // partition.
+    // With the new requirements we need to put them all in, which means we
+    // have to unconditionally call addPreferred....  But we don't want to
+    // have a behavior change for those callers who only look at the first element
+    // of the array; i.e. we still want the first one to be associated with the
+    // passed-in mountpoint if there's a preferred one there.
+    // So with that in mind, we'll continue to start out the same.  That is,
+    // look for a preferred ESP associated with the passed-in mountpoint and
+    // make sure it's first in the array.  Then, call addPreferred unconditionally.
+    // But addPreferred will have two changes: 1) Don't stop after finding the first
+    // one, so we get all of them, and 2) Only put a found preferred ESP at the front
+    // if there isn't already one there.
+    
+    gotOne = false;
+    if (CFArrayGetCount(systemPartitions) > 0) {
         CFIndex i, count;
         count = CFArrayGetCount(systemPartitions);
-        for(i=0; i < count; i++) {
+        for (i=0; i < count; i++) {
             CFStringRef testSP = CFArrayGetValueAtIndex(systemPartitions, i);                
-            if(isPreferredSystemPartition(context, testSP)) {
-                foundPreferredSystemPartition = true;
-                CFArrayExchangeValuesAtIndices(systemPartitions, 0, i);      
+            if (isPreferredSystemPartition(context, testSP)) {
+                if (i > 0) CFArrayExchangeValuesAtIndices(systemPartitions, 0, i);
+                gotOne = true;
                 break;
             }
         }
     }
     
-    if(!foundPreferredSystemPartition) {
-        addPreferredSystemPartitionInfo(context, systemPartitions);            
-    }
+    addPreferredSystemPartitionInfo(context, systemPartitions, gotOne);
 
     array = CFArrayCreateCopy(kCFAllocatorDefault, dataPartitions);
     CFDictionaryAddValue(booters, kBLDataPartitionsKey, array);
@@ -495,6 +516,10 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
     return 0;
 }
 
+#ifndef kIOPropertyPhysicalInterconnectTypePCI
+#define kIOPropertyPhysicalInterconnectTypePCI	"PCI"
+#endif
+
 static bool _isPreferredSystemPartition(BLContextPtr context, io_service_t service)
 {
     CFDictionaryRef         protocolCharacteristics;
@@ -515,7 +540,8 @@ static bool _isPreferredSystemPartition(BLContextPtr context, io_service_t servi
         
         if(interconnect && location && CFGetTypeID(interconnect) == CFStringGetTypeID() && CFGetTypeID(location) == CFStringGetTypeID()) {
             if(  (  CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypeATA))
-                  || CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypeSerialATA)))
+                  || CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypeSerialATA))
+				  || CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypePCI)))
                && CFEqual(location, CFSTR(kIOPropertyInternalKey))) {
                 // OK, found an internal ESP
                 foundOne = true;
@@ -556,9 +582,13 @@ bool isPreferredSystemPartition(BLContextPtr context, CFStringRef bsdName)
 
 
 // search for all ESPs on the system. Once we find them, only add internal
-// interconnects on a SATA/PATA bus
+// interconnects on a SATA/PATA/PCI bus
+// See comments in BLCreateBooterInformationDictionary for the odd logic
+// of where any found preferred ESPs go.  We find *all* of them and don't just
+// quit after one.
 static int addPreferredSystemPartitionInfo(BLContextPtr context,
-                                           CFMutableArrayRef systemPartitions)
+                                           CFMutableArrayRef systemPartitions,
+                                           bool foundPreferred)
 {
     
     CFMutableDictionaryRef  matching;
@@ -566,36 +596,33 @@ static int addPreferredSystemPartitionInfo(BLContextPtr context,
     io_iterator_t           iter;
     io_service_t            service;
     CFStringRef             bsdName;
-    bool                    foundOne = false;
     
     matching = IOServiceMatching(kIOMediaClass);
     CFDictionarySetValue(matching, CFSTR(kIOMediaContentKey), CFSTR("C12A7328-F81F-11D2-BA4B-00A0C93EC93B"));
     
     kret = IOServiceGetMatchingServices(kIOMasterPortDefault, matching, &iter);
-    if(kret != KERN_SUCCESS) {
+    if (kret != KERN_SUCCESS) {
         contextprintf(context, kBLLogLevelVerbose,  "No preferred system partitions found\n" );
         return 0;
     }
     
-    while((service = IOIteratorNext(iter)) != IO_OBJECT_NULL) {
-        
-        foundOne = _isPreferredSystemPartition(context, service);
-        if(foundOne) {
+    while ((service = IOIteratorNext(iter)) != IO_OBJECT_NULL) {
+        if (_isPreferredSystemPartition(context, service)) {
             bsdName = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-            if(bsdName && (CFGetTypeID(bsdName) == CFStringGetTypeID())) {
+            if (bsdName && (CFGetTypeID(bsdName) == CFStringGetTypeID())) {
                 contextprintf(context, kBLLogLevelVerbose,  "Preferred system partition found: %s\n", BLGetCStringDescription(bsdName));
-                // this is a new preferred ESP. Prepend it to the list
-                CFArrayInsertValueAtIndex(systemPartitions, 0, bsdName);
+                if (CFArrayGetFirstIndexOfValue(systemPartitions, CFRangeMake(0, CFArrayGetCount(systemPartitions)), bsdName) == kCFNotFound) {
+                    // this is a new preferred ESP. If there isn't already a preferred one in the array,
+                    // put this one at the front.  Otherwise put it second.
+                    CFArrayInsertValueAtIndex(systemPartitions, foundPreferred ? 1 : 0, bsdName);
+                    foundPreferred = true;
+                }
             }
-            if(bsdName) CFRelease(bsdName);            
-
+            if (bsdName) CFRelease(bsdName);            
             IOObjectRelease(service);
-            break;
         }
-                
         IOObjectRelease(service);
     }
-    
     IOObjectRelease(iter);
     
     return 0;

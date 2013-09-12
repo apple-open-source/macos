@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc. All rights reserved.
+ * Copyright © 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,6 +97,11 @@ protected:
                             void *	parameter,
                             IOReturn	status,
                             UInt32	bufferSizeRemaining );
+    
+    void UpdateTopology(USBDeviceAddress deviceAddress,
+                              UInt8 speed,
+                              USBDeviceAddress hubAddress,
+                              int port);
 
 public:
 
@@ -416,7 +421,23 @@ public:
 									   UInt32				maxStreams,
 									   UInt32				maxBurstAndMult);
     
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  26);
+	OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  26);
+	/*!
+	 @function UpdateDeviceAddress
+	 Tell the controller about the new address of a device. Used when a device has been reset
+	 @param deviceAddress Address of the device on the USB bus
+	 @param speed of the device: kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, kUSBDeviceSpeedHigh or kUSBDeviceSpeedSuper
+     @param highSpeedHub    If non zero, this is a full speed device, the address of the high speed hub to address split transactions to.
+     @param highSpeedPort   If highSpeedHub is non zero, the hub port to address split transactions to
+	 */
+    virtual IOReturn 		UpdateDeviceAddress(USBDeviceAddress oldDeviceAddress,
+                              USBDeviceAddress newDeviceAddress,
+                              UInt8 speed,
+                              USBDeviceAddress hubAddress,
+                              int port);
+
+    
+    
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  27);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  28);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  29);

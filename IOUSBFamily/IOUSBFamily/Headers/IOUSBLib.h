@@ -1673,7 +1673,7 @@ typedef struct IOUSBInterfaceStruct {
     @function CreateInterfaceAsyncEventSource
     @abstract   Creates a run loop source for delivery of all asynchronous notifications on this device.
     @discussion The Mac OS X kernel does not spawn a thread to callback to the client. Instead 
-                it delivers completion notifications on a Mach port (see @link //apple_ref/C/instm/IOUSBInterfaceInterface/CreateInterfaceAsyncPort/ CreateInterfaceAsyncPort @/link). This 
+                it delivers completion notifications on a Mach port (see {@link CreateInterfaceAsyncPort}). This 
                 routine wraps that port with the appropriate routing code so that 
                 the completion notifications can be automatically routed through the client's 
                 CFRunLoop.

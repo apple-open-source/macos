@@ -150,7 +150,6 @@
 		30958872126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOAudioBlitterLibX86.cpp; path = PCMBlitterLib/IOAudioBlitterLibX86.cpp; sourceTree = "<group>"; };
 		30CE74C0126E5931006D705F /* IOAudioBlitterLibDispatch.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOAudioBlitterLibDispatch.cpp; path = PCMBlitterLib/IOAudioBlitterLibDispatch.cpp; sourceTree = "<group>"; };
 		30DA50431451D10A006CF664 /* IOAudioBlitterLibDispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAudioBlitterLibDispatch.h; path = PCMBlitterLib/IOAudioBlitterLibDispatch.h; sourceTree = "<group>"; };
-		4027DBB9010E532A05CA29EB /* HISTORY.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = HISTORY.rtf; sourceTree = "<group>"; };
 		4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "IOAudioFamily-README.rtf"; sourceTree = "<group>"; };
 		79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = "Info-IOAudioFamily.plist"; sourceTree = "<group>"; };
 		8BC08A821561C9C200CA98A1 /* BigNum128.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BigNum128.cpp; sourceTree = "<group>"; };
@@ -220,7 +219,6 @@
 				3095886B126D4F9A0024DE0C /* BlitterLib */,
 				0118E627009F9D167F000001 /* Kernel.framework */,
 				4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */,
-				4027DBB9010E532A05CA29EB /* HISTORY.rtf */,
 			);
 			name = IOAudioFamily;
 			sourceTree = "<group>";
@@ -567,7 +565,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_SSE41_EXTENSIONS = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_STANDARD_INCLUDE_SEARCHING = YES;
 				HEADER_SEARCH_PATHS = "";
@@ -581,7 +579,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.9fc11;
+				MODULE_VERSION = 1.9.2fc7;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -612,7 +610,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_SSE41_EXTENSIONS = YES;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_STANDARD_INCLUDE_SEARCHING = YES;
 				HEADER_SEARCH_PATHS = "";
@@ -621,14 +619,10 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
+				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Deployment\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.9fc11;
+				MODULE_VERSION = 1.9.2fc7;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -657,7 +651,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_SSE41_EXTENSIONS = YES;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_STANDARD_INCLUDE_SEARCHING = YES;
 				HEADER_SEARCH_PATHS = "";
@@ -671,7 +665,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.9fc11;
+				MODULE_VERSION = 1.9.2fc7;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -707,7 +701,7 @@
 				GCC_ENABLE_SSE41_EXTENSIONS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
-				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					KERNEL,
 					KERNEL_PRIVATE,
@@ -767,7 +761,7 @@
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_ENABLE_SSE41_EXTENSIONS = NO;
 				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
-				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					KERNEL,
 					KERNEL_PRIVATE,
@@ -878,7 +872,7 @@
 				DEBUG_CFLAGS = "-DDEBUG";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
 				OTHER_CFLAGS = "";
@@ -902,6 +896,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
 				OTHER_CFLAGS = "";
@@ -925,6 +920,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_32_BIT)";
 				DEPLOYMENT_LOCATION = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_OWNER = "$(USER)";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit";

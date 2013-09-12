@@ -28,24 +28,26 @@
 
 #include <sys/appleapiopts.h>
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
 
-#if defined(VARIANT_DYLD)
-/* For dyld, we need to decide upon call whether to jump to fast or slow */
+
+/* return mach_absolute_time in %edx:%eax
+ *
+ * The algorithm we use is:
+ *
+ *	ns = ((((rdtsc - rnt_tsc_base)<<rnt_shift)*rnt_tsc_scale) / 2**32) + rnt_ns_base;
+ *
+ * rnt_shift, a constant computed during initialization, is the smallest value for which:
+ *
+ *  (tscFreq << rnt_shift) > SLOW_TSC_THRESHOLD
+ *
+ * Where SLOW_TSC_THRESHOLD is about 10e9.  Since most processor's tscFreq is greater
+ * than 1GHz, rnt_shift is usually 0.  rnt_tsc_scale is also a 32-bit constant:
+ *
+ *	rnt_tsc_scale = (10e9 * 2**32) / (tscFreq << rnt_shift);
+ */
+
 	.globl _mach_absolute_time
-	.align 2, 0x90
 _mach_absolute_time:
-	movl	_COMM_PAGE_CPU_CAPABILITIES, %eax
-	andl	$(kSlow), %eax
-	jnz	PLATFUNC_VARIANT_NAME(mach_absolute_time, slow)
-	jmp	PLATFUNC_VARIANT_NAME(mach_absolute_time, fast)
-#endif
-
-/* return mach_absolute_time in %edx:%eax */
-
-PLATFUNC_FUNCTION_START(mach_absolute_time, fast, 32, 4)
-	.private_extern	_mach_absolute_time_direct
-_mach_absolute_time_direct:
 	pushl	%ebp
 	movl	%esp,%ebp
 	pushl	%esi
@@ -62,6 +64,15 @@ _mach_absolute_time_direct:
 
 	subl	_COMM_PAGE_NT_TSC_BASE,%eax
 	sbbl	_COMM_PAGE_NT_TSC_BASE+4,%edx
+    
+    /*
+     * Prior to supporting "slow" processors, xnu always set _NT_SHIFT to 32.
+     * Now it defaults to 0, unless the processor is slow.  The shifts
+     * below implicitly mask the count down to 5 bits, handling either default.
+     */
+	movl    _COMM_PAGE_NT_SHIFT,%ecx
+	shldl   %cl,%eax,%edx			/* shift %edx left, filling in from %eax */
+	shll    %cl,%eax			/* finish shifting %edx:%eax left by _COMM_PAGE_NT_SHIFT bits */
 
 	movl	_COMM_PAGE_NT_SCALE,%ecx
 
@@ -83,66 +94,3 @@ _mach_absolute_time_direct:
 	popl	%esi
 	popl	%ebp
 	ret
-PLATFUNC_DESCRIPTOR(mach_absolute_time,fast,0,kSlow)
-
-
-/* mach_absolute_time routine for machines slower than ~1Gz (SLOW_TSC_THRESHOLD) */
-PLATFUNC_FUNCTION_START(mach_absolute_time, slow, 32, 4)
-	push	%ebp
-	mov	%esp,%ebp
-	push	%esi
-	push	%edi
-	push	%ebx
-
-0:
-	movl	_COMM_PAGE_NT_GENERATION,%esi
-	testl	%esi,%esi			/* if generation is 0, data being changed */
-	jz	0b				/* so loop until stable */
-
-	lfence
-	rdtsc					/* get TSC in %edx:%eax */
-	lfence
-	subl	_COMM_PAGE_NT_TSC_BASE,%eax
-	sbbl	_COMM_PAGE_NT_TSC_BASE+4,%edx
-
-	pushl	%esi				/* save generation */
-	/*
-	 * Do the math to convert tsc ticks to nanoseconds.  We first
-	 * do long multiply of 1 billion times the tsc.  Then we do
-	 * long division by the tsc frequency
-	 */
-	mov	$1000000000, %ecx		/* number of nanoseconds in a second */
-	mov	%edx, %ebx
-	mul	%ecx
-	mov	%edx, %edi
-	mov	%eax, %esi
-	mov	%ebx, %eax
-	mul	%ecx
-	add	%edi, %eax
-	adc	$0, %edx			/* result in edx:eax:esi */
-	mov	%eax, %edi
-	mov	_COMM_PAGE_NT_SHIFT,%ecx	/* overloaded as the low 32 tscFreq */
-	xor	%eax, %eax
-	xchg	%edx, %eax
-	div	%ecx
-	xor	%eax, %eax
-	mov	%edi, %eax
-	div	%ecx
-	mov	%eax, %ebx
-	mov	%esi, %eax
-	div	%ecx
-	mov	%ebx, %edx			/* result in edx:eax */
-	popl	%esi				/* recover generation */
-
-	add	_COMM_PAGE_NT_NS_BASE,%eax
-	adc	_COMM_PAGE_NT_NS_BASE+4,%edx
-
-	cmpl	_COMM_PAGE_NT_GENERATION,%esi	/* have the parameters changed? */
-	jne	0b				/* yes, loop until stable */
-
-	pop	%ebx
-	pop	%edi
-	pop	%esi
-	pop	%ebp
-	ret					/* result in edx:eax */
-PLATFUNC_DESCRIPTOR(mach_absolute_time,slow,kSlow,0)

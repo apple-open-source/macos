@@ -317,10 +317,34 @@ public:
 	 */
     virtual IOReturn GetEndpointPropertiesV3(IOUSBEndpointProperties *endpointProperties);
     
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  7);
+    /*!
+	 @function GetInterfaceStatus
+	 @abstract Returns the result of issuing a GET_STATUS request on the device for this interface.
+	 @param  status Pointer to a USBStatus type which will contain the results of the operation.
+	 @result returns kIOReturnSuccess if the request is completed successfully, otherwise returns the result of the Device Request.
+	 */
+	virtual	IOReturn	GetInterfaceStatus(USBStatus *status);
 	
-    OSMetaClassDeclareReservedUnused(IOUSBInterface,  7);
-    OSMetaClassDeclareReservedUnused(IOUSBInterface,  8);
-    OSMetaClassDeclareReservedUnused(IOUSBInterface,  9);
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  8);
+    /*!
+	 @function SetFunctionSuspendFeature
+	 @abstract Issues a SET_FEATURE(FUNCTION_SUSPEND) to the interface.
+	 @param  options The suspend options passed to the Device Request.
+	 @result returns kIOReturnSuccess if the request is completed successfully, otherwise returns the result of the Device Request.
+	 */
+	virtual IOReturn	SetFunctionSuspendFeature(UInt8 options);
+
+    OSMetaClassDeclareReservedUsed(IOUSBInterface,  9);
+    /*!
+	 @function EnableRemoteWake
+	 @abstract Will enable or disable the USB 3.0 remote wake function for the interface
+	 @param  enable Whether we enable (true) or disable (false) the remote wake..
+	 @result returns kIOReturnSuccess if the request is completed successfully, otherwise returns the result of the Device Request to set the feature.
+	 */
+    virtual IOReturn    EnableRemoteWake(bool enable);
+
+    
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  10);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  11);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  12);

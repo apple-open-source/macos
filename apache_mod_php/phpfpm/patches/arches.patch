@@ -1,0 +1,84 @@
+diff -aur php-5.3.6/acconfig.h php/acconfig.h
+--- php-5.3.6/acconfig.h	2011-03-17 00:55:56.000000000 -0700
++++ php/acconfig.h	2011-03-18 14:07:34.000000000 -0700
+@@ -20,6 +20,8 @@
+ 
+ /* $Id: acconfig.h 306939 2011-01-01 02:19:59Z felipe $ */
+ 
++#ifndef ZEND_API
++
+ #if defined(__GNUC__) && __GNUC__ >= 4
+ # define ZEND_API __attribute__ ((visibility("default")))
+ # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
+@@ -120,6 +122,29 @@
+ #endif
+ 
+ /*
++ * Darwin's GCC can generate multiple architectures in a single pass so the size and
++ * byte order will only be accurate for the one architecture that happened to invoke
++ * configure.
++ */
++#ifdef __DARWIN_BYTE_ORDER
++#/* This symbol must be allowed to be cleared. */ undef WORDS_BIGENDIAN
++# if (__DARWIN_BYTE_ORDER == __DARWIN_BIG_ENDIAN)
++#  define WORDS_BIGENDIAN 1
++# endif
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_SIZE_T
++# ifdef __LP64__
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 8
++# else
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 4
++# endif
++#endif
++
++#endif	/* ZEND_API */
++
++/*
+  * Local variables:
+  * tab-width: 4
+  * c-basic-offset: 4
+diff -aur php-5.3.7RC3/main/php_config.h.in php/main/php_config.h.in
+--- php-5.3.7RC3/main/php_config.h.in	2011-07-14 01:39:29.000000000 -0700
++++ php/main/php_config.h.in	2011-07-14 16:57:57.000000000 -0700
+@@ -21,6 +21,8 @@
+ 
+ /* $Id: acconfig.h 306939 2011-01-01 02:19:59Z felipe $ */
+ 
++#ifndef ZEND_API
++
+ #if defined(__GNUC__) && __GNUC__ >= 4
+ # define ZEND_API __attribute__ ((visibility("default")))
+ # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
+@@ -3008,6 +3010,29 @@
+ #endif
+ 
+ /*
++ * Darwin's GCC can generate multiple architectures in a single pass so the size and
++ * byte order will only be accurate for the one architecture that happened to invoke
++ * configure.
++ */
++#ifdef __DARWIN_BYTE_ORDER
++#/* This symbol must be allowed to be cleared. */ undef WORDS_BIGENDIAN
++# if (__DARWIN_BYTE_ORDER == __DARWIN_BIG_ENDIAN)
++#  define WORDS_BIGENDIAN 1
++# endif
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_SIZE_T
++# ifdef __LP64__
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 8
++# else
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 4
++# endif
++#endif
++
++#endif	/* ZEND_API */
++
++/*
+  * Local variables:
+  * tab-width: 4
+  * c-basic-offset: 4

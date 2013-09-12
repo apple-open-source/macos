@@ -40,6 +40,7 @@
 		A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 		A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6849D12126539090033F95C /* IOPCIRange.cpp */; };
+		B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,13 +50,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = A613B28E0D46AA65007BA726;
 			remoteInfo = "IOPCIFamily Headers (Upgraded)";
-		};
-		A613B2AD0D46AA65007BA726 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A613B2A50D46AA65007BA726;
-			remoteInfo = "AppleSamplePCI (Copied)";
 		};
 		A6F210D30A78022400875EC6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -123,6 +117,8 @@
 		A6F210C60A78022400875EC6 /* AppleSamplePCIClient.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AppleSamplePCIClient.c; sourceTree = "<group>"; };
 		A6F210C70A78022400875EC6 /* AppleSamplePCIShared.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleSamplePCIShared.h; sourceTree = "<group>"; };
 		A6F210C80A78022400875EC6 /* AppleSamplePCIUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCIUserClient.cpp; sourceTree = "<group>"; };
+		B1402F9915BA323C00610685 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIMessagedInterruptController.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -163,6 +159,7 @@
 				247142CAFF3F8F9811CA285C /* Source */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */,
+				B1402F9915BA323C00610685 /* AspenSDK.xcconfig */,
 			);
 			name = IOPCIFamily;
 			sourceTree = "<group>";
@@ -179,6 +176,7 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */,
 				1590524609368A190010639A /* IOPCIConfigurator.cpp */,
 				A6849D12126539090033F95C /* IOPCIRange.cpp */,
 				4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */,
@@ -254,7 +252,6 @@
 			);
 			dependencies = (
 				A613B2AC0D46AA65007BA726 /* PBXTargetDependency */,
-				A613B2AE0D46AA65007BA726 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -286,9 +283,15 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1590525209368A190010639A /* Build configuration list for PBXProject "IOPCIFamily" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOPCIFamily */;
 			projectDirPath = "";
 			projectReferences = (
@@ -381,6 +384,7 @@
 				A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */,
 				A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */,
 				A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */,
+				B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,11 +395,6 @@
 			isa = PBXTargetDependency;
 			target = A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */;
 			targetProxy = A613B2AB0D46AA65007BA726 /* PBXContainerItemProxy */;
-		};
-		A613B2AE0D46AA65007BA726 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A613B2A50D46AA65007BA726 /* AppleSamplePCI */;
-			targetProxy = A613B2AD0D46AA65007BA726 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -612,6 +611,160 @@
 			};
 			name = Default;
 		};
+		B169ED9415BA2B4F00A1A90A /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B1402F9915BA323C00610685 /* AspenSDK.xcconfig */;
+			buildSettings = {
+			};
+			name = "Development-Embedded";
+		};
+		B169ED9515BA2B4F00A1A90A /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "SUPPORT_MULTIPLE_MSI=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCIFamily;
+				MODULE_VERSION = 2.4.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCIFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = "Development-Embedded";
+		};
+		B169ED9615BA2B4F00A1A90A /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALLHDRS_COPY_PHASE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IOPCIFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = "Development-Embedded";
+		};
+		B169ED9715BA2B4F00A1A90A /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = AppleSamplePCI;
+			};
+			name = "Development-Embedded";
+		};
+		B169ED9815BA2B6000A1A90A /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B1402F9915BA323C00610685 /* AspenSDK.xcconfig */;
+			buildSettings = {
+			};
+			name = "Deployment-Embedded";
+		};
+		B169ED9915BA2B6000A1A90A /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "SUPPORT_MULTIPLE_MSI=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCIFamily;
+				MODULE_VERSION = 2.4.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCIFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = "Deployment-Embedded";
+		};
+		B169ED9A15BA2B6000A1A90A /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IOPCIFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = "Deployment-Embedded";
+		};
+		B169ED9B15BA2B6000A1A90A /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = AppleSamplePCI;
+				ZERO_LINK = NO;
+			};
+			name = "Deployment-Embedded";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -619,7 +772,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1590525309368A190010639A /* Development */,
+				B169ED9415BA2B4F00A1A90A /* Development-Embedded */,
 				1590525409368A190010639A /* Deployment */,
+				B169ED9815BA2B6000A1A90A /* Deployment-Embedded */,
 				1590525509368A190010639A /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -629,7 +784,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A613B2890D46AA65007BA726 /* Development */,
+				B169ED9515BA2B4F00A1A90A /* Development-Embedded */,
 				A613B28A0D46AA65007BA726 /* Deployment */,
+				B169ED9915BA2B6000A1A90A /* Deployment-Embedded */,
 				A613B28B0D46AA65007BA726 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -639,7 +796,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A613B2A00D46AA65007BA726 /* Development */,
+				B169ED9615BA2B4F00A1A90A /* Development-Embedded */,
 				A613B2A10D46AA65007BA726 /* Deployment */,
+				B169ED9A15BA2B6000A1A90A /* Deployment-Embedded */,
 				A613B2A20D46AA65007BA726 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -649,7 +808,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A613B2A80D46AA65007BA726 /* Development */,
+				B169ED9715BA2B4F00A1A90A /* Development-Embedded */,
 				A613B2A90D46AA65007BA726 /* Deployment */,
+				B169ED9B15BA2B6000A1A90A /* Deployment-Embedded */,
 				A613B2AA0D46AA65007BA726 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;

@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined(__ppc__) || defined(__arm__)
+#if !defined(__i386__) && !defined(__x86_64__)
 
 #include <IOKit/system.h>
 
@@ -128,6 +128,6 @@ void IOPCIDevice::ioWrite8( UInt16 offset, UInt8 value,
     OSSynchronizeIO();
 }
 
-#endif // #if defined(__ppc__) || defined(__arm__)
+#endif //  !defined(__i386__) && !defined(__x86_64__)
 
 

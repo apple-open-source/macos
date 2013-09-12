@@ -8,11 +8,14 @@
 <title>mod_alias - Apache HTTP Server</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -70,13 +73,13 @@
 </ul><h3>See also</h3>
 <ul class="seealso">
 <li><code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code></li>
-<li><a href="../urlmapping.html">Mapping URLs to the filesystem</a></li>
-</ul></div>
+<li><a href="../URLmapping.html">Mapping URLs to the filesystem</a></li>
+</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="order" id="order">Order of Processing</a></h2>
 
-    <p>Aliases and Redirects occuring in different contexts are processed
+    <p>Aliases and Redirects occurring in different contexts are processed
     like other directives according to standard <a href="../sections.html#mergin">merging rules</a>.  But when multiple
     Aliases or Redirects occur in the same context (for example, in the
     same <code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code>
@@ -118,9 +121,9 @@
     <p>The <code class="directive">Alias</code> directive allows documents to
     be stored in the local filesystem other than under the
     <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code>. URLs with a
-    (%-decoded) path beginning with <var>url-path</var> will be mapped
+    (%-decoded) path beginning with <var>URL-path</var> will be mapped
     to local files beginning with <var>directory-path</var>.  The
-    <var>url-path</var> is case-sensitive, even on case-insensitive
+    <var>URL-path</var> is case-sensitive, even on case-insensitive
     file systems.</p>
 
     <div class="example"><h3>Example:</h3><p><code>
@@ -134,14 +137,14 @@
     matching using regular expressions, see the <code class="directive"><a href="#aliasmatch">AliasMatch</a></code> directive.</p>
 
     <p>Note that if you include a trailing / on the
-    <var>url-path</var> then the server will require a trailing / in
+    <var>URL-path</var> then the server will require a trailing / in
     order to expand the alias. That is, if you use</p>
 
     <dl><dd><code>Alias /icons/ /usr/local/apache/icons/</code></dd></dl>
 
-    <p>then the url <code>/icons</code> will not be aliased, as it lacks
+    <p>then the URL <code>/icons</code> will not be aliased, as it lacks
     that trailing /. Likewise, if you omit the slash on the
-    <var>url-path</var> then you must also omit it from the
+    <var>URL-path</var> then you must also omit it from the
     <var>file-path</var>.</p>
 
     <p>Note that you may need to specify additional <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> sections which
@@ -165,6 +168,9 @@
         </span>
         &lt;/Directory&gt;
     </code></p></div>
+
+    <p>Any number of slashes in the <var>URL-path</var> parameter
+    matches any number of slashes in the requested URL-path.</p>
 
 
 </div>
@@ -195,7 +201,7 @@ expressions</td></tr>
     <p>The full range of <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular expression</a>
     power is available.  For example,
     it is possible to construct an alias with case-insensitive
-    matching of the url-path:</p>
+    matching of the URL-path:</p>
 
     <div class="example"><p><code>
       AliasMatch (?i)^/image(.*) /ftp/pub/image$1
@@ -251,6 +257,11 @@ expressions</td></tr>
       AliasMatch ^/image/(.*)\.gif$ /files/gif.images/$1.gif
     </code></p></div>
 
+    <p>Multiple leading slashes in the requested URL are discarded
+       by the server before directives from this module compares
+       against the requested URL-path.
+    </p>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -264,6 +275,8 @@ a different URL</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_alias</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Support for specifying a URL-path as the final argument was 
+added in Apache HTTP Server 2.2.6</td></tr>
 </table>
     <p>The Redirect directive maps an old URL into a new one by asking
     the client to refetch the resource at the new location.</p>
@@ -271,14 +284,14 @@ a different URL</td></tr>
     <p>The old <em>URL-path</em> is a case-sensitive (%-decoded) path
     beginning with a slash.  A relative path is not allowed.  The new
     <em>URL</em> should be an absolute URL beginning with a scheme and
-    hostname, but a URL-path beginning with a slash may also be used,
-    in which case the scheme and hostname of the current server will
-    be added.</p>
+    hostname.  In Apache HTTP Server 2.2.6 and later, a URL-path beginning 
+    with a slash may also be used, in which case the scheme and hostname 
+    of the current server will be added.</p>
 
-    <p>Then any request beginning with <em>URL-Path</em> will return a
+    <p>Then any request beginning with <em>URL-path</em> will return a
     redirect request to the client at the location of the target
     <em>URL</em>.  Additional path information beyond the matched
-    <em>URL-Path</em> will be appended to the target URL.</p>
+    <em>URL-path</em> will be appended to the target URL.</p>
 
     <div class="example"><h3>Example:</h3><p><code>
       Redirect /service http://foo2.example.com/service
@@ -490,7 +503,7 @@ and designates the target as a CGI script</td></tr>
     <p>As for AliasMatch, the full range of <a class="glossarylink" href="../glossary.html#rexex" title="see glossary">regular
     expression</a> power is available.
     For example, it is possible to construct an alias with case-insensitive
-    matching of the url-path:</p>
+    matching of the URL-path:</p>
 
     <div class="example"><p><code>
       ScriptAliasMatch (?i)^/cgi-bin(.*) /usr/local/apache/cgi-bin$1
@@ -513,7 +526,28 @@ and designates the target as a CGI script</td></tr>
 <a href="../ja/mod/mod_alias.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_alias.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_alias.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_alias.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

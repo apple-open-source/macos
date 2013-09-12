@@ -1,5 +1,5 @@
 /*
- * Copyright © 2009-2012 Apple Inc.  All rights reserved.
+ * Copyright © 2009-2013 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@ extern "C" {
 	extern UInt32 gUSBStackDebugFlags;
 	extern UInt32 gEHCIBandwidthLogLevel;
 	extern UInt32 gEHCIRLvalue;
+	extern UInt32 gXHCIEPlimit;
 	
 	typedef struct USBSysctlArgs
 		{
@@ -61,27 +62,33 @@ extern "C" {
 		kUSBEnableDebugLoggingBit		= 0,	// bit 0 currently not used
 		kUSBEnableTracePointsBit		= 1,	// bit 1 used to turn on Trace Points when a USB controller first loads
 		kUSBEnableErrorLogBit			= 2,	// bit 2 (4) turns level 1 log for errors
+        kUSBPanicLostRegisterAccessBit  = 3,    // bit 3 (0x08) If we read invalid values from a USB controller (built-in or TB), panic
 		kUSBForceCompanionControllers	= 4,	// bit 4 (0x10) forces companion controllers to be on even if they might not normally
   		kUSBDontAllowHubLowPower		= 5,	// bit 5 (0x20) prevents hubs from being automatically suspended
+        kUSBDontAllowDeepIdle           = 6,    // bit 6 (0x40) prevents hubs and controllers from doing "deep idle" or sleep mode while running
+        
 		kUSBDebugRetryCountShift		= 8,	// bits 8 and 9 will set the retry count for low level bus transactions
 		kUSBDebugRetryCountReserved		= 9,	// must be 1, 2, or 3 (0 is invalid, 3 is the default)
+        
 		kUSBDisableMuxedPorts			= 11,	// bit 11 prevents xMuxing EHCI
 		kUSBEnableAllXHCIControllers	= 12,	// bit 12: Will allow XHCI driver to match to any vendor/productID
 		kUSBUASControl					= 13,	// bit 13: Disable UAS support
         kUSBMasterAbortLogging          = 14,
         kUSBMasterAbortPanic            = 15,
 		
-		kUSBEnableDebugLoggingMask			= (1 << kUSBEnableDebugLoggingBit),
-		kUSBEnableTracePointsMask			= (1 << kUSBEnableTracePointsBit),
-		kUSBDebugRetryCountMask				= (3 << kUSBDebugRetryCountShift),
-		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit),
-		kUSBForceCompanionControllersMask	= (1 << kUSBForceCompanionControllers),
-		kUSBDontAllowHubLowPowerMask		= (1 << kUSBDontAllowHubLowPower),
-		kUSBDisableMuxedPortsMask			= (1 << kUSBDisableMuxedPorts),
-		kUSBEnableAllXHCIControllersMask	= (1 << kUSBEnableAllXHCIControllers),
-		kUSBUASControlMask					= (1 << kUSBUASControl),
-        kUSBMasterAbortLoggingMask          = (1 << kUSBMasterAbortLogging),
-        kUSBMasterAbortPanicMask            = (1 << kUSBMasterAbortPanic)
+		kUSBEnableDebugLoggingMask			= (1 << kUSBEnableDebugLoggingBit),     // 0x0001
+		kUSBEnableTracePointsMask			= (1 << kUSBEnableTracePointsBit),      // 0x0002
+		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit),         // 0x0004
+		kUSBPanicLostRegisterAccessMask     = (1 << kUSBPanicLostRegisterAccessBit),// 0x0008
+		kUSBForceCompanionControllersMask	= (1 << kUSBForceCompanionControllers), // 0x0010
+		kUSBDontAllowHubLowPowerMask		= (1 << kUSBDontAllowHubLowPower),      // 0x0020
+        kUSBDontAllowDeepIdleMask           = (1 << kUSBDontAllowDeepIdle),			// 0x0040
+		kUSBDebugRetryCountMask				= (3 << kUSBDebugRetryCountShift),      // 0x0300
+		kUSBDisableMuxedPortsMask			= (1 << kUSBDisableMuxedPorts),         // 0x0800
+		kUSBEnableAllXHCIControllersMask	= (1 << kUSBEnableAllXHCIControllers),  // 0x1000
+		kUSBUASControlMask					= (1 << kUSBUASControl),                // 0x2000
+        kUSBMasterAbortLoggingMask          = (1 << kUSBMasterAbortLogging),        // 0x4000
+        kUSBMasterAbortPanicMask            = (1 << kUSBMasterAbortPanic)           // 0x8000
 	};
 	
 	
@@ -182,7 +189,7 @@ extern "C" {
 		kTPControllerDoCreateEP						= 8,
 		kTPControllerReadV2							= 9,
 		kTPControllerReturnIsochDoneQueue			= 10,
-		kTPControllersetPowerState					= 11,
+		kTPControllerPowerState                     = 11,
 		kTPControllerCheckPowerModeBeforeGatedCall	= 12,
 		kTPControllerGatedPowerChange				= 13,
 		kTPControllerCheckForRootHubChanges			= 14,
@@ -212,7 +219,8 @@ extern "C" {
 		kTPDoIOTransferBulkSync						= 38,
 		kTPBulkPacketHandlerData					= 39,
 		kTPInterruptPacketHandlerData				= 40,
-        kTPControllerPutTDOnDoneQueue               = 41
+        kTPControllerPutTDOnDoneQueue               = 41,
+        kTPControllerHibernationWake                = 42
 	};
 	
 	// USB Device Tracepoints			
@@ -248,7 +256,8 @@ extern "C" {
 		kTPIsocPipeWriteLL							= 7,
 		kTPIBulkReadTS								= 8,
 		kTPPipeControlRequest						= 9,
-		kTPPipeControlRequestMemDesc				= 10
+		kTPPipeControlRequestMemDesc				= 10,
+        kTPPipeClearPipeStall                   = 11
 	};
 	
 	
@@ -287,10 +296,11 @@ extern "C" {
 		kTPInterfaceUCReqComplete				= 8,
 		kTPInterfaceUCIsoReqComplete			= 9,
 		kTPInterfaceUCLLIsoReqComplete			= 10,
-        kTPInterfaceUCReadIsochPipe             = 11,
-        kTPInterfaceUCWriteIsochPipe            = 12,
-        kTPInterfaceUCReadLLIsochPipe           = 13,
-        kTPInterfaceUCWriteLLIsochPipe          = 14,
+		kTPInterfaceUCOustandingTxct			= 11,
+        kTPInterfaceUCReadIsochPipe             = 12,
+        kTPInterfaceUCWriteIsochPipe            = 13,
+        kTPInterfaceUCReadLLIsochPipe           = 14,
+        kTPInterfaceUCWriteLLIsochPipe          = 15,
 	};
 	
 	
@@ -362,6 +372,9 @@ extern "C" {
 		kTPHubPortDeviceDisconnected			= 36,
 		kTPHubGetPortStatus						= 37,
 		kTPHubGetPortStatusErrors				= 38,
+        kTPHubTimer                             = 39,
+		kTPHubRootHubHibernationWake			= 40
+		
 	};
 	
 	// USB HubPort Tracepoints			
@@ -384,7 +397,8 @@ extern "C" {
 		kTPHubPortWaitForSuspendCommand				= 14,
 		kTPHubPortEnablePowerAfterOvercurrent		= 15,
 		kTPHubPortRetrySSDevice						= 16,
-		kTPHubPortRemoveDevice						= 17
+		kTPHubPortRemoveDevice						= 17,
+        kTPHubPortSDCardWorkarounds                 = 18,
 	};
 	
 	// USB HID Tracepoints			
@@ -407,7 +421,8 @@ extern "C" {
 		kTPHIDInitializeUSBHIDPowerManagement = 14,
 		kTPHIDInterruptRead					= 15,
 		kTPHIDInterruptReadError			= 16,
-		kTPHIDCheckForDeadDevice			= 17
+		kTPHIDCheckForDeadDevice			= 17,
+        kTPHIDInterruptPipeRead             = 18
 	};
 	
 	// USB Enumeration Tracepoints			
@@ -500,7 +515,7 @@ extern "C" {
 		kTPEHCIMessage							= 14,
 		kTPEHCIMakeEmptyEndPoint				= 15,
 		kTPEHCIAllocateTDs						= 16,
-		kTPEHCIMungeECHIStatus					= 17,
+		kTPEHCIMungeEHCIStatus					= 17,
 		kTPEHCIScavengeIsocTransactions			= 18,
 		kTPEHCIScavengeAnEndpointQueue			= 19,
 		kTPEHCIScavengeCompletedTransactions	= 20,
@@ -531,7 +546,8 @@ extern "C" {
 		kTPEHCIPowerState						= 45,
 		kTPEHCIStopUSBBus						= 46,
 		kTPEHCIRestartControllerFromReset		= 47,
-		kTPEHCIDemarcation						= 48
+		kTPEHCIDemarcation						= 48,
+        kTPEHCIreturnTransactions               = 49
 	};
 
 	// USB EHCI Interrupt Tracepoints			
@@ -633,10 +649,11 @@ extern "C" {
 	};
 	//
 	
-	// USB XHCI Tracepoints			
+	// USB XHCI Tracepoints	(max of 256)	
 	// kUSBTXHCI
 	enum
 	{
+		kTPXHCIUIMInitialize					= 2,
 		kTPXHCIWaitForCmd						= 3,
 		kTPXHCIUIMFinalize						= 4,
 		kTPXHCIUIMCreateTransfer				= 5,
@@ -674,6 +691,9 @@ extern "C" {
         kTPXHCIAsyncEPUpdateTimeout             = 33,
         kTPXHCIAsyncEPAbort                     = 34,
         kTPXHCIAsyncEPComplete                  = 35,
+        kTPXHCIAsyncEPAlloc                     = 36,
+        kTPXHCIAsyncEPFree                      = 37,
+		kTPXHCIAsyncFlushTDsWithStatus			= 38,
 		
         // 40-49 for register access
         kTPXHCIRead8Reg                         = 40,
@@ -683,8 +703,37 @@ extern "C" {
         kTPXHCIWrite32Reg                       = 44,
         kTPXHCIWrite64Reg                       = 45,
         
-        // Miscellaneous
-        kTPXHCIUIMCreateIsochTransfer           = 46
+        // 50-59 error logging
+        kTPXHCISoftRetry                        = 50,
+
+       
+        // 60-80 for UIM Calls
+        kTPXHCIUIMHubMaintenance                = 60,
+        kTPXHCIUIMCreateControlEndpoint         = 61,
+        kTPXHCIUIMCreateControlTransfer         = 62,
+        kTPXHCIUIMCreateStreams                 = 63,
+        kTPXHCICreateBulkEndpoint               = 64,
+        kTPXHCIUIMCreateBulkTransfer            = 65,
+        kTPXHCICreateInterruptEndpoint          = 66,
+        kTPXHCIUIMCreateInterruptTransfer       = 67,
+        kTPXHCIUIMCreateIsochTransfer           = 68,
+        kTPXHCIUIMDeleteEndpoint                = 69,
+        kTPXHCIUIMEnableAddressEndpoints        = 70,
+        kTPXHCIUIMSetTestMode                   = 71,
+        
+        // 81+ misc
+        kTPXHCIMuxTransitionPoints              = 81,
+        kTPXHCIUIMRootHubStatusChange           = 82,
+        kTPXHCIGetRootHubPortStatus             = 83,
+        kTPXHCISetAddress                       = 84,
+        kTPXHCIConfiguredEndpointCount          = 85,
+        kTPXHCIGetEndpointID                    = 86,
+        kTPXHCIGetSlotID                        = 87,
+        kTPXHCIMungeIsochStatus                 = 88,
+        
+        // 100 XHCI Power Management
+        kTPXHCIRestartUSBBus                    = 100,
+        kTPXHCImaxCapabilityForDomainState      = 101
    };
 	
 	// USB XHCI Interrupt Tracepoints			

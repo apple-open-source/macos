@@ -55,8 +55,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
-      buildConfiguration = "Deployment"
-      debugDocumentVersioning = "NO">
+      buildConfiguration = "Development">
       <BuildableProductRunnable>
          <BuildableReference
             BuildableIdentifier = "primary"

@@ -118,7 +118,8 @@ static int odusers_search_userpolicy(Operation *op, SlapReply *rs, int iseffecti
 	Entry *e = NULL;
 	Attribute *a;
 	char guidstr[37];
-
+	Entry *retentry = NULL;
+	
 	e = odusers_copy_authdata(&op->o_req_ndn);
 	if(!e) {
 		Debug(LDAP_DEBUG_ANY, "%s: No entry associated with %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
@@ -127,7 +128,7 @@ static int odusers_search_userpolicy(Operation *op, SlapReply *rs, int iseffecti
 
 	for(a = e->e_attrs; a; a = a->a_next) {
 		if(strncmp(a->a_desc->ad_cname.bv_val, "apple-user-passwordpolicy", a->a_desc->ad_cname.bv_len) == 0) {
-			Entry *retentry = entry_alloc();
+			retentry = entry_alloc();
 			if(!retentry) goto out;
 
 			retentry->e_id = NOID;
@@ -184,12 +185,14 @@ static int odusers_search_userpolicy(Operation *op, SlapReply *rs, int iseffecti
 			rs->sr_entry = NULL;
 			send_ldap_result(op, rs);
 			if(e) entry_free(e);
+			if(retentry) entry_free(retentry);
 			return rs->sr_err;
 		}
 	}
 
 out:
 	if(e) entry_free(e);
+	if(retentry) entry_free(retentry);
 	return SLAP_CB_CONTINUE;
 }
 
@@ -240,6 +243,7 @@ static int odusers_search_globalpolicy(Operation *op, SlapReply *rs) {
 	return rs->sr_err;
 
 out:
+	if(retentry) entry_free(retentry);
 	if(global) attr_free(global);
 	return SLAP_CB_CONTINUE;
 }
@@ -349,6 +353,7 @@ static int odusers_search_mechs(Operation *op, SlapReply *rs, int enabled) {
 	ret = rs->sr_err;
 
 out:
+	if(e) entry_free(e);
 	if(prefsdict) CFRelease(prefsdict);
 	if(enabledMechs) CFRelease(enabledMechs);
 	return ret;

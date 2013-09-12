@@ -54,10 +54,10 @@ typedef enum {
 
 #define 	kUSBCommandScratchBuffers	10
 
-/*!
- @class IOUSBCommand
- @abstract A subclass of IOCommand that is used to add USB specific data.
- */
+/*
+ IOUSBCommand
+ Subclass of IOCommand that is used to add USB specific data.
+*/
 class IOUSBCommand : public IOCommand
 {
     OSDeclareAbstractStructors(IOUSBCommand)

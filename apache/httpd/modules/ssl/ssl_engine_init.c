@@ -240,6 +240,7 @@ int ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
 #endif
         if (sc->allow_empty_fragments == UNSET)
             sc->allow_empty_fragments = TRUE;
+
     }
 
 #if APR_HAS_THREADS
@@ -458,9 +459,15 @@ static void ssl_init_ctx_protocol(server_rec *s,
     }
 
     cp = apr_pstrcat(p,
+#ifndef OPENSSL_NO_SSL2
                      (protocol & SSL_PROTOCOL_SSLV2 ? "SSLv2, " : ""),
+#endif
                      (protocol & SSL_PROTOCOL_SSLV3 ? "SSLv3, " : ""),
                      (protocol & SSL_PROTOCOL_TLSV1 ? "TLSv1, " : ""),
+#ifdef HAVE_TLSV1_X
+                     (protocol & SSL_PROTOCOL_TLSV1_1 ? "TLSv1.1, " : ""),
+                     (protocol & SSL_PROTOCOL_TLSV1_2 ? "TLSv1.2, " : ""),
+#endif
                      NULL);
     cp[strlen(cp)-2] = NUL;
 
@@ -472,7 +479,19 @@ static void ssl_init_ctx_protocol(server_rec *s,
         method = mctx->pkp ?
             SSLv2_client_method() : /* proxy */
             SSLv2_server_method();  /* server */
-        ctx = SSL_CTX_new(method);  /* only SSLv2 is left */
+    }
+    else
+#endif
+#ifdef HAVE_TLSV1_X
+    if (protocol == SSL_PROTOCOL_TLSV1_1) {
+        method = mctx->pkp ?
+            TLSv1_1_client_method() : /* proxy */
+            TLSv1_1_server_method();  /* server */
+    }
+    else if (protocol == SSL_PROTOCOL_TLSV1_2) {
+        method = mctx->pkp ?
+            TLSv1_2_client_method() : /* proxy */
+            TLSv1_2_server_method();  /* server */
     }
     else
 #endif
@@ -480,8 +499,8 @@ static void ssl_init_ctx_protocol(server_rec *s,
         method = mctx->pkp ?
             SSLv23_client_method() : /* proxy */
             SSLv23_server_method();  /* server */
-        ctx = SSL_CTX_new(method); /* be more flexible */
     }
+    ctx = SSL_CTX_new(method);
 
     mctx->ssl_ctx = ctx;
 
@@ -491,9 +510,11 @@ static void ssl_init_ctx_protocol(server_rec *s,
         SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
     }
 
+#ifndef OPENSSL_NO_SSL2
     if (!(protocol & SSL_PROTOCOL_SSLV2)) {
         SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
     }
+#endif
 
     if (!(protocol & SSL_PROTOCOL_SSLV3)) {
         SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3);
@@ -503,9 +524,31 @@ static void ssl_init_ctx_protocol(server_rec *s,
         SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1);
     }
 
+#ifdef HAVE_TLSV1_X
+    if (!(protocol & SSL_PROTOCOL_TLSV1_1)) {
+        SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1_1);
+    }
+
+    if (!(protocol & SSL_PROTOCOL_TLSV1_2)) {
+        SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1_2);
+    }
+#endif
+
 #ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
     if (sc->cipher_server_pref == TRUE) {
         SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+    }
+#endif
+
+
+#ifndef OPENSSL_NO_COMP
+    if (sc->compression == FALSE) {
+#ifdef SSL_OP_NO_COMPRESSION
+        /* OpenSSL >= 1.0 only */
+        SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
+#elif OPENSSL_VERSION_NUMBER >= 0x00908000L
+        sk_SSL_COMP_zero(SSL_COMP_get_compression_methods());
+#endif
     }
 #endif
 
@@ -981,6 +1024,9 @@ static void ssl_init_proxy_certs(server_rec *s,
 {
     int n, ncerts = 0;
     STACK_OF(X509_INFO) *sk;
+    STACK_OF(X509) *chain;
+    X509_STORE_CTX *sctx;
+    X509_STORE *store = SSL_CTX_get_cert_store(mctx->ssl_ctx);
     modssl_pk_proxy_t *pkp = mctx->pkp;
 
     SSL_CTX_set_client_cert_cb(mctx->ssl_ctx,
@@ -1026,6 +1072,78 @@ static void ssl_init_proxy_certs(server_rec *s,
                  "loaded %d client certs for SSL proxy",
                  ncerts);
     pkp->certs = sk;
+
+    if (!pkp->ca_cert_file || !store) {
+        return;
+    }
+
+    /* Load all of the CA certs and construct a chain */
+    pkp->ca_certs = (STACK_OF(X509) **) apr_pcalloc(p, ncerts * sizeof(sk));
+    sctx = X509_STORE_CTX_new();
+
+    if (!sctx) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s,
+                     "SSL proxy client cert initialization failed");
+        ssl_log_ssl_error(APLOG_MARK, APLOG_EMERG, s);
+        ssl_die();
+    }
+
+    X509_STORE_load_locations(store, pkp->ca_cert_file, NULL);
+
+    for (n = 0; n < ncerts; n++) {
+        int i;
+
+        X509_INFO *inf = sk_X509_INFO_value(pkp->certs, n);
+        X509_NAME *name = X509_get_subject_name(inf->x509);
+        char *cert_dn = SSL_X509_NAME_to_string(ptemp, name, 0);
+        X509_STORE_CTX_init(sctx, store, inf->x509, NULL);
+
+        /* Attempt to verify the client cert */
+        if (X509_verify_cert(sctx) != 1) {
+            int err = X509_STORE_CTX_get_error(sctx);
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+                         "SSL proxy client cert chain verification failed for %s: %s",
+                         cert_dn, X509_verify_cert_error_string(err));
+        }
+
+        /* Clear X509_verify_cert errors */
+        ERR_clear_error();
+
+        /* Obtain a copy of the verified chain */
+        chain = X509_STORE_CTX_get1_chain(sctx);
+
+        if (chain != NULL) {
+            /* Discard end entity cert from the chain */
+            X509_free(sk_X509_shift(chain));
+
+            if ((i = sk_X509_num(chain)) > 0) {
+                /* Store the chain for later use */
+                pkp->ca_certs[n] = chain;
+            }
+            else {
+                /* Discard empty chain */
+                sk_X509_pop_free(chain, X509_free);
+                pkp->ca_certs[n] = NULL;
+            }
+
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
+                         "loaded %i intermediate CA%s for cert %i (%s)",
+                         i, i == 1 ? "" : "s", n, cert_dn);
+            if (i > 0) {
+                int j;
+                for (j = 0; j < i; j++) {
+                    X509_NAME *ca_name = X509_get_subject_name(sk_X509_value(chain, j));
+                    char *ca_dn = SSL_X509_NAME_to_string(ptemp, ca_name, 0);
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, "%i: %s", j, ca_dn);
+                }
+            }
+        }
+
+        /* get ready for next X509_STORE_CTX_init */
+        X509_STORE_CTX_cleanup(sctx);
+    }
+
+    X509_STORE_CTX_free(sctx);
 }
 
 static void ssl_init_proxy_ctx(server_rec *s,
@@ -1129,21 +1247,17 @@ void ssl_init_CheckServers(server_rec *base_server, apr_pool_t *p)
         klen = strlen(key);
 
         if ((ps = (server_rec *)apr_hash_get(table, key, klen))) {
-            ap_log_error(APLOG_MARK, 
 #ifdef OPENSSL_NO_TLSEXT
-                         APLOG_WARNING, 
+            int level = APLOG_WARNING;
+            const char *problem = "conflict";
 #else
-                         APLOG_DEBUG, 
+            int level = APLOG_DEBUG;
+            const char *problem = "overlap";
 #endif
-                         0,
-                         base_server,
-#ifdef OPENSSL_NO_TLSEXT
-                         "Init: SSL server IP/port conflict: "
-#else
-                         "Init: SSL server IP/port overlap: "
-#endif
+            ap_log_error(APLOG_MARK, level, 0, base_server,
+                         "Init: SSL server IP/port %s: "
                          "%s (%s:%d) vs. %s (%s:%d)",
-                         ssl_util_vhostid(p, s),
+                         problem, ssl_util_vhostid(p, s),
                          (s->defn_name ? s->defn_name : "unknown"),
                          s->defn_line_number,
                          ssl_util_vhostid(p, ps),
@@ -1308,6 +1422,17 @@ static void ssl_init_ctx_cleanup_proxy(modssl_ctx_t *mctx)
     ssl_init_ctx_cleanup(mctx);
 
     if (mctx->pkp->certs) {
+        int i = 0;
+        int ncerts = sk_X509_INFO_num(mctx->pkp->certs);
+
+        if (mctx->pkp->ca_certs) {
+            for (i = 0; i < ncerts; i++) {
+                if (mctx->pkp->ca_certs[i] != NULL) {
+                    sk_X509_pop_free(mctx->pkp->ca_certs[i], X509_free);
+                }
+            }
+        }
+
         sk_X509_INFO_pop_free(mctx->pkp->certs, X509_INFO_free);
         mctx->pkp->certs = NULL;
     }

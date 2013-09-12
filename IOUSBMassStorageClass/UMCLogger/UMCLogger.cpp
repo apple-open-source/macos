@@ -109,7 +109,10 @@ enum
 	kUSBDeviceResetReturnedCode				= UMC_TRACE ( kUSBDeviceResetReturned ),
 	kAbortCurrentSCSITaskCode				= UMC_TRACE ( kAbortCurrentSCSITask ),
 	kCompletingCommandWithErrorCode			= UMC_TRACE ( kCompletingCommandWithError ),
-	
+	kDeviceInformationCode                  = UMC_TRACE ( kDeviceInformation ),
+    kSuspendPortCode                        = UMC_TRACE ( kSuspendPort ),
+    kSubclassUseCode                        = UMC_TRACE ( kSubclassUse ),
+    
 	// CBI Specific							0x052D0400 - 0x052D07FF
 	kCBIProtocolDeviceDetectedCode			= UMC_TRACE ( kCBIProtocolDeviceDetected ),
 	kCBICommandAlreadyInProgressCode		= UMC_TRACE ( kCBICommandAlreadyInProgress ),
@@ -224,6 +227,15 @@ LoadUSBMassStorageExtension ( void );
 
 static const char * 
 StringFromReturnCode ( unsigned int returnCode );
+
+void
+ProcessSubclassTracePoint ( int index );
+
+void
+ProcessAppleUSBCardReaderUMCSubclassTracePoint ( int index, UInt32 intSubclassCode );
+
+void
+ProcessAppleUSBODDSubclassTracePoint ( int index, UInt32 intSubclassCode );
 
 
 //-----------------------------------------------------------------------------
@@ -871,7 +883,7 @@ CollectTrace ( void )
 				printf ( "[%10p] !!!!! Hark !!!!! Completing command with an ERROR status!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
-			
+                
 			case kLUNConfigurationCompleteCode:
 			{
 				printf ( "[%10p] MaxLUN = %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
@@ -1049,6 +1061,40 @@ CollectTrace ( void )
 				
 			}
 			break;
+                
+            case kDeviceInformationCode:
+            {
+                errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+				printf ( "[%10p] Device Information status=%s DeviceInformation=0x%x\n", ( void * ) gTraceBuffer[index].arg1,
+                        errorString, ( int ) gTraceBuffer[index].arg3 );
+			}
+            break;
+                
+            case kSuspendPortCode:
+            {
+                
+                errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+                if ( gTraceBuffer[index].arg3 == 0 )
+                {
+                    printf ( "[%10p] Suspend Port (RESUME) returned status=%s\n", ( void * ) gTraceBuffer[index].arg1, errorString );
+                }
+                
+                else
+                {
+                    printf ( "[%10p] Suspend Port (SUSPEND) returned status=%s\n", ( void * ) gTraceBuffer[index].arg1,  errorString );
+                }
+                
+            }
+            break;
+                
+            case kSubclassUseCode:
+            {
+                
+                // This is special code that we let our subclasses use. We have a helper function to handle these.
+                ProcessSubclassTracePoint ( index );
+                
+            }
+            break;
 			
 #pragma mark -
 #pragma mark *** Control Bulk Interrupt ( CBI ) Codess ***
@@ -1407,6 +1453,256 @@ StringFromReturnCode ( unsigned int returnCode )
 	return string;
 	
 }
+
+void
+ProcessSubclassTracePoint ( int index )
+{
+    
+    UInt32 subclassID       = 0;
+    UInt32 subclassCode     = 0;
+    
+    subclassID = ( gTraceBuffer [ index ].arg1 >> 24 ) & 0xFF;
+    subclassCode = gTraceBuffer [ index ].arg1 & 0xFFFFFF;
+    
+    switch ( subclassID )
+    {
+            
+        case kSubclassCode_AppleUSBODD:
+        {
+            ProcessAppleUSBODDSubclassTracePoint ( index, subclassCode );
+        }
+        break;
+            
+        case kSubclassCode_AppleUSBCardReaderUMC:
+        {
+            ProcessAppleUSBCardReaderUMCSubclassTracePoint ( index, subclassCode );
+        }
+        break;
+            
+        default:
+        {
+            printf ( "Recieved request for subclassID=0x%lx, but know of no such ssubclassID\n", ( unsigned long ) subclassID );
+        }
+        
+    }
+    
+    return;
+    
+}
+
+
+
+
+void
+ProcessAppleUSBODDSubclassTracePoint ( int index, UInt32 inSubclassCode )
+{
+    
+    switch ( inSubclassCode )
+    {
+            
+        case kAppleUSBODD_probe:
+        {
+            
+            printf ( "[%10p] AUO - Probe returning instance %p\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg3 );
+            
+        }
+        break;
+            
+        case kAppleUSBODD_start:
+        {
+            
+            printf ( "[%10p] AUO - Start returning %d\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+            
+        }
+        break;
+
+        case kAppleUSBODD_requestedExtraPower:
+        {
+            
+            printf ( "[%10p] AUO - BeginProvidedServices requested %ldma of extra power and was granted %ldma\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( unsigned long ) gTraceBuffer[index].arg3, ( unsigned long ) gTraceBuffer[index].arg4 );
+            
+        }
+        break;
+            
+        case kAppleUSBODD_isMacModelSupported:
+        {
+            
+            printf ( "[%10p] AUO - isMacModelSupported returning %d\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+            
+        }
+        break;
+            
+        case kAppleUSBODD_FindACPIPlatformDevice:
+        {
+            
+            printf ( "[%10p] AUO - FindACPIPlatformDevice found device %p\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg3 );
+            
+        }
+        break;
+            
+        case kAppleUSBODD_CheckForACPIFlags:
+        {
+            
+            printf ( "[%10p] AUO - CheckForACPIFlasgs found device 0x%lx\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( unsigned long ) gTraceBuffer[index].arg3 );
+            
+        }
+        break;
+            
+        default:
+        {
+            printf ( "Recieved request for intSubclassCode=0x%lx for AppleUSBODD, but know of no such intSubclassCode\n", ( unsigned long )inSubclassCode );
+        }
+            
+    }
+    
+}
+
+
+void
+ProcessAppleUSBCardReaderUMCSubclassTracePoint ( int index, UInt32 inSubclassCode )
+{
+    
+    switch ( inSubclassCode )
+    {
+           
+        case kAppleUSBCardReaderUMC_HandlePowerChange:
+        {
+            
+            printf ( "[%10p] AUCRU - HandlePowerChange current power state %d, requested power state %d\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
+            
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_start:
+        {
+            
+            printf ( "[%10p] AUCRU - start returning %d\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3  );
+            
+        }
+        break;
+        
+        case kAppleUSBCardReaderUMC_stop:
+        {
+            printf ( "[%10p] AUCRU - stop fProposedPowerState=%lu fCurrentPowerState=%lu\n",
+                    ( void * ) gTraceBuffer[index].arg2, ( unsigned long ) gTraceBuffer[index].arg3, ( unsigned long ) gTraceBuffer[index].arg4 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_stop_2:
+        {
+            printf ( "[%10p] AUCRU - stop sleeptype=%lu fDeviceRequiresReset=%d\n",
+                        ( void * ) gTraceBuffer[index].arg2, ( unsigned long ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_message:
+        {
+            printf ( "[%10p] AUCRU - message type=0x%x argument=0x%x\n", ( void * ) gTraceBuffer[index].arg2,
+                        ( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_setProperty:
+        {
+            printf ( "[%10p] AUCRU - setProperty\n", ( void * ) gTraceBuffer[index].arg2 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_gpioMediaDetectFired:
+        {
+            printf ( "[%10p] AUCRU - GPIO media detect\n", ( void * ) gTraceBuffer[index].arg2 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_gpioMediaDetectEnable:
+        {
+            
+            if ( gTraceBuffer[index].arg3 == 2 )
+            {
+                printf ( "[%10p] AUCRU - GPIO media detect SETUP and ENABLED IOIES=%p\n", ( void * ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg4 );
+            }
+            
+            else if ( gTraceBuffer[index].arg3 == 1 )
+            {
+                printf ( "[%10p] AUCRU - GPIO media detect ENABLED IOIES=%p\n", ( void * ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg4 );
+            }
+            
+            else
+            {
+                printf ( "[%10p] AUCRU - GPIO media detect DISABLED IOIES=%p\n", ( void * ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg4 );
+            }
+            
+        }
+        break;
+
+        case kAppleUSBCardReaderUMC_controllerReset:
+        {
+            printf ( "[%10p] AUCRU - SDControllerReset returned=0x%x\n", ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_powerControl:
+        {
+            
+            if ( gTraceBuffer[index].arg4 != 0 )
+            {
+                printf ( "[%10p] AUCRU - SDControllerPower powering ON returned=0x%x\n", ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+            }
+            
+            else
+            {
+                printf ( "[%10p] AUCRU - SDControllerPower powering OFF returned=0x%x\n", ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+            }
+            
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_waitForReconnect:
+        {
+            
+            if ( gTraceBuffer[index].arg4 != 0 )
+            {
+                printf ( "[%10p] AUCRU - GatedWaitForReconnect exiting returned=0x%x\n", ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+            }
+            
+            else
+            {
+                printf ( "[%10p] AUCRU - GatedWaitForReconnect entered returned=0x%x\n", ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+            }
+            
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_systemWillShutdown:
+        {
+            printf ( "[%10p] AUCRU - systemWillShutdown specifier=0x%x\n", ( void * ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
+        }
+        break;
+            
+        case kAppleUSBCardReaderUMC_generalPurpose:
+        {
+            printf ( "[%10p] AUCRU - General Purpose 0x%x 0x%x\n", ( void * ) gTraceBuffer[index].arg2,
+                     ( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
+        }
+        break;
+            
+        default:
+        {
+            printf ( "Recieved request for intSubclassCode=0x%lx for AppleUSBCardReaderUMC, but know of no such intSubclassCode\n", ( unsigned long ) inSubclassCode );
+        }
+            
+    }
+    
+}
+
 
 //-----------------------------------------------------------------------------
 //	EOF

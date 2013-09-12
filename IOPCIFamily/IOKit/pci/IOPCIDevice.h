@@ -199,10 +199,17 @@ union IOPCIAddressSpace {
 
 struct IOPCIPhysicalAddress {
     IOPCIAddressSpace   physHi;
+#if defined(__i386__) || defined(__x86_64__)
     UInt32              physMid;
     UInt32              physLo;
     UInt32              lengthHi;
     UInt32              lengthLo;
+#else
+    UInt32              physLo;
+    UInt32              physMid;
+    UInt32              lengthLo;
+    UInt32              lengthHi;
+#endif
 };
 
 // IOPCIDevice matching property names
@@ -213,6 +220,8 @@ struct IOPCIPhysicalAddress {
 #define kIOPCITunnelCompatibleKey       "IOPCITunnelCompatible"
 #define kIOPCITunnelledKey 		  		"IOPCITunnelled"
 
+#define kIOPCIPauseCompatibleKey        "IOPCIPauseCompatible"
+
 // property to control PCI default config space save on sleep
 #define kIOPMPCIConfigSpaceVolatileKey  "IOPMPCIConfigSpaceVolatile"
 // property to disable express link on sleep
@@ -220,10 +229,16 @@ struct IOPCIPhysicalAddress {
 // property to reset secondary bus on sleep
 #define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
 
+// pci express capabilities
+#define kIOPCIExpressCapabilitiesKey       "IOPCIExpressCapabilities"
 // pci express link status
 #define kIOPCIExpressLinkStatusKey       "IOPCIExpressLinkStatus"
 // pci express link capabilities
 #define kIOPCIExpressLinkCapabilitiesKey "IOPCIExpressLinkCapabilities"
+// pci express slot status
+#define kIOPCIExpressSlotStatusKey       "IOPCIExpressSlotStatus"
+// pci express slot capabilities
+#define kIOPCIExpressSlotCapabilitiesKey "IOPCIExpressSlotCapabilities"
 
 #ifndef kIOPlatformDeviceASPMEnableKey
 #define kIOPlatformDeviceASPMEnableKey  "IOPlatformDeviceASPMEnable"
@@ -238,19 +253,12 @@ struct IOPCIPhysicalAddress {
 #define kIOPCITunnelIDKey               "IOPCITunnelID"
 #define kIOPCITunnelControllerIDKey     "IOPCITunnelControllerID"
 
-#ifndef kIOMessageDeviceWillPowerOn
-#define kIOMessageDeviceWillPowerOn        iokit_common_msg(0x215)
-#endif
-
-#ifndef kIOMessageDeviceHasPoweredOff
-#define kIOMessageDeviceHasPoweredOff        iokit_common_msg(0x225)
-#endif
-
 enum {
-    kIOPCIDevicePowerStateCount = 3,
+    kIOPCIDevicePowerStateCount = 4,
     kIOPCIDeviceOffState        = 0,
     kIOPCIDeviceDozeState       = 1,
     kIOPCIDeviceOnState         = 2,
+    kIOPCIDevicePausedState     = 3,
 };
 
 enum
@@ -375,6 +383,10 @@ public:
                                              IOService*      whatDevice);
     virtual IOReturn setPowerState( unsigned long, IOService * );
 
+	virtual unsigned long maxCapabilityForDomainState ( IOPMPowerFlags domainState );
+	virtual unsigned long initialPowerStateForDomainState ( IOPMPowerFlags domainState );
+	virtual unsigned long powerStateForDomainState ( IOPMPowerFlags domainState );
+
     virtual bool compareName( OSString * name, OSString ** matched = 0 ) const;
     virtual bool matchPropertyTable( OSDictionary *     table,
                                      SInt32       *     score );
@@ -393,6 +405,7 @@ public:
 private:
 	bool configAccess(bool write);
 	bool initReserved(void);
+    IOReturn setPCIPowerState(uint8_t powerState, uint32_t options);
 
 public:
 
@@ -408,53 +421,76 @@ public:
     virtual void configWrite8( IOPCIAddressSpace space,
                                         UInt8 offset, UInt8 data );
 
+#if __IOPCIDEVICE_INTERNAL__
+
+#if APPLE_KEXT_VTABLE_PADDING
+    virtual UInt32 configRead32( UInt8 offset );
+    virtual UInt16 configRead16( UInt8 offset );
+    virtual UInt8  configRead8( UInt8 offset );
+    virtual void   configWrite32( UInt8 offset, UInt32 data );
+    virtual void   configWrite16( UInt8 offset, UInt16 data );
+    virtual void   configWrite8( UInt8 offset, UInt8 data );
+#endif /* APPLE_KEXT_VTABLE_PADDING */
+
+#else /* !__IOPCIDEVICE_INTERNAL__ */
+
 /*! @function configRead32
     @abstract Reads a 32-bit value from the PCI device's configuration space.
     @discussion This method reads a 32-bit configuration space register on the device and returns its value.
-    @param offset An 8-bit offset into configuration space, of which bits 0-1 are ignored.
+    @param offset An offset into configuration space, of which bits 0-1 are ignored.
     @result An 32-bit value in host byte order (big endian on PPC). */
 
-    virtual UInt32 configRead32( UInt8 offset );
+    UInt32 configRead32( IOByteCount offset ) { return (extendedConfigRead32(offset)); }
 
 /*! @function configRead16
     @abstract Reads a 16-bit value from the PCI device's configuration space.
     @discussion This method reads a 16-bit configuration space register on the device and returns its value.
-    @param offset An 8-bit offset into configuration space, of which bit 0 is ignored.
+    @param offset An offset into configuration space, of which bit 0 is ignored.
     @result An 16-bit value in host byte order (big endian on PPC). */
 
-    virtual UInt16 configRead16( UInt8 offset );
+    UInt16 configRead16( IOByteCount offset ) { return (extendedConfigRead16(offset)); }
 
 /*! @function configRead8
     @abstract Reads a 8-bit value from the PCI device's configuration space.
     @discussion This method reads a 8-bit configuration space register on the device and returns its value.
-    @param offset An 8-bit offset into configuration space.
+    @param offset An offset into configuration space.
     @result An 8-bit value. */
 
-    virtual UInt8 configRead8( UInt8 offset );
+    UInt8 configRead8( IOByteCount offset ) { return (extendedConfigRead8(offset)); }
 
 /*! @function configWrite32
     @abstract Writes a 32-bit value to the PCI device's configuration space.
     @discussion This method write a 32-bit value to a configuration space register on the device.
-    @param offset An 8-bit offset into configuration space, of which bits 0-1 are ignored.
+    @param offset An offset into configuration space, of which bits 0-1 are ignored.
     @param data An 32-bit value to be written in host byte order (big endian on PPC). */
 
-    virtual void configWrite32( UInt8 offset, UInt32 data );
+    void configWrite32( IOByteCount offset, UInt32 data ) { return (extendedConfigWrite32(offset, data)); }
 
 /*! @function configWrite16
     @abstract Writes a 16-bit value to the PCI device's configuration space.
     @discussion This method write a 16-bit value to a configuration space register on the device.
-    @param offset An 8-bit offset into configuration space, of which bit 0 is ignored.
+    @param offset An offset into configuration space, of which bit 0 is ignored.
     @param data An 16-bit value to be written in host byte order (big endian on PPC). */
 
-    virtual void configWrite16( UInt8 offset, UInt16 data );
+    void configWrite16( IOByteCount offset, UInt16 data ) { return (extendedConfigWrite16(offset, data)); }
 
 /*! @function configWrite8
     @abstract Writes a 8-bit value to the PCI device's configuration space.
     @discussion This method write a 8-bit value to a configuration space register on the device.
-    @param offset An 8-bit offset into configuration space.
+    @param offset An offset into configuration space.
     @param data An 8-bit value to be written. */
 
-    virtual void configWrite8( UInt8 offset, UInt8 data );
+    void configWrite8( IOByteCount offset, UInt8 data ) { return (extendedConfigWrite8(offset, data)); }
+
+    OSMetaClassDeclareReservedUnused(IOPCIDevice,  16);
+    OSMetaClassDeclareReservedUnused(IOPCIDevice,  17);
+    OSMetaClassDeclareReservedUnused(IOPCIDevice,  18);
+    OSMetaClassDeclareReservedUnused(IOPCIDevice,  19);
+    OSMetaClassDeclareReservedUnused(IOPCIDevice,  20);
+    OSMetaClassDeclareReservedUnused(IOPCIDevice,  21);
+public:
+
+#endif /* !__IOPCIDEVICE_INTERNAL__ */
 
     virtual IOReturn saveDeviceState( IOOptionBits options = 0 );
     virtual IOReturn restoreDeviceState( IOOptionBits options = 0 );
@@ -716,6 +752,17 @@ public:
 	IOReturn protectDevice(uint32_t space, uint32_t prot);
 
 	IOReturn checkLink(uint32_t options = 0);
+
+	IOReturn relocate(uint32_t options = 0);
+
+	IOReturn setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds);
+};
+
+// setLatencyTolerance options
+enum
+{
+    kIOPCILatencySnooped   = 0x00000001,
+    kIOPCILatencyUnsnooped = 0x00000002,
 };
 
 enum

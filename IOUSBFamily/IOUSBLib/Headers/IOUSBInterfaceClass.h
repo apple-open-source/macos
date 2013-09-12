@@ -31,10 +31,6 @@
 #include <AvailabilityMacros.h>
 
 
-#ifndef IOUSBLIBDEBUG
-#define IOUSBLIBDEBUG		0
-#endif
-
 #include "IOUSBIUnknown.h"
 
 class IOUSBInterfaceClass : public IOUSBIUnknown

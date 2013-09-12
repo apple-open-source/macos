@@ -48,7 +48,7 @@ class IOTimerEventSource;
 class IOCommandGate;
 
 /*!
- * enum IOAudioDevicePowerState
+ * @enum IOAudioDevicePowerState
  * @abstract Identifies the power state of the audio device
  * @discussion A newly created IOAudioDevices defaults to the idle state.
  * @constant kIOAudioDeviceSleep State set when the system is going to sleep
@@ -157,7 +157,8 @@ protected:
 
     /*! @var audioEngines The set of IOAudioEngine objects vended by the IOAudioDevice. */
     OSArray *			audioEngines;
-    /*! @var timerEvents The set of timer events in use by the device.  
+    /*! @var timerEvents
+     *  @abstract The set of timer events in use by the device.  
      *  @discussion The key for the dictionary is the target of the event.  This means that a single target may
      *   have only a single event associated with it.
      */
@@ -173,7 +174,8 @@ protected:
     AbsoluteTime		previousTimerFire;
 
 public:
-    /*! @var gIOAudioPlane A static IORegistryPlane representing the new IOAudioPlane that the IOAudioFamily uses
+    /*! @var gIOAudioPlane
+     *   A static IORegistryPlane representing the new IOAudioPlane that the IOAudioFamily uses
      *   to represent the signal chain of the device.
      */
     static const IORegistryPlane *gIOAudioPlane;
@@ -283,7 +285,8 @@ public:
      * @discussion This implementation initializes all of the data structures and variables used by the
      *  IOAudioDevice.  The currentPowerState and pendingPowerState variables are set to kIOAudioDeviceIdle.
      *  A subclass that overrides this method must call the superclass' implementation.
-     * @param properties An OSDictionary of the device properties that gets passed to super::init and set
+     * @param properties
+     *  An OSDictionary of the device properties that gets passed to super::init and set
      *  in the IORegistry.
      * @result true if initialization was successful
      */
@@ -312,7 +315,8 @@ public:
      *  the hardware.  If that call succeeds, it sets up power management if the family is supposed to 
      *  manage power (checking the familyManagePower variable).  Then finally it calls registerService() 
      *  to make the IOAudioDevice visible in the IORegistry.
-     * @param provider This is the service provider nub that provides access to the hardware resources.
+     * @param provider
+     *  This is the service provider nub that provides access to the hardware resources.
      * @result Returns true on success
      */
     virtual bool start(IOService *provider);
@@ -327,7 +331,8 @@ public:
      *  all of the audio engine and port resources and objects to be released.  A subclass' implementation 
      *  may could shut down hardware here if necessary.  If this function is overridden by a subclass,
      *  the superclass' implementation must be called.
-     * @param The service provider nub for the device.
+     * @param provider
+     *  The service provider nub for the device.
      */
     virtual void stop(IOService *provider);
     virtual bool willTerminate(IOService *provider, IOOptionBits options);
@@ -341,7 +346,8 @@ public:
      *  state, creating the IOAudioEngines, IOAudioControls and IOAudioStreams.  Additionally it 
      *  should also call setDeviceName(), setDeviceShortName(), setManufacturerName().  Upon return of
      *  this function, the device should be ready to begin vending services to the system.
-     * @param provider The service provider nub for the device.
+     * @param provider
+     *  The service provider nub for the device.
      * @result This function should return true on a successful initialization.
      */
     virtual bool initHardware(IOService *provider);
@@ -399,7 +405,8 @@ public:
      * @function activateAudioEngine
      * @abstract This simply calls activateAudioEngine(IOAudioEngine *audioEngine, 
      *  bool shouldStartAudioEngine) with a value of true for shouldStartAudioEngine.
-     * @param audioEngine The IOAudioEngine instance to be activated.  It is treated as a newly 
+     * @param audioEngine
+     *  The IOAudioEngine instance to be activated.  It is treated as a newly 
      *  allocated instance.
      * @result Returns true if the audio engine was successfully activated.
      */
@@ -420,8 +427,10 @@ public:
      *  the audio engine after it has been activated.  This will insure that the refCount on the audio engine 
      *  is correct when it gets deactivated when the driver is stopped.  That allows the audio engine to be
      *  freed when it is no longer needed.
-     * @param audioEngine The IOAudioEngine instance to be activated.
-     * @param shouldStartAudioEngine If true, the audio engine is treated as a newly allocated IOAudioEngine
+     * @param audioEngine
+     *  The IOAudioEngine instance to be activated.
+     * @param shouldStartAudioEngine
+     *  If true, the audio engine is treated as a newly allocated IOAudioEngine
      *  instance and is appropriately attached and started according to IOKit convention.  If it is false
      *  it is assumed that some other process (possibly the IOKit matching process) has started the
      *  IOAudioEngine and will skip that step.
@@ -461,7 +470,8 @@ public:
      * @discussion The default implementation of IOAudioDevice sets up two power states for IOService
      *  to use.  State 0 is sleep and state 1 is wake.  This function should not be called directly.
      *  It is only supposed to be used by the IOService power management services.
-     * @param powerStateOrdinal The number of the power state as defined by the IOAudioDevice - 
+     * @param powerStateOrdinal
+     *  The number of the power state as defined by the IOAudioDevice - 
      *  0 for sleep, 1 for wake.
      * @param device The power management policy maker.
      * @result Returns kIOPMAckImplied (0) when the power state change is complete.  Otherwise the an
@@ -524,7 +534,8 @@ public:
      *  change is complete.
      * @param oldPowerState The power state before the power state change
      * @param newPowerState The power state being transitioned to
-     * @param microsecondsUntilComplete A pointer to a value representing an upper bound on
+     * @param microsecondsUntilComplete
+     *  A pointer to a value representing an upper bound on
      *  the number of microseconds to complete an asynchronous power state change.  It points
      *  to a value of zero at the start and if it remains zero, the state change is complete
      *  upon a successful return from the function.
@@ -557,7 +568,7 @@ public:
     static IOReturn completePowerStateChangeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     
     /*!
-     * @function protectedCompletePowerStateChange()
+     * @function protectedCompletePowerStateChange
      * @abstract Called on the IOWorkLoop when a power state change is complete.
      * @discussion This function does the work to complete a power state change (both synchronous and
      *  asynchronous).  If the system is waking from sleep, the timer system is restarted and the 
@@ -604,7 +615,8 @@ public:
      *  by the driver (subclass) it calls protectedCompletePowerStateChange().  If done asynchronously
      *  it returns the microsecondsUntilComplete that was set by performPowerStateChange().  This
      *  function should not be called directly.
-     * @param microsecondsUntilComplete Pointer to the microsecondsUntilComplete that should be set
+     * @param microsecondsUntilComplete
+     *  Pointer to the microsecondsUntilComplete that should be set
      *  by performPowerStateChange if an asynchronous power state change was started.
      * @result Returns kIOReturnSuccess on success
      */
@@ -717,7 +729,8 @@ protected:
      *  only be dispatched if the power state is not kIOAudioDeviceSleep.  This prevents
      *  unexpected timer firings while making wake->sleep->wake transitions.  This function must
      *  be called on the IOWorkLoop.
-     * @function force A bool param to allow the timer events to be dispatched even if the 
+     * @param force
+     *  A bool param to allow the timer events to be dispatched even if the 
      *  device is in the kIOAudioDeviceSleep power state.
      */
     virtual void dispatchTimerEvents(bool force);

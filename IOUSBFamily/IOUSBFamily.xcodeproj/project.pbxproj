@@ -147,7 +147,6 @@
 		3E99F0A1152B6A1D00F97A0C /* USBProberIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 3ECD852304F3CB07003312CD /* USBProberIcon.icns */; };
 		3E99F0A2152B6A1D00F97A0C /* USBVendors.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3ECD852404F3CB07003312CD /* USBVendors.txt */; };
 		3E99F0A3152B6A1D00F97A0C /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3ED3F24404F3CC01001BF1E8 /* InfoPlist.strings */; };
-		3E99F0A4152B6A1D00F97A0C /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 3ED3F24804F3CC01001BF1E8 /* MainMenu.nib */; };
 		3E99F0A5152B6A1D00F97A0C /* clean.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 3E652E5504F5261F00C1BD6F /* clean.tiff */; };
 		3E99F0A6152B6A1D00F97A0C /* reload.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 3E652E5604F5261F00C1BD6F /* reload.tiff */; };
 		3E99F0A7152B6A1D00F97A0C /* usbmacro in Resources */ = {isa = PBXBuildFile; fileRef = B50606DD1300DCE900C9FA9C /* usbmacro */; };
@@ -359,6 +358,7 @@
 		3EC47B77140D978100A30455 /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
 		3EC47B78140D978100A30455 /* IOUSBPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EC47B73140D96FB00A30455 /* IOUSBPriv.h */; };
 		3EC6B5FD0D9221310096A601 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3EC6B5FB0D9221310096A601 /* Localizable.strings */; };
+		3ED0ACF816187DB2002DDAE7 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 3ED0ACF616187DB2002DDAE7 /* MainMenu.xib */; };
 		3ED21AC115BDFBE7001910A5 /* KLog.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EAF8B180B5D42870029974F /* KLog.kext */; };
 		3ED3855216012986008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3853D16012985008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp */; };
 		3ED3855316012986008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3ED3853E16012985008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp */; };
@@ -376,11 +376,11 @@
 		3EE8224B16013050001F9A03 /* AppleUSBXHCI.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3EBFD16A1601264400B85B43 /* AppleUSBXHCI.kext */; };
 		3EEFE80A14D7A2ED007E8A42 /* USBTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 30C722520EF0558F003C241F /* USBTracepoints.h */; };
 		3EF4FF9D0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch in Headers */ = {isa = PBXBuildFile; fileRef = 3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */; };
+		3EF545571642DF6200E53A75 /* AppleUSBDiagnostics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EF545561642DF6200E53A75 /* AppleUSBDiagnostics.cpp */; };
+		3EF5455A1642DF7F00E53A75 /* AppleUSBDiagnostics.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EF545591642DF7F00E53A75 /* AppleUSBDiagnostics.h */; };
 		3EFE2F1B0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */; };
 		3EFE2F1D0B8B58ED00013454 /* IOUSBHubPolicyMaker.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */; };
 		3EFE2F960B8B5DD300013454 /* IOUSBUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E71EE4FFB8799F7F000001 /* IOUSBUserClient.h */; };
-		4C16586A103B1CF50066E9B0 /* AppleUSBEHCIDiagnostics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C165869103B1CF50066E9B0 /* AppleUSBEHCIDiagnostics.cpp */; };
-		4C16586C103B1D0A0066E9B0 /* AppleUSBEHCIDiagnostics.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C16586B103B1D0A0066E9B0 /* AppleUSBEHCIDiagnostics.h */; };
 		DDA42BA60BA0956C002C2F56 /* IOUSBControllerV3.h in Headers */ = {isa = PBXBuildFile; fileRef = DDA42BA50BA0956C002C2F56 /* IOUSBControllerV3.h */; };
 		DDA42BA70BA0956C002C2F56 /* IOUSBControllerV3.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DDA42BA50BA0956C002C2F56 /* IOUSBControllerV3.h */; };
 		DDBF20230BA0A01B007CE86C /* IOUSBControllerV3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DDBF20220BA0A01B007CE86C /* IOUSBControllerV3.cpp */; };
@@ -772,6 +772,7 @@
 		3E652E5804F5261F00C1BD6F /* USBLoggerFilterWindowController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = USBLoggerFilterWindowController.m; path = USBProberV2/USBLoggerFilterWindowController.m; sourceTree = "<group>"; };
 		3E9369F913D09197000D10CF /* IOUSBPipeV2.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBPipeV2.cpp; path = IOUSBFamily/Classes/IOUSBPipeV2.cpp; sourceTree = "<group>"; };
 		3E9369FD13D091D5000D10CF /* IOUSBPipeV2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBPipeV2.h; path = IOUSBFamily/Headers/IOUSBPipeV2.h; sourceTree = "<group>"; };
+		3E9663EA1631FE730053D732 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		3E99F076152B66F900F97A0C /* IOUSBLib.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBLib.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E99F0D6152B6A1D00F97A0C /* USB Prober.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "USB Prober.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E9EABF80F545CE000522032 /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = /usr/lib/libutil.dylib; sourceTree = "<absolute>"; };
@@ -877,6 +878,7 @@
 		3ECD852104F3CB07003312CD /* USBLoggerController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = USBLoggerController.m; path = USBProberV2/USBLoggerController.m; sourceTree = "<group>"; };
 		3ECD852304F3CB07003312CD /* USBProberIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = USBProberIcon.icns; path = USBProberV2/USBProberIcon.icns; sourceTree = "<group>"; };
 		3ECD852404F3CB07003312CD /* USBVendors.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = USBVendors.txt; path = USBProberV2/USBVendors.txt; sourceTree = "<group>"; };
+		3ED0ACF716187DB2002DDAE7 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = USBProberV2/English.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		3ED3853D16012985008B5CB3 /* AppleUSBXHCI_AsyncQueues.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_AsyncQueues.cpp; sourceTree = "<group>"; };
 		3ED3853E16012985008B5CB3 /* AppleUSBXHCI_Bandwidth.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_Bandwidth.cpp; sourceTree = "<group>"; };
 		3ED3853F16012985008B5CB3 /* AppleUSBXHCI_IsocQueues.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBXHCI_IsocQueues.cpp; sourceTree = "<group>"; };
@@ -892,7 +894,6 @@
 		3ED3854E16012986008B5CB3 /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		3ED38569160129DD008B5CB3 /* AppleUSBXHCI.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppleUSBXHCI.plist; path = AppleUSBXHCI/AppleUSBXHCI.plist; sourceTree = "<group>"; };
 		3ED3F24504F3CC01001BF1E8 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = USBProberV2/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		3ED3F24904F3CC01001BF1E8 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = USBProberV2/English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		3ED3F24D04F3CC1A001BF1E8 /* Info/Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info/Info.plist; path = USBProberV2/Info.plist; sourceTree = "<group>"; };
 		3ED3F24F04F3CD99001BF1E8 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		3ED3F25004F3CD99001BF1E8 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
@@ -900,10 +901,10 @@
 		3ED3F25204F3CD99001BF1E8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		3ED3F25704F3CDB1001BF1E8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		3EF4FF9C0B5D9B9E007E541E /* IOUSBFamilyInfoPlist.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBFamilyInfoPlist.pch; sourceTree = "<group>"; };
+		3EF545561642DF6200E53A75 /* AppleUSBDiagnostics.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBDiagnostics.cpp; path = IOUSBFamily/Classes/AppleUSBDiagnostics.cpp; sourceTree = "<group>"; };
+		3EF545591642DF7F00E53A75 /* AppleUSBDiagnostics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleUSBDiagnostics.h; path = IOUSBFamily/Headers/AppleUSBDiagnostics.h; sourceTree = "<group>"; };
 		3EFE2F1A0B8B58A500013454 /* IOUSBHubPolicyMaker.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOUSBHubPolicyMaker.cpp; path = IOUSBFamily/Classes/IOUSBHubPolicyMaker.cpp; sourceTree = "<group>"; };
 		3EFE2F1C0B8B58ED00013454 /* IOUSBHubPolicyMaker.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOUSBHubPolicyMaker.h; path = IOUSBFamily/Headers/IOUSBHubPolicyMaker.h; sourceTree = "<group>"; };
-		4C165869103B1CF50066E9B0 /* AppleUSBEHCIDiagnostics.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCIDiagnostics.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCIDiagnostics.cpp; sourceTree = "<group>"; };
-		4C16586B103B1D0A0066E9B0 /* AppleUSBEHCIDiagnostics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleUSBEHCIDiagnostics.h; path = AppleUSBEHCI/Headers/AppleUSBEHCIDiagnostics.h; sourceTree = "<group>"; };
 		68AB6E180636F43400DF2BA5 /* UHCI.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UHCI.h; sourceTree = "<group>"; };
 		68AB6E580636F4B500DF2BA5 /* AppleUSBUHCI_Obsolete.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBUHCI_Obsolete.cpp; sourceTree = "<group>"; };
 		68AB6E590636F4B500DF2BA5 /* AppleUSBUHCI_PwrMgmt.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBUHCI_PwrMgmt.cpp; sourceTree = "<group>"; };
@@ -1183,6 +1184,7 @@
 		01840EB8FFB9FB147F000001 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
+				3EF545561642DF6200E53A75 /* AppleUSBDiagnostics.cpp */,
 				0179BA2FFFBA18947F000001 /* IOUSBBus.cpp */,
 				01A72AF40087AE247F000001 /* IOUSBCommand.cpp */,
 				0179BA30FFBA18947F000001 /* IOUSBController.cpp */,
@@ -1318,8 +1320,8 @@
 				3EC65AF404F3C9B8003F7360 /* USB Prober */,
 				3E033F6804F5D8C200AA223D /* KLog */,
 				3E61A7DC0B5D97AB0001A217 /* Plists */,
-				19C28FB6FE9D52B211CA2CBB /* Products */,
 				3E9D8265033AC7C000000164 /* Frameworks */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
 			);
 			name = IOUSBFamily;
 			sourceTree = "<group>";
@@ -1419,13 +1421,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		301DAF640EF88F3F009BF777 /* USBTracer */ = {
+		301DAF640EF88F3F009BF777 /* usbtracer */ = {
 			isa = PBXGroup;
 			children = (
 				301DB0670EF890A1009BF777 /* USBTracer.h */,
 				301DB0680EF890A1009BF777 /* USBTracer.cpp */,
 			);
-			name = USBTracer;
+			name = usbtracer;
 			sourceTree = "<group>";
 		};
 		3E033F6804F5D8C200AA223D /* KLog */ = {
@@ -1535,6 +1537,7 @@
 		3E2D4C82145EFA8700FA8FEF /* Private Headers */ = {
 			isa = PBXGroup;
 			children = (
+				3EF545591642DF7F00E53A75 /* AppleUSBDiagnostics.h */,
 				3EB871C4041D183100000164 /* IOUSBAppleIDs.h */,
 				3EC47B73140D96FB00A30455 /* IOUSBPriv.h */,
 				30C722520EF0558F003C241F /* USBTracepoints.h */,
@@ -1578,6 +1581,7 @@
 			isa = PBXGroup;
 			children = (
 				F5C2AE73032E5BA501000164 /* Kernel.framework */,
+				3E9663EA1631FE730053D732 /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
 			sourceTree = SOURCE_ROOT;
@@ -1594,7 +1598,7 @@
 			isa = PBXGroup;
 			children = (
 				3EB33C111330EAA800688D55 /* reenumerate */,
-				301DAF640EF88F3F009BF777 /* USBTracer */,
+				301DAF640EF88F3F009BF777 /* usbtracer */,
 				3EC65AFE04F3CA49003F7360 /* Classes */,
 				3EC65B0404F3CA87003F7360 /* Other Sources */,
 				3EC65B0604F3CA94003F7360 /* Frameworks */,
@@ -1732,8 +1736,8 @@
 				3ECD851B04F3CB07003312CD /* SetKLogPermissions.sh */,
 				3ECD852304F3CB07003312CD /* USBProberIcon.icns */,
 				3ECD852404F3CB07003312CD /* USBVendors.txt */,
+				3ED0ACF616187DB2002DDAE7 /* MainMenu.xib */,
 				3ED3F24404F3CC01001BF1E8 /* InfoPlist.strings */,
-				3ED3F24804F3CC01001BF1E8 /* MainMenu.nib */,
 				3ED3F24D04F3CC1A001BF1E8 /* Info/Info.plist */,
 			);
 			name = Resources;
@@ -1887,7 +1891,6 @@
 		F581406D04575F8201000109 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
-				4C16586B103B1D0A0066E9B0 /* AppleUSBEHCIDiagnostics.h */,
 				F5BCFC7F04583E7601000109 /* AppleEHCIedMemoryBlock.h */,
 				F5BCFC8004583E7601000109 /* AppleEHCIitdMemoryBlock.h */,
 				F5BCFC8104583E7601000109 /* AppleEHCIListElement.h */,
@@ -1904,7 +1907,6 @@
 		F581406E04575F8D01000109 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
-				4C165869103B1CF50066E9B0 /* AppleUSBEHCIDiagnostics.cpp */,
 				F5BCFC9104583E9E01000109 /* AppleEHCIedMemoryBlock.cpp */,
 				F5BCFC9204583E9E01000109 /* AppleEHCIitdMemoryBlock.cpp */,
 				F5BCFC9304583E9E01000109 /* AppleEHCIListElement.cpp */,
@@ -2018,8 +2020,8 @@
 				DDA42BA60BA0956C002C2F56 /* IOUSBControllerV3.h in Headers */,
 				3E3DBCAD0BC20CCD00880659 /* IOUSBUserClient.h in Headers */,
 				30C722530EF0558F003C241F /* USBTracepoints.h in Headers */,
-				4C16586C103B1D0A0066E9B0 /* AppleUSBEHCIDiagnostics.h in Headers */,
 				3E9369FE13D091D5000D10CF /* IOUSBPipeV2.h in Headers */,
+				3EF5455A1642DF7F00E53A75 /* AppleUSBDiagnostics.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2558,6 +2560,7 @@
 				French,
 				German,
 				Spanish,
+				en,
 			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOUSBFamily */;
 			projectDirPath = "";
@@ -2611,10 +2614,10 @@
 				3E99F0A1152B6A1D00F97A0C /* USBProberIcon.icns in Resources */,
 				3E99F0A2152B6A1D00F97A0C /* USBVendors.txt in Resources */,
 				3E99F0A3152B6A1D00F97A0C /* InfoPlist.strings in Resources */,
-				3E99F0A4152B6A1D00F97A0C /* MainMenu.nib in Resources */,
 				3E99F0A5152B6A1D00F97A0C /* clean.tiff in Resources */,
 				3E99F0A6152B6A1D00F97A0C /* reload.tiff in Resources */,
 				3E99F0A7152B6A1D00F97A0C /* usbmacro in Resources */,
+				3ED0ACF816187DB2002DDAE7 /* MainMenu.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2936,9 +2939,9 @@
 				DDBF20230BA0A01B007CE86C /* IOUSBControllerV3.cpp in Sources */,
 				3E3AC40E0BC21315008EECB7 /* IOUSBInterfaceUserClient.cpp in Sources */,
 				3E3AC40F0BC2131B008EECB7 /* IOUSBDeviceUserClient.cpp in Sources */,
-				4C16586A103B1CF50066E9B0 /* AppleUSBEHCIDiagnostics.cpp in Sources */,
 				3E9369FA13D09197000D10CF /* IOUSBPipeV2.cpp in Sources */,
 				3EC36A3715F1570E002A6780 /* IOUSBInterfaceUserClientV3.cpp in Sources */,
+				3EF545571642DF6200E53A75 /* AppleUSBDiagnostics.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3279,6 +3282,14 @@
 			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
+		3ED0ACF616187DB2002DDAE7 /* MainMenu.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3ED0ACF716187DB2002DDAE7 /* English */,
+			);
+			name = MainMenu.xib;
+			sourceTree = "<group>";
+		};
 		3ED3854D16012986008B5CB3 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -3293,14 +3304,6 @@
 				3ED3F24504F3CC01001BF1E8 /* English */,
 			);
 			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		3ED3F24804F3CC01001BF1E8 /* MainMenu.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				3ED3F24904F3CC01001BF1E8 /* English */,
-			);
-			name = MainMenu.nib;
 			sourceTree = "<group>";
 		};
 		F5395F93016D5A6B01573190 /* InfoPlist.strings */ = {
@@ -3918,7 +3921,6 @@
 		3EAF8A3D0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -3958,7 +3960,6 @@
 		3EAF8A3E0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3997,7 +3998,6 @@
 		3EAF8A3F0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4041,7 +4041,6 @@
 		3EAF8A5F0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4078,7 +4077,6 @@
 		3EAF8A600B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4114,7 +4112,6 @@
 		3EAF8A610B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4155,7 +4152,6 @@
 		3EAF8A7B0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4194,7 +4190,6 @@
 		3EAF8A7C0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4232,7 +4227,6 @@
 		3EAF8A7D0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4275,7 +4269,6 @@
 		3EAF8A8D0B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4315,7 +4308,6 @@
 		3EAF8A8E0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4354,7 +4346,6 @@
 		3EAF8A8F0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4397,7 +4388,6 @@
 		3EAF8A990B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -4431,7 +4421,6 @@
 		3EAF8A9A0B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4464,7 +4453,6 @@
 		3EAF8A9B0B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4497,7 +4485,6 @@
 		3EAF8AA70B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4537,7 +4524,6 @@
 		3EAF8AA80B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4576,7 +4562,6 @@
 		3EAF8AA90B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4615,7 +4600,6 @@
 		3EAF8AB60B5D42860029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4655,7 +4639,6 @@
 		3EAF8AB70B5D42860029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4694,7 +4677,6 @@
 		3EAF8AB80B5D42860029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4733,7 +4715,6 @@
 		3EAF8AC40B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4773,7 +4754,6 @@
 		3EAF8AC50B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4812,7 +4792,6 @@
 		3EAF8AC60B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4851,7 +4830,6 @@
 		3EAF8AD20B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -4891,7 +4869,6 @@
 		3EAF8AD30B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -4930,11 +4907,10 @@
 		3EAF8AD40B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
-				GCC_PREPROCESSOR_DEFINITIONS = "IOUSBHIDDriver_USE_KPRINTF=5";
+				GCC_PREPROCESSOR_DEFINITIONS = "IOUSBHIDDriver_USE_KPRINTF=6";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = IOUSBHIDDriver/IOUSBHIDDriver.plist;
 				INFOPLIST_PREFIX_HEADER = IOUSBFamilyInfoPlist.pch;
@@ -4970,7 +4946,6 @@
 		3EAF8AE30B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -5010,7 +4985,6 @@
 		3EAF8AE40B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5049,7 +5023,6 @@
 		3EAF8AE50B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5189,7 +5162,6 @@
 		3EAF8B140B5D42870029974F /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -5225,7 +5197,6 @@
 		3EAF8B150B5D42870029974F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5260,7 +5231,6 @@
 		3EAF8B160B5D42870029974F /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5336,7 +5306,6 @@
 		3EBFD1671601264400B85B43 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5372,7 +5341,6 @@
 		3EBFD1681601264400B85B43 /* Logging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -5409,7 +5377,6 @@
 		3EBFD1691601264400B85B43 /* kprintf */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -5455,9 +5422,11 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_OPTIMIZATION_LEVEL = s;
-				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG_LEVEL=3";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"DEBUG_LEVEL=3",
+				);
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "DEBUG_LEVEL=3";
-				OTHER_CFLAGS = "";
 			};
 			name = Logging;
 		};

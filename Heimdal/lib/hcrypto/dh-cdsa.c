@@ -141,6 +141,7 @@ dh_compute_key(unsigned char *shared, const BIGNUM * pub, DH *dh)
     CSSM_KEY derivedKey;
     CSSM_DATA param;
     CSSM_RETURN ret;
+    int size;
 
     memset(&creds, 0, sizeof(creds));
     memset(&derivedKey, 0, sizeof(derivedKey));
@@ -148,7 +149,7 @@ dh_compute_key(unsigned char *shared, const BIGNUM * pub, DH *dh)
     ret = CSSM_CSP_CreateDeriveKeyContext(cspHandle,
 					  CSSM_ALGID_DH,
 					  CSSM_ALGID_RC5, /* will give us plenty of bits */
-					  DH_size(dh),
+					  DH_size(dh) * 8,
 					  &creds,
 					  &cdsa->priv_key,
 					  0,
@@ -176,19 +177,21 @@ dh_compute_key(unsigned char *shared, const BIGNUM * pub, DH *dh)
     free(param.Data);
     if(ret)
 	return 0;
+    
+    size = derivedKey.KeyData.Length;
 
-    if (derivedKey.KeyData.Length >= DH_size(dh)) {
+    if (size > DH_size(dh)) {
 	CSSM_FreeKey(cspHandle, NULL, &derivedKey, CSSM_FALSE);
 	CSSM_DeleteContext(handle);
 	return 0;
     }
 
-    memcpy(shared, derivedKey.KeyData.Data, derivedKey.KeyData.Length);
+    memcpy(shared, derivedKey.KeyData.Data, size);
 
     CSSM_FreeKey(cspHandle, NULL, &derivedKey, CSSM_FALSE);
     CSSM_DeleteContext(handle);
 
-    return 1;
+    return size;
 }
 
 static int

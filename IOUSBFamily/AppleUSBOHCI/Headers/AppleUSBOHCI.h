@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,9 @@ __attribute__((format(printf, 1, 2)));
 #else
 #define IOSync() __asm__ __volatile__ ( "mfence" : : : "memory" )
 #endif
+
+// This is an iVar in our superclass' expansion data
+#define	_ERRATA64BITS					_v3ExpansionData->_errata64Bits
 
 typedef struct AppleOHCIIntHeadStruct
                     AppleOHCIIntHead,
@@ -157,7 +160,6 @@ protected:
     UInt16											_vendorID;
     UInt16											_deviceID;
     UInt16											_revisionID;
-    UInt32											_errataBits;			// various bits for chip erratas
     OHCIRegistersPtr								_pOHCIRegisters;		// Pointer to base address of OHCI registers.
 	Ptr												_pHCCA;					// Pointer to HCCA.
 	IOBufferMemoryDescriptor *						_hccaBuffer;			// Buffer memory descriptor for the HCCA registers
@@ -192,7 +194,6 @@ protected:
     UInt32									_dataAllocationSize;	// # of bytes allocated in for TD's
     IOFilterInterruptEventSource *			_filterInterruptSource;
     bool									_uimInitialized;
-    bool									_hasPCIPwrMgmt;
     IOPhysicalAddress						_hccaPhysAddr;
     AbsoluteTime							_lastCheckedTime;		// Last time we checked the Root Hub for inactivity
     AbsoluteTime							_lastRootHubStatusChanged;	// Last time we had activity on the root hub

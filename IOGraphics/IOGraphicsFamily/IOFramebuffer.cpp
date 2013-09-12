@@ -101,7 +101,7 @@ enum {
     kIOFBClamshellProbeDelayMS = 1*1000
 };
 enum {
-    kIOFBClamshellEnableDelayMS = 5*1000
+    kIOFBClamshellEnableDelayMS = 15*1000
 };
 
 enum
@@ -4043,14 +4043,11 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
 		    __private->actualVBLCount = 0;
 			updateVBL(this, NULL);
 			ret = deliverFramebufferNotification(kIOFBNotifyDidWake, (void *) true);
-			ret = deliverFramebufferNotification(kIOFBNotifyDidPowerOn, (void *) false);
 			info = (void *) false;
 			break;
 
         case kIOFBNotifyDidPowerOn:
 			pagingState = true;
-			if (sleepConnectCheck)
-				sendEvent = false;
 			ret = kIOReturnSuccess;
             break;
 
@@ -4153,8 +4150,9 @@ IOReturn IOFramebuffer::postWake(void)
 	__private->controller->postWakeChange = __private->controller->connectChange;
 //	gIOFBLastReadClamshellState = gIOFBCurrentClamshellState;
 
-	resetClamshell();
 	sleepConnectCheck = false;
+
+	resetClamshell(kIOFBClamshellEnableDelayMS);
 
     return (ret);
 }
@@ -4416,7 +4414,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		clamshellProperty = gIOResourcesAppleClamshellState;
 		if (clamshellProperty)
 		{
-//			gIOFBLastClamshellState = 
+			gIOFBLastClamshellState = 
 			gIOFBCurrentClamshellState = (kOSBooleanTrue == clamshellProperty);
 			DEBG1("S", " clamshell read %d\n", (int) gIOFBCurrentClamshellState);
 		
@@ -4439,7 +4437,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 			{
 				// lid change, desktop mode
 				DEBG1("S", " desktop will reprobe\n");
-				resetClamshell();
+				resetClamshell(kIOFBClamshellProbeDelayMS);
 			}
 		}
 	}
@@ -4540,7 +4538,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 			fb->deliverFramebufferNotification(kIOFBNotifyProbed, NULL);
 			FBUNLOCK(fb);
 		}
-		resetClamshell();
+		resetClamshell(kIOFBClamshellProbeDelayMS);
 	}
 }
 
@@ -5029,7 +5027,7 @@ IOReturn IOFramebuffer::extEndConnectionChange(void)
 		err = gIOGraphicsControl->message(kIOFBMessageEndConnectChange, controller->fbs[0], NULL);
 	}
 
-	resetClamshell();
+	resetClamshell(kIOFBClamshellProbeDelayMS);
 	startControllerThread(controller);
 
 	return (kIOReturnSuccess);
@@ -5404,13 +5402,14 @@ IOReturn IOFramebuffer::setPowerState( unsigned long powerStateOrdinal,
 		IOLog("graphics notify timeout (%d, %d)", serverState, serverNotified);
 
     FBLOCK(this);
+    if (!__private->closed)
+	{
+		pendingPowerState = powerStateOrdinal;
+		pendingPowerChange = true;
 
-	pendingPowerState = powerStateOrdinal;
-	pendingPowerChange = true;
-
-	startControllerThread(__private->controller);
-    ret = kPowerStateTimeout * 1000 * 1000;
-
+		startControllerThread(__private->controller);
+		ret = kPowerStateTimeout * 1000 * 1000;
+	}
     FBUNLOCK(this);
 
     return (ret);
@@ -5460,10 +5459,10 @@ void IOFramebuffer::delayedEvent(thread_call_param_t p0, thread_call_param_t p1)
 	startThread(false);
 }
 
-void IOFramebuffer::resetClamshell(void)
+void IOFramebuffer::resetClamshell(uint32_t delay)
 {
 	AbsoluteTime deadline;
-	clock_interval_to_deadline(kIOFBClamshellProbeDelayMS, kMillisecondScale, &deadline );
+	clock_interval_to_deadline(delay, kMillisecondScale, &deadline );
 	thread_call_enter1_delayed(gIOFBClamshellCallout,
 								(thread_call_param_t) kIOFBEventResetClamshell, deadline );
 }
@@ -7114,9 +7113,15 @@ void IOFramebuffer::findConsole(void)
 			&& !value)
 			continue;
 
-        fb = look;
-        if ((look == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer)
-            break;
+		if (kIODisplayOptionBacklight & look->__private->displayOptions)
+		{
+			fb = look;
+			break;
+		}
+		if (!fb || (look == gIOFBConsoleFramebuffer))
+		{
+			fb = look;
+		}
     }
 
     if (fb)
@@ -7587,7 +7592,7 @@ IOReturn IOFramebuffer::extGetAttribute(
 				{
 					inst->messageClients(kIOMessageServiceIsSuspended, (void *) true);
 				}
-				resetClamshell();
+				resetClamshell(kIOFBClamshellProbeDelayMS);
 				startControllerThread(inst->__private->controller);
 			}
 			}

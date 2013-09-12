@@ -8,11 +8,14 @@
 <title>mod_proxy - Apache HTTP Server</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -111,7 +114,7 @@
 <li><code class="module"><a href="../mod/mod_proxy_connect.html">mod_proxy_connect</a></code></li>
 <li><code class="module"><a href="../mod/mod_proxy_balancer.html">mod_proxy_balancer</a></code></li>
 <li><code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="forwardreverse" id="forwardreverse">Forward Proxies and Reverse 
@@ -551,7 +554,7 @@ directly</td></tr>
     </dl>
 
     <p>As a degenerate case, a <em>SubNet</em> with 32 valid bits is the
-    equivalent to an <var><a href="#ipadr">IPAddr</a></var>, while a <var>SubNet</var> with zero
+    equivalent to an <var><a href="#ipaddr">IPAddr</a></var>, while a <var>SubNet</var> with zero
     valid bits (<em>e.g.</em>, 0.0.0.0/0) is the same as the constant
     <var>_Default_</var>, matching any IP address.</p></dd>
 
@@ -1154,6 +1157,16 @@ through</td></tr>
         in the list. Worker recovery behaves the same as other worker errors.
         Available with Apache HTTP Server 2.2.17 and later.
     </td></tr>
+    <tr><td>forcerecovery</td>
+        <td>On</td>
+        <td>Force the immediate recovery of all workers without considering the
+        retry parameter of the workers if all workers of a balancer are
+        in error state. There might be cases where an already overloaded backend
+        can get into deeper trouble if the recovery of all workers is enforced
+        without considering the retry parameter of each worker. In this case
+        set to <code>Off</code>.
+        Available with Apache HTTP Server 2.2.23 and later.
+    </td></tr>
     
     </table>
     <p>A sample balancer setup</p>
@@ -1415,11 +1428,11 @@ reverse proxy. This directive rewrites the <code>path</code> string in
 <var>public-path</var>.
 </p><p>
 In the example given with 
-<code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code>, the directive:
+<code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code>, the directive:</p>
     <div class="example"><p><code>
       ProxyPassReverseCookiePath  /  /mirror/foo/
     </code></p></div>
-will rewrite a cookie with backend path <code>/</code> (or
+<p>will rewrite a cookie with backend path <code>/</code> (or
 <code>/example</code> or, in fact, anything) to <code>/mirror/foo/</code>.
 </p>
 
@@ -1546,6 +1559,9 @@ expressions</td></tr>
     need also <code class="module"><a href="../mod/mod_proxy_http.html">mod_proxy_http</a></code> or <code class="module"><a href="../mod/mod_proxy_ftp.html">mod_proxy_ftp</a></code>
     (or both) present in the server.</p>
 
+    <p>In order to get the functionality of (forward) proxying HTTPS sites, you
+    need <code class="module"><a href="../mod/mod_proxy_connect.html">mod_proxy_connect</a></code> enabled in the server.</p>
+
     <div class="warning"><h3>Warning</h3>
       <p>Do not enable proxying with <code class="directive"><a href="#proxyrequests">ProxyRequests</a></code> until you have <a href="#access">secured your server</a>.  Open proxy servers are dangerous
       both to your network and to the Internet at large.</p>
@@ -1642,7 +1658,7 @@ expressions</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.0.31 and later</td></tr>
 </table>
-    <p>This directive allows a user to specifiy a timeout on proxy requests.
+    <p>This directive allows a user to specify a timeout on proxy requests.
     This is useful when you have a slow/buggy appserver which hangs, and you
     would rather just return a timeout and fail gracefully instead of waiting
     however long it takes the server to return.</p>
@@ -1687,7 +1703,28 @@ header for proxied requests</td></tr>
 <p><span>Available Languages: </span><a href="../en/mod/mod_proxy.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_proxy.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_proxy.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

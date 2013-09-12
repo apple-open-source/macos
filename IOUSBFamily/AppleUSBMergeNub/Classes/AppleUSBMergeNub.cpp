@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2013 Apple Inc.  All rights reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,7 +180,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                 localCopyOfProvidersDictionary = OSDictionary::withDictionary( providerDictionary, 0);
                 if ( localCopyOfProvidersDictionary == NULL )
                 {
-                    USBError(1,"%s[%p]::MergeDictionaryIntoProvider  could not copy our provider's dictionary",getName(), this);
+                    USBError(1,"%s::MergeDictionaryIntoProvider  could not copy our provider's dictionary",getName());
                     break;
                 }
 
@@ -204,7 +204,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                     providerSizeAfterMerge = providerDictionary->getCapacity();
                     if ( providerSizeAfterMerge != providerSize )
                     {
-                        USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, (uint32_t) providerSize, (uint32_t) providerSizeAfterMerge);
+                        USBError(1,"%s::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), (uint32_t) providerSize, (uint32_t) providerSizeAfterMerge);
                     }
 
                     USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
@@ -316,7 +316,7 @@ AppleUSBMergeNub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDicti
 			localCopyOfTargetDictionary = OSDictionary::withDictionary( childTargetDictionary, 0);
 			if ( localCopyOfTargetDictionary == NULL )
 			{
-				USBError(1,"%s[%p]::MergeDictionaryIntoDictionary  could not copy our target's dictionary",getName(), this);
+				USBError(1,"%s::MergeDictionaryIntoDictionary  could not copy our target's dictionary",getName());
 				break;
 			}
 			
@@ -339,7 +339,7 @@ AppleUSBMergeNub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDicti
 				targetSizeAfterMerge = childTargetDictionary->getCapacity();
 				if ( targetSizeAfterMerge != targetSize )
 				{
-					USBError(1,"%s[%p]::MergeDictionaryIntoDictionary  our target's dictionary size changed (%d,%d)",getName(), this, (uint32_t) targetSize, (uint32_t) targetSizeAfterMerge);
+					USBError(1,"%s::MergeDictionaryIntoDictionary  our target's dictionary size changed (%d,%d)",getName(), (uint32_t) targetSize, (uint32_t) targetSizeAfterMerge);
 				}
 				
 				USBLog(5,"%s[%p]::MergeDictionaryIntoDictionary  setting  dictionary %s from merged dictionary (%p)", getName(), this, str, localCopyOfTargetDictionary);

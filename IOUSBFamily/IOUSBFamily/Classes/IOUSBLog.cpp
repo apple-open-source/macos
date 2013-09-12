@@ -441,6 +441,9 @@ IOUSBLog::stringFromReturn( IOReturn rtn )
 		{kIOUSBEndpointCountExceeded,						"Controller does not support more endpoints"     						},
 		{kIOUSBDeviceCountExceeded,							"Controller does not support more devices"     							},
 		{kIOUSBStreamsNotSupported,							"Controller does not support USB 3 streams"     						},
+		{kIOUSBTooManyTransactionsPending,					"Request would exceed the allowed # of pending transactions"			},
+        {kIOReturnIsoTooOld,                                "isochronous I/O request for distant past"                              },
+        {kIOReturnIsoTooNew,                                "isochronous I/O request for distant future"                            },
 		{0,													NULL																	}
 	};
 	

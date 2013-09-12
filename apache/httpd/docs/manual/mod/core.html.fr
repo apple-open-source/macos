@@ -8,11 +8,14 @@
 <title>core - Serveur Apache HTTP</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -102,7 +105,7 @@ en toutes circonstances</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#usecanonicalphysicalport">UseCanonicalPhysicalPort</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#virtualhost">&lt;VirtualHost&gt;</a></li>
 </ul>
-</div>
+<ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AcceptFilter" id="AcceptFilter">AcceptFilter</a> <a name="acceptfilter" id="acceptfilter">Directive</a></h2>
@@ -491,7 +494,7 @@ ultérieures. L'option NoDecode est disponible depuis la version
 
       <dd>
 
-      Permet l'utilisation des directives d'autorisation (<code class="directive"><a href="../mod/mod_authn_dbm.html#authdbmgroupfile">AuthDBMGroupFile</a></code>,
+      Permet l'utilisation des directives d'autorisation (<code class="directive"><a href="../mod/mod_authz_dbm.html#authdbmgroupfile">AuthDBMGroupFile</a></code>,
       <code class="directive"><a href="../mod/mod_authn_dbm.html#authdbmuserfile">AuthDBMUserFile</a></code>,
       <code class="directive"><a href="../mod/mod_authz_groupfile.html#authgroupfile">AuthGroupFile</a></code>,
       <code class="directive"><a href="#authname">AuthName</a></code>,
@@ -505,7 +508,8 @@ ultérieures. L'option NoDecode est disponible depuis la version
       <code class="directive"><a href="#sethandler">SetHandler</a></code>, <code class="directive"><a href="#setinputfilter">SetInputFilter</a></code>, <code class="directive"><a href="#setoutputfilter">SetOutputFilter</a></code>, et directives du
       module <code class="module"><a href="../mod/mod_mime.html">mod_mime</a></code> Add* et Remove*,
       <em>etc...</em>), des metadonnées des documents (<code class="directive"><a href="../mod/mod_headers.html#header">Header</a></code>, <code class="directive"><a href="../mod/mod_headers.html#requestheader">RequestHeader</a></code>, <code class="directive"><a href="../mod/mod_setenvif.html#setenvif">SetEnvIf</a></code>, <code class="directive"><a href="../mod/mod_setenvif.html#setenvifnocase">SetEnvIfNoCase</a></code>, <code class="directive"><a href="../mod/mod_setenvif.html#browsermatch">BrowserMatch</a></code>, <code class="directive"><a href="../mod/mod_usertrack.html#cookieexpires">CookieExpires</a></code>, <code class="directive"><a href="../mod/mod_usertrack.html#cookiedomain">CookieDomain</a></code>, <code class="directive"><a href="../mod/mod_usertrack.html#cookiestyle">CookieStyle</a></code>, <code class="directive"><a href="../mod/mod_usertrack.html#cookietracking">CookieTracking</a></code>, <code class="directive"><a href="../mod/mod_usertrack.html#cookiename">CookieName</a></code>), des directives du
-      module <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> <code class="directive"><a href="../mod/mod_rewrite.html#rewriteengine">RewriteEngine</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewriteoptions">RewriteOptions</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewritebase">RewriteBase</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code>) et de la directive
+      module <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> (<code class="directive"><a href="../mod/mod_rewrite.html#rewriteengine">RewriteEngine</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewriteoptions">RewriteOptions</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewritebase">RewriteBase</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>, <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code>), des directives du
+      module <code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code> directives (<code class="directive"><a href="../mod/mod_alias.html#redirect">Redirect</a></code>, <code class="directive"><a href="../mod/mod_alias.html#redirecttemp">RedirectTemp</a></code>, <code class="directive"><a href="../mod/mod_alias.html#redirectpermanent">RedirectPermanent</a></code>, <code class="directive"><a href="../mod/mod_alias.html#redirectmatch">RedirectMatch</a></code>), et de la directive
       <code class="directive"><a href="../mod/mod_actions.html#action">Action</a></code> du module
       <code class="module"><a href="../mod/mod_actions.html">mod_actions</a></code>.
       </dd>
@@ -517,7 +521,8 @@ ultérieures. L'option NoDecode est disponible depuis la version
       des répertoires (<code class="directive"><a href="../mod/mod_autoindex.html#adddescription">AddDescription</a></code>,
       <code class="directive"><a href="../mod/mod_autoindex.html#addicon">AddIcon</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#addiconbyencoding">AddIconByEncoding</a></code>,
       <code class="directive"><a href="../mod/mod_autoindex.html#addiconbytype">AddIconByType</a></code>,
-      <code class="directive"><a href="../mod/mod_autoindex.html#defaulticon">DefaultIcon</a></code>, <code class="directive"><a href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#fancyindexing">FancyIndexing</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#headername">HeaderName</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#indexignore">IndexIgnore</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#indexoptions">IndexOptions</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#readmename">ReadmeName</a></code>,
+      <code class="directive"><a href="../mod/mod_autoindex.html#defaulticon">DefaultIcon</a></code>, <code class="directive"><a href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a></code>, <a href="mod_autoindex.html#indexoptions.fancyindexing"><code>FancyIndexing</code></a>,
+      <code class="directive"><a href="../mod/mod_autoindex.html#headername">HeaderName</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#indexignore">IndexIgnore</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#indexoptions">IndexOptions</a></code>, <code class="directive"><a href="../mod/mod_autoindex.html#readmename">ReadmeName</a></code>,
       <em>etc...</em>).</dd>
 
       <dt>Limit</dt>
@@ -802,7 +807,7 @@ sous-répertoires, et à leur contenu.</td></tr>
     <code>~</code>. Par exemple :</p>
 
     <div class="example"><p><code>
-      &lt;Directory ~ "^/www/.*/[0-9]{3}"&gt;
+      &lt;Directory ~ "^/www/[0-9]{3}"&gt;
     </code></p></div>
 
     <p>pourra correspondre à tout répertoire situé dans /www/ et dont le
@@ -853,7 +858,7 @@ sous-répertoires, et à leur contenu.</td></tr>
     configuration. Par exemple, avec</p>
 
     <div class="example"><p><code>
-      &lt;Directory ~ abc$&gt;<br />
+      &lt;Directory ~ "public_html/.*"&gt;<br />
       <span class="indent">
         # ... directives here ...<br />
       </span>
@@ -1129,7 +1134,7 @@ différente dans Apache 2.0</td></tr>
 
       <li>afficher un message personnalisé</li>
 
-      <li>rediriger vers un <var>chemin d'URL</var> local pour traiter
+      <li>rediriger en interne vers un <var>chemin d'URL</var> local pour traiter
       le problème ou l'erreur</li>
 
       <li>rediriger vers une <var>URL</var> externe pour traiter
@@ -1398,7 +1403,18 @@ précisés</td></tr>
     <p>L'argument <var>filename</var> peut contenir un nom de fichier
     ou une chaîne de caractères avec caractères génériques, où
     <code>?</code> remplace un caractère, et <code>*</code> toute chaîne
-    de caractères. On peut aussi utiliser les <a class="glossarylink" href="../glossary.html#regex" title="voir glossaire">Expressions rationnelles</a> en ajoutant la
+    de caractères :</p>
+    <div class="example"><pre>&lt;Files "cat.html"&gt;
+    # Insérer ici les directives s'appliquant au fichier cat.html
+&lt;/Files&gt;
+
+&lt;Files "?at.*"&gt;
+    # Les directives insérées ici s'appliqueront aux fichiers cat.html,
+    # bat.html, hat.php et ainsi de suite.
+&lt;/Files&gt;</pre></div>
+    
+    <p>
+    On peut aussi utiliser les <a class="glossarylink" href="../glossary.html#regex" title="voir glossaire">Expressions rationnelles</a> en ajoutant la
     caractère <code>~</code>. Par exemple :</p>
 
     <div class="example"><p><code>
@@ -2099,9 +2115,7 @@ requête HTTP</td></tr>
     </code></p></div>
 
     <div class="note">Dans des conditions normales, la valeur par défaut de cette
-    directive ne doit pas être modifiée. En outre, vous ne
-    pouvez pas spécifier une valeur supérieure à 8190 sans modifier le
-    code source et recompiler.</div>
+    directive ne doit pas être modifiée.</div>
 
     <div class="warning"><h3>Avertissement</h3>
      <p>Dans le cas des serveurs virtuels par noms, la valeur de
@@ -2668,8 +2682,12 @@ particulier</td></tr>
       <p>Bien que le serveur suive les liens symboliques, il ne modifie
       <em>pas</em> le nom de chemin concerné défini par la section
       <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code>.</p>
-      <p>Notez aussi que cette option <strong>est ignorée</strong> si
-      elle est définie dans une section <code class="directive"><a href="#location">&lt;Location&gt;</a></code>.</p>
+       
+      <p>Les options <code>FollowSymLinks</code> et
+      <code>SymLinksIfOwnerMatch</code> ne fonctionnent que dans les
+      sections <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code> ou les fichiers
+      <code>.htaccess</code>.</p>
+
       <p>Le fait d'omettre cette option ne doit pas être considéré comme
       une mesure de sécurité efficace, car il existe toujours une
       situation de compétition (race condition) entre l'instant où l'on
@@ -2714,14 +2732,18 @@ particulier</td></tr>
       vers un fichier ou un répertoire dont le propriétaire est le même
       que celui du lien.
 
-      <div class="note"><h3>Note</h3> <p>Cette option est ignorée si elle est
-      définie dans une section <code class="directive"><a href="#location">&lt;Location&gt;</a></code>.</p>
+      <div class="note"><h3>Note</h3>
+      <p>Les options <code>FollowSymLinks</code> et
+      <code>SymLinksIfOwnerMatch</code> ne fonctionnent que dans les
+      sections <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code> ou les fichiers
+      <code>.htaccess</code>.</p>
+
       <p>Le fait d'omettre cette option ne doit pas être considéré comme
       une mesure de sécurité efficace, car il existe toujours une
       situation de compétition (race condition) entre l'instant où l'on
       vérifie qu'un chemin n'est pas un lien symbolique, et l'instant où
-      l'on utilise effectivement ce chemin.</p></div>
-      </dd>
+      l'on utilise effectivement ce chemin.</p>
+      </div> </dd>
     </dl>
 
     <p>Normalement, si plusieurs directives
@@ -3245,6 +3267,16 @@ serveurs virtuels à base de nom</td></tr>
       &lt;/VirtualHost&gt;
     </code></p></div>
 
+    <p>La recherche du serveur virtuel à base de nom qui correspond le
+    mieux s'effectue selon l'ordre d'apparition des sections <code class="directive"><a href="#virtualhost">&lt;virtualhost&gt;</a></code> dans le fichier
+    de configuration. Le premier serveur virtuel dont le <code class="directive"><a href="#servername">ServerName</a></code> ou le <code class="directive"><a href="#serveralias">ServerAlias</a></code> correspond est choisi, sans
+    préférence si le nom contient des caractères génériques ou pas.</p>
+
+    <p>Tous les noms spécifiés au sein d'une section
+    <code class="directive">VirtualHost</code> sont traités comme un
+    <code class="directive">ServerAlias</code> (sans caractères génériques).</p>
+
+
 <h3>Voir aussi</h3>
 <ul>
 <li><code class="directive"><a href="#usecanonicalname">UseCanonicalName</a></code></li>
@@ -3729,7 +3761,7 @@ et son port</td></tr>
     <code>http://www.domain.com/splat/</code>. Si vous avez activé
     l'authentification, ceci va obliger l'utilisateur à s'authentifier
     deux fois (une première fois pour <code>www</code> et une seconde
-    fois pour <code>www.domain.com</code> -- voir <a href="http://httpd.apache.org/docs/misc/FAQ.html#prompted-twice">la
+    fois pour <code>www.domain.com</code> -- voir <a href="http://wiki.apache.org/httpd/FAQ#Why_does_Apache_ask_for_my_password_twice_before_serving_a_file.3F">la
     foire aux questions sur ce sujet pour plus d'informations</a>). Par
     contre, si <code class="directive">UseCanonicalName</code> est définie à
     <code>Off</code>, Apache redirigera l'utilisateur vers
@@ -3952,7 +3984,28 @@ entre elles à la réception d'une requête</li>
 <a href="../fr/mod/core.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/core.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

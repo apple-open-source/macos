@@ -34,9 +34,9 @@ typedef struct
 
 typedef RHCommandHeader*	RHCommandHeaderPtr;
 
-/*!
- @class IOUSBRootHubDevice
- @abstract The object representing the Root Hub simulation.
+/*
+ class IOUSBRootHubDevice
+ The object representing the Root Hub simulation.
  */
 class IOUSBRootHubDevice : public IOUSBHubDevice
 {

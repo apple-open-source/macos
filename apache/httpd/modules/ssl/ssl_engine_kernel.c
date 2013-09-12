@@ -73,37 +73,16 @@ int ssl_hook_ReadReq(request_rec *r)
         return DECLINED;
     }
 
-    if (sslconn->non_ssl_request) {
-        const char *errmsg;
-        char *thisurl;
-        char *thisport = "";
-        int port = ap_get_server_port(r);
-
-        if (!ap_is_default_port(port, r)) {
-            thisport = apr_psprintf(r->pool, ":%u", port);
-        }
-
-        thisurl = ap_escape_html(r->pool,
-                                 apr_psprintf(r->pool, "https://%s%s/",
-                                              ap_get_server_name(r),
-                                              thisport));
-
-        errmsg = apr_psprintf(r->pool,
-                              "Reason: You're speaking plain HTTP "
-                              "to an SSL-enabled server port.<br />\n"
-                              "Instead use the HTTPS scheme to access "
-                              "this URL, please.<br />\n"
-                              "<blockquote>Hint: "
-                              "<a href=\"%s\"><b>%s</b></a></blockquote>",
-                              thisurl, thisurl);
-
-        apr_table_setn(r->notes, "error-notes", errmsg);
+    if (sslconn->non_ssl_request == NON_SSL_SET_ERROR_MSG) {
+        apr_table_setn(r->notes, "error-notes",
+                       "Reason: You're speaking plain HTTP to an SSL-enabled "
+                       "server port.<br />\n Instead use the HTTPS scheme to "
+                       "access this URL, please.<br />\n");
 
         /* Now that we have caught this error, forget it. we are done
          * with using SSL on this request.
          */
-        sslconn->non_ssl_request = 0;
-
+        sslconn->non_ssl_request = NON_SSL_OK;
 
         return HTTP_BAD_REQUEST;
     }
@@ -741,6 +720,7 @@ int ssl_hook_Access(request_rec *r)
             }
         }
         else {
+            const char *reneg_support;
             request_rec *id = r->main ? r->main : r;
 
             /* Additional mitigation for CVE-2009-3555: At this point,
@@ -760,17 +740,17 @@ int ssl_hook_Access(request_rec *r)
                 r->connection->keepalive = AP_CONN_CLOSE;
             }
 
+#if defined(SSL_get_secure_renegotiation_support)
+            reneg_support = SSL_get_secure_renegotiation_support(ssl) ?
+                            "client does" : "client does not";
+#else
+            reneg_support = "server does not";
+#endif
             /* Perform a full renegotiation. */
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                           "Performing full renegotiation: complete handshake "
                           "protocol (%s support secure renegotiation)",
-#if defined(SSL_get_secure_renegotiation_support)
-                          SSL_get_secure_renegotiation_support(ssl) ? 
-                          "client does" : "client does not"
-#else
-                          "server does not"
-#endif
-                );
+                          reneg_support);
 
             SSL_set_session_id_context(ssl,
                                        (unsigned char *)&id,
@@ -1587,7 +1567,7 @@ int ssl_callback_SSLVerify_CRL(int ok, X509_STORE_CTX *ctx, conn_rec *c)
             ASN1_INTEGER *sn = X509_REVOKED_get_serialNumber(revoked);
 
             if (!ASN1_INTEGER_cmp(sn, X509_get_serialNumber(cert))) {
-                if (s->loglevel >= APLOG_DEBUG) {
+                if (s->loglevel >= APLOG_INFO) {
                     char *cp = X509_NAME_oneline(issuer, NULL, 0);
                     long serial = ASN1_INTEGER_get(sn);
 
@@ -1651,11 +1631,14 @@ int ssl_callback_proxy_cert(SSL *ssl, MODSSL_CLIENT_CERT_CB_ARG_TYPE **x509, EVP
     conn_rec *c = (conn_rec *)SSL_get_app_data(ssl);
     server_rec *s = mySrvFromConn(c);
     SSLSrvConfigRec *sc = mySrvConfig(s);
-    X509_NAME *ca_name, *issuer;
+    X509_NAME *ca_name, *issuer, *ca_issuer;
     X509_INFO *info;
+    X509 *ca_cert;
     STACK_OF(X509_NAME) *ca_list;
     STACK_OF(X509_INFO) *certs = sc->proxy->pkp->certs;
-    int i, j;
+    STACK_OF(X509) *ca_certs;
+    STACK_OF(X509) **ca_cert_chains;
+    int i, j, k;
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
                  SSLPROXY_CERT_CB_LOG_FMT "entered",
@@ -1685,6 +1668,7 @@ int ssl_callback_proxy_cert(SSL *ssl, MODSSL_CLIENT_CERT_CB_ARG_TYPE **x509, EVP
         return TRUE;
     }
 
+    ca_cert_chains = sc->proxy->pkp->ca_certs;
     for (i = 0; i < sk_X509_NAME_num(ca_list); i++) {
         ca_name = sk_X509_NAME_value(ca_list, i);
 
@@ -1692,6 +1676,7 @@ int ssl_callback_proxy_cert(SSL *ssl, MODSSL_CLIENT_CERT_CB_ARG_TYPE **x509, EVP
             info = sk_X509_INFO_value(certs, j);
             issuer = X509_get_issuer_name(info->x509);
 
+            /* Search certs (by issuer name) one by one*/
             if (X509_NAME_cmp(issuer, ca_name) == 0) {
                 modssl_proxy_info_log(s, info, "found acceptable cert");
 
@@ -1699,7 +1684,27 @@ int ssl_callback_proxy_cert(SSL *ssl, MODSSL_CLIENT_CERT_CB_ARG_TYPE **x509, EVP
 
                 return TRUE;
             }
-        }
+
+            if (ca_cert_chains) {
+                /*
+                 * Failed to find direct issuer - search intermediates
+                 * (by issuer name), if provided.
+                 */
+                ca_certs = ca_cert_chains[j];
+                for (k = 0; k < sk_X509_num(ca_certs); k++) {
+                    ca_cert = sk_X509_value(ca_certs, k);
+                    ca_issuer = X509_get_issuer_name(ca_cert);
+
+                    if(X509_NAME_cmp(ca_issuer, ca_name) == 0 ) {
+                        modssl_proxy_info_log(s, info, "found acceptable cert by intermediate CA");
+
+                        modssl_set_cert_info(info, x509, pkey);
+
+                        return TRUE;
+                    }
+                } /* end loop through chained certs */
+            }
+        } /* end loop through available certs */
     }
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,

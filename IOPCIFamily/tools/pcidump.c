@@ -412,6 +412,7 @@ dumpDevice(io_connect_t connect, uint32_t segment,
     io_registry_entry_t service;
     kern_return_t       status;
     io_name_t           name;
+    uint64_t     		entryID;
     uint32_t off;
     uint32_t vendProd;
     uint32_t vend;
@@ -436,7 +437,9 @@ dumpDevice(io_connect_t connect, uint32_t segment,
     {
         status = IORegistryEntryGetName(service, name);
         assert(kIOReturnSuccess == status);
-        printf("\"%s\" - ", name);
+        status = IORegistryEntryGetRegistryEntryID(service, &entryID);
+        assert(kIOReturnSuccess == status);
+        printf("\"%s\", 0x%qx - ", name, entryID);
         IOObjectRelease(service);
     }
 
@@ -494,7 +497,7 @@ int main(int argc, char **argv)
         bus    = strtoul(argv[1], NULL, 0);
         device = strtoul(argv[2], NULL, 0);
         fn     = strtoul(argv[3], NULL, 0);
-		if (argc == 3)
+		if (argc == 4)
 		{
             dumpDevice(connect, segment, bus, device, fn, NULL, NULL);
     	    count++;
@@ -531,7 +534,7 @@ int main(int argc, char **argv)
         uint64_t offs;
         uint32_t data;
         offs = strtoull(argv[1], NULL, 0);
-		if (offs > 0x10000ULL)
+		if (true || (offs > 0x10000ULL))
 		{
 			data = physRead32(connect, offs);
 			printf("read 0x%08x from mem 0x%llX\n", data, offs);

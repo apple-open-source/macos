@@ -681,7 +681,6 @@
 		C942110F13900C8A004BA536 /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C942111013900C8A004BA536 /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C942111113900C8A004BA536 /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C942111213900C8A004BA536 /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C942111313900C8A004BA536 /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C942112613900C8A004BA536 /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C942112713900C8A004BA536 /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -1407,7 +1406,6 @@
 		C95B7FBA138F3C55004311DA /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C95B7FBB138F3C55004311DA /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C95B7FBC138F3C55004311DA /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C95B7FBD138F3C55004311DA /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C95B7FBE138F3C55004311DA /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C95B7FD1138F3C55004311DA /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C95B7FD2138F3C55004311DA /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -2027,7 +2025,6 @@
 		C95B8265138F52B0004311DA /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C95B8266138F52B0004311DA /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C95B8267138F52B0004311DA /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C95B8268138F52B0004311DA /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C95B8269138F52B0004311DA /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C95B827C138F52B0004311DA /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C95B827D138F52B0004311DA /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -2647,7 +2644,6 @@
 		C95B850B138F53DB004311DA /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C95B850C138F53DB004311DA /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C95B850D138F53DB004311DA /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C95B850E138F53DB004311DA /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C95B850F138F53DB004311DA /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C95B8522138F53DB004311DA /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C95B8523138F53DB004311DA /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -3268,7 +3264,6 @@
 		C9765F8F138EC61900741512 /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C9765F90138EC61900741512 /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C9765F91138EC61900741512 /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C9765F92138EC61900741512 /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C9765F93138EC61900741512 /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C9765FA6138EC61900741512 /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C9765FA7138EC61900741512 /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -3875,7 +3870,6 @@
 		C9EB2F79138F68A80075BB52 /* _sigtramp.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53845138D9E990028D27C /* _sigtramp.s */; };
 		C9EB2F7A138F68A80075BB52 /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
 		C9EB2F7B138F68A80075BB52 /* i386_gettimeofday_asm.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53847138D9E990028D27C /* i386_gettimeofday_asm.s */; };
-		C9EB2F7C138F68A80075BB52 /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C9EB2F7D138F68A80075BB52 /* mach_absolute_time_asm.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53849138D9E990028D27C /* mach_absolute_time_asm.s */; };
 		C9EB2F7E138F68A80075BB52 /* OSAtomic.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384B138D9E990028D27C /* OSAtomic.s */; };
 		C9EB2F7F138F68A80075BB52 /* setjmp.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384C138D9E990028D27C /* setjmp.s */; };
@@ -4141,7 +4135,6 @@
 		C9EB30AA138F6D880075BB52 /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C9EB30AB138F6D880075BB52 /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C9EB30AC138F6D880075BB52 /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C9EB30AD138F6D880075BB52 /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C9EB30AE138F6D880075BB52 /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C9EB30C1138F6D880075BB52 /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C9EB30C2138F6D880075BB52 /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -4761,7 +4754,6 @@
 		C9EB3351138F75580075BB52 /* memcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53838138D9E990028D27C /* memcpy.c */; };
 		C9EB3352138F75580075BB52 /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53839138D9E990028D27C /* memmove.c */; };
 		C9EB3353138F75580075BB52 /* atomic.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53846138D9E990028D27C /* atomic.c */; };
-		C9EB3354138F75580075BB52 /* mach_absolute_time.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53848138D9E990028D27C /* mach_absolute_time.c */; };
 		C9EB3355138F75580075BB52 /* spinlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5384D138D9E990028D27C /* spinlocks.c */; };
 		C9EB3368138F75580075BB52 /* ascii.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53902138D9E990028D27C /* ascii.c */; };
 		C9EB3369138F75580075BB52 /* big5.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53905138D9E990028D27C /* big5.c */; };
@@ -5858,7 +5850,6 @@
 		C9B53845138D9E990028D27C /* _sigtramp.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = _sigtramp.s; sourceTree = "<group>"; };
 		C9B53846138D9E990028D27C /* atomic.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = atomic.c; sourceTree = "<group>"; };
 		C9B53847138D9E990028D27C /* i386_gettimeofday_asm.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = i386_gettimeofday_asm.s; sourceTree = "<group>"; };
-		C9B53848138D9E990028D27C /* mach_absolute_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mach_absolute_time.c; sourceTree = "<group>"; };
 		C9B53849138D9E990028D27C /* mach_absolute_time_asm.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = mach_absolute_time_asm.s; sourceTree = "<group>"; };
 		C9B5384B138D9E990028D27C /* OSAtomic.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = OSAtomic.s; sourceTree = "<group>"; };
 		C9B5384C138D9E990028D27C /* setjmp.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = setjmp.s; sourceTree = "<group>"; };
@@ -7753,7 +7744,6 @@
 				C9B53845138D9E990028D27C /* _sigtramp.s */,
 				C9B53846138D9E990028D27C /* atomic.c */,
 				C9B53847138D9E990028D27C /* i386_gettimeofday_asm.s */,
-				C9B53848138D9E990028D27C /* mach_absolute_time.c */,
 				C9B53849138D9E990028D27C /* mach_absolute_time_asm.s */,
 				C9B5384B138D9E990028D27C /* OSAtomic.s */,
 				C9B5384C138D9E990028D27C /* setjmp.s */,
@@ -10733,7 +10723,6 @@
 				C942110F13900C8A004BA536 /* memcpy.c in Sources */,
 				C942111013900C8A004BA536 /* memmove.c in Sources */,
 				C942111113900C8A004BA536 /* atomic.c in Sources */,
-				C942111213900C8A004BA536 /* mach_absolute_time.c in Sources */,
 				C942111313900C8A004BA536 /* spinlocks.c in Sources */,
 				C942112613900C8A004BA536 /* ascii.c in Sources */,
 				C942112713900C8A004BA536 /* big5.c in Sources */,
@@ -11378,7 +11367,6 @@
 				C95B7FBA138F3C55004311DA /* memcpy.c in Sources */,
 				C95B7FBB138F3C55004311DA /* memmove.c in Sources */,
 				C95B7FBC138F3C55004311DA /* atomic.c in Sources */,
-				C95B7FBD138F3C55004311DA /* mach_absolute_time.c in Sources */,
 				C95B7FBE138F3C55004311DA /* spinlocks.c in Sources */,
 				C95B7FD1138F3C55004311DA /* ascii.c in Sources */,
 				C95B7FD2138F3C55004311DA /* big5.c in Sources */,
@@ -12009,7 +11997,6 @@
 				C95B8265138F52B0004311DA /* memcpy.c in Sources */,
 				C95B8266138F52B0004311DA /* memmove.c in Sources */,
 				C95B8267138F52B0004311DA /* atomic.c in Sources */,
-				C95B8268138F52B0004311DA /* mach_absolute_time.c in Sources */,
 				C95B8269138F52B0004311DA /* spinlocks.c in Sources */,
 				C95B827C138F52B0004311DA /* ascii.c in Sources */,
 				C95B827D138F52B0004311DA /* big5.c in Sources */,
@@ -12640,7 +12627,6 @@
 				C95B850B138F53DB004311DA /* memcpy.c in Sources */,
 				C95B850C138F53DB004311DA /* memmove.c in Sources */,
 				C95B850D138F53DB004311DA /* atomic.c in Sources */,
-				C95B850E138F53DB004311DA /* mach_absolute_time.c in Sources */,
 				C95B850F138F53DB004311DA /* spinlocks.c in Sources */,
 				C95B8522138F53DB004311DA /* ascii.c in Sources */,
 				C95B8523138F53DB004311DA /* big5.c in Sources */,
@@ -13129,7 +13115,6 @@
 				C9EB2F79138F68A80075BB52 /* _sigtramp.s in Sources */,
 				C9EB2F7A138F68A80075BB52 /* atomic.c in Sources */,
 				C9EB2F7B138F68A80075BB52 /* i386_gettimeofday_asm.s in Sources */,
-				C9EB2F7C138F68A80075BB52 /* mach_absolute_time.c in Sources */,
 				C9EB2F7D138F68A80075BB52 /* mach_absolute_time_asm.s in Sources */,
 				C9EB2F7E138F68A80075BB52 /* OSAtomic.s in Sources */,
 				C9EB2F7F138F68A80075BB52 /* setjmp.s in Sources */,
@@ -13584,7 +13569,6 @@
 				C9765F8F138EC61900741512 /* memcpy.c in Sources */,
 				C9765F90138EC61900741512 /* memmove.c in Sources */,
 				C9765F91138EC61900741512 /* atomic.c in Sources */,
-				C9765F92138EC61900741512 /* mach_absolute_time.c in Sources */,
 				C9765F93138EC61900741512 /* spinlocks.c in Sources */,
 				C9765FA6138EC61900741512 /* ascii.c in Sources */,
 				C9765FA7138EC61900741512 /* big5.c in Sources */,
@@ -14215,7 +14199,6 @@
 				C9EB30AA138F6D880075BB52 /* memcpy.c in Sources */,
 				C9EB30AB138F6D880075BB52 /* memmove.c in Sources */,
 				C9EB30AC138F6D880075BB52 /* atomic.c in Sources */,
-				C9EB30AD138F6D880075BB52 /* mach_absolute_time.c in Sources */,
 				C9EB30AE138F6D880075BB52 /* spinlocks.c in Sources */,
 				C9EB30C1138F6D880075BB52 /* ascii.c in Sources */,
 				C9EB30C2138F6D880075BB52 /* big5.c in Sources */,
@@ -14847,7 +14830,6 @@
 				C9EB3351138F75580075BB52 /* memcpy.c in Sources */,
 				C9EB3352138F75580075BB52 /* memmove.c in Sources */,
 				C9EB3353138F75580075BB52 /* atomic.c in Sources */,
-				C9EB3354138F75580075BB52 /* mach_absolute_time.c in Sources */,
 				C9EB3355138F75580075BB52 /* spinlocks.c in Sources */,
 				C9EB3368138F75580075BB52 /* ascii.c in Sources */,
 				C9EB3369138F75580075BB52 /* big5.c in Sources */,

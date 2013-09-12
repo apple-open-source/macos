@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>APPLEUSBMERGENUB_SHORTVERSION</string>
+	<string>APPLEUSBMERGENUB_VERSION</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
@@ -308,6 +308,27 @@
 			<integer>4752</integer>
 			<key>idProductMask</key>
 			<integer>65520</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>PseudoHID</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kControlNoDataTimeout</key>
+				<integer>500</integer>
+			</dict>
+			<key>idProductArray</key>
+			<array>
+				<integer>33290</integer>
+				<integer>33291</integer>
+			</array>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -1090,6 +1111,30 @@
 			<key>bcdDevice</key>
 			<integer>1049</integer>
 		</dict>
+		<key>GL3219v0005</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ConfigurationDescriptorVerify</key>
+				<array>
+					<data>CQIsAAEBAKBwCQQAAAIIBlAABwWBAgAEAAYwBAAAAAcFAgIABAAGMAQAAAA=</data>
+				</array>
+				<key>ReEnumOnSetConfigFailure</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>33798</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>bcdDevice</key>
+			<integer>5</integer>
+		</dict>
 		<key>Digby ExpressCard</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -1263,6 +1308,7 @@
 			<array>
 				<integer>33795</integer>
 				<integer>33796</integer>
+				<integer>33798</integer>
 			</array>
 			<key>idVendor</key>
 			<integer>1452</integer>

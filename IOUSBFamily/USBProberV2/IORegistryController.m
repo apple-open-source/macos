@@ -281,10 +281,10 @@
     } else if (CFGetTypeID(value) == CFNumberGetTypeID()) {
         switch (CFNumberGetType((CFNumberRef)value)) {
             case kCFNumberSInt32Type:
-                aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:[NSString stringWithFormat:@"%@ (0x%x)",[value description], [value longValue]]];
+                aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:[NSString stringWithFormat:@"%@ (0x%08lx)",[value description], [value longValue]]];
                 break;
             case kCFNumberSInt64Type:
-                aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:[NSString stringWithFormat:@"%@ (0x%x%x)",[value description], [value longLongValue],[value longValue]]];
+                aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:[NSString stringWithFormat:@"%@ (0x%016qx)",[value description], [value longLongValue]]];
                 break;
             default:
                  aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:[NSString stringWithFormat:@"%@ (0x%x)",[value description], [value intValue]]];

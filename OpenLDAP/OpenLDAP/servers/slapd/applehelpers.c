@@ -12,6 +12,11 @@
 static Filter generic_filter = { LDAP_FILTER_PRESENT, { 0 }, NULL };
 static struct berval generic_filterstr = BER_BVC("(objectclass=*)");
 
+static  AttributeDescription *failedLoginsAD = NULL;
+static  AttributeDescription *creationDateAD = NULL;
+static  AttributeDescription *lastLoginAD = NULL;
+static  AttributeDescription *disableReasonAD = NULL;
+
 // This is the generic callback function for odusers_copy_entry, which just
 // returns a copy of the found Entry*
 static int odusers_lookup(Operation *op, SlapReply *rs) {
@@ -153,7 +158,7 @@ Entry *odusers_copy_authdata(struct berval *dn) {
 	OperationBuffer opbuf;
 	Connection conn;
 	Operation *fakeop = NULL;
-	Entry *e = NULL;
+	Entry *usere = NULL;
 	Entry *ret = NULL;
 	char guidstr[37];
 	struct berval authdn;
@@ -163,19 +168,19 @@ Entry *odusers_copy_authdata(struct berval *dn) {
 	fakeop->o_dn = fakeop->o_ndn = *dn;
 	fakeop->o_req_dn = fakeop->o_req_ndn = *dn;
 
-	e = odusers_copy_entry(fakeop);
-	if(!e) {
+	usere = odusers_copy_entry(fakeop);
+	if(!usere) {
 		Debug(LDAP_DEBUG_TRACE, "%s: No entry associated with %s\n", __PRETTY_FUNCTION__, fakeop->o_req_ndn.bv_val, 0);
 		goto out;
 	}
 
-	if( odusers_get_authguid(e, guidstr) != 0) {
+	if( odusers_get_authguid(usere, guidstr) != 0) {
 		Debug(LDAP_DEBUG_TRACE, "%s: Could not locate authguid for record %s", __PRETTY_FUNCTION__, dn->bv_val, 0);
 		goto out;
 	}
 
-	entry_free(e);
-	e = NULL;
+	entry_free(usere);
+	usere = NULL;
 
 	authdn.bv_len = asprintf(&authdn.bv_val, "authGUID=%s,cn=users,cn=authdata", guidstr);
 
@@ -187,7 +192,7 @@ Entry *odusers_copy_authdata(struct berval *dn) {
 	free(authdn.bv_val);
 
 out:
-	if(e) entry_free(e);
+	if(usere) entry_free(usere);
 	return ret;
 }
 
@@ -437,13 +442,8 @@ struct berval *odusers_copy_dict2bv(CFDictionaryRef dict) {
 		return NULL;
 	}
 
-	struct berval *ret = calloc(1, sizeof(struct berval));
-	if(!ret) return NULL;
-
-	ret->bv_len = CFDataGetLength(xmlData);
-	ret->bv_val = calloc(1, ret->bv_len + 1);
-	memcpy(ret->bv_val, CFDataGetBytePtr(xmlData), ret->bv_len);
-
+	struct berval *ret = ber_mem2bv(CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData), 1, NULL);
+	
 	CFRelease(xmlData);
 	return ret;
 }
@@ -451,7 +451,8 @@ struct berval *odusers_copy_dict2bv(CFDictionaryRef dict) {
 CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 	Entry *e = NULL;
 	Attribute *a;
-
+	Attribute *global_attr = NULL;
+	
 	e = odusers_copy_authdata(dn);
 	if(!e) {
 		Debug(LDAP_DEBUG_ANY, "%s: No entry associated with %s\n", __PRETTY_FUNCTION__, dn->bv_val, 0);
@@ -461,18 +462,14 @@ CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 	for(a = e->e_attrs; a; a = a->a_next) {
 		if(strncmp(a->a_desc->ad_cname.bv_val, "apple-user-passwordpolicy", a->a_desc->ad_cname.bv_len) == 0) {
 			Attribute *effective = NULL;
-			Attribute *global = odusers_copy_globalpolicy();
+			global_attr = odusers_copy_globalpolicy();
 			CFDictionaryRef globaldict = NULL;
 			CFMutableDictionaryRef effectivedict = NULL;
 			CFDictionaryRef userdict = NULL;
 			Attribute *failedLogins = NULL;
-			AttributeDescription *failedLoginsAD = NULL;
 			Attribute *creationDate = NULL;
-			AttributeDescription *creationDateAD = NULL;
 			Attribute *lastLogin = NULL;
-			AttributeDescription *lastLoginAD = NULL;
 			Attribute *disableReason = NULL;
-			AttributeDescription *disableReasonAD = NULL;
 			int disableReasonInt = 0;
 			const char *text = NULL;
 			CFDateRef lastLoginCF = NULL;
@@ -481,10 +478,10 @@ CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 			int one = 1;
 			CFNumberRef cfone = NULL;
 
-			if(!global || global->a_numvals == 0) {
+			if(!global_attr || global_attr->a_numvals == 0) {
 				globaldict = odusers_copy_defaultglobalpolicy();
 			} else {
-				globaldict = CopyPolicyToDict(global->a_vals[0].bv_val, global->a_vals[0].bv_len);
+				globaldict = CopyPolicyToDict(global_attr->a_vals[0].bv_val, global_attr->a_vals[0].bv_len);
 				if(!globaldict) {
 					Debug(LDAP_DEBUG_ANY, "%s: Unable to convert retrieved global policy to CFDictionary", __PRETTY_FUNCTION__, 0, 0);
 					goto out;
@@ -507,19 +504,19 @@ CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 				goto out;
 			}
 
-			if(slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
+			if(!lastLoginAD && slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
 				Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 				goto out;
 			}
-			if(slap_str2ad("creationDate", &creationDateAD, &text) != 0) {
+			if(!creationDateAD && slap_str2ad("creationDate", &creationDateAD, &text) != 0) {
 				Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of creationDate attribute", __PRETTY_FUNCTION__, 0, 0);
 				goto out;
 			}
-			if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+			if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 				Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 				goto out;
 			}
-			if(slap_str2ad("disableReason", &disableReasonAD, &text) != 0) {
+			if(!disableReasonAD && slap_str2ad("disableReason", &disableReasonAD, &text) != 0) {
 				Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of disableReason attribute", __PRETTY_FUNCTION__, 0, 0);
 				goto out;
 			}
@@ -572,10 +569,13 @@ CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 			GetDisabledStatus(effectivedict, creationDateCF, lastLoginCF, &loginattempts, disableReasonInt);
 			if(lastLoginCF) CFRelease(lastLoginCF);
 			if(creationDateCF) CFRelease(creationDateCF);
+			if (e) entry_free(e);
 			return effectivedict;
 		}
 	}
 out:
+	if (global_attr) attr_free(global_attr);
+	if (e) entry_free(e);
 	return NULL;
 }
 
@@ -611,12 +611,11 @@ int odusers_increment_failedlogin(struct berval *dn) {
 
 	Entry *e = NULL;
 	Attribute *failedLogins = NULL;
-	AttributeDescription *failedLoginsAD = NULL;
 	const char *text = NULL;
 	uint16_t loginattempts = 0;
 	short optype = LDAP_MOD_ADD;
 
-	if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 		Debug(LDAP_DEBUG_TRACE, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -645,14 +644,17 @@ int odusers_increment_failedlogin(struct berval *dn) {
 	loginattempts++;
 	asprintf(&attemptsstr, "%hu", loginattempts);
 
-	mod = (Modifications *) ch_malloc(sizeof(Modifications));
+	mod = (Modifications *) ch_calloc(sizeof(Modifications), 2);
 
 	mod->sml_op = optype;
 	mod->sml_flags = 0;
 	mod->sml_type = failedLoginsAD->ad_cname;
-	mod->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
-	mod->sml_values[0].bv_val = attemptsstr;
-	mod->sml_values[0].bv_len = strlen(attemptsstr);
+	
+	mod->sml_values = (struct berval*) ch_calloc(sizeof(struct berval), 2);
+	ber_str2bv(attemptsstr, strlen(attemptsstr), 1, &mod->sml_values[0]);
+	if (attemptsstr) free(attemptsstr);
+	attemptsstr = NULL;
+	
 	mod->sml_values[1].bv_val = NULL;
 	mod->sml_values[1].bv_len = 0;
 	mod->sml_numvals = 1;
@@ -700,12 +702,11 @@ int odusers_successful_auth(struct berval *dn, CFDictionaryRef policy) {
 
 	Entry *e = NULL;
 	Attribute *failedLogins = NULL;
-	AttributeDescription *failedLoginsAD = NULL;
 	const char *text = NULL;
 	short tmpshort = 0;
 	CFNumberRef maxMins = NULL;
 
-	if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -723,8 +724,8 @@ int odusers_successful_auth(struct berval *dn, CFDictionaryRef policy) {
 		mod->sml_op = LDAP_MOD_REPLACE;
 		mod->sml_flags = 0;
 		mod->sml_type = failedLoginsAD->ad_cname;
-		mod->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
-		mod->sml_values[0].bv_val = strdup("0");
+		mod->sml_values = (struct berval*) ch_calloc(sizeof(struct berval), 2);
+		mod->sml_values[0].bv_val = ch_strdup("0");
 		mod->sml_values[0].bv_len = 1;
 		mod->sml_values[1].bv_val = NULL;
 		mod->sml_values[1].bv_len = 0;
@@ -739,11 +740,10 @@ int odusers_successful_auth(struct berval *dn, CFDictionaryRef policy) {
 	maxMins = CFDictionaryGetValue(policy, CFSTR("maxMinutesOfNonUse"));
 	if(maxMins) CFNumberGetValue(maxMins, kCFNumberShortType, &tmpshort);
 	if(tmpshort) {
-		AttributeDescription *lastLoginAD = NULL;
 		time_t tmptime;
 		struct tm tmptm;
 
-		if(slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
+		if(!lastLoginAD && slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
 			Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 			goto out;
 		}
@@ -756,9 +756,15 @@ int odusers_successful_auth(struct berval *dn, CFDictionaryRef policy) {
 		mod->sml_op = LDAP_MOD_REPLACE;
 		mod->sml_flags = 0;
 		mod->sml_type = lastLoginAD->ad_cname;
-		mod->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
-		mod->sml_values[0].bv_val = calloc(1,256);
-		mod->sml_values[0].bv_len = strftime(mod->sml_values[0].bv_val, 256, "%Y%m%d%H%M%SZ", &tmptm);
+		mod->sml_values = (struct berval*) ch_calloc(sizeof(struct berval), 2);
+		
+		char time_str[256] = {0};
+		int time_str_len = 0;
+		 
+		time_str_len = strftime(time_str, sizeof(time_str), "%Y%m%d%H%M%SZ", &tmptm);
+		
+		ber_str2bv(time_str, time_str_len, 1, &mod->sml_values[0]);
+
 		mod->sml_values[1].bv_val = NULL;
 		mod->sml_values[1].bv_len = 0;
 		mod->sml_nvalues = NULL;

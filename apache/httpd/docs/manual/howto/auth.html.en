@@ -5,18 +5,21 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Authentication, Authorization and Access Control - Apache HTTP Server</title>
+<title>Authentication and Authorization - Apache HTTP Server</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Authentication, Authorization and Access Control</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Authentication and Authorization</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/howto/auth.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/howto/auth.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -29,6 +32,9 @@
     someone is who they claim they are. Authorization is any
     process by which someone is allowed to be where they want to
     go, or to have information that they want to have.</p>
+
+    <p>For general access control, see the <a href="access.html">Access
+    Control How-To</a>.</p>
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Related Modules and Directives</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#introduction">Introduction</a></li>
@@ -40,7 +46,7 @@ person in</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#possibleproblems">Possible problems</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#dbmdbd">Alternate password storage</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#moreinformation">More information</a></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="related" id="related">Related Modules and Directives</a></h2>
@@ -57,13 +63,14 @@ module from each group.</p>
       <li><code class="module"><a href="../mod/mod_auth_digest.html">mod_auth_digest</a></code></li>
     </ul>
   </li>
-  <li>Authentication provider
+  <li>Authentication provider (see the
+  <code class="directive"><a href="../mod/mod_auth_basic.html#authbasicprovider">AuthBasicProvider</a></code> and
+  <code class="directive"><a href="../mod/mod_auth_digest.html#authdigestprovider">AuthDigestProvider</a></code> directives)
+
     <ul>
-      <li><code class="module"><a href="../mod/mod_authn_alias.html">mod_authn_alias</a></code></li>
       <li><code class="module"><a href="../mod/mod_authn_anon.html">mod_authn_anon</a></code></li>
       <li><code class="module"><a href="../mod/mod_authn_dbd.html">mod_authn_dbd</a></code></li>
       <li><code class="module"><a href="../mod/mod_authn_dbm.html">mod_authn_dbm</a></code></li>
-      <li><code class="module"><a href="../mod/mod_authn_default.html">mod_authn_default</a></code></li>
       <li><code class="module"><a href="../mod/mod_authn_file.html">mod_authn_file</a></code></li>
       <li><code class="module"><a href="../mod/mod_authnz_ldap.html">mod_authnz_ldap</a></code></li>
     </ul>
@@ -73,8 +80,8 @@ module from each group.</p>
     <ul>
       <li><code class="module"><a href="../mod/mod_authnz_ldap.html">mod_authnz_ldap</a></code></li>
       <li><code class="module"><a href="../mod/mod_authz_dbm.html">mod_authz_dbm</a></code></li>
-      <li><code class="module"><a href="../mod/mod_authz_default.html">mod_authz_default</a></code></li>
       <li><code class="module"><a href="../mod/mod_authz_groupfile.html">mod_authz_groupfile</a></code></li>
+      <li><code class="module"><a href="../mod/mod_authz_host.html">mod_authz_host</a></code></li>
       <li><code class="module"><a href="../mod/mod_authz_owner.html">mod_authz_owner</a></code></li>
       <li><code class="module"><a href="../mod/mod_authz_user.html">mod_authz_user</a></code></li>
     </ul>
@@ -275,14 +282,16 @@ by using the Satisfy directive, as shown below.</p>
 
 <div class="example"><p><code>
 &lt;Directory /usr/local/apache/htdocs/sekrit&gt;<br />
-  AuthType Basic<br />
-  AuthName intranet<br />
-  AuthUserFile /www/passwd/users<br />
-  AuthGroupFile /www/passwd/groups<br />
-  Require group customers<br />
-  Order allow,deny<br />
-  Allow from internal.com<br />
-  Satisfy any<br />
+    <span class="indent">
+      AuthType Basic<br />
+      AuthName intranet<br />
+      AuthUserFile /www/passwd/users<br />
+      AuthGroupFile /www/passwd/groups<br />
+      Require group customers<br />
+      Order allow,deny<br />
+      Allow from internal.com<br />
+      Satisfy any<br />
+    </span>
 &lt;/Directory&gt;
 </code></p></div>
 
@@ -320,8 +329,9 @@ person in</a></h2>
     (It's the <code>-c</code> that makes it create a new password
     file).</p>
 
-    <p>Now, you need to modify your <code>.htaccess</code> file to
-    look like the following:</p>
+    <p>Now, you need to modify your <code>.htaccess</code> file or
+    <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code>
+    block to look like the following:</p>
 
     <div class="example"><p><code>
       AuthType Basic<br />
@@ -347,13 +357,7 @@ person in</a></h2>
 
     <p>Using that rather than the <code>Require user rbowen</code>
     line will allow anyone in that is listed in the password file,
-    and who correctly enters their password. You can even emulate
-    the group behavior here, by just keeping a separate password
-    file for each group. The advantage of this approach is that
-    Apache only has to check one file, rather than two. The
-    disadvantage is that you have to maintain a bunch of password
-    files, and remember to reference the right one in the
-    <code class="directive"><a href="../mod/mod_authn_file.html#authuserfile">AuthUserFile</a></code> directive.</p>
+    and who correctly enters their password.</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="possibleproblems" id="possibleproblems">Possible problems</a></h2>
@@ -391,12 +395,14 @@ person in</a></h2>
 
     <div class="example"><p><code>
     &lt;Directory /www/docs/private&gt;<br />
-    AuthName "Private"<br />
-    AuthType Basic<br />
-    AuthBasicProvider dbm<br />
-    AuthDBMUserFile /www/passwords/passwd.dbm<br />
-    Require valid-user<br />
-    &lt;/Directory&gt;
+    <span class="indent">
+        AuthName "Private"<br />
+        AuthType Basic<br />
+        AuthBasicProvider dbm<br />
+        AuthDBMUserFile /www/passwords/passwd.dbm<br />
+        Require valid-user<br />
+    </span>
+&lt;/Directory&gt;
     </code></p></div>
 
     <p>Other options are available. Consult the
@@ -425,7 +431,28 @@ person in</a></h2>
 <a href="../ja/howto/auth.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/auth.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/howto/auth.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/auth.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

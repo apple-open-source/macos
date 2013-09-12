@@ -8,11 +8,14 @@
 <title>mod_proxy - Serveur Apache HTTP</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -121,7 +124,7 @@
 <li><code class="module"><a href="../mod/mod_proxy_connect.html">mod_proxy_connect</a></code></li>
 <li><code class="module"><a href="../mod/mod_proxy_balancer.html">mod_proxy_balancer</a></code></li>
 <li><code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code></li>
-</ul></div>
+</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="forwardreverse" id="forwardreverse">Mandataires directs et
@@ -614,7 +617,7 @@ directement</td></tr>
     </dl>
 
     <p>Comme cas extrèmes, un <em>Sous-réseau</em> avec un masque de
-    sous-réseau de 32 bits significatifs est équivalent à une <var><a href="#ipadr">adresse IP</a></var>, alors qu'un <em>Sous-réseau</em> avec un masque de
+    sous-réseau de 32 bits significatifs est équivalent à une <var><a href="#ipaddr">adresse IP</a></var>, alors qu'un <em>Sous-réseau</em> avec un masque de
     sous-réseau de 0 bit significatif (c'est à dire 0.0.0.0/0) est
     identique à la constante <var>_Default_</var>, et peut correspondre
     à toute adresse IP.</p></dd>
@@ -1292,6 +1295,19 @@ l'espace d'URLs du serveur local</td></tr>
 	est le même qu'avec les autres erreurs de worker.
 	Disponible à partir de la version 2.2.17 du serveur HTTP Apache.
     </td></tr>
+    <tr><td>forcerecovery</td>
+        <td>On</td>
+        <td>Force la récupération immédiate de tous les membres du
+	répartiteur sans tenir compte de leur paramètre de nouvel essai
+	si tous les membres du répartiteur sont dans un état d'erreur.
+	Dans certains cas cependant, un serveur d'arrière-plan déjà
+	surchargé peut voir ses problèmes s'aggraver si la récupération
+	de tous les membres du répartiteur est forcée sans tenir compte
+	de leur paramètre de nouvel essai. Dans ce cas, définissez ce
+	paramètre à <code>Off</code>. Disponible depuis la version
+	2.2.23 du serveur HTTP Apache.
+    </td></tr>
+     
     </table>
     <p>Exemple de configuration d'un répartiteur</p>
     <div class="example"><p><code>
@@ -1344,7 +1360,8 @@ l'espace d'URLs du serveur local</td></tr>
 
     <p>Lorsque la directive ProxyPass est utilisée à l'intérieur d'une
     section <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>, le premier argument est omis et le répertoire
-    local est obtenu à partir de la section <code class="directive">&lt;module="core"&gt;Location&gt;</code>. Il en est de même à l'intérieur
+    local est obtenu à partir de la section <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>. Il en est de
+    même à l'intérieur
     d'une section <code class="directive"><a href="../mod/core.html#locationmatch">&lt;LocationMatch&gt;</a></code> ; cependant, ProxyPass
     n'interprète pas les expressions rationnelles, et dans ce cas, il
     est nécessaire d'utiliser la directive
@@ -1591,13 +1608,11 @@ réécrire la chaîne <code>path</code> dans les en-têtes
 <var>chemin-interne</var>, le chemin du cookie sera remplacé par
 <var>chemin-public</var>.
 </p><p>
-Dans l'exemple fourni avec la directive <code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code>, la directive :
-</p>
+Dans l'exemple fourni avec la directive <code class="directive"><a href="#proxypassreverse">ProxyPassReverse</a></code>, la directive :</p>
     <div class="example"><p><code>
       ProxyPassReverseCookiePath  /  /mirror/foo/
     </code></p></div>
-<p>
-va réécrire un cookie possédant un chemin d'arrière-plan <code>/</code>
+<p>va réécrire un cookie possédant un chemin d'arrière-plan <code>/</code>
 (ou <code>/example</code> ou en fait tout chemin)
 en <code>/mirror/foo/</code>..
 </p>
@@ -1735,6 +1750,9 @@ direct</td></tr>
     HTTP et/ou FTP, les modules <code class="module"><a href="../mod/mod_proxy_http.html">mod_proxy_http</a></code> et/ou
     <code class="module"><a href="../mod/mod_proxy_ftp.html">mod_proxy_ftp</a></code> doivent aussi être chargés dans le
     serveur.</p>
+
+    <p><code class="module"><a href="../mod/mod_proxy_connect.html">mod_proxy_connect</a></code> doit être activé pour pouvoir
+    mandater (en direct) des sites HTTPS.</p>
 
     <div class="warning"><h3>Avertissement</h3>
       <p>N'activez pas la fonctionnalité de mandataire avec la directive
@@ -1892,7 +1910,28 @@ mandatées</td></tr>
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_proxy.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_proxy.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_proxy.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

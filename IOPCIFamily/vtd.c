@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if ACPI_SUPPORT
+#if ACPI_SUPPORT && _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
 
 #include <IOKit/IOMapper.h>
 #include <IOKit/IOKitKeysPrivate.h>
@@ -44,8 +44,10 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 #define	VTASRT			0
 
 #define kLargeThresh	(128)
+#define kLargeThresh2	(32)
 #define kVPages  		(1<<22)
-#define kBPages2 		(18)
+#define kBPagesLog2 	(18)
+#define kBPagesSafe		((1<<kBPagesLog2)-(1<<16))
 #define kRPages  		(1<<20)
 
 #define kQIPageCount    (2)
@@ -661,7 +663,7 @@ static void
 vtd_space_set(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size,
 			  uint32_t mapOptions, upl_page_info_t * pageList)
 {
-	ppnum_t idx, j;
+	ppnum_t idx;
 	uint8_t access = kReadAccess | 0*kWriteAccess;
 
 	if (kIODMAMapPhysicallyContiguous & mapOptions) VTLOG("map phys %x, %x\n", pageList[0].phys_addr, size);
@@ -684,6 +686,7 @@ vtd_space_set(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size,
 	else
 	{
 #if TABLE_CB
+    	ppnum_t j;
 		for (idx = 0; size >= 8; size -= 8, idx += 8)
 		{
 			j = 0;
@@ -1029,6 +1032,7 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 {
 	vtd_vaddr_t addr;
     vtd_vaddr_t align = 1;
+    vtd_baddr_t largethresh;
     bool        uselarge;
 	uint32_t    list;
 
@@ -1046,8 +1050,17 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 		if (mapSpecification->alignment > page_size) align = atop_64(mapSpecification->alignment);
 	}
 
+	if (bf->stats.bused >= kBPagesSafe)
+	{
+		largethresh = kLargeThresh2;
+	}
+	else
+	{
+		largethresh = kLargeThresh;
+	}
+
 	if (!(kIODMAMapPagingPath & mapOptions)
-		&& (size >= kLargeThresh)
+		&& (size >= largethresh)
 		&& mapSpecification
 		&& mapSpecification->numAddressBits
 		&& ((1ULL << (mapSpecification->numAddressBits - 12)) >= bf->vsize))
@@ -1086,7 +1099,7 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 			BLOCK(bf->block);
 			addr = vtd_balloc(bf, size, mapOptions, pageList);
 			STAT_ADD(bf, allocs[list], 1);
-			if (addr) STAT_ADD(bf, bused, size);
+			if (addr) STAT_ADD(bf, bused, (1 << list));
 			BUNLOCK(bf->block);
 		}
 		if (addr) break;
@@ -1095,7 +1108,8 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 		IOLockSleep(bf->rlock, &bf->waiting_space, THREAD_UNINT);
 		IOLockUnlock(bf->rlock);
 //		IOLog("AppleVTD: waiting space (%d)\n", size);
-		VTLOG("AppleVTD: waiting space (%d)\n", size);
+		VTLOG("AppleVTD: waiting space (%d, bused %d, rused %d)\n",
+				size, bf->stats.bused, bf->stats.rused);
 	}
 	while (true);
 
@@ -1105,6 +1119,8 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 void 
 AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 {
+	uint32_t list;
+
 	vtassert(addr);
 	vtassert((addr + size) <= bf->vsize);
 
@@ -1117,9 +1133,10 @@ AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 	}
 	else
 	{
+		list = vtd_log2up(size);
 		BLOCK(bf->block);
 		vtd_bfree(bf, addr, size);
-		STAT_ADD(bf, bused, -size);
+		STAT_ADD(bf, bused, -(1 << list));
 		BUNLOCK(bf->block);
 	}
 
@@ -1198,11 +1215,14 @@ AppleVTD::initHardware(IOService *provider)
 	VTLOG("context_width %lld, treebits %d, round %d\n",
 			context_width, fTreeBits, fMaxRoundSize);
 
-	if (fTreeBits != 39) return (false);	// need better legacy check
+    // need better legacy checks
+	if (!fMaxRoundSize)                              return (false);
+	if ((48 == fTreeBits) && (9 == fMaxRoundSize))   return (false);
+	//
 
 	fHWLock = IOSimpleLockAlloc();
 
-	fSpace = space_create(fCacheLineSize, fTreeBits, kVPages, kBPages2, kRPages);
+	fSpace = space_create(fCacheLineSize, fTreeBits, kVPages, kBPagesLog2, kRPages);
 	if (!fSpace) return (false);
 
 	space_alloc_fixed(fSpace, atop_64(0xfee00000), atop_64(0xfef00000-0xfee00000));
@@ -1769,5 +1789,5 @@ AppleVTD::iovmInsert(ppnum_t addr, IOItemCount offset,
 	STAT_ADD(fSpace, inserts, pageCount);
 }
 
-#endif /* ACPI_SUPPORT */
+#endif /* ACPI_SUPPORT && _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_ */
 

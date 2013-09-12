@@ -8,11 +8,14 @@
 <title>core - Apache HTTP Sunucusu</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
-<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" />
+<link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
+<script src="../style/scripts/prettify.js" type="text/javascript">
+</script>
+
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
 <p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
@@ -27,6 +30,7 @@
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
+<div class="outofdate">Bu çeviri güncel olmayabilir. Son değişiklikler için İngilizce sürüm geçerlidir.</div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Açıklama:</a></th><td>Apache HTTP Sunucusunda daima mevcut olan çekirdek
  özellikler</td></tr>
 <tr><th><a href="module-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr></table>
@@ -102,7 +106,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#usecanonicalphysicalport">UseCanonicalPhysicalPort</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#virtualhost">&lt;VirtualHost&gt;</a></li>
 </ul>
-</div>
+<ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AcceptFilter" id="AcceptFilter">AcceptFilter</a> <a name="acceptfilter" id="acceptfilter">Yönergesi</a></h2>
@@ -463,7 +467,7 @@ kullanımı önerilmemektedir.</td></tr>
     <dl>
       <dt>AuthConfig</dt>
 
-      <dd><code class="directive"><a href="../mod/mod_authn_dbm.html#authdbmgroupfile">AuthDBMGroupFile</a></code>,
+      <dd><code class="directive"><a href="../mod/mod_authz_dbm.html#authdbmgroupfile">AuthDBMGroupFile</a></code>,
         <code class="directive"><a href="../mod/mod_authn_dbm.html#authdbmuserfile">AuthDBMUserFile</a></code>,
         <code class="directive"><a href="../mod/mod_authz_groupfile.html#authgroupfile">AuthGroupFile</a></code>,
         <code class="directive"><a href="#authname">AuthName</a></code>,
@@ -502,7 +506,12 @@ kullanımı önerilmemektedir.</td></tr>
         <code class="directive"><a href="../mod/mod_rewrite.html#rewritebase">RewriteBase</a></code>,
         <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>,
         <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code>
-        yönergelerinin ve <code class="module"><a href="../mod/mod_actions.html">mod_actions</a></code> modülündeki
+        yönergelerinin, <code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code> modülündeki
+        <code class="directive"><a href="../mod/mod_alias.html#redirect">Redirect</a></code>,
+        <code class="directive"><a href="../mod/mod_alias.html#redirecttemp">RedirectTemp</a></code>,
+        <code class="directive"><a href="../mod/mod_alias.html#redirectpermanent">RedirectPermanent</a></code>,
+        <code class="directive"><a href="../mod/mod_alias.html#redirectmatch">RedirectMatch</a></code>)
+        ve <code class="module"><a href="../mod/mod_actions.html">mod_actions</a></code> modülündeki
         <code class="directive"><a href="../mod/mod_actions.html#action">Action</a></code>
         yönergesinin kullanımına izin verilir.
       </dd>
@@ -516,7 +525,7 @@ kullanımı önerilmemektedir.</td></tr>
         <code class="directive"><a href="../mod/mod_autoindex.html#addiconbytype">AddIconByType</a></code>,
         <code class="directive"><a href="../mod/mod_autoindex.html#defaulticon">DefaultIcon</a></code>,
         <code class="directive"><a href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a></code>,
-        <code class="directive"><a href="../mod/mod_autoindex.html#fancyindexing">FancyIndexing</a></code>,
+        <a href="mod_autoindex.html#indexoptions.fancyindexing"><code>FancyIndexing</code></a>,
         <code class="directive"><a href="../mod/mod_autoindex.html#headername">HeaderName</a></code>,
         <code class="directive"><a href="../mod/mod_autoindex.html#indexignore">IndexIgnore</a></code>,
         <code class="directive"><a href="../mod/mod_autoindex.html#indexoptions">IndexOptions</a></code>,
@@ -787,7 +796,7 @@ kullanımı önerilmemektedir.</td></tr>
       ifadeler</a> de kullanılabilir. Örnek:</p>
 
     <div class="example"><p><code>
-      &lt;Directory ~ "^/www/.*/[0-9]{3}"&gt;
+      &lt;Directory ~ "^/www/[0-9]{3}"&gt;
     </code></p></div>
 
     <p>yönergesi <code>/www/</code> içindeki üç rakamdan oluşan dizinlerle
@@ -833,7 +842,7 @@ kullanımı önerilmemektedir.</td></tr>
       görüldükleri sıraya göre sınanırlar. Örneğin,</p>
 
     <div class="example"><p><code>
-      &lt;Directory ~ abc$&gt;<br />
+      &lt;Directory ~ "public_html/.*"&gt;<br />
       <span class="indent">
         # ... yönergeler burada ...<br />
       </span>
@@ -1332,7 +1341,16 @@ oluşturmakta kullanılacak dosya özniteliklerini belirler.</td></tr>
     <p><var>dosya-adı</var> argümanının bir dosya ismi veya bir dosya ismi
       kalıbı içermesi gerekir. Bir dosya ismi kalıbındaki her <code>?</code>
       imi bir karakterle eşleştirilirken <code>*</code> imi karakter dizileri
-      ile eşleştirilir. <code>~</code> imine ek olarak <a class="glossarylink" href="../glossary.html#regex" title="sözlüğe bakınız">düzenli ifadeler</a> de kullanılabilir. Örneğin</p>
+      ile eşleştirilir:</p>
+    <div class="example"><pre>&lt;Files "cat.html"&gt;
+    # cat.html dosyasına uygulanacaklar buraya.
+&lt;/Files&gt;
+
+&lt;Files "?at.*"&gt;
+    # cat.html, bat.html, hat.php ve benzerlerine uygulanacaklar buraya.
+&lt;/Files&gt;</pre></div>
+
+    <p><code>~</code> imine ek olarak <a class="glossarylink" href="../glossary.html#regex" title="sözlüğe bakınız">düzenli ifadeler</a> de kullanılabilir. Örneğin</p>
 
     <div class="example"><p><code>
       &lt;Files ~ "\.(gif|jpe?g|png)$"&gt;
@@ -1965,9 +1983,7 @@ sınırlar.</td></tr>
       LimitRequestFieldSize 4094
     </code></p></div>
 
-    <div class="note">Normal şartlar altında öntanımlı değer değiştirilmemelidir. Ayrıca,
-      kaynak kodda değişiklik yapıp, yeniden derlemedikçe bu değerin azamisi
-      8190 olarak kalacaktır.</div>
+    <div class="note">Normal şartlar altında öntanımlı değer değiştirilmemelidir.</div>
 
     <div class="warning"><h3>Uyarı</h3>
       <p>İsme dayalı sanal konaklar kullanılıyorsa bu yönergenin değeri,
@@ -2483,8 +2499,9 @@ uygulanır.</td></tr>
       <div class="note">
       <p>Sembolik bağlar izlense bile <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code> bölümleriyle eşleşen dosya yolları
         değiştirilmez.</p>
-      <p>Ayrıca, bu seçenek bir <code class="directive"><a href="#location">&lt;Location&gt;</a></code> bölümü içinde belirtildiği takdirde <strong>yok
-        sayılır</strong>.</p>
+      <p>The <code>FollowSymLinks</code> ve
+        <code>SymLinksIfOwnerMatch</code> <code class="directive"><a href="#options">Options</a></code> yönergeleri sadece <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code> bölümlerinde veya
+        <code>.htaccess</code> dosyalarında çalışır.</p>
       <p>Sembolik bağ sınamaları, atlatılabilir yarış koşullarına konu
         olduğundan bu seçeneğin yokluğu bir güvenlik sınırlaması olarak
         değerlendirilmemelidir.</p>
@@ -2512,8 +2529,10 @@ uygulanır.</td></tr>
       <dd>Sunucu sembolik bağları sadece sembolik bağın hedefi ile bulunduğu
         dizinin sahibinin aynı kullanıcı olması halinde izleyecektir.
 
-      <div class="note"><h3>Ek Bilgi</h3> <p>Bu seçenek bir <code class="directive"><a href="#location">&lt;Location&gt;</a></code> bölümü içinde belirtildiğinde yok
-        sayılır.</p>
+      <div class="note"><h3>Ek Bilgi</h3>
+      <p>The <code>FollowSymLinks</code> ve
+        <code>SymLinksIfOwnerMatch</code> <code class="directive"><a href="#options">Options</a></code> yönergeleri sadece <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code> bölümlerinde veya
+        <code>.htaccess</code> dosyalarında çalışır.</p>
       <p>Sembolik bağ sınamaları, atlatılabilir yarış koşullarına konu
         olduğundan bu seçenek bir güvenlik sınırlaması olarak
         değerlendirilmemelidir.</p></div>
@@ -2993,6 +3012,15 @@ kullanılacak konak adları için başka isimler belirtebilmeyi sağlar.
       &lt;/VirtualHost&gt;
     </code></p></div>
 
+    <p><code class="directive"><a href="#virtualhost">&lt;virtualhost&gt;</a></code>
+      bölümleriyle en iyi eşleşen isme dayalı sanal konaklar yapılandırmada
+      göründükleri sıraya göre işleme sokulur. İlk eşleşen <code class="directive"><a href="#servername">ServerName</a></code> veya <code class="directive"><a href="#serveralias">ServerAlias</a></code> kullanılır ve joker kullanımı halinde herhangi
+      bir öncelik söz konusu olmaz.</p>
+
+    <p><code class="directive">VirtualHost</code> içindeki isimlerin tamamı bir
+      (jokersiz) <code class="directive">ServerAlias</code> gibi ele alınır.</p>
+
+
 <h3>Ayrıca bakınız:</h3>
 <ul>
 <li><code class="directive"><a href="#usecanonicalname">UseCanonicalName</a></code></li>
@@ -3426,9 +3454,9 @@ gerçekleşmesi için sunucunun geçmesini bekleyeceği süre.</td></tr>
       adresine yönlendirecektir. Eğer kimlik doğrulama da etkinse bu
       kullanıcının iki defa kimlik doğrulamasına sokulmasına sebep olacaktır
       (bir kere <code>www</code> için bir kere de <code>www.mesela.dom</code>
-      için; daha ayrıntılı bilgi için <a href="http://httpd.apache.org/docs/misc/FAQ.html#prompted-twice">SSS</a>’y
-      e bakınız). Fakat <code class="directive">UseCanonicalName Off</code> olsaydı
-      Apache isteği <code>http://www/splat/</code> adresine yönlendirecekti.</p>
+      için; daha ayrıntılı bilgi için <a href="http://wiki.apache.org/httpd/FAQ#Why_does_Apache_ask_for_my_password_twice_before_serving_a_file.3F">SSS</a>’ye bakınız). Fakat <code class="directive">UseCanonicalName Off</code>
+      olsaydı Apache isteği <code>http://www/splat/</code> adresine
+      yönlendirecekti.</p>
 
     <p><code>UseCanonicalName DNS</code> diye üçüncü bir seçenek daha vardır ve
       istek yaparken <code>Host:</code> başlığını kullanmayan eski istemcileri
@@ -3623,7 +3651,28 @@ gerçekleşmesi için sunucunun geçmesini bekleyeceği süre.</td></tr>
 <a href="../fr/mod/core.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div id="footer">
-<p class="apache">Copyright 2012 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
-<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<script type="text/javascript"><!--//--><![CDATA[//><!--
+var comments_shortname = 'httpd';
+var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/core.html';
+(function(w, d) {
+    if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
+        d.write('<div id="comments_thread"><\/div>');
+        var s = d.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://comments.apache.org/show_comments.lua?site=' + comments_shortname + '&page=' + comments_identifier;
+        (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(s);
+    }
+    else { 
+        d.write('<div id="comments_thread">Comments are disabled for this page at the moment.<\/div>');
+    }
+})(window, document);
+//--><!]]></script></div><div id="footer">
+<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+if (typeof(prettyPrint) !== 'undefined') {
+    prettyPrint();
+}
+//--><!]]></script>
 </body></html>

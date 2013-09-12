@@ -212,16 +212,16 @@ PLIB3S	= $(METROWERKS)/Novell Support/Metrowerks Support/Libraries/MSL C++/MWCPP
 
 ifeq "$(OS)" "Windows_NT"
 # MetroWerks Win32 build flags to create build tools
-MWCW_MSL    = "$(METROWERKS)/MSL"
-MWCW_W32    = "$(METROWERKS)/Win32-x86 Support"
-HOST_CC     = $(WIN_CC)
-HOST_CFLAGS =  -O2 -gccinc -nodefaults -proc 586 -w off
-HOST_CFLAGS += -ir $(MWCW_MSL) -ir $(MWCW_W32) -lr $(MWCW_MSL) -lr $(MWCW_W32)
-HOST_CFLAGS += -lMSL_All_x86.lib -lkernel32.lib -luser32.lib
+MWCW_MSL         = "$(METROWERKS)/MSL"
+MWCW_W32         = "$(METROWERKS)/Win32-x86 Support"
+CC_FOR_BUILD     = $(WIN_CC)
+CFLAGS_FOR_BUILD =  -O2 -gccinc -nodefaults -proc 586 -w off
+CFLAGS_FOR_BUILD += -ir $(MWCW_MSL) -ir $(MWCW_W32) -lr $(MWCW_MSL) -lr $(MWCW_W32)
+CFLAGS_FOR_BUILD += -lMSL_All_x86.lib -lkernel32.lib -luser32.lib
 else
 # GNUC build flags to create build tools
-HOST_CC     = gcc
-HOST_CFLAGS = -Wall -O2
+CC_FOR_BUILD     = gcc
+CFLAGS_FOR_BUILD = -Wall -O2
 endif
 
 # Base compile flags
@@ -230,7 +230,7 @@ endif
 # The default flags are as follows:
 #
 # -c                    compile only, no link
-# -nosyspath            treat #include <...> like #include "..."
+# -gccinc               search directory of referencing file first for #includes
 # -Cpp_exceptions off   disable C++ exceptions
 # -RTTI off             disable C++ run-time typing information
 # -align 4              align on 4 byte bounderies
@@ -238,7 +238,13 @@ endif
 # -proc PII             generate code base on Pentium II instruction set
 # -inst mmx             use MMX extensions (Not used)
 
-CFLAGS = -c -nosyspath -Cpp_exceptions off -RTTI off -align 4 -w nocmdline -proc PII
+CFLAGS += -c -w nocmdline -gccinc -Cpp_exceptions off -RTTI off -align 4 -proc PII
+
+ifdef CC_MAX_ERRORS
+CFLAGS += -maxerrors $(CC_MAX_ERRORS)
+else
+CFLAGS += -maxerrors 1
+endif
 
 ifeq "$(REQUIRE_PROTOTYPES)" "1"
 CFLAGS += -r

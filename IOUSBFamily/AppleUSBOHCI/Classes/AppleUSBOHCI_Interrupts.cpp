@@ -83,7 +83,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         
   		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts , (uintptr_t)this, (uintptr_t)_errors.unrecoverableError, 0, 3 );
 		
-		if ( !(_errataBits & kErrataNECOHCIIsochWraparound ) )
+		if ( !(_ERRATA64BITS & kErrataNECOHCIIsochWraparound ) )
 		{
 			// Let's do a SW reset to recover from this condition.
 			// We could make sure all OCHI registers and in-memory
@@ -334,7 +334,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			//
 			_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_FNO);
 			IOSync();
-			if (_errataBits & kErrataNECIncompleteWrite)
+			if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 			{
 				UInt32		newValue = 0, count = 0;
 				newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);			// this bit SHOULD now be cleared
@@ -411,7 +411,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			//
 			_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RHSC);
 			IOSync();
-			if (_errataBits & kErrataNECIncompleteWrite)
+			if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 			{
 				UInt32		newValue = 0, count = 0;
 				newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);			// this bit SHOULD now be cleared
@@ -464,7 +464,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			//
 			_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RD);
 			IOSync();
-			if (_errataBits & kErrataNECIncompleteWrite)
+			if (_ERRATA64BITS & kErrataNECIncompleteWrite)
 			{
 				UInt32		newValue = 0, count = 0;
 				newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);			// this bit SHOULD now be cleared

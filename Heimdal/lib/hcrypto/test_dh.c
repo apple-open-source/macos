@@ -373,25 +373,45 @@ static int check_prime(ENGINE *engine, struct prime *pr)
 	exit(EXIT_FAILURE);
     }
     ret = DH_compute_key(sec1, dh2->pub_key, dh1);
-    if (ret == -1) {
+    if (ret <= 0) {
 	fprintf(stderr, "DH_compute_key");
 	exit(EXIT_FAILURE);
     }
-    ret = DH_compute_key(sec2, dh1->pub_key, dh2);
-    if (ret == -1) {
-	fprintf(stderr, "DH_compute_key");
+    if (ret > size) {
+	fprintf(stderr, "DH_compute_key res too large");
 	exit(EXIT_FAILURE);
     }
 
-    /* 4. compare shared secret */
+    ret2 = DH_compute_key(sec2, dh1->pub_key, dh2);
+    if (ret2 <= 0) {
+	fprintf(stderr, "DH_compute_key");
+	exit(EXIT_FAILURE);
+    }
+    if (ret2 > size) {
+	fprintf(stderr, "DH_compute_key res too large");
+	exit(EXIT_FAILURE);
+    }
+
+    if (ret != res2) {
+	fprintf(stderr, "DH_compute_key have two difference sizes");
+	exit(EXIT_FAILURE);
+    }
+	
+    /* 4. check that length make sense */
+    if (ret < size / 2) {
+	fprintf(stderr, "DH_compute_key computed a key way too small");
+	exit(EXIT_FAILURE);
+    }
+
+    /* 5. compare shared secret */
     if (verbose) {
 	printf("shared secret 1\n");
-	print_secret(sec1, size);
+	print_secret(sec1, ret);
 	printf("shared secret 2\n");
-	print_secret(sec2, size);
+	print_secret(sec2, ret);
     }
 
-    if (memcmp(sec1, sec2, size) == 0)
+    if (memcmp(sec1, sec2, ret) == 0)
 	ret = 1;
     else
 	ret = 0;

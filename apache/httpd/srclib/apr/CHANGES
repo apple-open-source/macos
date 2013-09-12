@@ -1,4 +1,50 @@
                                                      -*- coding: utf-8 -*-
+Changes for APR 1.4.6
+
+  *) Flush write buffer before truncate call on a file.
+     [Mladen Turk]
+
+  *) Security: oCERT-2011-003
+     Randomise hashes by providing a seed. 
+     [Bojan Smojver, Branko Čibej, Ruediger Pluem et al.]
+
+  *) apr_random: Prevent segfault if pool used to initialize apr_random is
+     destroyed before forking. [Stefan Fritsch]
+
+  *) testrand: Improve child randomness test case. [Rainer Jung]
+
+  *) apr_proc_fork, apr_random_after_fork: disambiguate what happens to the 
+     proc structure passed in, and ensure that the pid is set correctly in 
+     a newly created child; note that merely mixing a PID into the random 
+     seed of a new child doesn't markedly increase entropy. [Sander Temme]
+
+  *) apr_file_open: Avoid fcntl() calls if support for O_CLOEXEC works.
+     PR 48557. [Mike Frysinger <vapier gentoo org>]
+
+  *) apr_dir_make_recursive: Fix race condition that could lead to EEXIST
+     being returned. PR 51254. [William Lee <william lee rainstor com>,
+     Wim Lewis <wiml omnigroup com>]
+
+  *) configure: Fix APR_RESTORE_THE_ENVIRONMENT if the original variable was
+     a single space. PR 50334. [Nathan Phillip Brink <binki gentoo org>]
+
+  *) apr_proc_create: Don't close any of the new stdin/stdout/stderr in the
+     child if it already has the correct FD. PR 51995.
+     [Dan Ports <drkp csail mit edu>]
+
+  *) Fix flag character '#' in combination with format character 'x' in
+     apr snprintf implementations.  [Rainer Jung]
+
+  *) Improve platform detection by updating config.guess and config.sub.
+     [Rainer Jung]
+
+  *) Add libtool2 files to extraclean make target.  [Rainer Jung]
+
+  *) Don't overwrite our config.guess and config.sub
+     when running buildconf.  [Rainer Jung]
+
+  *) Silence autoconf 2.68 warnings.  [Rainer Jung]
+
 Changes for APR 1.4.5
 
   *) Security: CVE-2011-1928

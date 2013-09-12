@@ -95,6 +95,7 @@ typedef enum {
     kDeclareUserActivity            = 10,
     kPushServiceTaskIndex           = 11,
     kBackgroundTaskIndex            = 12,
+    kInternalPreventDisplaySleep    = 13, /* Prevent display sleep, used as internal proxy */
     // Make sure this is the last enum element, as it tells us the total
     // number of elements in the enum definition
     kIOPMNumAssertionTypes      

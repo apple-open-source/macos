@@ -2,14 +2,14 @@
  * Copyright © 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,13 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <getopt.h>
+#include <AssertMacros.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
@@ -46,6 +47,7 @@ boolean_t			gDoSetConfiguration			= FALSE;
 boolean_t			gDoSuspend					= FALSE;
 boolean_t			gDoResume					= FALSE;
 boolean_t			gDoReset					= FALSE;
+boolean_t           gDoLocationID               = FALSE;
 UInt8				gConfiguration				= 0;
 
 //———————————————————————————————————————————————————————————————————————————
@@ -63,24 +65,29 @@ void
 PrintUsage ( void )
 {
 	elog ( "\n");
-	elog ( "Usage: %s [OPTIONS] vendor_id,product_id [vendor_id,product_id]...\n", gProgramName );
+	elog ( "Usage: %s [OPTIONS] [vendor_id,product_id [vendor_id,product_id] [locationID [location ID]]...\n", gProgramName );
 	elog ( "\n");
 	
 	elog ( "OPTIONS\n");
-	elog ( "\tThe available options are as follows.  If no option is specified, a reenumerate command will be send to the device(s):\n");
+	elog ( "\tThe available options are as follows.  If no option is specified the values after the options are assumed to be a\n");
+    elog ( "\tsequence of vendorID,productID pairs (in hex).  If the -l option is specified, the values after the options are assumed\n");
+    elog ( "\tto be locationID's (in hex).  If no action option is specitied, a reenumerate command will be sent to the device(s):\n");
 	elog ( "\n");
 	
 	
-	elog ( "\t-c configuration");
+	elog ( "\t--locationID, -l\n");
+	elog ( "\t\t The values after the options are locationIDs, instead of vendorID,productID.\n");
+
+    elog ( "\t--configuration, -c\n");
 	elog ( "\t\t Set the USB configuration to the value specified.\n");
-	
-	elog ( "\t-r");
+
+	elog ( "\t--resume, -r\n");
 	elog ( "\t\t Send a USB Resume to the device.\n");
 	
-	elog ( "\t-s");
+	elog ( "\t--suspend, -s\n");
 	elog ( "\t\t Send a USB Suspend to the device.\n");
 	
-	elog ( "\t-R");
+	elog ( "\t--reset, -R\n");
 	elog ( "\t\t Send a USB ResetDevice to the device.\n");
 	
 	elog ( "\t--verbose, -v\n");
@@ -91,7 +98,21 @@ PrintUsage ( void )
 	
 	elog ( "\t--help, -h, -?\n");
 	elog ( "\t\t Show this help.\n");
-
+	
+	elog ( "\n");
+	
+	elog ( "EXAMPLES\n");
+    elog ( "\tSet the configuration of the device at vid: 0x05ac, pid: 0x1126 to 1:\n\n");
+    elog ( "\t$ reenumerate -v -c 1 0x05ac,0x1126\n\n");
+    elog ( "\tReenumerate the devices at locationIDs 0xfa144300 and 0xfd141310\n\n");
+    elog ( "\t$ reenumerate -v -l 0xfa144300 0xfd141310\n");
+	elog ( "\n");
+	
+	elog ( "EXAMPLES\n");
+    elog ( "\tSet the configuration of the device at vid: 0x05ac, pid: 0x1126 to 1:\n\n");
+    elog ( "\t$ reenumerate -v -c 1 0x05ac,0x1126\n\n");
+    elog ( "\tReenumerate the devices at locationIDs 0xfa144300 and 0xfd141310\n\n");
+    elog ( "\t$ reenumerate -v -l 0xfa144300 0xfd141310\n");
 	exit ( 0 );
 	
 }
@@ -110,7 +131,9 @@ ParseArguments ( int argc, const char * argv[] )
 		{ "reset",			no_argument,		0, 'R' },
 		{ "suspend",		no_argument,		0, 's' },
 		{ "resume",			no_argument,		0, 'r' },
-		{ "configure",		required_argument,	0, 'c' },
+		{ "configuration",  required_argument,	0, 'c' },
+		
+        { "locationID",		no_argument,        0, 'l' },
 		
 		{ "verbose",		no_argument,		0, 'v' },
 		{ "version",		no_argument,		0, 'V' },
@@ -120,10 +143,11 @@ ParseArguments ( int argc, const char * argv[] )
 	
 	if ( argc == 1 )
 	{
+        PrintUsage();
 		return;
 	}
 	
-    while ( ( c = getopt_long ( argc, ( char * const * ) argv , "Rsrc:vVh?", long_options, NULL  ) ) != -1 )
+    while ( ( c = getopt_long ( argc, ( char * const * ) argv , "Rsrc:lvVh?", long_options, NULL  ) ) != -1 )
 	{
 		switch ( c )
 		{
@@ -147,15 +171,18 @@ ParseArguments ( int argc, const char * argv[] )
 				gConfiguration = (uint32_t)strtoul(optarg, NULL, 0);	// is this safe?
 				break;
 				
+			case 'l':
+				gDoLocationID = TRUE;
+				break;
 				
 			case 'v':
 				gVerbose = TRUE;
 				vlog( "Verbose mode ON\n");
 				break;
-				
 			case 'V':
 				fprintf(stdout,"%s version:  %s\n", gProgramName, QUOTEDSTRING(USBTRACE_VERSION));
 				break;
+				
 				
 			case 'h':
 				PrintUsage ( );
@@ -194,7 +221,7 @@ void ProcessDevice(io_service_t aDevice)
 		
 		vlog("Found \"%s\" @ 0x%8.8x\n", name, locationID);
 		
-	}	
+	}
 	
 	kr = IOCreatePlugInInterfaceForService(aDevice, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score);
 	IOObjectRelease(aDevice);
@@ -226,7 +253,7 @@ void ProcessDevice(io_service_t aDevice)
 		else if (gDoSuspend)
 		{
 			vlog("Calling USBDeviceSuspend(TRUE)\n");
-		kr = (*deviceInterface)->USBDeviceSuspend(deviceInterface, TRUE);
+			kr = (*deviceInterface)->USBDeviceSuspend(deviceInterface, TRUE);
 			vlog("USBDeviceSuspend(TRUE) returns 0x%8.8x\n", kr);
 		}
 		else if (gDoResume)
@@ -259,11 +286,14 @@ void ProcessDevice(io_service_t aDevice)
 //================================================================================================
 int main(int argc, const char *argv[] )
 {
-    CFMutableDictionaryRef 	matchingDict;
+    CFMutableDictionaryRef 	matchingDict            = NULL;
+   	CFMutableDictionaryRef  propertyMatchingDict    = NULL;
     CFNumberRef				numberRef;
+	CFNumberRef                 locationIDRef           = NULL;
     kern_return_t			kr;
     uint32_t					usbVendor;
     uint32_t					usbProduct;
+    uint32_t					deviceLocationID;
     const char*				param;
     char*					param2;
 	int						paramIndex = 1;
@@ -271,37 +301,66 @@ int main(int argc, const char *argv[] )
 	io_object_t				aDevice;
 	
  	gProgramName = argv[0];
-
+	
 	// Get program arguments.
 	ParseArguments ( argc, argv );
-
+	
 	paramIndex = optind;
 	
 	for( ; paramIndex < argc; paramIndex++ )
 	{
 		param = argv[paramIndex];
 		
-		usbVendor = (uint32_t) strtoul(param, &param2, 0);
-		usbProduct = *param2++ ? (uint32_t) strtoul(param2, 0, 0) : 0;
-		
-		vlog("Looking for vid: 0x%x, pid: 0x%x\n", (uint32_t)usbVendor, (uint32_t)usbProduct);
-		
-		matchingDict = IOServiceMatching(kIOUSBDeviceClassName);	// Interested in instances of class
-																	// IOUSBDevice and its subclasses
-		if (matchingDict == NULL) {
-			elog("IOServiceMatching returned NULL.\n"); 
-			return -1;
-		}
-		
-		numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbVendor);
-		CFDictionarySetValue(matchingDict, CFSTR(kUSBVendorID), numberRef);
-		CFRelease(numberRef);
-    
-		numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbProduct);
-		CFDictionarySetValue(matchingDict, CFSTR(kUSBProductID),  numberRef);
-		CFRelease(numberRef);
- 	
-		kr = IOServiceGetMatchingServices(kIOMasterPortDefault,matchingDict, &foundDevices);	//consumes matchingDIct reference
+        matchingDict = IOServiceMatching(kIOUSBDeviceClassName);	// Interested in instances of class
+        // IOUSBDevice and its subclasses
+        if (matchingDict == NULL) {
+            elog("IOServiceMatching returned NULL.\n");
+            return -1;
+        }
+        
+        if (!gDoLocationID)
+        {
+            usbVendor = (uint32_t) strtoul(param, &param2, 0);
+            usbProduct = *param2++ ? (uint32_t) strtoul(param2, 0, 0) : 0;
+            
+            vlog("Looking for vid: 0x%x, pid: 0x%x\n", (uint32_t)usbVendor, (uint32_t)usbProduct);
+            
+            numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbVendor);
+            CFDictionarySetValue(matchingDict, CFSTR(kUSBVendorID), numberRef);
+            CFRelease(numberRef);
+            
+            numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbProduct);
+            CFDictionarySetValue(matchingDict, CFSTR(kUSBProductID),  numberRef);
+            CFRelease(numberRef);
+        }
+        else
+        {
+            deviceLocationID = (uint32_t) strtoul(param, &param2, 0);
+            
+            vlog("Looking for locationID: 0x%x\n", (uint32_t)deviceLocationID);
+            
+           propertyMatchingDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            __Require(propertyMatchingDict != NULL, ErrorExit);
+            
+            // Set the value in the dictionary of the property with the given key, or add the key
+            // to the dictionary if it doesn't exist. This call retains the value object passed in.
+            locationIDRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &deviceLocationID);
+            __Require(locationIDRef != NULL, ErrorExit);
+            CFDictionarySetValue(propertyMatchingDict, CFSTR("locationID"), locationIDRef);
+			CFRelease(locationIDRef);
+            
+            // Now add the dictionary containing the matching value to our main
+            // matching dictionary. This call will retain propertyMatchDict,
+            CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), propertyMatchingDict);
+            
+            // IOServiceGetMatchingServices retains the returned iterator, so release the iterator when we're done with it.
+            // IOServiceGetMatchingServices also consumes a reference on the matching dictionary so we don't need to release
+            // the dictionary explicitly.
+        
+        }
+        
+		kr = IOServiceGetMatchingServices(kIOMasterPortDefault,matchingDict, &foundDevices);	//consumes matchingDict reference
+		matchingDict = NULL;
 		if(kr)
 		{
 			elog("Error 0x%x trying to find matching services\n", kr);
@@ -316,6 +375,10 @@ int main(int argc, const char *argv[] )
 		}
 		
 	}
+ErrorExit:
+	
+	if (matchingDict)
+		CFRelease(matchingDict);
 	
     return 0;
 }

@@ -358,9 +358,12 @@ public:
 
     virtual void 	DisplayNotEnoughPowerNotice();
     
-    // this is a non-virtual function so that we don't have to take up a binary compatibility slot.
+    // These are non-virtual function so that we don't have to take up a binary compatibility slot.
     UInt16	GetbcdUSB(void);
+    UInt8   GetDeviceClass(void);
+    UInt8   GetDeviceSubClass(void);
     UInt8	GetProtocol(void);
+    UInt32  GetLocationID(void);
 	void	SetBusPowerAvailable(UInt32 newPower);
 
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  0);
@@ -424,7 +427,7 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  4);
     /*!
         @function DisplayUserNotification
-        @abstract  Will use the KUNCUserNotification mechanism to display a notification to the user.
+        @abstract  Will use the Notification Center to display a notification to the user.  Only Low Power and Overcurrent notifications are supported.
         @param notificationType Which notification to display.
      */
     virtual void	DisplayUserNotification(UInt32 notificationType);
@@ -549,7 +552,7 @@ public:
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  17);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  18);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  19);
-    
+
 private:
 
     static void			ProcessPortResetEntry(__unused OSObject *target){};			// obsolete

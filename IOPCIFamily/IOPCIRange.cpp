@@ -37,6 +37,7 @@ cc IOPCIRange.cpp -o /tmp/pcirange -Wall -framework IOKit -framework CoreFoundat
 #include <IOKit/IOKitKeys.h>
 
 #include "IOKit/pci/IOPCIConfigurator.h"
+#define panic(x) printf(x)
 
 #endif
 
@@ -248,14 +249,11 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
     IOPCIRange ** where = NULL;
     IOPCIRange *  whereNext = NULL;
 
-	if (kIOPCIRangeFlagMaximizeSize & newRange->flags)
-		size = newRange->alignment;
-	else
-		size = newRange->proposedSize;
-    if (!size) panic("!size");
+	size = newRange->proposedSize;
+	if (!newStart)
+		newStart = newRange->start;
 
-    if (!newStart)
-        newStart = newRange->start;
+    if (!size) panic("!size");
 
 	if ((!newStart) && (newRange->maxAddress >= (1ULL << 32)))
 		preferAddress = (1ULL << 32);
@@ -263,22 +261,32 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
     for (; headRange; headRange = headRange->next)
     {
 		bool splay;
+		IOPCIScalar rangeStart, rangeEnd;
 
         if (!headRange->size)
             continue;
+
+		rangeStart = headRange->start;
+		rangeEnd   = headRange->end;
+		if ((kIOPCIRangeFlagForceReloc & headRange->flags)
+	     && !(kIOPCIRangeFlagRelocHalf & newRange->flags))
+		{
+			if (kIOPCIRangeFlagRelocHalf & headRange->flags) rangeStart += (headRange->size >> 1);
+			else rangeEnd -= (headRange->size >> 1);
+		}
 
         pos = newStart;
         if (pos)
         {
             // request fixed address
             end = newStart + newRange->proposedSize;
-            if ((pos < headRange->start) || (end > headRange->end))
+            if ((pos < rangeStart) || (end > rangeEnd))
                 continue;
         }
         else
         {
             // request any address
-            pos = headRange->start;
+            pos = rangeStart;
             pos = IOPCIScalarAlign(pos, newRange->alignment);
             end = 0;
         }
@@ -304,7 +312,7 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
                  || ((pos < range->start) && (end > len)))
                 {
 					// overlaps existing
-					if (kIOPCIRangeFlagRelocatable & range->flags)
+					if (false && (kIOPCIRangeFlagRelocatable & range->flags))
 					{
 						if (!relocateHead)
 							relocateHead = relocateLast = range;
@@ -326,6 +334,8 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
 			if (kIOPCIRangeFlagMaximizeSize & newRange->flags)
 				endPos = IOPCIScalarTrunc(endPos, newRange->alignment);
 
+			if (pos < rangeStart) pos = rangeStart;
+
             if ((pos >= newRange->minAddress)
              && ((pos + size - 1) <= newRange->maxAddress)
              && (endPos > pos))
@@ -333,7 +343,15 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
             	bool useit;
 				bool done = (0 != end);
 
-                len = endPos - pos;
+				len = endPos - pos;
+				if ((kIOPCIRangeFlagMaximizeSize & newRange->flags) && headRange->count)
+				{
+					IOPCIScalar max;
+					max = (headRange->size * headRange->pri) / headRange->count;
+					if (max < newRange->proposedSize) max = newRange->proposedSize;
+					if (len > max) len = IOPCIScalarTrunc(max, newRange->alignment);
+				}
+
                 useit = (len >= size);
                 if (useit)
                 {
@@ -341,8 +359,6 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
 					{
 						// new size to look for
 						size = len;
-						done = (size >= newRange->proposedSize); // big enough
-						if (done) size = newRange->proposedSize;
 					}
 					else if (!done)
 					{
@@ -354,7 +370,6 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
 							if (useit)
 							{
 								IOPCIScalar bump;
-								bestFit = len;
 								bump = IOPCIScalarTrunc(len >> 1, newRange->alignment);
 								if (bump < (len - size))
 									pos += bump;
@@ -365,14 +380,14 @@ bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
 							// least waste position
 							len -= size;	// waste
 							useit = ((len < bestFit) || !bestFit || (preferAddress && (pos >= preferAddress)));
-							if (useit) bestFit = len;
-							done = (0 == bestFit);
+							done = (useit && (0 == len));
 						}
 					}
                 }
                 if (useit)
                 {
                     // success, could queue prev->newRange->range
+					bestFit         = len;
 					where           = prev;
 					whereNext       = range;
 					newRange->start = pos;
@@ -503,8 +518,12 @@ bool IOPCIRangeAppendSubRange(IOPCIRange ** list,
             continue;
         if (newRange->start && !range->start)
             break;
-		if ((kIOPCIRangeFlagSplay & newRange->flags) && !(kIOPCIRangeFlagSplay & range->flags))
+		if (((kIOPCIRangeFlagSplay | kIOPCIRangeFlagMaximizeSize) & newRange->flags) 
+		 && !((kIOPCIRangeFlagSplay | kIOPCIRangeFlagMaximizeSize) & range->flags))
 			continue;
+		if (((kIOPCIRangeFlagSplay | kIOPCIRangeFlagMaximizeSize) & range->flags) 
+		 && !((kIOPCIRangeFlagSplay | kIOPCIRangeFlagMaximizeSize) & newRange->flags))
+			break;
         if (newRange->alignment > range->alignment)
             break;
         if (newRange->proposedSize > range->proposedSize)
@@ -573,10 +592,64 @@ int main(int argc, char **argv)
     for (idx = 0; idx < sizeof(elems) / sizeof(elems[0]); idx++)
     {
         elems[idx] = IOPCIRangeAlloc();
+        elems[idx]->maxAddress = 0xFFFFFFFFFFFFFFFFULL;
     }
 
+    IOPCIRangeListAddRange(&head, 0, 0x6, 0xfa, 1);
+    IOPCIRangeDump(head);
 
-    IOPCIRangeListAddRange(&head, 0, 0x80000000, 1024*1024, 1024*1024);
+	range = elems[4];
+	range->start = 0x06;
+	range->proposedSize = 0x01;
+	range->alignment = 1;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[3];
+	range->start = 0x07;
+	range->proposedSize = 0x01;
+	range->alignment = 1;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[1];
+	range->start = 1*0x85;
+	range->proposedSize = 0x17;
+	range->alignment = 1;
+	range->flags = kIOPCIRangeFlagSplay;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[2];
+	range->start = 0;
+	range->proposedSize = 2;
+	range->alignment = 1;
+	range->flags = kIOPCIRangeFlagSplay;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+
+	range = elems[5];
+	range->start = 0;
+	range->proposedSize = 1;
+	range->alignment = 1;
+	range->flags = kIOPCIRangeFlagSplay;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[6];
+	range->start = 0;
+	range->proposedSize = 1;
+	range->alignment = 1;
+	range->flags = kIOPCIRangeFlagSplay;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+
+    IOPCIRangeDump(head);
+	exit(0);
+
+
 
     shrink = IOPCIRangeListLastFree(head, 1024);
     printf("IOPCIRangeListLastFree 0x%llx\n", shrink);
@@ -601,9 +674,6 @@ int main(int argc, char **argv)
     IOPCIRangeListAddRange(&head, 0, 0x98000000, 0x08000000);
     IOPCIRangeListAddRange(&head, 0, 0x90000000, 0x08000000);
     IOPCIRangeListAddRange(&head, 0, 0xB0000000, 0x10000000);
-
-
-
 
 //exit(0);
 

@@ -28,7 +28,6 @@
 
 #include <sys/appleapiopts.h>
 #include <machine/cpu_capabilities.h>
-#include "platfunc.h"
 
 #define NSEC_PER_SEC	1000*1000*1000
 #define NSEC_PER_USEC	1000

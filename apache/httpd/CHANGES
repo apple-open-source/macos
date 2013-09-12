@@ -1,4 +1,141 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.2.24
+
+  *) SECURITY: CVE-2012-3499 (cve.mitre.org)
+     Various XSS flaws due to unescaped hostnames and URIs HTML output in
+     mod_info, mod_status, mod_imagemap, mod_ldap, and mod_proxy_ftp.
+     [Jim Jagielski, Stefan Fritsch, Niels Heinen <heinenn google com>]
+
+  *) SECURITY: CVE-2012-4558 (cve.mitre.org)
+     XSS in mod_proxy_balancer manager interface. [Jim Jagielski,
+     Niels Heinen <heinenn google com>]
+
+  *) mod_rewrite: Stop merging RewriteBase down to subdirectories
+     unless new option 'RewriteOptions MergeBase' is configured.
+     Merging RewriteBase was unconditionally turned on in 2.2.23.
+     PR 53963. [Eric Covener]
+
+  *) mod_ssl: Send the error message for speaking http to an https port using
+     HTTP/1.0 instead of HTTP/0.9, and omit the link that may be wrong when
+     using SNI. PR 50823. [Stefan Fritsch]
+
+  *) mod_ssl: log revoked certificates at level INFO
+     instead of DEBUG. PR 52162. [Stefan Fritsch]
+
+  *) mod_proxy_ajp: Support unknown HTTP methods. PR 54416.
+     [Rainer Jung]
+
+  *) mod_dir: Add support for the value 'disabled' in FallbackResource.
+     [Vincent Deffontaines]
+
+  *) mod_ldap: Fix regression in handling "server unavailable" errors on
+     Windows.  PR 54140.  [Eric Covener]
+
+  *) mod_ssl: fix a regression with the string rendering of the "UID" RDN
+     introduced in 2.2.15. PR 54510. [Kaspar Brand]
+     
+  *) ab: add TLS1.1/TLS1.2 options to -f switch, and adapt output
+     to more accurately report the negotiated protocol. PR 53916.
+     [Nicolás Pernas Maradei <nico emutex com>, Kaspar Brand]
+
+  *) mod_cache: Explicitly allow cache implementations to cache a 206 Partial
+     Response if they so choose to do so. Previously an attempt to cache a 206
+     was arbitrarily allowed if the response contained an Expires or
+     Cache-Control header, and arbitrarily denied if both headers were missing.
+     Currently the disk and memory cache providers do not cache 206 Partial
+     Responses. [Graham Leggett]
+
+  *) core: Remove unintentional APR 1.3 dependency introduced with
+     Apache 2.2.22. [Eric Covener]
+
+  *) core: Use a TLS 1.0 close_notify alert for internal dummy connection if
+     the chosen listener is configured for https. [Joe Orton]
+
+  *) mod_ssl: Add new directive SSLCompression to disable TLS-level
+     compression. PR 53219. [Björn Jacke <bjoern j3e de>, Stefan Fritsch]
+
+Changes with Apache 2.2.23
+
+  *) SECURITY: CVE-2012-0883 (cve.mitre.org)
+     envvars: Fix insecure handling of LD_LIBRARY_PATH that could lead to the
+     current working directory to be searched for DSOs. [Stefan Fritsch]
+
+  *) SECURITY: CVE-2012-2687 (cve.mitre.org)
+     mod_negotiation: Escape filenames in variant list to prevent a
+     possible XSS for a site where untrusted users can upload files to
+     a location with MultiViews enabled. [Niels Heinen <heinenn google.com>]
+
+  *) htdbm, htpasswd: Don't crash if crypt() fails (e.g. with FIPS enabled). 
+     [Paul Wouters <pwouters redhat.com>, Joe Orton]
+
+  *) mod_ldap: Treat the "server unavailable" condition as a transient
+     error with all LDAP SDKs. [Filip Valder <filip.valder vsb.cz>]
+
+  *) core: Add filesystem paths to access denied / access failed messages.
+     [Eric Covener]
+
+  *) core: Fix error handling in ap_scan_script_header_err_brigade() if there
+     is no EOS bucket in the brigade. PR 48272. [Stefan Fritsch]
+
+  *) core: Prevent "httpd -k restart" from killing server in presence of
+     config error. [Joe Orton]
+
+  *) mod_ssl: when compiled against OpenSSL 1.0.1 or later, allow explicit
+     control of TLSv1.1 and TLSv1.2 through the SSLProtocol directive,
+     adding TLSv1.1 and TLSv1.2 support by default given 'SSLProtocol All'.
+     [Kaspar Brand, William Rowe]
+
+  *) mod_log_config: Fix %{abc}C truncating cookie values at first "=".
+     PR 53104. [Greg Ames]
+
+  *) Unix MPMs: Fix small memory leak in parent process if connect()
+     failed when waking up children.  [Joe Orton]
+
+  *) mod_proxy_ajp: Add support for 'ProxyErrorOverride on'. PR 50945.
+     [Peter Pramberger <peter pramberger.at>, Jim Jagielski]
+
+  *) Added SSLProxyMachineCertificateChainFile directive so the proxy client
+     can select the proper client certificate when using a chain and the
+     remote server only lists the root CA as allowed.
+
+  *) mpm_event, mpm_worker: Remain active amidst prevalent child process
+     resource shortages.  [Jeff Trawick]
+
+  *) mod_rewrite: Add "AllowAnyURI" option. PR 52774. [Joe Orton]
+
+  *) mod_rewrite: Fix the RewriteEngine directive to work within a
+     location. Previously, once RewriteEngine was switched on globally,
+     it was impossible to switch off. [Graham Leggett]
+
+  *) mod_proxy_balancer: Restore balancing after a failed worker has
+     recovered when using lbmethod_bybusyness.  PR 48735.  [Jeff Trawick]
+
+  *) mod_dumpio: Properly handle errors from subsequent input filters.
+     PR 52914. [Stefan Fritsch]
+
+  *) mpm_worker: Fix cases where the spawn rate wasn't reduced after child
+     process resource shortages.  [Jeff Trawick]
+
+  *) mpm_prefork: Reduce spawn rate after a child process exits due to
+     unexpected poll or accept failure.  [Jeff Trawick]
+
+  *) core: Adjust ap_scan_script_header_err*() to prevent mod_cgi and mod_cgid
+     from logging bogus data in case of errors. [Stefan Fritsch]
+
+  *) mod_disk_cache, mod_mem_cache: Decline the opportunity to cache if the
+     response is a 206 Partial Content. This stops a reverse proxied partial
+     response from becoming cached, and then being served in subsequent
+     responses. PR 49113. [Graham Leggett]
+
+  *) configure: Fix usage with external apr and apu in non-default paths
+     and recent gcc versions >= 4.6. [Jean-Frederic Clere]
+
+  *) core: Fix building against PCRE 8.30 by switching from the obsolete
+     pcre_info() to pcre_fullinfo(). PR 52623 [Ruediger Pluem, Rainer Jung]
+
+  *) mod_proxy: Add the forcerecovery balancer parameter that determines if
+     recovery for balancer workers is enforced. [Ruediger Pluem]
+
 Changes with Apache 2.2.22
 
   *) SECURITY: CVE-2011-3368 (cve.mitre.org)
@@ -33,7 +170,8 @@ Changes with Apache 2.2.22
      when no custom ErrorDocument is specified for status code 400.
      [Eric Covener]
 
-  *) mod_proxy_ajp: Try to prevent a single long request from marking a worker
+  *) SECURITY: CVE-2012-4557 (cve.mitre.org)
+     mod_proxy_ajp: Try to prevent a single long request from marking a worker
      in error. [Jean-Frederic Clere]
 
   *) config: Update the default mod_ssl configuration: Disable SSLv2, only
@@ -538,6 +676,9 @@ Changes with Apache 2.2.12
      The bundled copy of the APR-util library has been updated, fixing three
      different security issues which may affect particular configurations
      and third-party modules.
+
+  *) mod_headers: Make 'Header set Content-Type' effective on responses
+     that already have a Content-Type.  [Issac Goldstand]
 
   *) mod_include: fix potential segfault when handling back references
      on an empty SSI variable. [Ruediger Pluem, Lars Eilebrecht, Nick Kew]

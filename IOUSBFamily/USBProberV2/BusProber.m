@@ -238,10 +238,10 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     
     // Set the name of the device (this is what will be shown in the UI)
     [thisDevice setDeviceName:
-	 [NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",
+	 [NSString stringWithFormat:@"%s Speed device @ %d (0x%08X): .............................................",
 	  (speed == kUSBDeviceSpeedSuper ? "Super" : (speed == kUSBDeviceSpeedHigh ? "High" :(speed == kUSBDeviceSpeedFull ? "Full" : "Low"))), 
 	  address,
-	  locationID]];    
+	  (unsigned int)locationID]];
 	
 	// Get the Port Information
 	error = GetPortInformation(deviceIntf, &portInfo);
@@ -253,18 +253,20 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	else {
 		char					buf[256];
 		
+        // Set the Port Information with the error we received and propagate this error.  If we can't get the Port Information, then
+        // we shouldn't go ahead and try to get the descriptors.  This error is telling us that we can't talk to the hub or the device
+        
 		sprintf((char *)buf, "%s (0x%x)", USBErrorToString(error), error );
 		[thisDevice addProperty:"Port Information:" withValue:buf  atDepth:ROOT_LEVEL];
-		//[thisDevice addProperty:"Port Information:" withValue:(char *)[NSString stringWithFormat:@"Error %s", USBErrorToString(error)]  atDepth:ROOT_LEVEL];
+
 		NSLog(@"USB Prober: GetUSBDeviceInformation() for device @%8x failed with %s", (uint32_t)[thisDevice locationID], USBErrorToString(error));
-		error = kIOReturnSuccess;
 	}
 	
 	// Log the number of endpoints for each configuration
 	[self GetAndPrintNumberOfEndpoints:deviceIntf forDevice:thisDevice portInfo:portInfo];
 	
 	// If the device is suspended, then unsuspend it first
-	if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) ) {
+	if ( portInfo & kUSBInformationDeviceIsSuspendedMask ) {
 		if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES) {
 			// Set this flag so we re-suspend the device later on
 			needToSuspend = TRUE;

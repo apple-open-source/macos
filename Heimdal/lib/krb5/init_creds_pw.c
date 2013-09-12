@@ -309,7 +309,7 @@ krb5_process_last_request(krb5_context context,
     if (options && options->opt_private && options->opt_private->lr.func) {
 	krb5_last_req_entry **lre;
 
-	lre = calloc(lr->len + 1, sizeof(**lre));
+	lre = calloc(lr->len + 1, sizeof(*lre));
 	if (lre == NULL) {
 	    krb5_set_error_message(context, ENOMEM,
 				   N_("malloc: out of memory", ""));

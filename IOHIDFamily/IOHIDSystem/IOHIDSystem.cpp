@@ -29,6 +29,7 @@
 
 #include <kern/queue.h>
 
+#include "IOHIDKeys.h"
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOMessage.h>
@@ -234,10 +235,11 @@ enum {
     kIOHIDPostHIDManagerEvent       = 0x00000008
 };
 
-#define kIOHIDPowerOnThresholdNS            1000000000ULL // 1 second
-#define kIOHIDRelativeTickleThresholdNS 	50000000ULL // 1/20 second
-#define kIOHIDRelativeTickleThresholdPixel	3
-#define kIOHIDDispaySleepAbortThresholdNS  5000000000ULL  // 5 seconds
+#define kIOHIDPowerOnThresholdNS            (500ULL * kMillisecondScale)    // 1/2 second
+#define kIOHIDRelativeTickleThresholdNS     (50ULL * kMillisecondScale)     // 1/20 second
+#define kIOHIDRelativeTickleThresholdPixel  3
+#define kIOHIDDispaySleepAbortThresholdNS   (5ULL * kSecondScale)           // 5 seconds
+#define kIOHIDChattyMouseSuppressionDelayNS kSecondScale                    // 1 second
 
 static AbsoluteTime gIOHIDPowerOnThresoldAbsoluteTime;
 static AbsoluteTime gIOHIDRelativeTickleThresholdAbsoluteTime;
@@ -792,6 +794,9 @@ bool IOHIDSystem::start(IOService * provider)
     provider_path[length] = 0;
 
     do {
+        OSObject *obj = NULL;
+        OSNumber *number = NULL;
+
         if (!super::start(provider))  break;
         
         _setScrollCountParameters();
@@ -915,6 +920,25 @@ bool IOHIDSystem::start(IOService * provider)
         // we are disabling preemption
         registryName = getName();
 
+
+        obj = copyProperty(kIOHIDPowerOnDelayNSKey, gIOServicePlane);
+        if (obj != NULL) {
+            number = OSDynamicCast(OSNumber, obj);
+            if (number != NULL) {
+                UInt64 value = number->unsigned64BitValue();
+                if (value < kMillisecondScale) {
+                    // logging not yet available
+                }
+                else if (value > (10ULL * kSecondScale)) {
+                    // logging not yet available
+                }
+                else {
+                    setProperty(kIOHIDPowerOnDelayNSKey, number);
+                    gIOHIDPowerOnThresoldAbsoluteTime = value;
+                }
+            }
+            obj->release();
+        }
     }
     while (false);
 
@@ -3011,7 +3035,7 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
         absolutetime_to_nanoseconds(ts, &ts_nano);
 
         if (ts_nano > cachedMouseEvent->eventDeadline) {
-            cachedMouseEvent->eventDeadline = ts_nano + kIOHIDPowerOnThresholdNS;
+            cachedMouseEvent->eventDeadline = ts_nano + kIOHIDChattyMouseSuppressionDelayNS;
             cachedMouseEvent->accumX = 0;
             cachedMouseEvent->accumY = 0;
         }

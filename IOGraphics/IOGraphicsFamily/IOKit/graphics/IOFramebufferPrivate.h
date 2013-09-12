@@ -154,7 +154,7 @@
         
 
     static void delayedEvent(thread_call_param_t p0, thread_call_param_t p1);
-    static void resetClamshell(void);
+    static void resetClamshell(uint32_t delay);
 
     static void deferredVBLDisable(OSObject * owner,
                                    IOInterruptEventSource * evtSrc, int intCount);

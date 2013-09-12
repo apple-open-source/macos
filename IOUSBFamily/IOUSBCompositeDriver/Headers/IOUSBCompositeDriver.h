@@ -68,6 +68,7 @@ class IOUSBCompositeDriver : public IOService
     {
 		bool			fIssueRemoteWakeup;
 		bool			fRemoteWakeupIssued;
+		bool			fDoNotReconfigure;
     };
     
     IOUSBCompositeDriverExpansionData * fIOUSBCompositeExpansionData;

@@ -1149,14 +1149,14 @@ PROXY_DECLARE(const char *) ap_proxy_cookie_reverse_map(request_rec *r,
     proxy_req_conf *rconf = ap_get_module_config(r->request_config,
                                                  &proxy_module);
     struct proxy_alias *ent;
-    size_t len = strlen(str);
+    apr_size_t len = strlen(str);
     const char *newpath = NULL;
     const char *newdomain = NULL;
     const char *pathp;
     const char *domainp;
     const char *pathe = NULL;
     const char *domaine = NULL;
-    size_t l1, l2, poffs = 0, doffs = 0;
+    apr_size_t l1, l2, poffs = 0, doffs = 0;
     int i;
     int ddiff = 0;
     int pdiff = 0;
@@ -1313,6 +1313,8 @@ PROXY_DECLARE(const char *) ap_proxy_add_balancer(proxy_balancer **balancer,
     (*balancer)->name = uri;
     (*balancer)->lbmethod = lbmethod;
     (*balancer)->workers = apr_array_make(p, 5, sizeof(proxy_worker));
+
+    (*balancer)->forcerecovery = 1;
     /* XXX Is this a right place to create mutex */
 #if APR_HAS_THREADS
     if (apr_thread_mutex_create(&((*balancer)->mutex),

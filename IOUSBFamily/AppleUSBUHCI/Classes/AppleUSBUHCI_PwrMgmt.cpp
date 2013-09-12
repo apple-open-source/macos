@@ -1,5 +1,5 @@
 /*
- * Copyright © 2004-2009, 2012 Apple Inc.  All rights reserved.
+ * Copyright © 2004-2013, 2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,7 +88,7 @@
 void
 AppleUSBUHCI::CheckSleepCapability(void)
 {
-    if (_device->getProperty("built-in") && (_errataBits & kErrataICH6PowerSequencing)) 
+    if (_device->getProperty("built-in") && (_ERRATA64BITS & kErrataICH6PowerSequencing)) 
 	{
 		// The ICH6 UHCI drivers on a Transition system just magically work on sleep/wake
 		// so we will just hard code those. Other systems will have to be evaluated later
@@ -147,7 +147,7 @@ AppleUSBUHCI::callPlatformFunction(const OSSymbol *functionName,
 			//
 			// check if we are the controller for an expressCard port.  If so, then we need to ignore disconnects on suspend for that port  
 			// this will avoid the problem where the ExpressCard power goes away, and it looks like the device detaching -- thus waking the machine!
-			if ((_badExpressCardAttached) && (_ExpressCardPort > 0) && (_errataBits & kErrataSupportsPortResumeEnable))
+			if ((_badExpressCardAttached) && (_ExpressCardPort > 0) && (_ERRATA64BITS & kErrataSupportsPortResumeEnable))
 			{
 				// set PCI_RES register to enable ports to wake the computer.
 				_device->configWrite8(kUHCI_PCI_RES, 0x03 & ~(1 << (_ExpressCardPort-1)));	// clear the bit for the ExpressCardPort		
@@ -277,7 +277,7 @@ AppleUSBUHCI::SuspendController(void)
 		}
 		
 		// only do this for controllers with overcurrent additions.
-		if ((_errataBits & kErrataUHCISupportsOvercurrent) && (value & kUHCI_PORTSC_OCI))  // Is the latched Overcurrent set?
+		if ((_ERRATA64BITS & kErrataUHCISupportsOvercurrent) && (value & kUHCI_PORTSC_OCI))  // Is the latched Overcurrent set?
 		{
 			// if so, clear it or we won't suspend.
 			USBLog(1, "AppleUSBUHCI[%p]::SuspendController - port[%d] had the overcurrent bit set.  Clearing it", this, i);
@@ -384,7 +384,7 @@ AppleUSBUHCI::ResetControllerState(void)
     }
     if (i >= kUHCI_RESET_DELAY) 
 	{
-        USBError(1, "AppleUSBUHCI[%p]::ResetControllerStatecontroller - reset failed", this);
+        USBError(1, "AppleUSBUHCI::ResetControllerStatecontroller - reset failed");
         return kIOReturnTimeout;
     }
     USBLog(5, "AppleUSBUHCI[%p]::ResetControllerStatecontroller - reset done after %d spins", this, i);

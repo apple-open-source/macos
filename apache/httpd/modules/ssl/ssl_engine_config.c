@@ -141,7 +141,9 @@ static void modssl_ctx_init_proxy(SSLSrvConfigRec *sc,
 
     mctx->pkp->cert_file = NULL;
     mctx->pkp->cert_path = NULL;
+    mctx->pkp->ca_cert_file = NULL;
     mctx->pkp->certs     = NULL;
+    mctx->pkp->ca_certs  = NULL;
 }
 
 static void modssl_ctx_init_server(SSLSrvConfigRec *sc,
@@ -177,6 +179,9 @@ static SSLSrvConfigRec *ssl_config_server_new(apr_pool_t *p)
 #endif
 #ifdef HAVE_FIPS
     sc->fips                   = UNSET;
+#endif
+#ifndef OPENSSL_NO_COMP
+    sc->compression            = UNSET;
 #endif
     sc->allow_empty_fragments  = UNSET;
 
@@ -234,6 +239,7 @@ static void modssl_ctx_cfg_merge_proxy(modssl_ctx_t *base,
 
     cfgMergeString(pkp->cert_file);
     cfgMergeString(pkp->cert_path);
+    cfgMergeString(pkp->ca_cert_file);
 }
 
 static void modssl_ctx_cfg_merge_server(modssl_ctx_t *base,
@@ -275,6 +281,9 @@ void *ssl_config_server_merge(apr_pool_t *p, void *basev, void *addv)
 #endif
 #ifdef HAVE_FIPS
     cfgMergeBool(fips);
+#endif
+#ifndef OPENSSL_NO_COMP
+    cfgMergeBool(compression);
 #endif
     cfgMergeBool(allow_empty_fragments);
 
@@ -724,6 +733,23 @@ static const char *ssl_cmd_check_file(cmd_parms *parms,
                        ": file '", *file,
                        "' does not exist or is empty", NULL);
 
+}
+
+const char *ssl_cmd_SSLCompression(cmd_parms *cmd, void *dcfg, int flag)
+{
+#if !defined(OPENSSL_NO_COMP)
+    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
+#ifndef SSL_OP_NO_COMPRESSION
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    if (err)
+        return "This version of openssl does not support configuring "
+               "compression within <VirtualHost> sections.";
+#endif
+    sc->compression = flag ? TRUE : FALSE;
+    return NULL;
+#else
+    return "Setting Compression mode unsupported; not implemented by the SSL library";
+#endif
 }
 
 const char *ssl_cmd_SSLHonorCipherOrder(cmd_parms *cmd, void *dcfg, int flag)
@@ -1295,8 +1321,11 @@ static const char *ssl_cmd_protocol_parse(cmd_parms *parms,
             if (action != '-') {
                 return "SSLv2 not supported by this version of OpenSSL";
             }
-#endif
+            /* Nothing to do, the flag is not present to be toggled */
+            continue;
+#else
             thisopt = SSL_PROTOCOL_SSLV2;
+#endif
         }
         else if (strcEQ(w, "SSLv3")) {
             thisopt = SSL_PROTOCOL_SSLV3;
@@ -1304,6 +1333,14 @@ static const char *ssl_cmd_protocol_parse(cmd_parms *parms,
         else if (strcEQ(w, "TLSv1")) {
             thisopt = SSL_PROTOCOL_TLSV1;
         }
+#ifdef HAVE_TLSV1_X
+        else if (strcEQ(w, "TLSv1.1")) {
+            thisopt = SSL_PROTOCOL_TLSV1_1;
+        }
+        else if (strcEQ(w, "TLSv1.2")) {
+            thisopt = SSL_PROTOCOL_TLSV1_2;
+        }
+#endif
         else if (strcEQ(w, "all")) {
             thisopt = SSL_PROTOCOL_ALL;
         }
@@ -1496,6 +1533,21 @@ const char *ssl_cmd_SSLProxyMachineCertificatePath(cmd_parms *cmd,
     return NULL;
 }
 
+const char *ssl_cmd_SSLProxyMachineCertificateChainFile(cmd_parms *cmd,
+                                                   void *dcfg,
+                                                   const char *arg)
+{
+    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
+    const char *err;
+
+    if ((err = ssl_cmd_check_file(cmd, &arg))) {
+        return err;
+    }
+
+    sc->proxy->pkp->ca_cert_file = arg;
+
+    return NULL;
+}
 
 const char *ssl_cmd_SSLUserName(cmd_parms *cmd, void *dcfg,
                                 const char *arg)

@@ -305,18 +305,18 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     {
                         switch( tempIndex )
                         {
-                            case 11:	sprintf((char *)buf, "    ^ииииииииииии  Top");			break;
-                            case 10:	sprintf((char *)buf, "     ^иииииииииии  Side Right");		break;
-                            case 9:		sprintf((char *)buf, "      ^ииииииииии  Side Left");		break;
-                            case 8:		sprintf((char *)buf, "       ^иииииииии  Surround");		break;
-                            case 7:		sprintf((char *)buf, "        ^ииииииии  Right of Center");	break;
-                            case 6:		sprintf((char *)buf, "         ^иииииии  Left of Center");	break;
-                            case 5:		sprintf((char *)buf, "          ^ииииии  Right Surround");	break;
-                            case 4:		sprintf((char *)buf, "           ^иииии  Left Surround");	break;
-                            case 3:		sprintf((char *)buf, "            ^ииии  Low Frequency Effects");	break;
-                            case 2:		sprintf((char *)buf, "             ^иии  Center");		break;
-                            case 1:		sprintf((char *)buf, "              ^ии  Right Front");		break;
-                            case 0:		sprintf((char *)buf, "               ^и  Left Front");		break;
+                            case 11:	sprintf((char *)buf, "    ^............  Top");			break;
+                            case 10:	sprintf((char *)buf, "     ^...........  Side Right");		break;
+                            case 9:		sprintf((char *)buf, "      ^..........  Side Left");		break;
+                            case 8:		sprintf((char *)buf, "       ^.........  Surround");		break;
+                            case 7:		sprintf((char *)buf, "        ^........  Right of Center");	break;
+                            case 6:		sprintf((char *)buf, "         ^.......  Left of Center");	break;
+                            case 5:		sprintf((char *)buf, "          ^......  Right Surround");	break;
+                            case 4:		sprintf((char *)buf, "           ^.....  Left Surround");	break;
+                            case 3:		sprintf((char *)buf, "            ^....  Low Frequency Effects");	break;
+                            case 2:		sprintf((char *)buf, "             ^...  Center");		break;
+                            case 1:		sprintf((char *)buf, "              ^..  Right Front");		break;
+                            case 0:		sprintf((char *)buf, "               ^.  Left Front");		break;
                         }
                         [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+1];
                     }
@@ -531,12 +531,12 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 					addedAttribute = FALSE;
                     switch( n )
                     {
-                        case 2:		//	10 attribute bits supported by Audio Class 1.0 specificationи
+                        case 2:		//	10 attribute bits supported by Audio Class 1.0 specification.
                             if ( p[1] & (~((1<<0)|(1<<1))) ) strcat (s,	"Reserved, " ); 	// D15-D10
                             if ( p[1] & (1<<1) ) strcat (s,	"Loudness, " );		// D9
                             if ( p[1] & (1<<0) ) strcat (s, "Bass Boost, " );	// D8
                                         //	FALL THROUGH!!!!!
-                        case 1:		//	10 attribute bits supported by Audio Class 1.0 specificationи
+                        case 1:		//	10 attribute bits supported by Audio Class 1.0 specification.
                             if ( ( 0 != p[1] || 0 != p[0] ) ) addedAttribute = TRUE;
 							if ( p[0] & (1<<7) ) strcat (s, "Delay, " );		// D7
                             if ( p[0] & (1<<6) ) strcat (s, "Automatic Gain, " );	// D6
@@ -548,7 +548,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                             if ( p[0] & (1<<0) ) strcat (s, "Mute, " );		// D0
                             break;
                         default:
-                            strcat (s, "╔╔ UNDEFINED ATTRIBUTES ╔╔  " );
+                            strcat (s, "** UNDEFINED ATTRIBUTES **" );
                             break;
                     }
                     p += n;
@@ -994,18 +994,18 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                     {
                         switch( tempIndex )
                         {
-                            case 11:	sprintf((char *)buf, "    ^ииииииииииии  Top");			break;
-                            case 10:	sprintf((char *)buf, "     ^иииииииииии  Side Right");		break;
-                            case 9:		sprintf((char *)buf, "      ^ииииииииии  Side Left");		break;
-                            case 8:		sprintf((char *)buf, "       ^иииииииии  Surround");		break;
-                            case 7:		sprintf((char *)buf, "        ^ииииииии  Right of Center");	break;
-                            case 6:		sprintf((char *)buf, "         ^иииииии  Left of Center");	break;
-                            case 5:		sprintf((char *)buf, "          ^ииииии  Right Surround");	break;
-                            case 4:		sprintf((char *)buf, "           ^иииии  Left Surround");	break;
-                            case 3:		sprintf((char *)buf, "            ^ииии  Low Frequency Effects");	break;
-                            case 2:		sprintf((char *)buf, "             ^иии  Center");		break;
-                            case 1:		sprintf((char *)buf, "              ^ии  Right Front");		break;
-                            case 0:		sprintf((char *)buf, "               ^и  Left Front");		break;
+                            case 11:	sprintf((char *)buf, "    ^............  Top");			break;
+                            case 10:	sprintf((char *)buf, "     ^...........  Side Right");		break;
+                            case 9:		sprintf((char *)buf, "      ^..........  Side Left");		break;
+                            case 8:		sprintf((char *)buf, "       ^.........  Surround");		break;
+                            case 7:		sprintf((char *)buf, "        ^........  Right of Center");	break;
+                            case 6:		sprintf((char *)buf, "         ^.......  Left of Center");	break;
+                            case 5:		sprintf((char *)buf, "          ^......  Right Surround");	break;
+                            case 4:		sprintf((char *)buf, "           ^.....  Left Surround");	break;
+                            case 3:		sprintf((char *)buf, "            ^....  Low Frequency Effects");	break;
+                            case 2:		sprintf((char *)buf, "             ^...  Center");		break;
+                            case 1:		sprintf((char *)buf, "              ^..  Right Front");		break;
+                            case 0:		sprintf((char *)buf, "               ^.  Left Front");		break;
                         }
                         [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+1];
                     }

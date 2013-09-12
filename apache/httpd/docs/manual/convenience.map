@@ -364,6 +364,7 @@ sslcertificatechainfile	mod/mod_ssl.html#sslcertificatechainfile
 sslcertificatefile	mod/mod_ssl.html#sslcertificatefile
 sslcertificatekeyfile	mod/mod_ssl.html#sslcertificatekeyfile
 sslciphersuite	mod/mod_ssl.html#sslciphersuite
+sslcompression	mod/mod_ssl.html#sslcompression
 sslcryptodevice	mod/mod_ssl.html#sslcryptodevice
 sslengine	mod/mod_ssl.html#sslengine
 sslfips	mod/mod_ssl.html#sslfips
@@ -381,6 +382,7 @@ sslproxycheckpeercn	mod/mod_ssl.html#sslproxycheckpeercn
 sslproxycheckpeerexpire	mod/mod_ssl.html#sslproxycheckpeerexpire
 sslproxyciphersuite	mod/mod_ssl.html#sslproxyciphersuite
 sslproxyengine	mod/mod_ssl.html#sslproxyengine
+sslproxymachinecertificatechainfile	mod/mod_ssl.html#sslproxymachinecertificatechainfile
 sslproxymachinecertificatefile	mod/mod_ssl.html#sslproxymachinecertificatefile
 sslproxymachinecertificatepath	mod/mod_ssl.html#sslproxymachinecertificatepath
 sslproxyprotocol	mod/mod_ssl.html#sslproxyprotocol
